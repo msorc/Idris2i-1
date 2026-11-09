@@ -135,6 +135,15 @@ should target this file (`CHANGELOG_NEXT`).
   library exported the cast helpers as `idris2_cast_String_to_*` while the
   generated code calls `idris2_cast_string_to_*`.
 * Fix missing FFI of Data.Buffer.
+* Added support for green threads: `fork` and `threadWait` from `Prelude.IO`,
+  and the whole of `System.Concurrency` (mutexes, condition variables,
+  semaphores, barriers and channels) are now implemented in terms of green
+  threads, i.e. user level threads that are multiplexed onto a single OS
+  thread by the RefC runtime.  Green threads are currently only supported on
+  POSIX systems; on Windows the backend still builds and runs programs, but
+  forking a thread reports an error.  Note that a blocking system call (such
+  as reading from standard input) still blocks every green thread; `sleep`
+  and `usleep` do not, as they are implemented in terms of the scheduler.
 
 ### Library changes
 

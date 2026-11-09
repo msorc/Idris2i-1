@@ -102,3 +102,37 @@ produces a stub ``python_Main_abs``, which can be backpatched in Python by:
 
     abs_ptr = ctypes.CFUNCTYPE(ctypes.c_int64, ctypes.c_int64)(abs)
     ctypes.c_void_p.in_dll(cdll, "python_Main_abs").value = ctypes.cast(abs_ptr, ctypes.c_void_p).value
+
+Green threads
+=============
+
+The RefC backend supports concurrency through *green threads*: user level
+threads that are multiplexed onto a single OS thread by the runtime.  Each
+green thread owns a stack, and switching between green threads is done with
+``swapcontext(3)``, so green threads are only supported on POSIX systems
+(Linux, macOS and the BSDs) for now.  On Windows the backend still builds and
+runs programs, but forking a thread reports an error.
+
+The ``fork`` and ``threadWait`` functions of ``Prelude.IO``, as well as the
+whole of ``System.Concurrency`` (mutexes, condition variables, semaphores,
+barriers and channels), are implemented in terms of green threads.  The
+synchronisation objects behave like their counterparts in the Scheme
+backends, but they are implemented by the RefC scheduler rather than by the
+operating system.
+
+Scheduling is *cooperative*: a green thread gives up control when it blocks
+on a synchronisation object, when it finishes, or when it is explicitly asked
+to yield.  This has a few consequences:
+
+* Green threads provide concurrency, but not parallelism: only one green
+  thread runs at any given moment.
+
+* A blocking system call, such as reading from standard input, blocks every
+  green thread.  Only the synchronisation objects above let the other green
+  threads make progress.  The ``sleep`` and ``usleep`` functions of
+  ``System`` are exceptions: they are implemented in terms of the scheduler,
+  so that the other green threads keep running while a thread sleeps.
+
+* The stack of a green thread is allocated on the heap.  Its size defaults to
+  8MB, which matches the stack size of a typical process, and can be changed
+  with the ``IDRIS2_THREAD_STACK_SIZE`` environment variable (in bytes).

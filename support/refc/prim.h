@@ -44,32 +44,6 @@ Idris2_Value *idris2_Prelude_IO_prim__onCollectAny(Idris2_Value *,
                                                    Idris2_Value *,
                                                    Idris2_Value *);
 
-// Threads
-Idris2_Value *System_Concurrency_Raw_prim__mutexRelease(Idris2_Value *,
-                                                        Idris2_Value *);
-
-Idris2_Value *System_Concurrency_Raw_prim__mutexAcquire(Idris2_Value *,
-                                                        Idris2_Value *);
-
-Idris2_Value *System_Concurrency_Raw_prim__makeMutex(Idris2_Value *);
-
-Idris2_Value *System_Concurrency_Raw_prim__makeCondition(Idris2_Value *);
-
-Idris2_Value *System_Concurrency_Raw_prim__conditionWait(Idris2_Value *,
-                                                         Idris2_Value *,
-                                                         Idris2_Value *);
-
-Idris2_Value *System_Concurrency_Raw_prim__conditionWaitTimeout(Idris2_Value *,
-                                                                Idris2_Value *,
-                                                                Idris2_Value *,
-                                                                Idris2_Value *);
-
-Idris2_Value *System_Concurrency_Raw_prim__conditionSignal(Idris2_Value *,
-                                                           Idris2_Value *);
-
-Idris2_Value *System_Concurrency_Raw_prim__conditionBroadcast(Idris2_Value *,
-                                                              Idris2_Value *);
-
 extern char const idris2_constr_Int[];
 extern char const idris2_constr_Int8[];
 extern char const idris2_constr_Int16[];

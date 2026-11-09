@@ -30,10 +30,12 @@ libc fn = "C:" ++ fn ++ ", libc 6"
 -- reasons (see support/racket/support.rkt)
 
 %foreign "scheme,racket:blodwen-sleep"
+         "RefC:refc_sleep"
          supportC "idris2_sleep"
 prim__sleep : Int -> PrimIO ()
 
 %foreign "scheme,racket:blodwen-usleep"
+         "RefC:refc_usleep"
          supportC "idris2_usleep"
 prim__usleep : Int -> PrimIO ()
 

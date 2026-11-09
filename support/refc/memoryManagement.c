@@ -71,6 +71,17 @@ Idris2_Value *idris2_newValue(size_t size) {
   return retVal;
 }
 
+Idris2_Value *idris2_newZeroedValue(size_t size) {
+  Idris2_Value *value = idris2_newValue(size);
+  // Clear the payload, but leave the header alone: it holds the reference
+  // count and the tag.
+  if (size > sizeof(Idris2_header)) {
+    memset((char *)value + sizeof(Idris2_header), 0,
+           size - sizeof(Idris2_header));
+  }
+  return value;
+}
+
 Idris2_Constructor *idris2_newConstructor(int total, int tag) {
   Idris2_Constructor *retVal = (Idris2_Constructor *)idris2_newValue(
       sizeof(Idris2_Constructor) + sizeof(Idris2_Value *) * total);
@@ -291,6 +302,18 @@ void idris2_removeReference(Idris2_Value *elem) {
       idris2_removeReference((Idris2_Value *)vPtr->p);
       break;
     }
+
+    case CHANNEL_BOX_TAG: {
+      /* A message travelling through a channel. */
+      Idris2_ChannelBox *box = (Idris2_ChannelBox *)elem;
+      idris2_removeReference(box->value);
+      break;
+    }
+
+    case THREAD_ID_TAG:
+    case THREAD_TAG:
+      /* Green threads are owned by the runtime and must not be freed here. */
+      return;
 
     default:
       break;

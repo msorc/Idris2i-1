@@ -4,6 +4,10 @@
 ||| Given that different back ends will have entirely different threading
 ||| models, it might be unavoidable, but we might want to think about possible
 ||| primitives that back ends should support.
+|||
+||| The RefC backend implements these in terms of green threads: user level
+||| threads that are multiplexed onto a single OS thread.  This means that
+||| they provide concurrency, but not parallelism.
 module System.Concurrency
 
 import System.Info
@@ -14,10 +18,13 @@ import System.Info
 -- Thread mailboxes
 
 %foreign "scheme:blodwen-set-thread-data"
+         "RefC:refc_setThreadData"
 prim__setThreadData : {a : Type} -> a -> PrimIO ()
 %foreign "scheme:blodwen-get-thread-data"
+         "RefC:refc_getThreadData"
 prim__getThreadData : (a : Type) -> PrimIO a
 %foreign "scheme,chez:get-thread-id"
+         "RefC:refc_getThreadId"
 prim__getThreadId : PrimIO Int
 
 ||| Set the data stored in a thread's parameter to the given value.
@@ -44,10 +51,13 @@ export
 data Mutex : Type where [external]
 
 %foreign "scheme:blodwen-make-mutex"
+         "RefC:refc_makeMutex"
 prim__makeMutex : PrimIO Mutex
 %foreign "scheme:blodwen-mutex-acquire"
+         "RefC:refc_mutexAcquire"
 prim__mutexAcquire : Mutex -> PrimIO ()
 %foreign "scheme:blodwen-mutex-release"
+         "RefC:refc_mutexRelease"
 prim__mutexRelease : Mutex -> PrimIO ()
 
 ||| Creates and returns a new mutex.
@@ -80,18 +90,23 @@ data Condition : Type where [external]
 
 %foreign "scheme,racket:blodwen-make-cv"
          "scheme,chez:blodwen-make-condition"
+         "RefC:refc_makeCondition"
 prim__makeCondition : PrimIO Condition
 %foreign "scheme,racket:blodwen-cv-wait"
          "scheme,chez:blodwen-condition-wait"
+         "RefC:refc_conditionWait"
 prim__conditionWait : Condition -> Mutex -> PrimIO ()
 %foreign "scheme,chez:blodwen-condition-wait-timeout"
 --         "scheme,racket:blodwen-cv-wait-timeout"
+         "RefC:refc_conditionWaitTimeout"
 prim__conditionWaitTimeout : Condition -> Mutex -> Int -> PrimIO ()
 %foreign "scheme,racket:blodwen-cv-signal"
          "scheme,chez:blodwen-condition-signal"
+         "RefC:refc_conditionSignal"
 prim__conditionSignal : Condition -> PrimIO ()
 %foreign "scheme,racket:blodwen-cv-broadcast"
          "scheme,chez:blodwen-condition-broadcast"
+         "RefC:refc_conditionBroadcast"
 prim__conditionBroadcast : Condition -> PrimIO ()
 
 
@@ -134,10 +149,13 @@ export
 data Semaphore : Type where [external]
 
 %foreign "scheme:blodwen-make-semaphore"
+         "RefC:refc_makeSemaphore"
 prim__makeSemaphore : Int -> PrimIO Semaphore
 %foreign "scheme:blodwen-semaphore-post"
+         "RefC:refc_semaphorePost"
 prim__semaphorePost : Semaphore -> PrimIO ()
 %foreign "scheme:blodwen-semaphore-wait"
+         "RefC:refc_semaphoreWait"
 prim__semaphoreWait : Semaphore -> PrimIO ()
 
 
@@ -166,8 +184,10 @@ export
 data Barrier : Type where [external]
 
 %foreign "scheme:blodwen-make-barrier"
+         "RefC:refc_makeBarrier"
 prim__makeBarrier : Int -> PrimIO Barrier
 %foreign "scheme:blodwen-barrier-wait"
+         "RefC:refc_barrierWait"
 prim__barrierWait : Barrier -> PrimIO ()
 
 ||| Creates a new barrier that can block a given number of threads.
@@ -189,14 +209,19 @@ export
 data Channel : Type -> Type where [external]
 
 %foreign "scheme:blodwen-make-channel"
+         "RefC:refc_makeChannel"
 prim__makeChannel : PrimIO (Channel a)
 %foreign "scheme:blodwen-channel-get"
+         "RefC:refc_channelGet"
 prim__channelGet : Channel a -> PrimIO a
 %foreign "scheme,chez:blodwen-channel-get-non-blocking"
+         "RefC:refc_channelGetNonBlocking"
 prim__channelGetNonBlocking : Channel a -> PrimIO (Maybe a)
 %foreign "scheme,chez:blodwen-channel-get-with-timeout"
+         "RefC:refc_channelGetWithTimeout"
 prim__channelGetWithTimeout : Channel a -> Int -> PrimIO (Maybe a)
 %foreign "scheme:blodwen-channel-put"
+         "RefC:refc_channelPut"
 prim__channelPut : Channel a -> a -> PrimIO ()
 
 ||| Creates and returns a new `Channel`.

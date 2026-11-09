@@ -1,7 +1,6 @@
 #pragma once
 
 #include <gmp.h>
-#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +28,12 @@
 
 #define MUTEX_TAG 30
 #define CONDITION_TAG 31
+#define SEMAPHORE_TAG 32
+#define BARRIER_TAG 33
+#define CHANNEL_TAG 34
+#define THREAD_ID_TAG 35
+#define THREAD_TAG 36
+#define CHANNEL_BOX_TAG 37
 
 typedef struct {
   // Objects that reach the maximum reference count will be immortalized.
@@ -182,14 +187,70 @@ typedef struct {
   Buffer *buffer;
 } Idris2_Buffer;
 
+// ---------------------------------------------------------------------------
+// Concurrency
+//
+// The RefC backend implements its own "green threads": user level threads
+// that are multiplexed onto a single OS thread by the scheduler in
+// threads.c.  The synchronisation objects below are therefore implemented in
+// terms of green threads rather than in terms of OS threads.
+// ---------------------------------------------------------------------------
+
+// A green thread.  Defined in threads.h, forward declared here so that the
+// synchronisation objects can refer to it.
+typedef struct Idris2_Thread Idris2_Thread;
+
+// A queue of green threads waiting for an event.  The links are kept in the
+// waiting threads themselves (a thread can only wait on one thing at a time).
+typedef struct {
+  Idris2_Thread *head;
+  Idris2_Thread *tail;
+} Idris2_WaitQueue;
+
+// The handle returned by `fork` and accepted by `threadWait`.
 typedef struct {
   Idris2_header header;
-  pthread_mutex_t *mutex;
+  Idris2_Thread *thread;
+} Idris2_ThreadID;
+
+typedef struct {
+  Idris2_header header;
+  int locked;
+  int depth; // recursion count of the owning thread
+  Idris2_Thread *owner;
+  Idris2_WaitQueue waiters;
 } Idris2_Mutex;
 
 typedef struct {
   Idris2_header header;
-  pthread_cond_t *cond;
+  Idris2_WaitQueue waiters;
 } Idris2_Condition;
+
+typedef struct {
+  Idris2_header header;
+  int count;
+  Idris2_WaitQueue waiters;
+} Idris2_Semaphore;
+
+typedef struct {
+  Idris2_header header;
+  int count;
+  int num_threads;
+  Idris2_WaitQueue waiters;
+} Idris2_Barrier;
+
+typedef struct {
+  Idris2_header header;
+  Idris2_WaitQueue readers;
+  Idris2_WaitQueue writers;
+} Idris2_Channel;
+
+// A message travelling through a channel.  The value is boxed so that values
+// represented by NULL at runtime (such as the unit type) can be told apart
+// from "no value".
+typedef struct {
+  Idris2_header header;
+  Idris2_Value *value;
+} Idris2_ChannelBox;
 
 void idris2_dumpMemoryStats(void);

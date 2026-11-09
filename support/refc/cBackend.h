@@ -1,6 +1,5 @@
 #pragma once
 
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +8,7 @@
 #include "buffer.h"
 #include "casts.h"
 #include "clock.h"
+#include "concurrency.h"
 #include "mathFunctions.h"
 #include "memoryManagement.h"
 #include "prim.h"

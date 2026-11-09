@@ -123,114 +123,13 @@ idris2_Prelude_IO_prim__onCollectAny(Idris2_Value *_anyPtr,
   return (Idris2_Value *)retVal;
 }
 
-// Threads
-
-// %foreign "scheme:blodwen-mutex"
-// prim__makeMutex : PrimIO Mutex
-// using pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t
-// *attr)
-Idris2_Value *System_Concurrency_Raw_prim__makeMutex(Idris2_Value *_world) {
-  Idris2_Mutex *mut = IDRIS2_NEW_VALUE(Idris2_Mutex);
-  mut->header.tag = MUTEX_TAG;
-  mut->mutex = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-  int r = pthread_mutex_init(mut->mutex, NULL);
-  IDRIS2_REFC_VERIFY(!r, "pthread_mutex_init failed: %s", strerror(r));
-  return (Idris2_Value *)mut;
-}
-
-// %foreign "scheme:blodwen-lock"
-// prim__mutexAcquire : Mutex -> PrimIO ()
-// using pthread_mutex_lock(pthread_mutex_t *mutex)
-Idris2_Value *System_Concurrency_Raw_prim__mutexAcquire(Idris2_Value *_mutex,
-                                                        Idris2_Value *_world) {
-  int r = pthread_mutex_lock(((Idris2_Mutex *)_mutex)->mutex);
-  IDRIS2_REFC_VERIFY(!r, "pthread_mutex_lock failed: %s", strerror(r));
-  return NULL;
-}
-
-// %foreign "scheme:blodwen-unlock"
-// prim__mutexRelease : Mutex -> PrimIO ()
-// using int pthread_mutex_unlock(pthread_mutex_t *mutex)
-Idris2_Value *System_Concurrency_Raw_prim__mutexRelease(Idris2_Value *_mutex,
-                                                        Idris2_Value *_world) {
-  int r = pthread_mutex_unlock(((Idris2_Mutex *)_mutex)->mutex);
-  IDRIS2_REFC_VERIFY(!r, "pthread_mutex_unlock failed: %s", strerror(r));
-  return NULL;
-}
-
-// %foreign "scheme:blodwen-condition"
-// prim__makeCondition : PrimIO Condition
-// using int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t
-// *attr) with standard initialisation
-Idris2_Value *System_Concurrency_Raw_prim__makeCondition(Idris2_Value *_world) {
-  // typedef struct{
-  //     Idris2_header header;
-  //     pthread_cond_t *cond;
-  // }Idris2_Condition;
-
-  Idris2_Condition *c = IDRIS2_NEW_VALUE(Idris2_Condition);
-  c->header.tag = CONDITION_TAG;
-  c->cond = (pthread_cond_t *)malloc(sizeof(pthread_cond_t));
-  IDRIS2_REFC_VERIFY(c->cond, "malloc failed");
-  int r = pthread_cond_init(c->cond, NULL);
-  IDRIS2_REFC_VERIFY(!r, "pthread_cond_init failed: %s", strerror(r));
-  return (Idris2_Value *)c;
-}
-
-// %foreign "scheme:blodwen-condition-wait"
-// prim__conditionWait : Condition -> Mutex -> PrimIO ()
-// using int pthread_cond_wait(pthread_cond_t *, pthread_mutex_t *mutex)
-Idris2_Value *System_Concurrency_Raw_prim__conditionWait(
-    Idris2_Value *_condition, Idris2_Value *_mutex, Idris2_Value *_world) {
-  Idris2_Condition *cond = (Idris2_Condition *)_condition;
-  Idris2_Mutex *mutex = (Idris2_Mutex *)_mutex;
-  int r = pthread_cond_wait(cond->cond, mutex->mutex);
-  IDRIS2_REFC_VERIFY(!r, "pthread_cond_wait failed: %s", strerror(r));
-  return NULL;
-}
-
-// %foreign "scheme:blodwen-condition-wait-timeout"
-// prim__conditionWaitTimeout : Condition -> Mutex -> Int -> PrimIO ()
-// using int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t
-// *mutex, const struct timespec *abstime)
-Idris2_Value *System_Concurrency_Raw_prim__conditionWaitTimeout(
-    Idris2_Value *_condition, Idris2_Value *_mutex, Idris2_Value *_timeout,
-    Idris2_Value *_world) {
-  Idris2_Condition *cond = (Idris2_Condition *)_condition;
-  Idris2_Mutex *mutex = (Idris2_Mutex *)_mutex;
-  int64_t timeout = idris2_vp_to_Int64(_timeout);
-  struct timespec t;
-  t.tv_sec = timeout / 1000000;
-  t.tv_nsec = timeout % 1000000;
-  int r = pthread_cond_timedwait(cond->cond, mutex->mutex, &t);
-  IDRIS2_REFC_VERIFY(!r, "pthread_cond_timedwait failed: %s", strerror(r));
-  return NULL;
-}
-
-// %foreign "scheme:blodwen-condition-signal"
-// prim__conditionSignal : Condition -> PrimIO ()
-// using int pthread_cond_signal(pthread_cond_t *cond)
-Idris2_Value *
-System_Concurrency_Raw_prim__conditionSignal(Idris2_Value *_condition,
-                                             Idris2_Value *_world) {
-  Idris2_Condition *cond = (Idris2_Condition *)_condition;
-  int r = pthread_cond_signal(cond->cond);
-  IDRIS2_REFC_VERIFY(!r, "pthread_cond_signal failed: %s", strerror(r));
-  return NULL;
-}
-
-// %foreign "scheme:blodwen-condition-broadcast"
-// prim__conditionBroadcast : Condition -> PrimIO ()
-// using int pthread_cond_broadcast(pthread_cond_t *cond)
-Idris2_Value *
-System_Concurrency_Raw_prim__conditionBroadcast(Idris2_Value *_condition,
-                                                Idris2_Value *_mutex) {
-  Idris2_Condition *cond = (Idris2_Condition *)_condition;
-  int r = pthread_cond_broadcast(cond->cond);
-  IDRIS2_REFC_VERIFY(!r, "pthread_cond_broadcast failed: %s", strerror(r));
-  return NULL;
-}
-
+//
+//
+//
+//
+// // -----------------------------------
+// //         Array operations
+// // -----------------------------------
 char const idris2_constr_Int[] = "Int";
 char const idris2_constr_Int8[] = "Int8";
 char const idris2_constr_Int16[] = "Int16";

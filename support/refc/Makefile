@@ -14,6 +14,12 @@ ifeq ($(OLD_WIN), 1)
 	CPPFLAGS += -D_OLD_WIN
 endif
 
+ifeq ($(OS), darwin)
+	# ucontext.h is deprecated on macOS, but it is the only way to switch
+	# between green threads there.
+	CFLAGS += -Wno-deprecated-declarations
+endif
+
 
 .PHONY: all
 all: build

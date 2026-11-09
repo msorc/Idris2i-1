@@ -959,8 +959,9 @@ footer = do
                         "idris2_setArgs(argc, argv);"
                         ""
           }
-          Idris2_Value *mainExprVal = __mainExpression_0();
-          idris2_trampoline(mainExprVal);
+          // The main expression is run as the first green thread, so that
+          // `fork` and `threadWait` behave the same everywhere.
+          idris2_threadSchedulerRun(__mainExpression_0);
           return 0; // bye bye
       }
       """

@@ -3,6 +3,11 @@
 #include "cBackend.h"
 
 Idris2_Value *idris2_newValue(size_t size);
+
+// The memory returned by idris2_newValue is not initialised.  Use this to
+// create a value whose payload is zeroed, without disturbing its header.
+Idris2_Value *idris2_newZeroedValue(size_t size);
+
 Idris2_Value *idris2_newReference(Idris2_Value *source);
 void idris2_removeReference(Idris2_Value *source);
 
