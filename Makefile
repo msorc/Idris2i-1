@@ -72,7 +72,13 @@ all:
 idris2-exec: ${TARGET}
 
 ${TARGET}: support src/IdrisPaths.idr
+ifeq ($(IDRIS2_CG), refc)
+	# Optimise the generated C unless told otherwise (older compilers, like the
+	# one of bootstrap-c, do not do it by default).
+	IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:--O2}}" ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
+else
 	${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
+endif
 ifeq ($(IDRIS2_CG), refc)
 	# RefC builds a single binary: give it the layout of the Scheme backends,
 	# a launcher next to an idris2_app directory.

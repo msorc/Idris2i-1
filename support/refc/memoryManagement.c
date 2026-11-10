@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <stdbool.h>
 
 #if defined(__has_include)
@@ -221,7 +222,46 @@ Idris2_Integer *idris2_mkInteger() {
 Idris2_Value *idris2_mkIntegerLiteral(char *i) {
   Idris2_Integer *retVal = idris2_mkInteger();
   mpz_set_str(retVal->i, i, 10);
+  return idris2_normaliseInteger(retVal);
+}
+
+static void idris2_mpz_set_uint64(mpz_t z, uint64_t n) {
+#if ULONG_MAX >= UINT64_MAX
+  mpz_set_ui(z, (unsigned long)n);
+#else
+  mpz_import(z, 1, 1, sizeof(n), 0, 0, &n);
+#endif
+}
+
+Idris2_Value *idris2_mkIntegerFromInt64Boxed(int64_t n) {
+  Idris2_Integer *retVal = idris2_mkInteger();
+#if LONG_MAX >= INT64_MAX
+  mpz_set_si(retVal->i, (long)n);
+#else
+  idris2_mpz_set_uint64(retVal->i, n < 0 ? -(uint64_t)n : (uint64_t)n);
+  if (n < 0)
+    mpz_neg(retVal->i, retVal->i);
+#endif
   return (Idris2_Value *)retVal;
+}
+
+Idris2_Value *idris2_mkIntegerFromUInt64(uint64_t n) {
+  if (n <= INT32_MAX && idris2_fitsSmallInteger((int64_t)n))
+    return idris2_mkSmallInteger(n);
+  Idris2_Integer *retVal = idris2_mkInteger();
+  idris2_mpz_set_uint64(retVal->i, n);
+  return (Idris2_Value *)retVal;
+}
+
+Idris2_Value *idris2_normaliseInteger(Idris2_Integer *i) {
+  if (idris2_vp_int_shift == 32 && mpz_size(i->i) <= 1 &&
+      mpz_cmp_si(i->i, INT32_MIN) >= 0 && mpz_cmp_si(i->i, INT32_MAX) <= 0) {
+    int64_t n = mpz_get_si(i->i);
+    mpz_clear(i->i);
+    idris2_freeValue((Idris2_Value *)i);
+    return idris2_mkSmallInteger(n);
+  }
+  return (Idris2_Value *)i;
 }
 
 Idris2_String *idris2_mkEmptyString(size_t l) {
@@ -444,6 +484,23 @@ Idris2_Bits64 const idris2_predefined_Bits64[100] = {
     IDRIS2_MK_PREDEFINED_INT_10(BITS64_TAG, 80),
     IDRIS2_MK_PREDEFINED_INT_10(BITS64_TAG, 90)};
 
+// The nullary constructors (with a tag) of the generated code, see
+// idris2_nullaryConstructor.
+#define IDRIS2_NULLARY_1(n) {IDRIS2_STOCKVAL(CONSTRUCTOR_TAG), 0, (n)}
+#define IDRIS2_NULLARY_4(n)                                                    \
+  IDRIS2_NULLARY_1(n), IDRIS2_NULLARY_1(n + 1), IDRIS2_NULLARY_1(n + 2),       \
+      IDRIS2_NULLARY_1(n + 3)
+#define IDRIS2_NULLARY_16(n)                                                   \
+  IDRIS2_NULLARY_4(n), IDRIS2_NULLARY_4(n + 4), IDRIS2_NULLARY_4(n + 8),       \
+      IDRIS2_NULLARY_4(n + 12)
+#define IDRIS2_NULLARY_64(n)                                                   \
+  IDRIS2_NULLARY_16(n), IDRIS2_NULLARY_16(n + 16), IDRIS2_NULLARY_16(n + 32),  \
+      IDRIS2_NULLARY_16(n + 48)
+Idris2_NullaryConstructor const
+    idris2_predefined_nullary[IDRIS2_PREDEFINED_NULLARY] = {
+        IDRIS2_NULLARY_64(0), IDRIS2_NULLARY_64(64), IDRIS2_NULLARY_64(128),
+        IDRIS2_NULLARY_64(192)};
+
 Idris2_String const idris2_predefined_nullstring = {IDRIS2_STOCKVAL(STRING_TAG),
                                                     ""};
 
@@ -454,14 +511,18 @@ Idris2_Value *idris2_makeIntegerConstant(Idris2_Value **slot,
                                          char const *digits) {
   Idris2_Integer *value = idris2_mkInteger();
   mpz_set_str(value->i, digits, 10);
-  value->header.refCounter = IDRIS2_VP_REFCOUNTER_MAX;
-  *slot = (Idris2_Value *)value;
+  Idris2_Value *v = idris2_normaliseInteger(value);
+  if (!idris2_vp_is_unboxed(v))
+    v->header.refCounter = IDRIS2_VP_REFCOUNTER_MAX;
+  *slot = v;
   return *slot;
 }
 
 Idris2_Value *idris2_getPredefinedInteger(int n) {
   IDRIS2_REFC_VERIFY(n >= 0 && n < 100,
                      "invalid range of predefined integers.");
+  if (idris2_fitsSmallInteger(n))
+    return idris2_mkSmallInteger(n);
 
   if (!idris2_predefined_integer_initialized) {
     idris2_predefined_integer_initialized = true;

@@ -201,26 +201,45 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
   Idris2_Closure *newclos = idris2_mkClosure(
       clos->f, clos->arity, clos->filled + 1 /* expanding a payload */);
 
-  if (clos->header.refCounter <= 1) {
-    memcpy(newclos->args, clos->args, sizeof(Idris2_Value *) * clos->filled);
-  } else {
-    // if the closure has multiple references, then apply newReference to
-    // arguments to avoid premature clearing of arguments
-    for (int i = 0; i < clos->filled; ++i)
-      newclos->args[i] = idris2_newReference(clos->args[i]);
-  }
+  // (a unique closure was completed in place above, so this one is shared)
+  for (int i = 0; i < clos->filled; ++i)
+    newclos->args[i] = idris2_newReference(clos->args[i]);
   newclos->args[clos->filled] = arg; // add argument to new arglist
-
-  if (idris2_isUnique(clos)) {
-    idris2_freeValue((Idris2_Value *)clos);
-  } else {
-    idris2_dropSharedReference((Idris2_Value *)clos);
-  }
+  idris2_dropSharedReference((Idris2_Value *)clos);
 
   return (Idris2_Value *)newclos;
 }
 
+// Call a closure that `n` more arguments complete (not in tail position):
+// directly, rather than through a pending tail call and the trampoline.  The
+// arguments go in the room of the closure (see idris2_mkClosure), which the
+// call reads at once; no copy is made, so that this frame, which stays on the
+// stack during the call, is small.
+static inline Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
+                                                Idris2_Value *arg1,
+                                                Idris2_Value *arg2, int n) {
+  uint8_t filled = clos->filled;
+  int unique = idris2_isUnique(clos);
+  if (!unique)
+    for (int i = 0; i < filled; ++i)
+      idris2_newReference(clos->args[i]);
+  clos->args[filled] = arg1;
+  if (n == 2)
+    clos->args[filled + 1] = arg2;
+  Idris2_Value *r = idris2_dispatch(clos->f, clos->arity, clos->args);
+  // The arguments were given to the call: only the closure is released.
+  if (unique)
+    idris2_freeValue((Idris2_Value *)clos);
+  else
+    idris2_removeReference((Idris2_Value *)clos);
+  return idris2_trampoline(r);
+}
+
 Idris2_Value *idris2_apply_closure(Idris2_Value *_clos, Idris2_Value *arg) {
+  Idris2_Closure *clos = (Idris2_Closure *)_clos;
+  if (clos->filled + 1 == clos->arity &&
+      clos->arity <= IDRIS2_MAX_TAILCALL_ARGS)
+    return idris2_call_closure(clos, arg, NULL, 1);
   return idris2_trampoline(idris2_tailcall_apply_closure(_clos, arg));
 }
 
@@ -264,6 +283,10 @@ Idris2_Value *idris2_tailcall_apply_closure2(Idris2_Value *_clos,
 
 Idris2_Value *idris2_apply_closure2(Idris2_Value *_clos, Idris2_Value *arg1,
                                     Idris2_Value *arg2) {
+  Idris2_Closure *clos = (Idris2_Closure *)_clos;
+  if (clos->filled + 2 == clos->arity &&
+      clos->arity <= IDRIS2_MAX_TAILCALL_ARGS)
+    return idris2_call_closure(clos, arg1, arg2, 2);
   return idris2_trampoline(idris2_tailcall_apply_closure2(_clos, arg1, arg2));
 }
 
@@ -276,6 +299,25 @@ void idris2_removeReuseConstructor(Idris2_Constructor *constr) {
   constr->header.refCounter--;
   if (constr->header.refCounter == 0) {
     idris2_freeValue((Idris2_Value *)constr);
+  }
+}
+
+int64_t idris2_extractInt64Boxed(Idris2_Value *v) {
+  switch (v->header.tag) {
+  case BITS32_TAG:
+    return idris2_vp_to_Bits32(v);
+  case BITS64_TAG:
+    return (int64_t)idris2_vp_to_Bits64(v);
+  case INT32_TAG:
+    return idris2_vp_to_Int32(v);
+  case INT64_TAG:
+    return idris2_vp_to_Int64(v);
+  case INTEGER_TAG:
+    return mpz_get_si(((Idris2_Integer *)v)->i);
+  case DOUBLE_TAG:
+    return (int64_t)idris2_vp_to_Double(v);
+  default:
+    return -1;
   }
 }
 

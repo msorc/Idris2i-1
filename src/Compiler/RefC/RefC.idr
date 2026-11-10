@@ -249,6 +249,13 @@ record Env where
   constructor MkEnv
   owned : Owned
   reuseMap : ReuseMap
+  ||| The C name and the parameters of the function being compiled, when its
+  ||| calls to itself in tail position can jump back to its start (see
+  ||| `selfTailCall`).
+  self : Maybe (String, List Int)
+  ||| The number of parameters of the function being compiled (see
+  ||| `makeTailCall`).
+  selfArity : Nat
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -394,10 +401,69 @@ makeTailCall : {auto a : Ref ArgCounter Nat}
             -> List AVar
             -> Core String
 makeTailCall fc n args = do
-    emit fc "idris2_pendingTailCall.f = (void *)\{cName n};"
-    emit fc "idris2_pendingTailCall.arity = \{show $ length args};"
-    fillArgs !(get EnvTracker) "idris2_pendingTailCall.args" args 0
-    pure "IDRIS2_TAILCALL"
+    env <- get EnvTracker
+    case env.self of
+      Just (self, params) =>
+        if self == cName n && length params == length args
+           then selfTailCall env params
+           else otherCall env
+      Nothing => otherCall env
+  where
+    pendingCall : Core String
+    pendingCall = do
+      emit fc "idris2_pendingTailCall.f = (void *)\{cName n};"
+      emit fc "idris2_pendingTailCall.arity = \{show $ length args};"
+      fillArgs !(get EnvTracker) "idris2_pendingTailCall.args" args 0
+      pure "IDRIS2_TAILCALL"
+
+    -- With GCC 15 or later, a call in tail position is a jump (musttail),
+    -- which does not need the trampoline.  It is only possible when the
+    -- callee does not take more arguments than the caller (they would not fit
+    -- in the space of the arguments of the caller on the stack, depending on
+    -- the ABI).  Other compilers use a pending tail call.
+    otherCall : Env -> Core String
+    otherCall env =
+      if length args <= env.selfArity
+         then do
+           let args' = avarsToC env.owned args
+           emit fc "#ifdef IDRIS2_MUSTTAIL"
+           emit fc "IDRIS2_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
+           emit fc "#else"
+           emit fc "idris2_pendingTailCall.f = (void *)\{cName n};"
+           emit fc "idris2_pendingTailCall.arity = \{show $ length args};"
+           for_ (zip [0 .. length args] args') $ \(k, a) =>
+             emit fc "idris2_pendingTailCall.args[\{show k}] = \{a};"
+           emit fc "return IDRIS2_TAILCALL;"
+           emit fc "#endif"
+           pure "NULL /* unreachable */"
+         else pendingCall
+
+    -- A call of the function to itself: the arguments become the new values
+    -- of the parameters, and the function starts again.  They are computed
+    -- first, as they may refer to the parameters.
+    selfTailCall : Env -> List Int -> Core String
+    selfTailCall env params = do
+      let vals = avarsToC env.owned args
+      tmps <- traverse (\_ => getNewVarThatWillNotBeFreedAtEndOfBlock) vals
+      for_ (zip tmps vals) $ \(t, v) => emit fc "Idris2_Value *\{t} = \{v};"
+      for_ (zip params tmps) $ \(p, t) => emit fc "var_\{show p} = \{t};"
+      emit fc "goto idris2_self_entry;"
+      pure "NULL /* unreachable */"
+
+
+||| Does the function with the C name `self` and `nargs` parameters call
+||| itself in tail position in `anf` (see `selfTailCall`)?
+hasSelfTailCall : String -> Nat -> ANF -> Bool
+hasSelfTailCall self nargs = go
+  where
+    go : ANF -> Bool
+    go (AAppName _ _ n args) = cName n == self && length args == nargs
+    go (ALet _ _ _ body) = go body
+    go (AConCase _ _ alts def)
+        = any (\(MkAConAlt _ _ _ _ body) => go body) alts || maybe False go def
+    go (AConstCase _ _ alts def)
+        = any (\(MkAConstAlt _ body) => go body) alts || maybe False go def
+    go _ = False
 
 -- When changing this number, also change idris2_dispatch in runtime.c and
 -- IDRIS2_MAX_TAILCALL_ARGS in runtime.h.
@@ -423,6 +489,19 @@ integer_switch (MkAConstAlt c _  :: _) =
         (Ch x) => True
         _ => False
 
+||| The C value of a scrutinee `v` of the type of the constant `c`, for a
+||| `switch` on fixed width integers (and characters).
+unboxConst : Constant -> String -> String
+unboxConst c v = case c of
+    -- (the scrutinee may not have the type of the constants: comparisons
+    -- give unboxed Bools for example)
+    B8 _  => "idris2_extractUInt64(\{v})"
+    B16 _ => "idris2_extractUInt64(\{v})"
+    B32 _ => "idris2_extractUInt64(\{v})"
+    Ch _  => "idris2_extractUInt64(\{v})"
+    B64 _ => "(uint64_t)idris2_extractUInt64(\{v})"
+    _     => "idris2_extractInt64(\{v})"
+
 const2Integer : Constant -> Integer -> String
 const2Integer c i =
     case c of
@@ -438,6 +517,13 @@ const2Integer c i =
         (B32 x) => "UINT32_C(\{show x})"
         (B64 x) => "UINT64_C(\{show x})"
         _ => show i
+
+||| The tag that a constructor has at run time: constructors without a tag, or
+||| with one that does not fit in the 16 bits of the tag of
+||| Idris2_Constructor, are told apart by their names.
+conTag : Maybe Int -> Maybe Int
+conTag (Just t) = if t >= 0 && t < 32768 then Just t else Nothing
+conTag Nothing = Nothing
 
 data TailPositionStatus = InTailPosition | NotInTailPosition
 
@@ -473,7 +559,9 @@ addReuseConstructor : {auto a : Ref ArgCounter Nat}
 addReuseConstructor reuseMap sc conName conArgs consts shouldDrop actualReuseConsts =
     -- to avoid conflicts, we check that there is no constructor with the same name in reuse map
     -- we also check that the constructor will be used later and that the variable will be deleted
+    -- (nullary constructors are not allocated, see `ACon`)
     if (isNothing $ SortedMap.lookup conName reuseMap)
+       && not (null conArgs)
        && contains conName consts
        && (isJust $ find (== sc) shouldDrop) then do
         let constr = "constructor_" ++ !(getNextCounter)
@@ -497,6 +585,22 @@ addReuseConstructor reuseMap sc conName conArgs consts shouldDrop actualReuseCon
         decreaseIndentation
         emit EmptyFC "}"
         pure (shouldDrop \\ (sc :: conArgs), insert conName constr actualReuseConsts)
+    else if (isJust $ find (== sc) shouldDrop) && not (null conArgs) then do
+        -- The constructor is not used any more (drop specialisation, as in
+        -- Perceus): when it is unique, its fields are ours, and only its
+        -- memory is given back; otherwise the fields that we use are shared.
+        emit EmptyFC $ "if (idris2_isUnique(" ++ sc ++ ")) {"
+        increaseIndentation
+        removeVars (filter (`elem` shouldDrop) conArgs)
+        emit EmptyFC $ "idris2_freeValue(" ++ sc ++ ");"
+        decreaseIndentation
+        emit EmptyFC "} else {"
+        increaseIndentation
+        dupVars (conArgs \\ shouldDrop)
+        emit EmptyFC $ "idris2_dropSharedReference(" ++ sc ++ ");"
+        decreaseIndentation
+        emit EmptyFC "}"
+        pure (shouldDrop \\ (sc :: conArgs), actualReuseConsts)
     else do
         dupVars $ conArgs \\ shouldDrop
         pure (shouldDrop \\ conArgs, actualReuseConsts)
@@ -619,11 +723,20 @@ mutual
     cStatementsFromANF (ACon fc n coninfo tag args) _ = do
         if coninfo == NIL || coninfo == NOTHING || coninfo == ZERO || coninfo == UNIT
             then pure "(NULL /* \{show n} */)"
-            else do
+            else case (args, tag) of
+              ([], Just t) =>
+                if t >= 0 && t < 256
+                   -- an immortal value of the runtime, nothing to allocate
+                   then pure "idris2_nullaryConstructor(\{show t}) /* \{show n} */"
+                   else newConstructor
+              _ => newConstructor
+      where
+        newConstructor : Core String
+        newConstructor = do
                 env <- get EnvTracker
-                let createNewConstructor = " = idris2_newConstructor("
-                                 ++ (show (length args))
-                                 ++ ", "  ++ maybe "-1" show tag  ++ ");"
+                let createNewConstructor = case conTag tag of
+                      Just t => " = idris2_newConstructor(\{show (length args)}, \{show t});"
+                      Nothing => " = idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName n});"
 
                 emit fc " // constructor \{show n}"
                 constr <- case SortedMap.lookup n $ reuseMap env of
@@ -637,22 +750,17 @@ mutual
                     Nothing => do
                         let constr = "constructor_\{!(getNextCounter)}"
                         emit fc $ "Idris2_Constructor* " ++ constr ++ createNewConstructor
-                        when (Nothing == tag) $ emit fc "\{constr}->name = idris2_constr_\{cName n};"
                         pure constr
                 fillArgs env "\{constr}->args" args 0
                 pure "(Idris2_Value*)\{constr}"
 
     cStatementsFromANF (AOp fc _ op args) _ = do
+        env <- get EnvTracker
         let resultVar = "primVar_" ++ !(getNextCounter)
-        let argsVect : Env -> Vect ar AVar -> Vect ar String
-            argsVect _ [] = []
-            argsVect env (v :: vars) =
-              let ownedVars = if contains v env.owned then singleton v else empty
-              in (avarToC env v) :: argsVect (moveFromOwnedToBorrowed env ownedVars) vars
-
-        emit fc $ "Idris2_Value *" ++ resultVar ++ " = " ++ cOp op (argsVect !(get EnvTracker) args) ++ ";"
-        -- Removing arguments that apply to primitive functions
-        removeVars $ toList $ map varName args
+        -- The primitive operations borrow their arguments, so the arguments
+        -- are passed as they are, and those that we own are released after.
+        emit fc $ "Idris2_Value *" ++ resultVar ++ " = " ++ cOp op (map varName args) ++ ";"
+        removeVars $ map varName $ Prelude.toList $ intersection (fromList (toList args)) env.owned
         pure resultVar
 
     cStatementsFromANF (AExtPrim fc _ p args) _ = do
@@ -684,8 +792,8 @@ mutual
                 else if coninfo == CONS || coninfo == JUST || coninfo == SUCC
                 then emit emptyFC "\{els}if (NULL != \{sc'} /* \{show name} \{show coninfo} */) {"
                 else do
-                    case tag of
-                        Nothing   => emit emptyFC "\{els}if (! strcmp(((Idris2_Constructor *)\{sc'})->name, idris2_constr_\{cName name})) {"
+                    case conTag tag of
+                        Nothing   => emit emptyFC "\{els}if (! strcmp(idris2_constructorName(\{sc'}), idris2_constr_\{cName name})) {"
                         Just tag' => emit emptyFC "\{els}if (((Idris2_Constructor *)\{sc'})->tag == \{show tag'} /* \{show name} */) {"
 
             let conArgs = ALocal <$> args
@@ -718,39 +826,74 @@ mutual
         switchReturnVar <- getNewVarThatWillNotBeFreedAtEndOfBlock
         emit fc "Idris2_Value *\{switchReturnVar} = NULL;"
         env <- get EnvTracker
-        case integer_switch alts of
-            True => do
-                tmpint <- getNewVarThatWillNotBeFreedAtEndOfBlock
-                emit emptyFC "int64_t \{tmpint} = idris2_extractInt(\{sc'});"
-                _ <- foldlC (\els, (MkAConstAlt c body) => do
-                    emit emptyFC "\{els}if (\{tmpint} == \{const2Integer c 0}) {"
+        case alts of
+            [] => do
+                -- only a default
+                emit emptyFC "{"
+                traverse_ (\body => concaseBody env switchReturnVar "" [] body tailPosition) (toList def)
+                emit emptyFC "}"
+            (MkAConstAlt (BI _) _ :: _) => do
+                -- Integers are compared without converting the scrutinee,
+                -- which may not fit in a machine integer.  The conditions
+                -- are made first: large literals may need statements.
+                conds <- traverse (\(MkAConstAlt c body) => pure (!(integerEq sc' c), body)) alts
+                _ <- foldlC (\els, (cond, body) => do
+                    emit emptyFC "\{els}if (\{cond}) {"
                     concaseBody env switchReturnVar "" [] body tailPosition
-                    pure "} else ") "" alts
-                pure ()
-
-            False => do
-                _ <- foldlC (\els, (MkAConstAlt c body) => do
-                    case c of
-                        Str x => emit emptyFC "\{els}if (! strcmp(\{cStringQuoted x}, ((Idris2_String *)\{sc'})->str)) {"
-                        Db  x => emit emptyFC "\{els}if (((Idris2_Double *)\{sc'})->d == \{cDouble x}) {"
-                        x => throw $ InternalError "[refc] AConstCase : unsupported type. \{show fc} \{show x}"
-                    concaseBody env switchReturnVar "" [] body tailPosition
-                    pure "} else ") "" alts
-                pure ()
-
-        case def of
-            Nothing => pure ()
-            Just body => do
-                emit emptyFC "} else {"
-                concaseBody env switchReturnVar "" [] body tailPosition
-        emit emptyFC "}"
+                    pure "} else ") "" conds
+                ifChainDefault env switchReturnVar
+            (MkAConstAlt c _ :: _) =>
+              if integer_switch alts
+                then do
+                  emit emptyFC "switch (\{unboxConst c sc'}) {"
+                  for_ alts $ \(MkAConstAlt c' body) => do
+                      emit emptyFC "case \{const2Integer c' 0}: {"
+                      concaseBody env switchReturnVar "" [] body tailPosition
+                      emit emptyFC "  break;"
+                      emit emptyFC "}"
+                  emit emptyFC "default: {"
+                  traverse_ (\body => concaseBody env switchReturnVar "" [] body tailPosition) (toList def)
+                  emit emptyFC "}"
+                  emit emptyFC "}"
+                else do
+                  _ <- foldlC (\els, (MkAConstAlt c body) => do
+                      case c of
+                          Str x => emit emptyFC "\{els}if (! strcmp(\{cStringQuoted x}, ((Idris2_String *)\{sc'})->str)) {"
+                          Db  x => emit emptyFC "\{els}if (((Idris2_Double *)\{sc'})->d == \{cDouble x}) {"
+                          x => throw $ InternalError "[refc] AConstCase : unsupported type. \{show fc} \{show x}"
+                      concaseBody env switchReturnVar "" [] body tailPosition
+                      pure "} else ") "" alts
+                  ifChainDefault env switchReturnVar
         pure switchReturnVar
+      where
+        integerEq : String -> Constant -> Core String
+        integerEq v (BI x)
+          = if x >= -2147483648 && x <= 2147483647
+               then pure "idris2_eqIntegerSmall(\{v}, INT64_C(\{show x}))"
+               else do lit <- cStatementsFromANF (APrimVal fc (BI x)) NotInTailPosition
+                       pure "idris2_cmpInteger(\{v}, \{lit}) == 0"
+        integerEq v c = throw $ InternalError "[refc] AConstCase : mixed Integer case. \{show fc} \{show c}"
+
+        ifChainDefault : Env -> String -> Core ()
+        ifChainDefault env switchReturnVar = do
+          case def of
+              Nothing => pure ()
+              Just body => do
+                  emit emptyFC "} else {"
+                  concaseBody env switchReturnVar "" [] body tailPosition
+          emit emptyFC "}"
 
     cStatementsFromANF (APrimVal fc (I x)) tailPosition = cStatementsFromANF (APrimVal fc (I64 $ cast x)) tailPosition
     cStatementsFromANF (APrimVal fc c@(BI x)) _
-      = if x >= 0 && x < 100
-           then pure "idris2_getPredefinedInteger(\{show x})"
-           else do
+      = if x >= -2147483648 && x <= 2147483647
+           -- unboxed on 64 bit platforms
+           then pure $ if x >= 0 && x < 100
+                  then "(idris2_fitsSmallInteger(\{show x}) ? idris2_mkSmallInteger(\{show x}) : idris2_getPredefinedInteger(\{show x}))"
+                  else "idris2_mkIntegerFromInt64(INT64_C(\{show x}))"
+           else boxed
+      where
+        boxed : Core String
+        boxed = do
              -- A large Integer literal is made once, the first time that it
              -- is needed, instead of being parsed every time.
              constdefs <- get ConstDef
@@ -774,14 +917,14 @@ mutual
             pure "((Idris2_Value*)&\{constantName cdef})" -- the constant already booked.
         dyngen : Core String
         dyngen = case c of
-            I x => if x >= 0 && x < 100
-                then pure "(Idris2_Value*)(&idris2_predefined_Int64[\{show x}])"
+            I x => if x >= -2147483648 && x <= 2147483647
+                then pure "idris2_mkInt64(INT64_C(\{show x}))" -- unboxed on 64 bit platforms
                 else orStagen $ CDI64 $ cCleanString $ show x
             I8 x  => pure "idris2_mkInt8(INT8_C(\{show x}))"
             I16 x => pure "idris2_mkInt16(INT16_C(\{show x}))"
             I32 x => pure "idris2_mkInt32(INT32_C(\{show x}))"
-            I64 x => if x >= 0 && x < 100
-                then pure "(Idris2_Value*)(&idris2_predefined_Int64[\{show x}])"
+            I64 x => if x >= -2147483648 && x <= 2147483647
+                then pure "idris2_mkInt64(INT64_C(\{show x}))"
                 else orStagen $ CDI64 $ cCleanString $ show x
             BI x => if x >= 0 && x < 100
                 then pure "idris2_getPredefinedInteger(\{show x})"
@@ -789,8 +932,8 @@ mutual
             B8 x  => pure "idris2_mkBits8(UINT8_C(\{show x}))"
             B16 x => pure "idris2_mkBits16(UINT16_C(\{show x}))"
             B32 x => pure "idris2_mkBits32(UINT32_C(\{show x}))"
-            B64 x => if x >= 0 && x < 100
-               then pure "(Idris2_Value*)(&idris2_predefined_Bits64[\{show x}])"
+            B64 x => if x >= 0 && x <= 4294967295
+               then pure "idris2_mkBits64(UINT64_C(\{show x}))"
                else orStagen $ CDB64 $ show x
             Db x => orStagen $ CDDb $ cCleanString $ show x
             Ch x  => pure "idris2_mkChar(\{escapeChar x})"
@@ -951,18 +1094,26 @@ createCFunctions : {auto c : Ref Ctxt Defs}
                 -> ANFDef
                 -> Core ()
 createCFunctions n (MkAFun args anf) = do
+    cn <- cName <$> getFullName n
     let nargs = length args
-    let fn = "Idris2_Value *\{cName !(getFullName n)}"
-            ++ (if nargs == 0 then "(void)"
+    let params = if nargs == 0 then "(void)"
                else if nargs > MaxExtractFunArgs then "(Idris2_Value *var_arglist[\{show nargs}])"
-               else ("\n(\n" ++ (showSep "\n" $ addCommaToList (map (\i =>  "  Idris2_Value * var_" ++ (show i)) args))) ++ "\n)")
+               else ("\n(\n" ++ (showSep "\n" $ addCommaToList (map (\i =>  "  Idris2_Value * var_" ++ (show i)) args))) ++ "\n)"
+    let fn = "Idris2_Value *\{cn}" ++ params
     update FunctionDefinitions $ \otherDefs => (fn ++ ";\n") :: otherDefs
+    -- A definition without arguments (a constant) is evaluated once, the
+    -- first time that it is needed, like the top level constants of the
+    -- Scheme backends: its body is in a function of its own, and its value is
+    -- kept for good (it is immortal).
+    let body = if nargs == 0
+                  then "static Idris2_Value *\{cn}_constant" ++ params
+                  else fn
 
     let argsVars = fromList $ ALocal <$> args
     let bodyFreeVars = freeVariables anf
     let shouldDrop = difference argsVars bodyFreeVars
     let argsNrs = getArgsNrList args Z
-    emit EmptyFC fn
+    emit EmptyFC body
     emit EmptyFC "{"
     increaseIndentation
     when (nargs > MaxExtractFunArgs) $ do
@@ -970,23 +1121,40 @@ createCFunctions n (MkAFun args anf) = do
          emit EmptyFC "Idris2_Value *var_\{show j} = var_arglist[\{show i}];"
          pure $ i + 1) 0 args
       pure ()
+    let loops = nargs > 0 && nargs <= MaxExtractFunArgs
+                && hasSelfTailCall cn nargs anf
+    when loops $ emit EmptyFC "idris2_self_entry: ;"
     removeVars (varName <$> Prelude.toList shouldDrop)
-    _ <- newRef EnvTracker (MkEnv bodyFreeVars empty)
+    _ <- newRef EnvTracker (MkEnv bodyFreeVars empty
+                              (if loops then Just (cn, args) else Nothing)
+                              -- (many arguments are passed in an array)
+                              (if nargs > MaxExtractFunArgs then 1 else nargs))
     emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
     decreaseIndentation
     emit EmptyFC  "}\n"
+    when (nargs == 0) $ do
+      emit EmptyFC fn
+      emit EmptyFC "{"
+      emit EmptyFC "  static Idris2_Value *value;"
+      emit EmptyFC "  static int known = 0;"
+      emit EmptyFC "  if (!known) {"
+      emit EmptyFC "    value = idris2_makeImmortal(idris2_trampoline(\{cn}_constant()));"
+      emit EmptyFC "    known = 1;"
+      emit EmptyFC "  }"
+      emit EmptyFC "  return value;"
+      emit EmptyFC "}\n"
     emit EmptyFC  ""
     pure ()
 
 
-createCFunctions n (MkACon Nothing _ _) = do
-  let n' = cName n
-  update FunctionDefinitions $ \otherDefs => "char const idris2_constr_\{n'}[];" :: otherDefs
-  emit EmptyFC "char const idris2_constr_\{n'}[] = \{cStringQuoted $ show n};"
-  pure ()
-
-createCFunctions n (MkACon tag arity nt) = do
-  emit EmptyFC $ ( "// \{show n} Constructor tag " ++ show tag ++ " arity " ++ show arity) -- Nothing to compile here
+createCFunctions n (MkACon tag arity nt) =
+  case conTag tag of
+    Nothing => do
+      let n' = cName n
+      update FunctionDefinitions $ \otherDefs => "char const idris2_constr_\{n'}[];" :: otherDefs
+      emit EmptyFC "char const idris2_constr_\{n'}[] = \{cStringQuoted $ show n};"
+    Just _ =>
+      emit EmptyFC $ ( "// \{show n} Constructor tag " ++ show tag ++ " arity " ++ show arity) -- Nothing to compile here
 
 
 createCFunctions n (MkAForeign ccs fargs ret) = do

@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 -o refc_bigcase BigCase.idr
+$VALGRIND ./build/exec/refc_bigcase

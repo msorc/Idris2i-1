@@ -191,7 +191,7 @@ it finishes.  This has a few consequences:
 Much of the library is not tail recursive (``map``, ``++``, ``sort``, ...),
 so working on a long list needs a deep stack.  Like in the Chez backend,
 where the stack grows as needed, the main expression runs on a large stack
-of its own: 1GB on 64-bit systems and 64MB on the others, which can be
+of its own: 4GB on 64-bit systems and 64MB on the others, which can be
 changed with the ``IDRIS2_MAIN_STACK_SIZE`` environment variable (in bytes).
 The memory is only used as the stack grows, and ``ulimit -s`` does not apply
 to it.  If the stack cannot be allocated, the main expression runs on the

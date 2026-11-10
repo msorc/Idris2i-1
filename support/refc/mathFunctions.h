@@ -4,6 +4,24 @@
 #include <float.h>
 #include <gmp.h>
 #include <math.h>
+#include "memoryManagement.h"
+
+// Compare two Integers (like mpz_cmp, the sign of the result tells).
+int idris2_cmpIntegerSlow(Idris2_Value *x, Idris2_Value *y);
+static inline int idris2_cmpInteger(Idris2_Value *x, Idris2_Value *y) {
+  if (idris2_isSmallInteger(x) && idris2_isSmallInteger(y)) {
+    int64_t a = idris2_smallInteger(x), b = idris2_smallInteger(y);
+    return (a > b) - (a < b);
+  }
+  return idris2_cmpIntegerSlow(x, y);
+}
+
+// Is the Integer `x` equal to `n` (an integer literal of 32 bits)?
+static inline int idris2_eqIntegerSmall(Idris2_Value *x, int64_t n) {
+  if (idris2_isSmallInteger(x))
+    return idris2_smallInteger(x) == n;
+  return mpz_cmp_si(((Idris2_Integer *)x)->i, (long)n) == 0;
+}
 
 #define idris2_binop(ty, op, l, r)                                             \
   ((Idris2_Value *)idris2_mk##ty(idris2_vp_to_##ty(l) op idris2_vp_to_##ty(r)))
@@ -32,7 +50,15 @@
 #define idris2_add_Int16(l, r) (idris2_wrapop16(+, l, r))
 #define idris2_add_Int32(l, r) (idris2_wrapop32(+, l, r))
 #define idris2_add_Int64(l, r) (idris2_wrapop64(+, l, r))
-Idris2_Value *idris2_add_Integer(Idris2_Value *x, Idris2_Value *y);
+Idris2_Value *idris2_add_IntegerSlow(Idris2_Value *x, Idris2_Value *y);
+static inline Idris2_Value *idris2_add_Integer(Idris2_Value *x,
+                                                Idris2_Value *y) {
+  // (no overflow: the small integers have 32 bits)
+  if (idris2_isSmallInteger(x) && idris2_isSmallInteger(y))
+    return idris2_mkIntegerFromInt64(idris2_smallInteger(x) +
+                                     idris2_smallInteger(y));
+  return idris2_add_IntegerSlow(x, y);
+}
 #define idris2_add_Double(l, r) (idris2_binop(Double, +, l, r))
 
 /* sub */
@@ -44,7 +70,15 @@ Idris2_Value *idris2_add_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_sub_Int16(l, r) (idris2_wrapop16(-, l, r))
 #define idris2_sub_Int32(l, r) (idris2_wrapop32(-, l, r))
 #define idris2_sub_Int64(l, r) (idris2_wrapop64(-, l, r))
-Idris2_Value *idris2_sub_Integer(Idris2_Value *x, Idris2_Value *y);
+Idris2_Value *idris2_sub_IntegerSlow(Idris2_Value *x, Idris2_Value *y);
+static inline Idris2_Value *idris2_sub_Integer(Idris2_Value *x,
+                                                Idris2_Value *y) {
+  // (no overflow: the small integers have 32 bits)
+  if (idris2_isSmallInteger(x) && idris2_isSmallInteger(y))
+    return idris2_mkIntegerFromInt64(idris2_smallInteger(x) -
+                                     idris2_smallInteger(y));
+  return idris2_sub_IntegerSlow(x, y);
+}
 #define idris2_sub_Double(l, r) (idris2_binop(Double, -, l, r))
 
 /* negate */
@@ -68,7 +102,15 @@ Idris2_Value *idris2_negate_Integer(Idris2_Value *x);
 #define idris2_mul_Int16(l, r) (idris2_wrapop16(*, l, r))
 #define idris2_mul_Int32(l, r) (idris2_wrapop32(*, l, r))
 #define idris2_mul_Int64(l, r) (idris2_wrapop64(*, l, r))
-Idris2_Value *idris2_mul_Integer(Idris2_Value *x, Idris2_Value *y);
+Idris2_Value *idris2_mul_IntegerSlow(Idris2_Value *x, Idris2_Value *y);
+static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
+                                                Idris2_Value *y) {
+  // (no overflow: the small integers have 32 bits)
+  if (idris2_isSmallInteger(x) && idris2_isSmallInteger(y))
+    return idris2_mkIntegerFromInt64(idris2_smallInteger(x) *
+                                     idris2_smallInteger(y));
+  return idris2_mul_IntegerSlow(x, y);
+}
 #define idris2_mul_Double(l, r) (idris2_binop(Double, *, l, r))
 
 /* div */
@@ -163,7 +205,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_lt_Int64(l, r) (idris2_cmpop(Int64, <, l, r))
 #define idris2_lt_Integer(l, r)                                                \
   (idris2_mkBool(                                                              \
-      mpz_cmp(((Idris2_Integer *)(l))->i, ((Idris2_Integer *)(r))->i) < 0))
+      idris2_cmpInteger((l), (r)) < 0))
 #define idris2_lt_Double(l, r) (idris2_cmpop(Double, <, l, r))
 #define idris2_lt_Char(l, r) (idris2_cmpop(Char, <, l, r))
 #define idris2_lt_string(l, r)                                                 \
@@ -181,7 +223,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_gt_Int64(l, r) (idris2_cmpop(Int64, >, l, r))
 #define idris2_gt_Integer(l, r)                                                \
   (idris2_mkBool(                                                              \
-      mpz_cmp(((Idris2_Integer *)(l))->i, ((Idris2_Integer *)(r))->i) > 0))
+      idris2_cmpInteger((l), (r)) > 0))
 #define idris2_gt_Double(l, r) (idris2_cmpop(Double, >, l, r))
 #define idris2_gt_Char(l, r) (idris2_cmpop(Char, >, l, r))
 #define idris2_gt_string(l, r)                                                 \
@@ -199,7 +241,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_eq_Int64(l, r) (idris2_cmpop(Int64, ==, l, r))
 #define idris2_eq_Integer(l, r)                                                \
   (idris2_mkBool(                                                              \
-      mpz_cmp(((Idris2_Integer *)(l))->i, ((Idris2_Integer *)(r))->i) == 0))
+      idris2_cmpInteger((l), (r)) == 0))
 #define idris2_eq_Double(l, r) (idris2_cmpop(Double, ==, l, r))
 #define idris2_eq_Char(l, r) (idris2_cmpop(Char, ==, l, r))
 #define idris2_eq_string(l, r)                                                 \
@@ -217,7 +259,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_lte_Int64(l, r) (idris2_cmpop(Int64, <=, l, r))
 #define idris2_lte_Integer(l, r)                                               \
   (idris2_mkBool(                                                              \
-      mpz_cmp(((Idris2_Integer *)(l))->i, ((Idris2_Integer *)(r))->i) <= 0))
+      idris2_cmpInteger((l), (r)) <= 0))
 #define idris2_lte_Double(l, r) (idris2_cmpop(Double, <=, l, r))
 #define idris2_lte_Char(l, r) (idris2_cmpop(Char, <=, l, r))
 #define idris2_lte_string(l, r)                                                \
@@ -235,7 +277,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_gte_Int64(l, r) (idris2_cmpop(Int64, >=, l, r))
 #define idris2_gte_Integer(l, r)                                               \
   (idris2_mkBool(                                                              \
-      mpz_cmp(((Idris2_Integer *)(l))->i, ((Idris2_Integer *)(r))->i) >= 0))
+      idris2_cmpInteger((l), (r)) >= 0))
 #define idris2_gte_Double(l, r) (idris2_cmpop(Double, >=, l, r))
 #define idris2_gte_Char(l, r) (idris2_cmpop(Char, >=, l, r))
 #define idris2_gte_string(l, r)                                                \

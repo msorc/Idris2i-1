@@ -4,7 +4,7 @@
 // Idris programs compiled by the RefC backend run as a set of "green
 // threads": user level threads that are multiplexed onto a single OS thread.
 //
-// * The main expression runs on a large stack of its own (1GB by default on
+// * The main expression runs on a large stack of its own (4GB by default on
 //   64-bit systems), like in the Chez backend where the stack grows as
 //   needed: much of the library is not tail recursive, so a deep stack is
 //   needed to work on long lists.  The memory is only used as the stack
@@ -610,10 +610,12 @@ static void thread_finish(Idris2_Thread *self) {
 
 // The size of the stack of the main expression, which can be changed with the
 // IDRIS2_MAIN_STACK_SIZE environment variable (in bytes).  It is reserved
-// lazily too, so it only costs address space: 1GB on 64-bit systems, 64MB on
-// the others.
+// lazily too, so it only costs address space: 4GB on 64-bit systems, 64MB on
+// the others.  (Checking the type of `foo 1000000 === Just ()`, with a monadic
+// `foo` that recurses a million times, needs about 1.5GB.)
 #define DEFAULT_MAIN_STACK_SIZE                                                \
-  (sizeof(void *) >= 8 ? (size_t)1024 * 1024 * 1024 : (size_t)64 * 1024 * 1024)
+  (sizeof(void *) >= 8 ? (size_t)4 * 1024 * 1024 * 1024                        \
+                       : (size_t)64 * 1024 * 1024)
 #define SCHEDULER_STACK_SIZE ((size_t)256 * 1024)
 
 static size_t page_size = 0;

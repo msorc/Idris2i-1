@@ -68,7 +68,9 @@ flag.
 #define idris2_vp_int_shift                                                    \
   ((sizeof(uintptr_t) >= 8 && sizeof(Idris2_Value *) >= 8) ? 32 : 16)
 
-#define idris2_vp_to_Bits64(p) (((Idris2_Bits64 *)(p))->ui64)
+// On 64 bit platforms, Int64 and Bits64 values that fit in 32 bits are
+// unboxed (see idris2_mkInt64): see idris2_unboxInt64 and idris2_unboxBits64.
+#define idris2_vp_to_Bits64(p) (idris2_unboxBits64((Idris2_Value *)(p)))
 
 #if !defined(UINTPTR_WIDTH)
 #define idris2_vp_to_Bits32(p)                                                 \
@@ -98,7 +100,7 @@ flag.
 #define idris2_vp_to_Bits16(p)                                                 \
   ((uint16_t)((uintptr_t)(p) >> idris2_vp_int_shift))
 #define idris2_vp_to_Bits8(p) ((uint8_t)((uintptr_t)(p) >> idris2_vp_int_shift))
-#define idris2_vp_to_Int64(p) (((Idris2_Int64 *)(p))->i64)
+#define idris2_vp_to_Int64(p) (idris2_unboxInt64((Idris2_Value *)(p)))
 #define idris2_vp_to_Int16(p) ((int16_t)((uintptr_t)(p) >> idris2_vp_int_shift))
 #define idris2_vp_to_Int8(p) ((int8_t)((uintptr_t)(p) >> idris2_vp_int_shift))
 #define idris2_vp_to_Char(p) ((uint32_t)((uintptr_t)(p) >> idris2_vp_int_shift))
@@ -115,6 +117,13 @@ typedef struct {
   uint64_t ui64;
 } Idris2_Bits64;
 
+static inline uint64_t idris2_unboxBits64(Idris2_Value *p) {
+  if (idris2_vp_int_shift == 32 && idris2_vp_is_unboxed(p))
+    return (uint32_t)((uintptr_t)(p) >> 32);
+  return ((Idris2_Bits64 *)(p))->ui64;
+}
+
+
 typedef struct {
   Idris2_header header;
   int32_t i32;
@@ -125,10 +134,59 @@ typedef struct {
   int64_t i64;
 } Idris2_Int64;
 
+static inline int64_t idris2_unboxInt64(Idris2_Value *p) {
+  if (idris2_vp_int_shift == 32 && idris2_vp_is_unboxed(p))
+    return (int32_t)((uintptr_t)(p) >> 32);
+  return ((Idris2_Int64 *)(p))->i64;
+}
+
+
 typedef struct {
   Idris2_header header;
   mpz_t i;
 } Idris2_Integer;
+
+// Integers from INT32_MIN to INT32_MAX may be unboxed on 64 bit platforms,
+// like the small Int64: the functions on Integers accept both kinds (see
+// idris2_integerMpz), and they give small results unboxed.
+#define idris2_isSmallInteger(v)                                               \
+  (idris2_vp_int_shift == 32 && idris2_vp_is_unboxed(v))
+#define idris2_smallInteger(v) ((int64_t)(int32_t)((uintptr_t)(v) >> 32))
+#define idris2_mkSmallInteger(n)                                               \
+  ((Idris2_Value *)(((uintptr_t)(int64_t)(n) << 32) + 1))
+static inline int idris2_fitsSmallInteger(int64_t n) {
+  return idris2_vp_int_shift == 32 && n >= INT32_MIN && n <= INT32_MAX;
+}
+
+Idris2_Value *idris2_mkIntegerFromInt64Boxed(int64_t n);
+static inline Idris2_Value *idris2_mkIntegerFromInt64(int64_t n) {
+  return idris2_fitsSmallInteger(n) ? idris2_mkSmallInteger(n)
+                                    : idris2_mkIntegerFromInt64Boxed(n);
+}
+Idris2_Value *idris2_mkIntegerFromUInt64(uint64_t n);
+// The value of a new Integer, unboxed if it is small enough (then `i` is
+// given back).
+Idris2_Value *idris2_normaliseInteger(Idris2_Integer *i);
+
+// The GMP integer of an Integer value.  For an unboxed one, it is made in
+// `view`, read only, without allocating.
+typedef struct {
+  mpz_t z;
+  mp_limb_t limb;
+} Idris2_IntegerView;
+static inline mpz_srcptr idris2_integerMpz(Idris2_Value *v,
+                                           Idris2_IntegerView *view) {
+  if (idris2_isSmallInteger(v)) {
+    int64_t n = idris2_smallInteger(v);
+    view->limb = (mp_limb_t)(n < 0 ? -n : n);
+    return mpz_roinit_n(view->z, &view->limb, n < 0 ? -1 : (n > 0 ? 1 : 0));
+  }
+  return ((Idris2_Integer *)v)->i;
+}
+#define IDRIS2_INTEGER_MPZ(name, v)                                            \
+  Idris2_IntegerView name##_view;                                              \
+  mpz_srcptr name = idris2_integerMpz((v), &name##_view)
+
 
 typedef struct {
   Idris2_header header;
@@ -140,13 +198,23 @@ typedef struct {
   char *str;
 } Idris2_String;
 
+// A constructor has a tag, or (when it has none, tag is -1) its name in a
+// slot after its arguments (see idris2_newNamedConstructor).
 typedef struct {
   Idris2_header header;
-  int32_t total;
-  int32_t tag;
-  char const *name;
+  uint16_t total;
+  int16_t tag;
   Idris2_Value *args[];
 } Idris2_Constructor;
+#define idris2_constructorName(c)                                              \
+  ((char const *)((Idris2_Constructor *)(c))->args[((Idris2_Constructor *)(c))->total])
+
+// A constructor without arguments, with the layout of Idris2_Constructor.
+typedef struct {
+  Idris2_header header;
+  uint16_t total;
+  int16_t tag;
+} Idris2_NullaryConstructor;
 
 typedef struct {
   Idris2_header header;

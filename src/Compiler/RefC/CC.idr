@@ -25,7 +25,10 @@ findCFLAGS
          | Just cflags => pure cflags
        Nothing <- idrisGetEnv "CFLAGS"
          | Just cflags => pure cflags
-       pure ""
+       -- Without optimisation, the inline functions of the runtime (reference
+       -- counting, allocation) are not inlined, which makes the code several
+       -- times slower.
+       pure "-O2"
 
 findCPPFLAGS : IO String
 findCPPFLAGS

@@ -198,7 +198,7 @@ Idris2_Value *idris2_cast_Bits16_to_string(Idris2_Value *input);
 #define idris2_cast_Bits32_to_Int32(x)                                         \
   (idris2_mkBits32((int32_t)idris2_vp_to_Bits32(x)))
 #define idris2_cast_Bits32_to_Int64(x)                                         \
-  (idris2_mkBits64((int64_t)idris2_vp_to_Bits32(x)))
+  (idris2_mkInt64((int64_t)idris2_vp_to_Bits32(x)))
 Idris2_Value *idris2_cast_Bits32_to_Integer(Idris2_Value *input);
 #define idris2_cast_Bits32_to_Double(x)                                        \
   (idris2_mkDouble((double)idris2_vp_to_Bits32(x)))

@@ -185,7 +185,7 @@ should target this file (`CHANGELOG_NEXT`).
   `Data.Buffer.getString`.  Functions of the `C` calling convention are not
   affected.
 * Declare `idris2_fileIsTTY` in `idris_file.h`, so that `isTTY` compiles.
-* The main expression runs on a large stack of its own (1GB on 64-bit
+* The main expression runs on a large stack of its own (4GB on 64-bit
   systems, reserved lazily, `IDRIS2_MAIN_STACK_SIZE` to change it) instead of
   the stack of the process.  Much of the library is not tail recursive, so
   sorting or mapping a long list used to crash with a stack overflow, while
@@ -207,6 +207,34 @@ should target this file (`CHANGELOG_NEXT`).
   * Large `Integer` literals are made once instead of being parsed every time
     that they are used.
 * Freeing a long list no longer needs a deep stack.
+* Faster generated code again, by a factor of 1.5 to 2.3 (the compiler itself
+  by about 1.5):
+  * The generated C is compiled with `-O2` unless `IDRIS2_CFLAGS` or `CFLAGS`
+    say otherwise; it used to be compiled without optimisation.
+  * `Int`, `Int64`, `Bits64` and `Integer` values that fit in 32 bits are no
+    longer allocated on 64-bit systems, and arithmetic on small `Integer`s no
+    longer goes through GMP.
+  * A function calling itself in tail position jumps back to its start, and,
+    with GCC 15 or later, a call in tail position to a function that does not
+    take more arguments than the caller is a jump (`musttail`), instead of
+    going through the trampoline.
+  * Applying a closure to its last arguments, not in tail position, calls it
+    directly.
+  * Matching on a constructor that is not used any more frees it without
+    touching its fields when it is unique (drop specialisation, as in
+    Perceus).
+  * Constructors are 16 bytes smaller (a list cell takes 24 bytes instead of
+    40), and the constructors without fields are not allocated.
+  * The arguments of the primitive operations are borrowed, which saves a
+    pair of reference count updates per shared argument.
+  * Definitions without arguments are evaluated once, when they are first
+    needed, like the top-level constants of the Chez backend (they used to be
+    evaluated at every use).
+  * A `case` on integers and characters is a C `switch`.
+* A `case` on `Int`, `Int64`, `Bits64` or `Integer` constants that do not fit
+  in 32 bits chose the wrong branch: the value was truncated to an `int`.
+* Casting an `Integer` to a `Double` rounds to the nearest `Double`, like the
+  other backends, instead of truncating.
 * Arithmetic on `Int`, `Int8`, `Int16`, `Int32` and `Int64` wrapped around by
   relying on the overflow of signed C integers, which is undefined behaviour
   that an optimising C compiler may exploit: it is now done on unsigned

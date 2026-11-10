@@ -31,6 +31,14 @@ extern Idris2_PendingTailCall idris2_pendingTailCall;
 extern Idris2_Value const idris2_tailCallMarker;
 #define IDRIS2_TAILCALL ((Idris2_Value *)&idris2_tailCallMarker)
 
+// A call in tail position that is a jump (see makeTailCall in RefC.idr):
+// GCC 15 can make one even when the caller and the callee have different
+// parameters (Clang requires them to be the same).
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 15 &&             \
+    !defined(__wasm__) && !defined(IDRIS2_NO_MUSTTAIL)
+#define IDRIS2_MUSTTAIL __attribute__((musttail))
+#endif
+
 // Make the pending calls that `it` stands for: a pending tail call, or a
 // closure that has all its arguments.  Most calls return a plain value, so
 // that case is inlined.
@@ -47,3 +55,19 @@ static inline Idris2_Value *idris2_trampoline(Idris2_Value *it) {
 Idris2_Value *idris2_run_primio(Idris2_Closure *action);
 
 int idris2_extractInt(Idris2_Value *);
+
+// The integer in a value, for a `case` on integer constants.  An unboxed
+// value is a signed (idris2_extractInt64) or an unsigned
+// (idris2_extractUInt64) integer of up to 32 bits; the boxed ones are
+// converted according to their type.
+int64_t idris2_extractInt64Boxed(Idris2_Value *);
+static inline int64_t idris2_extractInt64(Idris2_Value *v) {
+  if (idris2_vp_is_unboxed(v))
+    return (int32_t)((uintptr_t)(v) >> idris2_vp_int_shift);
+  return idris2_extractInt64Boxed(v);
+}
+static inline int64_t idris2_extractUInt64(Idris2_Value *v) {
+  if (idris2_vp_is_unboxed(v))
+    return (uint32_t)((uintptr_t)(v) >> idris2_vp_int_shift);
+  return idris2_extractInt64Boxed(v);
+}

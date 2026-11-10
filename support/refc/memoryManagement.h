@@ -80,6 +80,15 @@ static inline Idris2_Value *idris2_newReference(Idris2_Value *source) {
   return source;
 }
 
+// Make a value immortal (it is never released), and give it back.
+static inline Idris2_Value *idris2_makeImmortal(Idris2_Value *v) {
+  // (static values are immortal already, and may be read only)
+  if (v && !idris2_vp_is_unboxed(v) &&
+      v->header.refCounter != IDRIS2_VP_REFCOUNTER_MAX)
+    v->header.refCounter = IDRIS2_VP_REFCOUNTER_MAX;
+  return v;
+}
+
 // Drop a reference to a value that has other references (but may be
 // immortal).
 static inline void idris2_dropSharedReference(Idris2_Value *v) {
@@ -104,9 +113,20 @@ static inline Idris2_Constructor *idris2_newConstructor(int total, int tag) {
   Idris2_Constructor *retVal = (Idris2_Constructor *)idris2_newValue(
       sizeof(Idris2_Constructor) + sizeof(Idris2_Value *) * total);
   retVal->header.tag = CONSTRUCTOR_TAG;
-  retVal->total = total;
-  retVal->tag = tag;
-  retVal->name = NULL;
+  retVal->total = (uint16_t)total;
+  retVal->tag = (int16_t)tag;
+  return retVal;
+}
+
+// A constructor that is told apart by its name instead of a tag.
+static inline Idris2_Constructor *
+idris2_newNamedConstructor(int total, char const *name) {
+  Idris2_Constructor *retVal = (Idris2_Constructor *)idris2_newValue(
+      sizeof(Idris2_Constructor) + sizeof(Idris2_Value *) * (total + 1));
+  retVal->header.tag = CONSTRUCTOR_TAG;
+  retVal->total = (uint16_t)total;
+  retVal->tag = -1;
+  retVal->args[total] = (Idris2_Value *)name;
   return retVal;
 }
 
@@ -189,6 +209,8 @@ static inline Idris2_Value *idris2_mkDouble(double d) {
 }
 
 static inline Idris2_Value *idris2_mkBits64(uint64_t i) {
+  if (idris2_vp_int_shift == 32 && i <= UINT32_MAX)
+    return (Idris2_Value *)(((uintptr_t)(i) << 32) + 1);
   if (i < 100)
     return (Idris2_Value *)&idris2_predefined_Bits64[i];
   Idris2_Bits64 *retVal = IDRIS2_NEW_VALUE(Idris2_Bits64);
@@ -198,6 +220,8 @@ static inline Idris2_Value *idris2_mkBits64(uint64_t i) {
 }
 
 static inline Idris2_Value *idris2_mkInt64(int64_t i) {
+  if (idris2_vp_int_shift == 32 && i >= INT32_MIN && i <= INT32_MAX)
+    return (Idris2_Value *)(((uintptr_t)(i) << 32) + 1);
   if (i >= 0 && i < 100)
     return (Idris2_Value *)&idris2_predefined_Int64[i];
   Idris2_Int64 *retVal = IDRIS2_NEW_VALUE(Idris2_Int64);
@@ -208,6 +232,7 @@ static inline Idris2_Value *idris2_mkInt64(int64_t i) {
 extern Idris2_Integer idris2_predefined_Integer[100];
 Idris2_Value *idris2_getPredefinedInteger(int n);
 
+
 // An Integer literal of the generated code, made from its digits the first
 // time that it is needed, and kept in *slot for good (it is immortal).
 Idris2_Value *idris2_makeIntegerConstant(Idris2_Value **slot,
@@ -217,6 +242,15 @@ static inline Idris2_Value *idris2_integerConstant(Idris2_Value **slot,
   return *slot ? *slot : idris2_makeIntegerConstant(slot, digits);
 }
 extern Idris2_String const idris2_predefined_nullstring;
+
+// Immortal nullary constructors with the tags 0 .. IDRIS2_PREDEFINED_NULLARY-1,
+// which the generated code uses instead of allocating them.
+#define IDRIS2_PREDEFINED_NULLARY 256
+extern Idris2_NullaryConstructor const
+    idris2_predefined_nullary[IDRIS2_PREDEFINED_NULLARY];
+#define idris2_nullaryConstructor(tag)                                         \
+  ((Idris2_Value *)&idris2_predefined_nullary[tag])
+
 
 // You need uncomment a debugging code in memoryManagement.c to use this.
 void idris2_dumpMemoryStats(void);

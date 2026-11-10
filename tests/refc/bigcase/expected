@@ -1,0 +1,4 @@
+["zero", "2^32", "other", "max", "min", "other"]
+["zero", "2^32", "max", "other"]
+["zero", "2^32", "2^128", "minus one", "other", "2^128"]
+["a", "newline", "lambda", "other"]
