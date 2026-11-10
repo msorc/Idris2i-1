@@ -4,48 +4,63 @@ export
 data ForeignObj : Type where [external]
 
 %foreign "scheme:blodwen-eval-scheme"
+         "RefC:idris2_refc_scheme_eval_scheme"
 prim__evalScheme : String -> ForeignObj
 
 %foreign "scheme:blodwen-eval-okay"
+         "RefC:idris2_refc_scheme_eval_okay"
 prim__evalOkay : ForeignObj -> Int
 
 %foreign "scheme:blodwen-get-eval-result"
+         "RefC:idris2_refc_scheme_get_eval_result"
 prim__evalResult : ForeignObj -> ForeignObj
 
 %foreign "scheme:blodwen-debug-scheme"
+         "RefC:idris2_refc_scheme_debug_scheme"
 prim__debugScheme : ForeignObj -> PrimIO ()
 
 %foreign "scheme:blodwen-is-number"
+         "RefC:idris2_refc_scheme_is_number"
 prim_isNumber : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-integer"
+         "RefC:idris2_refc_scheme_is_integer"
 prim_isInteger : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-float"
+         "RefC:idris2_refc_scheme_is_float"
 prim_isFloat : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-char"
+         "RefC:idris2_refc_scheme_is_char"
 prim_isChar : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-string"
+         "RefC:idris2_refc_scheme_is_string"
 prim_isString : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-procedure"
+         "RefC:idris2_refc_scheme_is_procedure"
 prim_isProcedure : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-symbol"
+         "RefC:idris2_refc_scheme_is_symbol"
 prim_isSymbol : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-nil"
+         "RefC:idris2_refc_scheme_is_nil"
 prim_isNil : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-pair"
+         "RefC:idris2_refc_scheme_is_pair"
 prim_isPair : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-vector"
+         "RefC:idris2_refc_scheme_is_vector"
 prim_isVector : ForeignObj -> Int
 
 %foreign "scheme:blodwen-is-box"
+         "RefC:idris2_refc_scheme_is_box"
 prim_isBox : ForeignObj -> Int
 
 export
@@ -95,58 +110,72 @@ isBox x = prim_isBox x == 1
 -- The below are all 'unsafe' because they rely on having done the relevant
 -- check above first
 %foreign "scheme:blodwen-id"
+         "RefC:idris2_refc_scheme_id_integer"
 export
 unsafeGetInteger : ForeignObj -> Integer
 
 %foreign "scheme:blodwen-id"
+         "RefC:idris2_refc_scheme_id_string"
 export
 unsafeGetString : ForeignObj -> String
 
 %foreign "scheme:blodwen-id"
+         "RefC:idris2_refc_scheme_id_float"
 export
 unsafeGetFloat : ForeignObj -> Double
 
 %foreign "scheme:blodwen-id"
+         "RefC:idris2_refc_scheme_id_char"
 export
 unsafeGetChar : ForeignObj -> Char
 
 %foreign "scheme:car"
+         "RefC:idris2_refc_scheme_car"
 export
 unsafeFst : ForeignObj -> ForeignObj
 
 %foreign "scheme:cdr"
+         "RefC:idris2_refc_scheme_cdr"
 export
 unsafeSnd : ForeignObj -> ForeignObj
 
 %foreign "scheme:blodwen-apply"
+         "RefC:idris2_refc_scheme_apply"
 export
 unsafeApply : ForeignObj -> ForeignObj -> ForeignObj
 
 %foreign "scheme:blodwen-force"
+         "RefC:idris2_refc_scheme_force"
 export
 unsafeForce : ForeignObj -> ForeignObj
 
 %foreign "scheme:blodwen-vector-ref"
+         "RefC:idris2_refc_scheme_vector_ref"
 export
 unsafeVectorRef : ForeignObj -> Integer -> ForeignObj
 
 %foreign "scheme:blodwen-unbox"
+         "RefC:idris2_refc_scheme_unbox"
 export
 unsafeUnbox : ForeignObj -> ForeignObj
 
 %foreign "scheme:blodwen-vector-length"
+         "RefC:idris2_refc_scheme_vector_length"
 export
 unsafeVectorLength : ForeignObj -> Integer
 
 %foreign "scheme:blodwen-vector-list"
+         "RefC:idris2_refc_scheme_vector_list"
 export
 unsafeVectorToList : ForeignObj -> List ForeignObj
 
 %foreign "scheme:blodwen-make-symbol"
+         "RefC:idris2_refc_scheme_make_symbol"
 export
 makeSymbol : String -> ForeignObj
 
 %foreign "scheme:blodwen-read-symbol"
+         "RefC:idris2_refc_scheme_read_symbol"
 export
 unsafeReadSymbol : ForeignObj -> String
 

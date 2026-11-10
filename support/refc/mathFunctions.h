@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cBackend.h"
+#include <float.h>
 #include <gmp.h>
 #include <math.h>
 
@@ -221,3 +222,9 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_gte_string(l, r)                                                \
   (idris2_mkBool(                                                              \
       strcmp(((Idris2_String *)(l))->str, ((Idris2_String *)(r))->str) >= 0))
+
+/* IEEE constants of Data.Double */
+double idris2_flonumUnitRoundoff(void);
+double idris2_flonumEpsilon(void);
+double idris2_flonumNaN(void);
+double idris2_flonumInf(void);

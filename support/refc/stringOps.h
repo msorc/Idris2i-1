@@ -3,10 +3,16 @@
 #include "cBackend.h"
 #include "casts.h"
 
-/* stringLength : String -> Int64!? WTH!. do you have over 4Gbytes text on
- * memory!? */
-#define stringLength(x) (idris2_mkInt64(strlen(((Idris2_String *)(x))->str)))
-#define head(x) (idris2_cast_string_to_Char(x))
+/* UTF-8 helpers.  idris2_utf8_decode reads the code point at *p and moves *p
+ * past it; invalid bytes decode to U+FFFD.  idris2_utf8_encode writes 1 to 4
+ * bytes and returns their number. */
+uint32_t idris2_utf8_decode(char const **p);
+int idris2_utf8_encode(uint32_t c, char *out);
+int idris2_utf8_encodedLength(uint32_t c);
+int64_t idris2_utf8_length(char const *s);
+
+Idris2_Value *stringLength(Idris2_Value *str);
+Idris2_Value *head(Idris2_Value *str);
 Idris2_Value *tail(Idris2_Value *str);
 Idris2_Value *reverse(Idris2_Value *str);
 Idris2_Value *strIndex(Idris2_Value *str, Idris2_Value *i);
@@ -23,3 +29,6 @@ Idris2_Value *onCollectStringIterator(Idris2_Pointer *ptr, void *null);
 Idris2_Value *stringIteratorToString(void *a, char *str, Idris2_Value *it_p,
                                      Idris2_Closure *f);
 Idris2_Value *stringIteratorNext(char *s, Idris2_Value *it_p);
+
+/* putChar: write the UTF-8 encoding of a character to stdout. */
+void idris2_refc_putChar(uint32_t c);

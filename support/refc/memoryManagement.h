@@ -64,6 +64,8 @@ Idris2_Integer *idris2_mkInteger();
 Idris2_Value *idris2_mkIntegerLiteral(char *i);
 Idris2_String *idris2_mkEmptyString(size_t l);
 Idris2_String *idris2_mkString(char *);
+// Takes ownership of a string from malloc instead of copying it.
+Idris2_String *idris2_mkStringOwned(char *);
 
 Idris2_Pointer *idris2_makePointer(void *);
 Idris2_GCPointer *idris2_makeGCPointer(void *ptr_Raw,

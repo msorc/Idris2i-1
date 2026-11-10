@@ -225,6 +225,7 @@ readHeader path origin
          pure mod
 
 %foreign "scheme:collect"
+         "RefC:idris2_refc_gc"
 prim__gc : Int -> PrimIO ()
 
 gc : IO ()

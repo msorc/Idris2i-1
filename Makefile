@@ -73,6 +73,13 @@ idris2-exec: ${TARGET}
 
 ${TARGET}: support src/IdrisPaths.idr
 	${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
+ifeq ($(IDRIS2_CG), refc)
+	# RefC builds a single binary: give it the layout of the Scheme backends,
+	# a launcher next to an idris2_app directory.
+	mkdir -p ${TARGETDIR}/${NAME}_app
+	mv -f ${TARGET} ${TARGETDIR}/${NAME}_app/${NAME}
+	install bootstrap/idris2-refc.sh ${TARGET}
+endif
 	cp ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} ${TARGETDIR}/${NAME}_app/${IDRIS2_SUPPORT}
 
 # We use FORCE to always rebuild IdrisPath so that the git SHA1 info is always up to date
@@ -241,7 +248,7 @@ install-libdocs: libdocs
 	install -m 644 support/docs/*   ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs
 
 
-.PHONY: bootstrap bootstrap-build bootstrap-racket bootstrap-racket-build bootstrap-test bootstrap-clean
+.PHONY: bootstrap bootstrap-build bootstrap-c bootstrap-racket bootstrap-racket-build bootstrap-test bootstrap-clean
 
 # Bootstrapping using SCHEME
 #
@@ -268,6 +275,21 @@ bootstrap-racket: support
 		> bootstrap-build/idris2_app/idris2-boot.rkt
 	$(SHELL) ./bootstrap-stage1-racket.sh
 	IDRIS2_CG="racket" $(SHELL) ./bootstrap-stage2.sh
+
+# Bootstrapping using only a C compiler, from the C code that the RefC backend
+# generated for the compiler.  The final compiler is built with RefC too.
+bootstrap-c: support
+	mkdir -p bootstrap-build/idris2_app
+	cp ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} bootstrap-build/idris2_app/
+	if [ -f bootstrap/idris2_app/idris2.c.xz ] ; then \
+		xz -dc bootstrap/idris2_app/idris2.c.xz ; \
+	else \
+		cat bootstrap/idris2_app/idris2.c ; \
+	fi | sed 's|__PREFIX__|${IDRIS2_BOOT_PREFIX}|g' \
+		> bootstrap-build/idris2_app/idris2-boot.c
+	CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" \
+		$(SHELL) ./bootstrap-stage1-refc.sh
+	IDRIS2_CG="refc" $(SHELL) ./bootstrap-stage2.sh
 
 bootstrap-test:
 	$(MAKE) test INTERACTIVE='' IDRIS2_PREFIX=${IDRIS2_BOOT_PREFIX}

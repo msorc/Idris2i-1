@@ -101,8 +101,7 @@ flag.
 #define idris2_vp_to_Int64(p) (((Idris2_Int64 *)(p))->i64)
 #define idris2_vp_to_Int16(p) ((int16_t)((uintptr_t)(p) >> idris2_vp_int_shift))
 #define idris2_vp_to_Int8(p) ((int8_t)((uintptr_t)(p) >> idris2_vp_int_shift))
-#define idris2_vp_to_Char(p)                                                   \
-  ((unsigned char)((uintptr_t)(p) >> idris2_vp_int_shift))
+#define idris2_vp_to_Char(p) ((uint32_t)((uintptr_t)(p) >> idris2_vp_int_shift))
 #define idris2_vp_to_Double(p) (((Idris2_Double *)(p))->d)
 #define idris2_vp_to_Bool(p) (idris2_vp_to_Int8(p))
 

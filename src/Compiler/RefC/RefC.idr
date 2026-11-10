@@ -14,6 +14,7 @@ import Idris.Syntax
 import Libraries.Data.DList
 import Data.SortedSet
 import Data.SortedMap
+import Data.Bits
 import Data.Vect
 
 import System
@@ -89,27 +90,57 @@ cName (CaseBlock x y) = "case__" ++ cCleanString (show x) ++ "_" ++ cCleanString
 cName (WithBlock x y) = "with__" ++ cCleanString (show x) ++ "_" ++ cCleanString (show y)
 cName (Resolved i) = "fn__" ++ cCleanString (show i)
 
+-- A character is its code point; RefC stores it unboxed, in at least 32 bits.
 escapeChar : Char -> String
-escapeChar c = if isAlphaNum c || isNL c
+escapeChar c = if (isAlphaNum c || isNL c) && c < chr 128
                   then show c
-                  else "(char)" ++ show (ord c)
+                  else show (ord c)
 
+||| The bytes of the UTF-8 encoding of a character.
+utf8Bytes : Char -> List Int
+utf8Bytes c
+    = let x = ord c in
+      if x < 0x80 then [x]
+      else if x < 0x800 then [0xC0 + shiftR x 6, cont x]
+      else if x < 0x10000 then [0xE0 + shiftR x 12, cont (shiftR x 6), cont x]
+      else [0xF0 + shiftR x 18, cont (shiftR x 12), cont (shiftR x 6), cont x]
+  where
+    cont : Int -> Int
+    cont y = 0x80 + (y .&. 0x3F)
+
+-- Strings are UTF-8 at runtime.  Characters outside printable ASCII are written
+-- as the hexadecimal escapes of their bytes, which does not depend on the
+-- execution character set of the C compiler.  An escape is followed by `""` so
+-- that a hexadecimal digit after it is not read as part of it.
 cStringQuoted : String -> String
 cStringQuoted cs = strCons '"' (showCString (unpack cs) "\"")
 where
+    hexByte : Int -> String -> String
+    hexByte b = (("\\x" ++ leftPad '0' 2 (asHex (cast b))) ++ "\"\"" ++)
+
     showCChar : Char -> String -> String
     showCChar '\\' = ("\\\\" ++)
     showCChar c
-       = if c < chr 32
-            then (("\\x" ++ leftPad '0' 2 (asHex (cast c))) ++ "\"\"" ++)
-            else if c < chr 127 then strCons c
-            else if c < chr 65536 then (("\\u" ++ leftPad '0' 4 (asHex (cast c))) ++ "\"\"" ++)
-            else (("\\U" ++ leftPad '0' 8 (asHex (cast c))) ++ "\"\"" ++)
+       = if c < chr 32 || c >= chr 127
+            then foldr (\b, k => hexByte b . k) id (utf8Bytes c)
+            else strCons c
 
     showCString : List Char -> String -> String
     showCString [] = id
     showCString ('"'::cs) = ("\\\"" ++) . showCString cs
     showCString (c ::cs) = (showCChar c) . showCString cs
+
+||| A C literal for a Double.  `show` gives the shortest digits that read back
+||| as the same number, but in the notation of Scheme: drop the precision of a
+||| subnormal number (`5e-324|1`) and spell out NaN and the infinities.
+cDouble : Double -> String
+cDouble x
+    = if x /= x then "NAN"
+      else if x == 1.0 / 0.0 then "INFINITY"
+      else if x == -1.0 / 0.0 then "(-INFINITY)"
+      else case takeWhile (/= '|') (unpack (show x)) of
+             str@('-' :: _) => "(" ++ pack str ++ ")"
+             str => pack str
 
 -- deals with C not allowing `-9223372036854775808` as a literal
 showIntMin : Int -> String
@@ -431,6 +462,10 @@ addReuseConstructor reuseMap sc conName conArgs consts shouldDrop actualReuseCon
         emit EmptyFC $ "if (idris2_isUnique(" ++ sc ++ ")) {"
         increaseIndentation
         emit EmptyFC $ constr ++ " = (Idris2_Constructor*)" ++ sc ++ ";"
+        -- The fields that are not used any more were owned by the constructor
+        -- that we take over: release them (the other branch does so when it
+        -- releases the constructor).
+        removeVars (filter (`elem` shouldDrop) conArgs)
         decreaseIndentation
         emit EmptyFC "}"
         -- Otherwise, delete and duplicate constructor variables
@@ -628,7 +663,7 @@ mutual
                 _ <- foldlC (\els, (MkAConstAlt c body) => do
                     case c of
                         Str x => emit emptyFC "\{els}if (! strcmp(\{cStringQuoted x}, ((Idris2_String *)\{sc'})->str)) {"
-                        Db  x => emit emptyFC "\{els}if (((Idris2_Double *)\{sc'})->d == \{show x}) {"
+                        Db  x => emit emptyFC "\{els}if (((Idris2_Double *)\{sc'})->d == \{cDouble x}) {"
                         x => throw $ InternalError "[refc] AConstCase : unsupported type. \{show fc} \{show x}"
                     concaseBody env switchReturnVar "" [] body tailPosition
                     pure "} else ") "" alts
@@ -705,6 +740,8 @@ cTypeOfCFType CFUnsigned16    = "uint16_t"
 cTypeOfCFType CFUnsigned32    = "uint32_t"
 cTypeOfCFType CFUnsigned64    = "uint64_t"
 cTypeOfCFType CFString        = "char *"
+-- Integers are passed as the boxed `Idris2_Value *` (an `Idris2_Integer`)
+cTypeOfCFType CFInteger       = "Idris2_Value *"
 cTypeOfCFType CFDouble        = "double"
 cTypeOfCFType CFChar          = "char"
 cTypeOfCFType CFPtr           = "void *"
@@ -715,6 +752,7 @@ cTypeOfCFType (CFFun x y)     = "void *"
 cTypeOfCFType (CFIORes x)     = "void *"
 cTypeOfCFType (CFStruct x ys) = "void *"
 cTypeOfCFType (CFUser x ys)   = "void *"
+cTypeOfCFType CFForeignObj    = "void *"
 cTypeOfCFType n = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
 
 varNamesFromList : List ty -> Nat -> List String
@@ -757,6 +795,7 @@ extractValue _ CFUnsigned16     varName = "(idris2_vp_to_Bits16(" ++ varName ++ 
 extractValue _ CFUnsigned32     varName = "(idris2_vp_to_Bits32(" ++ varName ++ "))"
 extractValue _ CFUnsigned64     varName = "(idris2_vp_to_Bits64(" ++ varName ++ "))"
 extractValue _ CFString         varName = "((Idris2_String*)" ++ varName ++ ")->str"
+extractValue _ CFInteger        varName = "(Idris2_Value*)" ++ varName
 extractValue _ CFDouble         varName = "(idris2_vp_to_Double(" ++ varName ++ "))"
 extractValue _ CFChar           varName = "(idris2_vp_to_Char(" ++ varName ++ "))"
 extractValue _ CFPtr            varName = "((Idris2_Pointer*)" ++ varName ++ ")->p"
@@ -769,6 +808,7 @@ extractValue c (CFIORes x)      varName = extractValue c x varName
 extractValue _ (CFStruct x xs)  varName = assert_total $ idris_crash ("INTERNAL ERROR: Struct access not implemented: " ++ varName)
 -- not really total but this way this internal error does not contaminate everything else
 extractValue _ (CFUser x xs)    varName = "(Idris2_Value*)" ++ varName
+extractValue _ CFForeignObj     varName = "(Idris2_Value*)" ++ varName
 extractValue _ n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
 
 packCFType : (cfType:CFType) -> (varName:String) -> String
@@ -783,6 +823,7 @@ packCFType CFUnsigned32    varName = "idris2_mkBits32(" ++ varName ++ ")"
 packCFType CFUnsigned16    varName = "idris2_mkBits16(" ++ varName ++ ")"
 packCFType CFUnsigned8     varName = "idris2_mkBits8(" ++ varName ++ ")"
 packCFType CFString        varName = "idris2_mkString(" ++ varName ++ ")"
+packCFType CFInteger       varName = varName
 packCFType CFDouble        varName = "idris2_mkDouble(" ++ varName ++ ")"
 packCFType CFChar          varName = "idris2_mkChar(" ++ varName ++ ")"
 packCFType CFPtr           varName = "idris2_makePointer(" ++ varName ++ ")"
@@ -793,7 +834,16 @@ packCFType (CFFun x y)     varName = "makeFunction(" ++ varName ++ ")"
 packCFType (CFIORes x)     varName = packCFType x varName
 packCFType (CFStruct x xs) varName = "makeStruct(" ++ varName ++ ")"
 packCFType (CFUser x xs)   varName = varName
+packCFType CFForeignObj    varName = varName
 packCFType n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
+
+||| The result of a foreign function.  A String returned by a function of the
+||| `RefC` calling convention is a `char *` from `malloc` that the caller owns, so
+||| it becomes the Idris String as it is; one from a plain C function is copied.
+packFFIResult : CLang -> (cfType : CFType) -> (varName : String) -> String
+packFFIResult CLangRefC CFString    varName = "idris2_mkStringOwned(" ++ varName ++ ")"
+packFFIResult c         (CFIORes x) varName = packFFIResult c x varName
+packFFIResult _         t           varName = packCFType t varName
 
 discardLastArgument : List ty -> List ty
 discardLastArgument [] = []
@@ -894,14 +944,14 @@ createCFunctions n (MkAForeign ccs fargs ret) = do
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) (discardLastArgument typeVarNameArgList))
                               ++ ");"
                   removeVarsArgList
-                  emit EmptyFC $ "return (Idris2_Value*)" ++ packCFType ret "retVal" ++ ";"
+                  emit EmptyFC $ "return (Idris2_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
               _ => do
                   emit EmptyFC $ cTypeOfCFType ret ++ " retVal = " ++ cName fctName
                               ++ "("
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) typeVarNameArgList)
                               ++ ");"
                   removeVarsArgList
-                  emit EmptyFC $ "return (Idris2_Value*)" ++ packCFType ret "retVal" ++ ";"
+                  emit EmptyFC $ "return (Idris2_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
 
           decreaseIndentation
           emit EmptyFC "}"
@@ -943,7 +993,7 @@ header = do
       I x   => go cdef "Int64" "INT64" (showIntMin x)
       I64 x => go cdef "Int64" "INT64" (showInt64Min x)
       B64 x => go cdef "Bits64" "BITS64" "UINT64_C(\{show x})"
-      Db x  => go cdef "Double" "DOUBLE" (show x)
+      Db x  => go cdef "Double" "DOUBLE" (cDouble x)
       Str x => go cdef "String" "STRING" (cStringQuoted x)
       _ => "/* bad constant */"
 

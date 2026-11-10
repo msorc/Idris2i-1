@@ -168,6 +168,18 @@ Idris2_String *idris2_mkEmptyString(size_t l) {
   return retVal;
 }
 
+Idris2_String *idris2_mkStringOwned(char *s) {
+  if (s[0] == '\0') {
+    free(s);
+    return (Idris2_String *)&idris2_predefined_nullstring;
+  }
+
+  Idris2_String *retVal = IDRIS2_NEW_VALUE(Idris2_String);
+  retVal->header.tag = STRING_TAG;
+  retVal->str = s;
+  return retVal;
+}
+
 Idris2_String *idris2_mkString(char *s) {
   if (s[0] == '\0')
     return (Idris2_String *)&idris2_predefined_nullstring;

@@ -113,6 +113,10 @@ should target this file (`CHANGELOG_NEXT`).
 * A project's data directory can now be specified with the `datadir` entry in
   an `ipkg` file.
 * Fix building on Windows with MSYS.
+* Idris 2 can now be bootstrapped with only a C compiler: `make bootstrap-c`
+  builds the compiler from the C code that the RefC backend generated for it
+  (`bootstrap/idris2_app/idris2.c.xz`), then rebuilds it with the RefC
+  backend.  `bootstrap/update-c-bootstrap.sh` regenerates that file.
 
 ### Backend changes
 
@@ -152,6 +156,37 @@ should target this file (`CHANGELOG_NEXT`).
   release its own.  `modifyIORef` used to leak the previous value of the
   `IORef` on every call.
 * Fixed the finaliser of a `GCPtr` / `GCAnyPtr` releasing the pointer twice.
+* Strings are now sequences of Unicode code points, like in the other
+  backends.  They are still stored as NUL-terminated UTF-8, so the C FFI is
+  unchanged, but `length`, `strIndex`, `substr`, `strCons`, `strHead`,
+  `strTail`, `reverse`, `pack`, `unpack`, string iterators, `putChar` and the
+  casts between `Char` and `String` now work on code points instead of bytes
+  (`length "λ"` is 1).  Bytes that are not valid UTF-8 read as U+FFFD.
+  `Char` holds a full code point, and casting a number that is not a Unicode
+  scalar value to `Char` gives `'\0'`, like in the Scheme backends.
+* `show` on a `Double` now gives the same text as the Chez backend: the
+  shortest digits that read back as the same number (`0.1`, `1e-10`,
+  `0.30000000000000004`, `+inf.0`) instead of `printf`'s `%f`, which printed
+  `1e-10` as `0.000000`.  `Double` literals that are NaN, infinite or
+  subnormal no longer produce C code that fails to compile.
+* Casting a `Double` to a fixed size integer now truncates it and wraps around,
+  like in the Scheme backends, instead of being undefined behaviour when it is
+  out of range.  Casting to `Int8` no longer fails to compile.
+* `Integer` and the type of foreign objects (`CFForeignObj`) can now be passed
+  to and returned from foreign functions; they are passed as `Idris2_Value *`.
+* Added `RefC` implementations of `Data.Double.epsilon`, `unitRoundoff`, `nan`
+  and `inf`.
+* Fixed a memory leak when a uniquely referenced constructor is reused: the
+  fields that were not used any more were not released.  This leaked the old
+  value of every field changed by a record update.
+* A `String` returned by a foreign function of the `RefC` calling convention
+  now belongs to the caller: it must come from `malloc`, and it is no longer
+  copied (and leaked).  This fixes leaks in `pack`, `concat` and
+  `Data.Buffer.getString`.  Functions of the `C` calling convention are not
+  affected.
+* Declare `idris2_fileIsTTY` in `idris_file.h`, so that `isTTY` compiles.
+* The compiler itself can be compiled with RefC.  Such a compiler has no Chez
+  Scheme evaluator (`:set eval scheme` in the REPL).
 
 ### Library changes
 

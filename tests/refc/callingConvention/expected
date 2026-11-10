@@ -167,9 +167,9 @@ Idris2_Value *Main_main
     Idris2_Value *primVar_47 = strAppend(var_16, var_17);
     idris2_removeReference(var_16);
     idris2_removeReference(var_17);
-    Idris2_Value * var_18 = primVar_47;                      // Prelude.IO:98:22--98:34
+    Idris2_Value * var_18 = primVar_47;                      // Prelude.IO:99:22--99:34
     Idris2_Value *closure_48 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Prelude_IO_prim__putStr, 2, 2);
-                                                             // Prelude.IO:98:22--98:34
+                                                             // Prelude.IO:99:22--99:34
     ((Idris2_Closure*)closure_48)->args[0] = var_18;
     ((Idris2_Closure*)closure_48)->args[1] = var_0;
     return closure_48;
@@ -202,9 +202,9 @@ Idris2_Value *Main_main_10
     Idris2_Value *primVar_50 = strAppend(var_4, var_5);
     idris2_removeReference(var_4);
     idris2_removeReference(var_5);
-    Idris2_Value * var_6 = primVar_50;                       // Prelude.IO:98:22--98:34
+    Idris2_Value * var_6 = primVar_50;                       // Prelude.IO:99:22--99:34
     Idris2_Value *closure_51 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Prelude_IO_prim__putStr, 2, 2);
-                                                             // Prelude.IO:98:22--98:34
+                                                             // Prelude.IO:99:22--99:34
     ((Idris2_Closure*)closure_51)->args[0] = var_6;
     ((Idris2_Closure*)closure_51)->args[1] = var_0;
     return closure_51;

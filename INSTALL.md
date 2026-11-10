@@ -122,6 +122,26 @@ If all is well, to install, type:
 
 If you are building with Racket, you'll need to run `IDRIS2_CG=racket make install`.
 
+#### Bootstrapping with only a C compiler
+
+If neither Chez Scheme nor Racket is available, you can bootstrap from the C
+code that the RefC backend generated for the compiler
+(`bootstrap/idris2_app/idris2.c.xz`). This needs only a C compiler, `make`,
+`xz` and GMP:
+
+- `make bootstrap-c`
+
+The compiler built this way uses the RefC backend as its default code
+generator, so install it with `IDRIS2_CG=refc make install`. It is slower than
+a compiler built with Chez Scheme, and it needs a large stack, so it is run
+by a launcher script that raises the stack limit (`ulimit -s`). Compiling the
+generated C needs about 3GB of memory; set `BOOT_CFLAGS` to change the
+optimisation flags (`-O1` by default). Once Chez Scheme is available, you can
+rebuild Idris 2 with it as described in [step 5](#5-optional-self-hosting-step).
+
+When built with RefC, the compiler has no Chez Scheme evaluator, so the REPL
+evaluation mode `:set eval scheme` is not available.
+
 ### 3: Installing with an existing Idris 2
 
 If you have the latest *released* version of Idris 2

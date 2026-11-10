@@ -74,7 +74,8 @@ onCollect ptr c = primIO (prim__onCollect ptr (\x => toPrim (c x)))
 export
 prim__getString : Ptr String -> String
 
-%foreign "C:putchar,libc 6"
+%foreign "RefC:idris2_refc_putChar"
+         "C:putchar,libc 6"
          "node:lambda:x=>process.stdout.write(x)"
          "browser:lambda:x=>console.log(x)"
 prim__putChar : Char -> (1 x : %World) -> IORes ()

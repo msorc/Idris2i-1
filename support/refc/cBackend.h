@@ -13,5 +13,6 @@
 #include "memoryManagement.h"
 #include "prim.h"
 #include "runtime.h"
+#include "schemeStubs.h"
 #include "stringOps.h"
 #include "threads.h"

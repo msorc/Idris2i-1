@@ -34,6 +34,44 @@ C, you will need to arrange for them to be accessible via ``LD_LIBRARY_PATH``
 when running the executable. The default Idris 2 support libraries are
 statically linked.
 
+Strings and characters
+======================
+
+A ``String`` is stored as a NUL-terminated sequence of bytes in UTF-8, so it
+can be passed to C functions as a ``char *``.  As in the other backends, the
+string primitives work on Unicode code points: ``length "λ"`` is ``1``, and
+``unpack`` gives one ``Char`` per code point.  Bytes that are not part of a
+valid UTF-8 sequence (for example in a file that is not UTF-8) are read as
+``U+FFFD``, one byte at a time.  Because indexing a UTF-8 string has to walk
+it, ``strIndex``, ``substr`` and ``length`` take time linear in the length of
+the string.
+
+A ``Char`` holds a full code point.  Casting a number that is not a Unicode
+scalar value to ``Char`` gives ``'\0'``.  A ``Char`` passed to a C function
+through the FFI is still a C ``char``.
+
+A string cannot contain the NUL character, since it ends the string.
+
+``show`` prints a ``Double`` like the Chez backend: the shortest digits that
+read back as the same number (``0.1``, ``1e-10``, ``+inf.0``).
+
+The ``C`` and ``RefC`` calling conventions differ in who owns a ``String``
+that a foreign function returns.  With ``%foreign "C:f"``, the generated code
+copies the ``char *`` and leaves the original to the function (so it may be a
+literal or a static buffer, like the result of ``getenv``).  With
+``%foreign "RefC:f"``, the string must come from ``malloc``: the caller takes
+it over as the Idris ``String`` and frees it when it is no longer used.
+``Integer`` and foreign objects are passed to ``RefC`` functions as
+``Idris2_Value *``; the arguments are borrowed, a result is a new reference.
+
+Building Idris 2 with RefC
+==========================
+
+The compiler can itself be compiled with RefC, which gives a way to bootstrap
+it with only a C compiler: ``make bootstrap-c`` (see ``INSTALL.md``).  A
+compiler built this way has no Chez Scheme evaluator, so ``:set eval scheme``
+reports an error.
+
 Extending RefC
 ==============
 

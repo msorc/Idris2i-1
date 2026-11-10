@@ -160,3 +160,8 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y) {
   mpz_xor(retVal->i, ((Idris2_Integer *)x)->i, ((Idris2_Integer *)y)->i);
   return (Idris2_Value *)retVal;
 }
+
+double idris2_flonumUnitRoundoff(void) { return DBL_EPSILON / 2; }
+double idris2_flonumEpsilon(void) { return DBL_EPSILON; }
+double idris2_flonumNaN(void) { return NAN; }
+double idris2_flonumInf(void) { return INFINITY; }
