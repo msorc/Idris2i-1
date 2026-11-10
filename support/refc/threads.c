@@ -4,8 +4,11 @@
 // Idris programs compiled by the RefC backend run as a set of "green
 // threads": user level threads that are multiplexed onto a single OS thread.
 //
-// * The main expression runs on the stack of the process, so it is subject
-//   to the usual stack limits (`ulimit -s`).
+// * The main expression runs on a large stack of its own (1GB by default on
+//   64-bit systems), like in the Chez backend where the stack grows as
+//   needed: much of the library is not tail recursive, so a deep stack is
+//   needed to work on long lists.  The memory is only used as the stack
+//   grows.
 // * Every forked thread owns a stack, allocated with mmap(2) and protected
 //   by a guard page, so that a stack overflow crashes the program instead of
 //   silently corrupting memory.
@@ -276,7 +279,7 @@ struct Idris2_Thread {
 #if IDRIS2_GREEN_THREADS
   Context ctx;
   // The mapping holding the stack, guard page included.  NULL for the main
-  // thread, which runs on the stack of the process.
+  // thread when it runs on the stack of the process.
   void *stack;
 #ifdef IDRIS2_HAVE_VALGRIND
   unsigned valgrind_stack_id;
@@ -604,6 +607,13 @@ static void thread_finish(Idris2_Thread *self) {
 // reserved lazily by the operating system, so a large stack is cheap.
 #define DEFAULT_STACK_SIZE ((size_t)8 * 1024 * 1024)
 #define MIN_STACK_SIZE ((size_t)64 * 1024)
+
+// The size of the stack of the main expression, which can be changed with the
+// IDRIS2_MAIN_STACK_SIZE environment variable (in bytes).  It is reserved
+// lazily too, so it only costs address space: 1GB on 64-bit systems, 64MB on
+// the others.
+#define DEFAULT_MAIN_STACK_SIZE                                                \
+  (sizeof(void *) >= 8 ? (size_t)1024 * 1024 * 1024 : (size_t)64 * 1024 * 1024)
 #define SCHEDULER_STACK_SIZE ((size_t)256 * 1024)
 
 static size_t page_size = 0;
@@ -620,24 +630,41 @@ static size_t round_to_page(size_t size) {
   return (size + page_size - 1) / page_size * page_size;
 }
 
-static void stack_configure(void) {
-  long page = sysconf(_SC_PAGESIZE);
-  page_size = page > 0 ? (size_t)page : 4096;
-  stack_size = DEFAULT_STACK_SIZE;
-  const char *env = getenv("IDRIS2_THREAD_STACK_SIZE");
+// The stack size given by the environment variable `var`, or `dflt`.
+static size_t stack_size_from_env(const char *var, size_t dflt) {
+  size_t result = dflt;
+  const char *env = getenv(var);
   if (env && *env) {
     char *end = NULL;
     unsigned long long size = strtoull(env, &end, 10);
-    if (*end == '\0' && size >= MIN_STACK_SIZE) {
-      stack_size = (size_t)size;
+    if (*end == '\0' && size >= MIN_STACK_SIZE && size <= SIZE_MAX / 2) {
+      result = (size_t)size;
     } else {
       fprintf(stderr,
-              "RefC: ignoring IDRIS2_THREAD_STACK_SIZE=%s (expected a number "
-              "of bytes, at least %zu)\n",
-              env, MIN_STACK_SIZE);
+              "RefC: ignoring %s=%s (expected a number of bytes, at least "
+              "%zu)\n",
+              var, env, MIN_STACK_SIZE);
     }
   }
-  stack_size = round_to_page(stack_size);
+  return round_to_page(result);
+}
+
+static void stack_configure(void) {
+  long page = sysconf(_SC_PAGESIZE);
+  page_size = page > 0 ? (size_t)page : 4096;
+  stack_size = stack_size_from_env("IDRIS2_THREAD_STACK_SIZE",
+                                   DEFAULT_STACK_SIZE);
+}
+
+// Like stack_map, but NULL when the memory is not available.
+static void *stack_try_map(size_t size) {
+  void *mapping = mmap(NULL, size + page_size, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+  if (mapping == MAP_FAILED) {
+    return NULL;
+  }
+  (void)mprotect(mapping, page_size, PROT_NONE);
+  return mapping;
 }
 
 // Map a stack of `size` bytes, preceded by a guard page.  Stacks grow
@@ -734,14 +761,50 @@ static void scheduler_init(void) {
 #endif
 }
 
+// The main expression, while it is started on its own stack.
+static Idris2_Value *(*main_action)(void) = NULL;
+// The context of the process stack, to come back to when main is done.
+static Context process_ctx;
+
+static void main_entry(void) {
+  idris2_trampoline(main_action());
+  context_switch(&main_thread.ctx, &process_ctx);
+  fatal("the main thread was resumed after it finished");
+}
+
+// Run the main expression on a stack of its own.  Returns 0, without running
+// it, when that stack cannot be allocated.
+static int run_main_on_own_stack(Idris2_Value *(*mainAction)(void)) {
+  size_t size = stack_size_from_env("IDRIS2_MAIN_STACK_SIZE",
+                                    DEFAULT_MAIN_STACK_SIZE);
+  void *mapping = stack_try_map(size);
+  if (!mapping) {
+    return 0;
+  }
+  main_thread.stack = mapping;
+  main_action = mainAction;
+  prepare_context(&main_thread.ctx, mapping, size, main_entry);
+#ifdef IDRIS2_HAVE_VALGRIND
+  main_thread.valgrind_stack_id = VALGRIND_STACK_REGISTER(
+      (char *)mapping + page_size, (char *)mapping + page_size + size);
+#endif
+  context_switch(&process_ctx, &main_thread.ctx);
+  // The mapping is left alone: the program is about to end.
+  return 1;
+}
+
 #endif /* IDRIS2_GREEN_THREADS */
 
 void idris2_threadSchedulerRun(Idris2_Value *(*mainAction)(void)) {
   current_thread = &main_thread;
 #if IDRIS2_GREEN_THREADS
   scheduler_init();
+  if (!run_main_on_own_stack(mainAction))
 #endif
-  idris2_trampoline(mainAction());
+  {
+    // No stack of its own: run on the stack of the process.
+    idris2_trampoline(mainAction());
+  }
   // Like in the Chez backend, the program is over once the main expression
   // is done: the other threads, if any, are abandoned.
   thread_finish(&main_thread);

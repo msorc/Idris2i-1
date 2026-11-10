@@ -10,7 +10,8 @@
 // The RefC backend runs Idris programs as a set of "green threads": user
 // level threads that are multiplexed onto a single OS thread.  Each forked
 // green thread owns a stack, and switching between green threads is done
-// with swapcontext(3).  The main expression runs on the stack of the process.
+// with swapcontext(3).  The main expression runs on a large stack of its own
+// (see IDRIS2_MAIN_STACK_SIZE in threads.c).
 //
 // Scheduling is cooperative: a green thread gives up control when it blocks
 // on a synchronisation object (a mutex, a condition variable, a semaphore, a

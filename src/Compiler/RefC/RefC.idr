@@ -226,6 +226,7 @@ data ConstDef
   | CDB64 String
   | CDDb  String
   | CDStr String
+  | CDBI  String -- created on first use (see idris2_integerConstant)
 
 constantName : ConstDef -> String
 constantName = \case
@@ -233,6 +234,7 @@ constantName = \case
   CDB64 x => go "Bits64" x
   CDDb x  => go "Double" x
   CDStr x => go "String" x
+  CDBI x  => go "Integer" x
   where go : String -> String -> String
         go x y = "idris2_constant_\{x}_\{y}"
 
@@ -380,7 +382,25 @@ makeClosure fc n args missing = do
     fillArgs !(get EnvTracker) "((Idris2_Closure*)\{closure})->args" args 0
     pure closure
 
--- When changing this number, also change idris2_dispatch_closure in runtime.c.
+||| A call in tail position: store it in the pending tail call, which the
+||| trampoline of the caller makes, instead of allocating a closure for it (see
+||| runtime.h).
+makeTailCall : {auto a : Ref ArgCounter Nat}
+            -> {auto oft : Ref OutfileText Output}
+            -> {auto il : Ref IndentLevel Nat}
+            -> {auto e : Ref EnvTracker Env}
+            -> FC
+            -> Name
+            -> List AVar
+            -> Core String
+makeTailCall fc n args = do
+    emit fc "idris2_pendingTailCall.f = (void *)\{cName n};"
+    emit fc "idris2_pendingTailCall.arity = \{show $ length args};"
+    fillArgs !(get EnvTracker) "idris2_pendingTailCall.args" args 0
+    pure "IDRIS2_TAILCALL"
+
+-- When changing this number, also change idris2_dispatch in runtime.c and
+-- IDRIS2_MAX_TAILCALL_ARGS in runtime.h.
 -- Increasing this number will worsen stack consumption and increase the codesize of idris2_dispatch_closure.
 -- In C89, the maximum number of arguments is 31, so it should not be larger than 31. 127 is safe in C99, but I do not recommend it.
 MaxExtractFunArgs : Nat
@@ -481,7 +501,38 @@ addReuseConstructor reuseMap sc conName conArgs consts shouldDrop actualReuseCon
         dupVars $ conArgs \\ shouldDrop
         pure (shouldDrop \\ conArgs, actualReuseConsts)
 
+||| The C arguments of the first application of `let var = f a in body`,
+||| and the environment for `body`, as the translation of a `let` would give
+||| them (see `letGeneric`).
+applyFirst : Env -> Int -> ANF -> AVar -> AVar -> (String, String, Env)
+applyFirst env var body f a =
+    let usedVars = freeVariables body
+        borrowVal = intersection env.owned (delete (ALocal var) usedVars)
+        valueEnv = moveFromOwnedToBorrowed env borrowVal
+    in (avarToC valueEnv f, avarToC valueEnv a,
+        { owned := insert (ALocal var) borrowVal } env)
+
 mutual
+    letGeneric : {auto a : Ref ArgCounter Nat}
+              -> {auto oft : Ref OutfileText Output}
+              -> {auto il : Ref IndentLevel Nat}
+              -> {auto e : Ref EnvTracker Env}
+              -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
+              -> FC -> Int -> ANF -> ANF -> TailPositionStatus -> Core String
+    letGeneric fc var value body tailPosition = do
+        env <- get EnvTracker
+        let usedVars = freeVariables body
+        let borrowVal = intersection env.owned (delete (ALocal var) usedVars)
+        let owned' = if contains (ALocal var) usedVars then insert (ALocal var) borrowVal else borrowVal
+        let usedCons = usedConstructors value
+        -- When translating value into C, we borrow variables that will be used in body
+        let valueEnv = { reuseMap $= (`intersectionMap` usedCons) } (moveFromOwnedToBorrowed env borrowVal)
+        put EnvTracker valueEnv
+        emit fc $ "Idris2_Value * var_\{show var} = \{!(cStatementsFromANF value NotInTailPosition)};"
+        unless (contains (ALocal var) usedVars) $ emit fc $ "idris2_removeReference(var_\{show var});"
+        put EnvTracker ({ owned := owned', reuseMap $= (`differenceMap` usedCons) } env)
+        cStatementsFromANF body tailPosition
+
     concaseBody : {auto a : Ref ArgCounter Nat}
                  -> {auto e : Ref EnvTracker Env}
                  -> {auto oft : Ref OutfileText Output}
@@ -518,7 +569,10 @@ mutual
     cStatementsFromANF (AAppName fc _ n args) tailPosition = do
         let nargs = length args
         case tailPosition of
-            InTailPosition => makeClosure fc n args 0
+            InTailPosition =>
+                if nargs > MaxExtractFunArgs
+                   then makeClosure fc n args 0
+                   else makeTailCall fc n args
             _ => if nargs > MaxExtractFunArgs
                 then pure "idris2_trampoline(\{!(makeClosure fc n args 0)})"
                 else do
@@ -533,19 +587,34 @@ mutual
            NotInTailPosition =>          "idris2_apply_closure"
            InTailPosition    => "idris2_tailcall_apply_closure") ++ "(\{avarToC env closure}, \{avarToC env arg})"
 
-    cStatementsFromANF (ALet fc var value body) tailPosition = do
-        env <- get EnvTracker
-        let usedVars = freeVariables body
-        let borrowVal = intersection env.owned (delete (ALocal var) usedVars)
-        let owned' = if contains (ALocal var) usedVars then insert (ALocal var) borrowVal else borrowVal
-        let usedCons = usedConstructors value
-        -- When translating value into C, we borrow variables that will be used in body
-        let valueEnv = { reuseMap $= (`intersectionMap` usedCons) } (moveFromOwnedToBorrowed env borrowVal)
-        put EnvTracker valueEnv
-        emit fc $ "Idris2_Value * var_\{show var} = \{!(cStatementsFromANF value NotInTailPosition)};"
-        unless (contains (ALocal var) usedVars) $ emit fc $ "idris2_removeReference(var_\{show var});"
-        put EnvTracker ({ owned := owned', reuseMap $= (`differenceMap` usedCons) } env)
-        cStatementsFromANF body tailPosition
+    -- `let v = f a in let w = v b in body`, where `v` is not used anywhere
+    -- else, applies `f` to both arguments at once (and likewise when the
+    -- body is `v b`), so that no partial application is made in between.
+    cStatementsFromANF (ALet fc var (AApp fc1 l1 f a) (ALet fc2 var2 (AApp fc3 l3 (ALocal v) b) body2)) tailPosition
+      = if v == var && b /= ALocal var && not (contains (ALocal var) (freeVariables body2))
+           then do
+             env <- get EnvTracker
+             let (fStr, aStr, env1) = applyFirst env var (ALet fc2 var2 (AApp fc3 l3 (ALocal v) b) body2) f a
+             let usedVars2 = freeVariables body2
+             let borrowVal2 = intersection env1.owned (delete (ALocal var2) usedVars2)
+             let owned2 = if contains (ALocal var2) usedVars2 then insert (ALocal var2) borrowVal2 else borrowVal2
+             let bStr = avarToC (moveFromOwnedToBorrowed env1 borrowVal2) b
+             emit fc2 $ "Idris2_Value * var_\{show var2} = idris2_apply_closure2(\{fStr}, \{aStr}, \{bStr});"
+             unless (contains (ALocal var2) usedVars2) $ emit fc2 $ "idris2_removeReference(var_\{show var2});"
+             put EnvTracker ({ owned := owned2 } env1)
+             cStatementsFromANF body2 tailPosition
+           else letGeneric fc var (AApp fc1 l1 f a) (ALet fc2 var2 (AApp fc3 l3 (ALocal v) b) body2) tailPosition
+    cStatementsFromANF (ALet fc var (AApp fc1 l1 f a) (AApp fc2 l2 (ALocal v) b)) tailPosition
+      = if v == var && b /= ALocal var
+           then do
+             env <- get EnvTracker
+             let (fStr, aStr, env1) = applyFirst env var (AApp fc2 l2 (ALocal v) b) f a
+             put EnvTracker env1
+             pure $ (case tailPosition of
+                 NotInTailPosition => "idris2_apply_closure2"
+                 InTailPosition    => "idris2_tailcall_apply_closure2") ++ "(\{fStr}, \{aStr}, \{avarToC env1 b})"
+           else letGeneric fc var (AApp fc1 l1 f a) (AApp fc2 l2 (ALocal v) b) tailPosition
+    cStatementsFromANF (ALet fc var value body) tailPosition = letGeneric fc var value body tailPosition
 
     cStatementsFromANF (ACon fc n coninfo tag args) _ = do
         if coninfo == NIL || coninfo == NOTHING || coninfo == ZERO || coninfo == UNIT
@@ -678,6 +747,20 @@ mutual
         pure switchReturnVar
 
     cStatementsFromANF (APrimVal fc (I x)) tailPosition = cStatementsFromANF (APrimVal fc (I64 $ cast x)) tailPosition
+    cStatementsFromANF (APrimVal fc c@(BI x)) _
+      = if x >= 0 && x < 100
+           then pure "idris2_getPredefinedInteger(\{show x})"
+           else do
+             -- A large Integer literal is made once, the first time that it
+             -- is needed, instead of being parsed every time.
+             constdefs <- get ConstDef
+             cdef <- case lookup c constdefs of
+                          Just cdef => pure cdef
+                          Nothing => do
+                            let cdef = CDBI !(getNextCounter)
+                            put ConstDef $ insert c cdef constdefs
+                            pure cdef
+             pure "idris2_integerConstant(&\{constantName cdef}, \"\{show x}\")"
     cStatementsFromANF (APrimVal fc c) _ = do
       constdefs <- get ConstDef
       case lookup c constdefs of
@@ -995,6 +1078,7 @@ header = do
       B64 x => go cdef "Bits64" "BITS64" "UINT64_C(\{show x})"
       Db x  => go cdef "Double" "DOUBLE" (cDouble x)
       Str x => go cdef "String" "STRING" (cStringQuoted x)
+      BI _  => "static Idris2_Value *\{constantName cdef} = NULL;"
       _ => "/* bad constant */"
 
 

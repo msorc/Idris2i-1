@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+idris2 -o refc_stack Main.idr
+# Whatever the limit on the stack of the process
+ulimit -s 8192 2>/dev/null
+$VALGRIND ./build/exec/refc_stack
+rm -f lines.txt

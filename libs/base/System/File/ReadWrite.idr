@@ -173,9 +173,16 @@ readLinesOnto acc _ Dry h = pure (Right (False, reverse acc))
 readLinesOnto acc offset (More fuel) h
   = do False <- fEOF h
          | True => pure $ Right (True, reverse acc)
+       -- The recursive calls are in tail position (which they are not through
+       -- the `Compose` monad of `io` and `Either`), so that reading a file of
+       -- many lines does not need a deep stack.
        case offset of
-            (S offset') => (fSeekLine h *> readLinesOnto acc offset' (More fuel) h) @{Applicative.Compose}
-            0           => (fGetLine h >>= \str => readLinesOnto (str :: acc) 0 fuel h) @{Monad.Compose}
+            (S offset') => do Right () <- fSeekLine h
+                                | Left err => pure (Left err)
+                              readLinesOnto acc offset' (More fuel) h
+            0           => do Right str <- fGetLine h
+                                | Left err => pure (Left err)
+                              readLinesOnto (str :: acc) 0 fuel h
 
 ||| Read a chunk of a file in a line-delimited fashion.
 ||| You can use this function to read an entire file

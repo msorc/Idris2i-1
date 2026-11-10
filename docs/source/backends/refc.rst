@@ -7,10 +7,19 @@ using a reference counting garbage collector. This is intended as a lightweight
 (i.e. minimal dependencies) code generator that can be ported to multiple
 platforms, especially those with memory constraints.
 
-Performance is not as good as the Scheme based code generators, partly because
-the reference counting has not yet had any optimisation, and partly because of
-the limitations of C. However, the main goal is portability: the generated
-code should run on any platform that supports a C compiler.
+Performance is not as good as the Scheme based code generators: programs that
+allocate many small values typically take two to four times as long as with
+the Chez backend, as every value is reference counted and freed as soon as it
+is no longer used.  On the other hand they usually need much less memory.  The
+main goal is portability: the generated code should run on any platform that
+supports a C compiler.
+
+Small values are allocated from pages of values of the same size rather than
+with ``malloc``.  When the program runs under Valgrind, and the support library
+was built with the Valgrind headers available, every value comes from
+``malloc``, so that Valgrind can check them.  For other memory checkers (such
+as AddressSanitizer), compile the support library and the program with
+``-DIDRIS2_REFC_NO_POOLS``.
 
 This code generator can be accessed via the REPL command:
 
@@ -179,10 +188,17 @@ it finishes.  This has a few consequences:
   thread is blocked forever while the main expression is still running, the
   program reports a deadlock and exits with an error.
 
-The main expression runs on the stack of the process, so the usual limits
-(``ulimit -s``) apply to it.  Every forked thread gets a stack of its own,
-followed by a guard page so that a stack overflow crashes the program rather
-than corrupting its memory.  The size of these stacks defaults to 8MB, which
-matches the stack of a typical process (the memory is only used as the stack
-grows), and can be changed with the ``IDRIS2_THREAD_STACK_SIZE`` environment
-variable (in bytes, at least 65536).
+Much of the library is not tail recursive (``map``, ``++``, ``sort``, ...),
+so working on a long list needs a deep stack.  Like in the Chez backend,
+where the stack grows as needed, the main expression runs on a large stack
+of its own: 1GB on 64-bit systems and 64MB on the others, which can be
+changed with the ``IDRIS2_MAIN_STACK_SIZE`` environment variable (in bytes).
+The memory is only used as the stack grows, and ``ulimit -s`` does not apply
+to it.  If the stack cannot be allocated, the main expression runs on the
+stack of the process.
+
+Every forked thread gets a stack of its own too.  The size of these stacks
+defaults to 8MB, which matches the stack of a typical process, and can be
+changed with the ``IDRIS2_THREAD_STACK_SIZE`` environment variable (in bytes,
+at least 65536).  Every stack is followed by a guard page, so that a stack
+overflow crashes the program rather than corrupting its memory.

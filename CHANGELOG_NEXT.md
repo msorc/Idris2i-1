@@ -185,6 +185,34 @@ should target this file (`CHANGELOG_NEXT`).
   `Data.Buffer.getString`.  Functions of the `C` calling convention are not
   affected.
 * Declare `idris2_fileIsTTY` in `idris_file.h`, so that `isTTY` compiles.
+* The main expression runs on a large stack of its own (1GB on 64-bit
+  systems, reserved lazily, `IDRIS2_MAIN_STACK_SIZE` to change it) instead of
+  the stack of the process.  Much of the library is not tail recursive, so
+  sorting or mapping a long list used to crash with a stack overflow, while
+  the Chez backend grows its stack as needed.
+* Faster generated code, typically by a factor of 2 to 2.5 (the compiler
+  itself by about 2.3):
+  * Values are allocated from pages of values of the same size, with a free
+    list per page, instead of `malloc` and `free`.  Under Valgrind every
+    value still comes from `malloc`; for other memory checkers, compile the
+    support library and the program with `-DIDRIS2_REFC_NO_POOLS`.
+  * A call in tail position no longer allocates a closure: it is stored in a
+    pending call that the trampoline of the caller makes.  Applying a shared
+    closure to its last argument does the same.
+  * A closure has room for all its arguments, so applying one that nobody
+    else refers to stores the argument in place, and an application of a
+    closure to two arguments is done in one step.
+  * The fast paths of reference counting, allocation and the trampoline are
+    inlined.
+  * Large `Integer` literals are made once instead of being parsed every time
+    that they are used.
+* Freeing a long list no longer needs a deep stack.
+* Arithmetic on `Int`, `Int8`, `Int16`, `Int32` and `Int64` wrapped around by
+  relying on the overflow of signed C integers, which is undefined behaviour
+  that an optimising C compiler may exploit: it is now done on unsigned
+  integers.
+* Decrementing the reference count of a shared closure could make an
+  immortal closure mortal again.
 * The compiler itself can be compiled with RefC.  Such a compiler has no Chez
   Scheme evaluator (`:set eval scheme` in the REPL).
 
@@ -192,6 +220,9 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Base
 
+* `readFilePage`, and so `readFile`, no longer use stack space for every line
+  that they read: the recursion went through the bind of the composition of
+  `io` and `Either`, which is not a tail call.
 * Added `emptyBuffer` to `Data.Buffer`
 * Added `rtrim` to `Data.String`.
 * Added `decToMaybe`, `maybeCong` and `maybeCong2` to `Data.Maybe`.

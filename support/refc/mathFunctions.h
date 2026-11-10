@@ -8,15 +8,30 @@
 #define idris2_binop(ty, op, l, r)                                             \
   ((Idris2_Value *)idris2_mk##ty(idris2_vp_to_##ty(l) op idris2_vp_to_##ty(r)))
 
+/* Signed fixed size integers wrap around, like in the other backends.  In C
+   an overflow of a signed type is undefined behaviour (which the C compiler
+   may assume never happens), so the arithmetic is done on unsigned integers
+   of at least the same width, and converted back. */
+#define idris2_wrapop(ty, cty, uty, op, l, r)                                  \
+  ((Idris2_Value *)idris2_mk##ty(                                             \
+      (cty)((uty)idris2_vp_to_##ty(l) op (uty)idris2_vp_to_##ty(r))))
+#define idris2_wrapop8(op, l, r) idris2_wrapop(Int8, int8_t, uint32_t, op, l, r)
+#define idris2_wrapop16(op, l, r)                                              \
+  idris2_wrapop(Int16, int16_t, uint32_t, op, l, r)
+#define idris2_wrapop32(op, l, r)                                              \
+  idris2_wrapop(Int32, int32_t, uint32_t, op, l, r)
+#define idris2_wrapop64(op, l, r)                                              \
+  idris2_wrapop(Int64, int64_t, uint64_t, op, l, r)
+
 /* add */
 #define idris2_add_Bits8(l, r) (idris2_binop(Bits8, +, l, r))
 #define idris2_add_Bits16(l, r) (idris2_binop(Bits16, +, l, r))
 #define idris2_add_Bits32(l, r) (idris2_binop(Bits32, +, l, r))
 #define idris2_add_Bits64(l, r) (idris2_binop(Bits64, +, l, r))
-#define idris2_add_Int8(l, r) (idris2_binop(Int8, +, l, r))
-#define idris2_add_Int16(l, r) (idris2_binop(Int16, +, l, r))
-#define idris2_add_Int32(l, r) (idris2_binop(Int32, +, l, r))
-#define idris2_add_Int64(l, r) (idris2_binop(Int64, +, l, r))
+#define idris2_add_Int8(l, r) (idris2_wrapop8(+, l, r))
+#define idris2_add_Int16(l, r) (idris2_wrapop16(+, l, r))
+#define idris2_add_Int32(l, r) (idris2_wrapop32(+, l, r))
+#define idris2_add_Int64(l, r) (idris2_wrapop64(+, l, r))
 Idris2_Value *idris2_add_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_add_Double(l, r) (idris2_binop(Double, +, l, r))
 
@@ -25,18 +40,22 @@ Idris2_Value *idris2_add_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_sub_Bits16(l, r) (idris2_binop(Bits16, -, l, r))
 #define idris2_sub_Bits32(l, r) (idris2_binop(Bits32, -, l, r))
 #define idris2_sub_Bits64(l, r) (idris2_binop(Bits64, -, l, r))
-#define idris2_sub_Int8(l, r) (idris2_binop(Int8, -, l, r))
-#define idris2_sub_Int16(l, r) (idris2_binop(Int16, -, l, r))
-#define idris2_sub_Int32(l, r) (idris2_binop(Int32, -, l, r))
-#define idris2_sub_Int64(l, r) (idris2_binop(Int64, -, l, r))
+#define idris2_sub_Int8(l, r) (idris2_wrapop8(-, l, r))
+#define idris2_sub_Int16(l, r) (idris2_wrapop16(-, l, r))
+#define idris2_sub_Int32(l, r) (idris2_wrapop32(-, l, r))
+#define idris2_sub_Int64(l, r) (idris2_wrapop64(-, l, r))
 Idris2_Value *idris2_sub_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_sub_Double(l, r) (idris2_binop(Double, -, l, r))
 
 /* negate */
-#define idris2_negate_Int8(x) (idris2_mkInt8(-(idris2_vp_to_Int8(x))))
-#define idris2_negate_Int16(x) (idris2_mkInt16(-(idris2_vp_to_Int16(x))))
-#define idris2_negate_Int32(x) (idris2_mkInt32(-(idris2_vp_to_Int32(x))))
-#define idris2_negate_Int64(x) (idris2_mkInt64(-(idris2_vp_to_Int64(x))))
+#define idris2_negate_Int8(x)                                                 \
+  (idris2_mkInt8((int8_t)(0u - (uint32_t)idris2_vp_to_Int8(x))))
+#define idris2_negate_Int16(x)                                                 \
+  (idris2_mkInt16((int16_t)(0u - (uint32_t)idris2_vp_to_Int16(x))))
+#define idris2_negate_Int32(x)                                                 \
+  (idris2_mkInt32((int32_t)(0u - (uint32_t)idris2_vp_to_Int32(x))))
+#define idris2_negate_Int64(x)                                                 \
+  (idris2_mkInt64((int64_t)(0u - (uint64_t)idris2_vp_to_Int64(x))))
 Idris2_Value *idris2_negate_Integer(Idris2_Value *x);
 #define idris2_negate_Double(x) (idris2_mkDouble(-(idris2_vp_to_Double(x))))
 
@@ -45,10 +64,10 @@ Idris2_Value *idris2_negate_Integer(Idris2_Value *x);
 #define idris2_mul_Bits16(l, r) (idris2_binop(Bits16, *, l, r))
 #define idris2_mul_Bits32(l, r) (idris2_binop(Bits32, *, l, r))
 #define idris2_mul_Bits64(l, r) (idris2_binop(Bits64, *, l, r))
-#define idris2_mul_Int8(l, r) (idris2_binop(Int8, *, l, r))
-#define idris2_mul_Int16(l, r) (idris2_binop(Int16, *, l, r))
-#define idris2_mul_Int32(l, r) (idris2_binop(Int32, *, l, r))
-#define idris2_mul_Int64(l, r) (idris2_binop(Int64, *, l, r))
+#define idris2_mul_Int8(l, r) (idris2_wrapop8(*, l, r))
+#define idris2_mul_Int16(l, r) (idris2_wrapop16(*, l, r))
+#define idris2_mul_Int32(l, r) (idris2_wrapop32(*, l, r))
+#define idris2_mul_Int64(l, r) (idris2_wrapop64(*, l, r))
 Idris2_Value *idris2_mul_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_mul_Double(l, r) (idris2_binop(Double, *, l, r))
 
@@ -80,10 +99,10 @@ Idris2_Value *idris2_mod_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_shiftl_Bits16(l, r) (idris2_binop(Bits16, <<, l, r))
 #define idris2_shiftl_Bits32(l, r) (idris2_binop(Bits32, <<, l, r))
 #define idris2_shiftl_Bits64(l, r) (idris2_binop(Bits64, <<, l, r))
-#define idris2_shiftl_Int8(l, r) (idris2_binop(Int8, <<, l, r))
-#define idris2_shiftl_Int16(l, r) (idris2_binop(Int16, <<, l, r))
-#define idris2_shiftl_Int32(l, r) (idris2_binop(Int32, <<, l, r))
-#define idris2_shiftl_Int64(l, r) (idris2_binop(Int64, <<, l, r))
+#define idris2_shiftl_Int8(l, r) (idris2_wrapop8(<<, l, r))
+#define idris2_shiftl_Int16(l, r) (idris2_wrapop16(<<, l, r))
+#define idris2_shiftl_Int32(l, r) (idris2_wrapop32(<<, l, r))
+#define idris2_shiftl_Int64(l, r) (idris2_wrapop64(<<, l, r))
 Idris2_Value *idris2_shiftl_Integer(Idris2_Value *x, Idris2_Value *y);
 
 /* shiftr */
