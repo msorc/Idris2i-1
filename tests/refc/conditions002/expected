@@ -1,0 +1,4 @@
+woken up while holding the mutex twice
+True
+timed out
+signalled

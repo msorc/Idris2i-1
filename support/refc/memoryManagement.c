@@ -294,26 +294,29 @@ void idris2_removeReference(Idris2_Value *elem) {
       break;
 
     case GC_POINTER_TAG: {
-      /* maybe here we need to invoke onCollectAny */
+      /* Run the finaliser.  Applying a closure consumes both the closure and
+         its argument, so the references held by the GC pointer are handed
+         over to the finaliser. */
       Idris2_GCPointer *vPtr = (Idris2_GCPointer *)elem;
       Idris2_Value *closure1 = idris2_apply_closure(
           (Idris2_Value *)vPtr->onCollectFct, (Idris2_Value *)vPtr->p);
-      idris2_apply_closure(closure1, NULL);
-      idris2_removeReference((Idris2_Value *)vPtr->p);
+      idris2_removeReference(idris2_apply_closure(closure1, NULL));
       break;
     }
 
-    case CHANNEL_BOX_TAG: {
-      /* A message travelling through a channel. */
-      Idris2_ChannelBox *box = (Idris2_ChannelBox *)elem;
-      idris2_removeReference(box->value);
+    case CHANNEL_TAG: {
+      /* Nobody can be waiting on a channel that is being freed: a waiting
+         thread holds a reference to it. */
+      Idris2_Channel *channel = (Idris2_Channel *)elem;
+      if (channel->full)
+        idris2_removeReference(channel->value);
       break;
     }
 
     case THREAD_ID_TAG:
-    case THREAD_TAG:
-      /* Green threads are owned by the runtime and must not be freed here. */
-      return;
+      /* The thread clears the handle when it finishes, and it holds a
+         reference to the handle until then. */
+      break;
 
     default:
       break;

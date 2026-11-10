@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 -o refc_threaddata002 Main.idr
+$VALGRIND ./build/exec/refc_threaddata002

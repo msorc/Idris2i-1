@@ -26,7 +26,7 @@ void refc_mutexRelease(Idris2_Value *mutex);
 void *refc_makeCondition(void);
 void refc_conditionWait(Idris2_Value *condition, Idris2_Value *mutex);
 void refc_conditionWaitTimeout(Idris2_Value *condition, Idris2_Value *mutex,
-                                int64_t timeout_us);
+                               int64_t timeout_us);
 void refc_conditionSignal(Idris2_Value *condition);
 void refc_conditionBroadcast(Idris2_Value *condition);
 
@@ -51,11 +51,7 @@ void *refc_channelGetWithTimeout(Idris2_Value *erased, Idris2_Value *channel,
 void refc_channelPut(Idris2_Value *erased, Idris2_Value *channel,
                      Idris2_Value *value);
 
-// Thread local data
-
-int64_t refc_getThreadId(void);
-void refc_setThreadData(Idris2_Value *erased, Idris2_Value *value);
-void *refc_getThreadData(Idris2_Value *erased);
+// Thread identifiers and thread local data are declared in threads.h.
 
 // Sleeping.  Unlike the system calls, these do not block the other green
 // threads.

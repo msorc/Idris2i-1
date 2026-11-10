@@ -108,7 +108,8 @@ Idris2_Value *idris2_Prelude_IO_prim__onCollect(Idris2_Value *_erased,
   Idris2_GCPointer *retVal = IDRIS2_NEW_VALUE(Idris2_GCPointer);
   retVal->header.tag = GC_POINTER_TAG;
   retVal->p = (Idris2_Pointer *)idris2_newReference(_anyPtr);
-  retVal->onCollectFct = (Idris2_Closure *)_freeingFunction;
+  retVal->onCollectFct =
+      (Idris2_Closure *)idris2_newReference(_freeingFunction);
   return (Idris2_Value *)retVal;
 }
 
@@ -119,17 +120,11 @@ idris2_Prelude_IO_prim__onCollectAny(Idris2_Value *_anyPtr,
   Idris2_GCPointer *retVal = IDRIS2_NEW_VALUE(Idris2_GCPointer);
   retVal->header.tag = GC_POINTER_TAG;
   retVal->p = (Idris2_Pointer *)idris2_newReference(_anyPtr);
-  retVal->onCollectFct = (Idris2_Closure *)_freeingFunction;
+  retVal->onCollectFct =
+      (Idris2_Closure *)idris2_newReference(_freeingFunction);
   return (Idris2_Value *)retVal;
 }
 
-//
-//
-//
-//
-// // -----------------------------------
-// //         Array operations
-// // -----------------------------------
 char const idris2_constr_Int[] = "Int";
 char const idris2_constr_Int8[] = "Int8";
 char const idris2_constr_Int16[] = "Int16";

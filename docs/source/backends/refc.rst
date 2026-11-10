@@ -107,32 +107,44 @@ Green threads
 =============
 
 The RefC backend supports concurrency through *green threads*: user level
-threads that are multiplexed onto a single OS thread by the runtime.  Each
-green thread owns a stack, and switching between green threads is done with
-``swapcontext(3)``, so green threads are only supported on POSIX systems
-(Linux, macOS and the BSDs) for now.  On Windows the backend still builds and
-runs programs, but forking a thread reports an error.
+threads that are multiplexed onto a single OS thread by the runtime.
+Switching between green threads is done by a few lines of assembly on x86-64
+and AArch64, and with ``swapcontext(3)`` on the other POSIX systems (which is
+slower, as it makes a system call on every switch).  Green threads are only
+supported on POSIX systems (Linux, macOS and the BSDs) for now.  On Windows and WebAssembly the backend still builds and runs programs,
+but forking a thread reports an error.
 
 The ``fork`` and ``threadWait`` functions of ``Prelude.IO``, as well as the
 whole of ``System.Concurrency`` (mutexes, condition variables, semaphores,
-barriers and channels), are implemented in terms of green threads.  The
-synchronisation objects behave like their counterparts in the Scheme
-backends, but they are implemented by the RefC scheduler rather than by the
-operating system.
+barriers, channels and thread local data), are implemented in terms of green
+threads.  The synchronisation objects behave like their counterparts in the
+Chez backend (mutexes are recursive, a channel holds at most one value, and
+a forked thread inherits the thread local data of its parent), but they are
+implemented by the RefC scheduler rather than by the operating system.
 
 Scheduling is *cooperative*: a green thread gives up control when it blocks
-on a synchronisation object, when it finishes, or when it is explicitly asked
-to yield.  This has a few consequences:
+on a synchronisation object, when it sleeps, when it forks a thread, or when
+it finishes.  This has a few consequences:
 
 * Green threads provide concurrency, but not parallelism: only one green
-  thread runs at any given moment.
+  thread runs at any given moment, and a thread that computes without
+  blocking keeps the others waiting.
 
 * A blocking system call, such as reading from standard input, blocks every
-  green thread.  Only the synchronisation objects above let the other green
-  threads make progress.  The ``sleep`` and ``usleep`` functions of
-  ``System`` are exceptions: they are implemented in terms of the scheduler,
-  so that the other green threads keep running while a thread sleeps.
+  green thread.  The ``sleep`` and ``usleep`` functions of ``System`` are
+  exceptions: they are implemented in terms of the scheduler, so that the
+  other green threads keep running while a thread sleeps.
 
-* The stack of a green thread is allocated on the heap.  Its size defaults to
-  8MB, which matches the stack size of a typical process, and can be changed
-  with the ``IDRIS2_THREAD_STACK_SIZE`` environment variable (in bytes).
+* Like in the Chez backend, the program ends when the main expression is
+  done: the threads that are still running, sleeping or blocked are
+  abandoned.  Use ``threadWait`` to wait for a thread to finish.  If every
+  thread is blocked forever while the main expression is still running, the
+  program reports a deadlock and exits with an error.
+
+The main expression runs on the stack of the process, so the usual limits
+(``ulimit -s``) apply to it.  Every forked thread gets a stack of its own,
+followed by a guard page so that a stack overflow crashes the program rather
+than corrupting its memory.  The size of these stacks defaults to 8MB, which
+matches the stack of a typical process (the memory is only used as the stack
+grows), and can be changed with the ``IDRIS2_THREAD_STACK_SIZE`` environment
+variable (in bytes, at least 65536).

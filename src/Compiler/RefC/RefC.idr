@@ -560,8 +560,14 @@ mutual
             NS _ (UN (Basic pn)) =>
                unless (elem pn prims) $ throw $ InternalError $ "[refc] Unknown primitive: " ++ cName p
             _ => throw $ InternalError $ "[refc] Unknown primitive: " ++ cName p
+        env <- get EnvTracker
+        let resultVar = "primVar_" ++ !(getNextCounter)
         emit fc $ "// call to external primitive " ++ cName p
-        pure $ "idris2_\{cName p}("++ showSep ", " (map varName args) ++")"
+        emit fc $ "Idris2_Value *\{resultVar} = idris2_\{cName p}(" ++ showSep ", " (map varName args) ++ ");"
+        -- The primitives borrow their arguments (they take a reference to
+        -- whatever they keep), so the arguments we own are released here.
+        removeVars $ map varName $ Prelude.toList $ intersection (fromList args) env.owned
+        pure resultVar
 
     cStatementsFromANF (AConCase fc sc alts mDef) tailPosition = do
         let sc' = varName sc

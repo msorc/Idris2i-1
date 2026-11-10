@@ -137,13 +137,21 @@ should target this file (`CHANGELOG_NEXT`).
 * Fix missing FFI of Data.Buffer.
 * Added support for green threads: `fork` and `threadWait` from `Prelude.IO`,
   and the whole of `System.Concurrency` (mutexes, condition variables,
-  semaphores, barriers and channels) are now implemented in terms of green
-  threads, i.e. user level threads that are multiplexed onto a single OS
-  thread by the RefC runtime.  Green threads are currently only supported on
-  POSIX systems; on Windows the backend still builds and runs programs, but
-  forking a thread reports an error.  Note that a blocking system call (such
-  as reading from standard input) still blocks every green thread; `sleep`
-  and `usleep` do not, as they are implemented in terms of the scheduler.
+  semaphores, barriers, channels and thread local data) are now implemented
+  in terms of green threads, i.e. user level threads that are multiplexed onto
+  a single OS thread by the RefC runtime.  Green threads are currently only
+  supported on POSIX systems; on Windows the backend still builds and runs
+  programs, but forking a thread reports an error.  Note that a blocking
+  system call (such as reading from standard input) still blocks every green
+  thread; `sleep` and `usleep` do not, as they are implemented in terms of
+  the scheduler.  Like in the Chez backend, the program ends when the main
+  expression is done.
+* Fixed memory leaks of the arguments passed to the external primitives
+  (`writeIORef`, `newIORef`, `newArray`, `arraySet`, `onCollect`, ...): the
+  primitives take a reference to what they keep, but the caller did not
+  release its own.  `modifyIORef` used to leak the previous value of the
+  `IORef` on every call.
+* Fixed the finaliser of a `GCPtr` / `GCAnyPtr` releasing the pointer twice.
 
 ### Library changes
 

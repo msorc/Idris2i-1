@@ -32,8 +32,6 @@
 #define BARRIER_TAG 33
 #define CHANNEL_TAG 34
 #define THREAD_ID_TAG 35
-#define THREAD_TAG 36
-#define CHANNEL_BOX_TAG 37
 
 typedef struct {
   // Objects that reach the maximum reference count will be immortalized.
@@ -196,8 +194,7 @@ typedef struct {
 // terms of green threads rather than in terms of OS threads.
 // ---------------------------------------------------------------------------
 
-// A green thread.  Defined in threads.h, forward declared here so that the
-// synchronisation objects can refer to it.
+// A green thread.  Its definition is private to threads.c.
 typedef struct Idris2_Thread Idris2_Thread;
 
 // A queue of green threads waiting for an event.  The links are kept in the
@@ -207,17 +204,19 @@ typedef struct {
   Idris2_Thread *tail;
 } Idris2_WaitQueue;
 
-// The handle returned by `fork` and accepted by `threadWait`.
+// The handle returned by `fork` and accepted by `threadWait`.  `thread` is
+// reset to NULL when the thread finishes, so a handle may outlive its thread.
 typedef struct {
   Idris2_header header;
   Idris2_Thread *thread;
 } Idris2_ThreadID;
 
+// Mutexes are recursive, like the ones of the Scheme backends.  The mutex is
+// free when `depth` is 0; otherwise it is owned by the thread `owner`.
 typedef struct {
   Idris2_header header;
-  int locked;
-  int depth; // recursion count of the owning thread
-  Idris2_Thread *owner;
+  int64_t owner;
+  int64_t depth;
   Idris2_WaitQueue waiters;
 } Idris2_Mutex;
 
@@ -228,29 +227,27 @@ typedef struct {
 
 typedef struct {
   Idris2_header header;
-  int count;
+  int64_t count;
   Idris2_WaitQueue waiters;
 } Idris2_Semaphore;
 
 typedef struct {
   Idris2_header header;
-  int count;
-  int num_threads;
+  int64_t count;
+  int64_t num_threads;
   Idris2_WaitQueue waiters;
 } Idris2_Barrier;
 
+// A channel holds at most one value, like the channels of the Chez backend:
+// `channelPut` waits for the slot to be empty, `channelGet` waits for it to
+// be full.  `full` is needed because some values (such as the unit value)
+// are represented by NULL at runtime.
 typedef struct {
   Idris2_header header;
+  int full;
+  Idris2_Value *value;
   Idris2_WaitQueue readers;
   Idris2_WaitQueue writers;
 } Idris2_Channel;
-
-// A message travelling through a channel.  The value is boxed so that values
-// represented by NULL at runtime (such as the unit type) can be told apart
-// from "no value".
-typedef struct {
-  Idris2_header header;
-  Idris2_Value *value;
-} Idris2_ChannelBox;
 
 void idris2_dumpMemoryStats(void);

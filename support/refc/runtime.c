@@ -77,7 +77,7 @@ typedef Idris2_Value *(*const FUN16)(
     Idris2_Value *, Idris2_Value *, Idris2_Value *, Idris2_Value *);
 typedef Idris2_Value *(*const FUNStar)(Idris2_Value **);
 
-Idris2_Value *idris2_dispatch_closure(Idris2_Closure *clo) {
+static inline Idris2_Value *idris2_dispatch_closure(Idris2_Closure *clo) {
   Idris2_Value **const xs = clo->args;
 
   switch (clo->arity) {
@@ -149,22 +149,14 @@ Idris2_Value *idris2_trampoline(Idris2_Value *it) {
 }
 
 // A `PrimIO` action is a closure waiting for its %World argument.  The world
-// is not represented at runtime, so it is passed as NULL.
-//
-// Applying the world takes over the arguments of the closure: the callee
-// releases them.  This means that this function consumes the reference to the
-// action.
+// is not represented at runtime, so it is passed as NULL.  Applying it
+// consumes the reference to the action (see idris2_tailcall_apply_closure).
 Idris2_Value *idris2_run_primio(Idris2_Closure *action) {
   if (!action) {
     return NULL;
   }
-  // Apply the %World argument.
-  Idris2_Value *closure =
-      idris2_tailcall_apply_closure((Idris2_Value *)action, (Idris2_Value *)NULL);
-  // An IO action is a chain of closures: calling it returns the next link of
-  // the chain, which the trampoline then calls, and so on until the action is
-  // done.
-  return idris2_trampoline(closure);
+  return idris2_trampoline(
+      idris2_tailcall_apply_closure((Idris2_Value *)action, NULL));
 }
 
 Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
