@@ -30,16 +30,22 @@ static int64_t self_id(void) { return idris2_threadId(idris2_currentThread()); }
 // ---------------------------------------------------------------------------
 // Mutexes
 //
-// Mutexes are recursive, like the ones of the Scheme backends.  A released
-// mutex is free: the first waiting thread is woken up to try again, and a
-// running thread may get the mutex first (handing it over would cost a
-// context switch per acquisition while threads contend for it).  A thread
-// that waited for more than STARVING_NS nanoseconds marks the mutex as
-// starving: the next release hands the mutex over to the first waiting
-// thread, so waiting threads cannot starve.  A thread spins for a while
-// before it waits when the owner runs on another worker, as it may release
-// the mutex very soon.
+// Mutexes are recursive, like the ones of the Scheme backends.  They are
+// taken and released with one atomic operation when nobody waits for them
+// (`state`, see Idris2_Mutex); the spin lock is only taken to wait for the
+// mutex, or to wake up a waiting thread.  A released mutex is free: the first
+// waiting thread is woken up to try again, and a running thread may get the
+// mutex first (handing it over would cost a context switch per acquisition
+// while threads contend for it).  A thread that waited for more than
+// STARVING_NS nanoseconds marks the mutex as starving: the next release hands
+// the mutex over to the first waiting thread, so waiting threads cannot
+// starve.  A thread spins for a while before it waits when the owner runs on
+// another worker, as it may release the mutex very soon.
 // ---------------------------------------------------------------------------
+
+#define MUTEX_FREE 0
+#define MUTEX_HELD 1
+#define MUTEX_CONTENDED 2 // held, and threads may wait for it
 
 #define MUTEX_SPIN_ROUNDS 4
 #define MUTEX_SPIN_PAUSES 30
@@ -49,58 +55,80 @@ void *refc_makeMutex(void) {
   Idris2_Mutex *mutex =
       (Idris2_Mutex *)idris2_newZeroedValue(sizeof(Idris2_Mutex));
   mutex->header.tag = MUTEX_TAG;
+  mutex->owner = -1;
   return mutex;
 }
 
-// Take a free mutex, whose lock is held.
-static void mutex_take(Idris2_Mutex *m, int64_t self) {
-  m->owner = self;
-  m->owner_worker = idris2_workerIndex();
-  __atomic_store_n(&m->depth, 1, __ATOMIC_RELAXED);
+// Take the mutex if it is free.  A thread that was woken up takes it as
+// contended: others may still wait, and its release must wake one of them
+// up (a release of a mutex held as 1 does not look).
+static int mutex_try(Idris2_Mutex *m, int woken) {
+  int free = MUTEX_FREE;
+  return __atomic_compare_exchange_n(&m->state, &free,
+                                     woken ? MUTEX_CONTENDED : MUTEX_HELD, 0,
+                                     __ATOMIC_ACQUIRE, __ATOMIC_RELAXED);
+}
+
+// We got the mutex.
+static void mutex_own(Idris2_Mutex *m, int64_t self) {
+  __atomic_store_n(&m->owner, self, __ATOMIC_RELAXED);
+  __atomic_store_n(&m->owner_worker, idris2_workerIndex(), __ATOMIC_RELAXED);
+  m->depth = 1;
 }
 
 void refc_mutexAcquire(Idris2_Value *mutex) {
   Idris2_Mutex *m = (Idris2_Mutex *)mutex;
   int64_t self = self_id();
-  int woken = 0;
+  if (mutex_try(m, 0)) {
+    mutex_own(m, self);
+    return;
+  }
+  // (only this thread may have written its own identifier there)
+  if (__atomic_load_n(&m->owner, __ATOMIC_RELAXED) == self) {
+    m->depth++;
+    return;
+  }
   int spins = 0;
+  int woken = 0;
   int64_t since = 0;
   for (;;) {
-    idris2_spinLock(&m->lock);
-    if (woken && m->depth > 0 && m->owner == self) {
-      // refc_mutexRelease handed the mutex over to us.
-      m->owner_worker = idris2_workerIndex();
-      idris2_spinUnlock(&m->lock);
-      return;
-    }
-    if (m->depth == 0) {
-      mutex_take(m, self);
-      idris2_spinUnlock(&m->lock);
-      return;
-    }
-    if (m->owner == self) {
-      m->depth++;
-      idris2_spinUnlock(&m->lock);
-      return;
-    }
-    if (spins < MUTEX_SPIN_ROUNDS &&
-        idris2_threadRunsElsewhere(m->owner_worker, m->owner)) {
-      idris2_spinUnlock(&m->lock);
+    while (spins < MUTEX_SPIN_ROUNDS &&
+           idris2_threadRunsElsewhere(
+               __atomic_load_n(&m->owner_worker, __ATOMIC_RELAXED),
+               __atomic_load_n(&m->owner, __ATOMIC_RELAXED))) {
       spins++;
       for (int i = 0; i < MUTEX_SPIN_PAUSES &&
-                      __atomic_load_n(&m->depth, __ATOMIC_RELAXED) != 0;
+                      __atomic_load_n(&m->state, __ATOMIC_RELAXED) != MUTEX_FREE;
            i++) {
         idris2_cpuRelax();
       }
-      continue;
+      if (__atomic_load_n(&m->state, __ATOMIC_RELAXED) == MUTEX_FREE &&
+          mutex_try(m, woken)) {
+        mutex_own(m, self);
+        return;
+      }
+    }
+    idris2_spinLock(&m->lock);
+    // From now on the release has to look for waiting threads.
+    if (__atomic_exchange_n(&m->state, MUTEX_CONTENDED, __ATOMIC_ACQUIRE) ==
+        MUTEX_FREE) {
+      idris2_spinUnlock(&m->lock);
+      mutex_own(m, self);
+      return;
     }
     int64_t now = idris2_monotonicNanoseconds();
     if (!since) {
       since = now;
     } else if (now - since > STARVING_NS) {
-      m->starving = 1;
+      __atomic_store_n(&m->starving, 1, __ATOMIC_RELAXED);
     }
     idris2_threadBlockOn(&m->waiters, &m->lock);
+    if (__atomic_load_n(&m->owner, __ATOMIC_ACQUIRE) == self) {
+      // refc_mutexRelease handed the mutex over to us (with a depth of 1).
+      __atomic_store_n(&m->owner_worker, idris2_workerIndex(),
+                       __ATOMIC_RELAXED);
+      return;
+    }
     woken = 1;
     spins = 0;
   }
@@ -109,56 +137,58 @@ void refc_mutexAcquire(Idris2_Value *mutex) {
 void refc_mutexRelease(Idris2_Value *mutex) {
   Idris2_Mutex *m = (Idris2_Mutex *)mutex;
   int64_t self = self_id();
-  idris2_spinLock(&m->lock);
-  if (m->depth == 0 || m->owner != self) {
-    idris2_spinUnlock(&m->lock);
+  if (__atomic_load_n(&m->state, __ATOMIC_RELAXED) == MUTEX_FREE ||
+      __atomic_load_n(&m->owner, __ATOMIC_RELAXED) != self) {
     fatal("mutexRelease: the mutex is not held by the current thread");
   }
   if (m->depth > 1) {
     m->depth--;
-    idris2_spinUnlock(&m->lock);
     return;
   }
-  __atomic_store_n(&m->depth, 0, __ATOMIC_RELAXED);
-  if (m->starving) {
+  if (__atomic_load_n(&m->starving, __ATOMIC_RELAXED)) {
+    idris2_spinLock(&m->lock);
     Idris2_Thread *waiter = idris2_threadTakeWaiter(&m->waiters);
     if (waiter) {
-      m->owner = idris2_threadId(waiter);
-      m->owner_worker = -1;
+      // The mutex stays held, by the waiting thread now.
       m->depth = 1;
+      __atomic_store_n(&m->owner_worker, -1, __ATOMIC_RELAXED);
+      __atomic_store_n(&m->owner, idris2_threadId(waiter), __ATOMIC_RELEASE);
       if (!m->waiters.head) {
-        m->starving = 0;
+        __atomic_store_n(&m->starving, 0, __ATOMIC_RELAXED);
       }
       idris2_threadSchedule(waiter);
       idris2_spinUnlock(&m->lock);
       return;
     }
-    m->starving = 0;
+    __atomic_store_n(&m->starving, 0, __ATOMIC_RELAXED);
+    idris2_spinUnlock(&m->lock);
   }
-  idris2_threadWakeOne(&m->waiters);
-  idris2_spinUnlock(&m->lock);
+  m->depth = 0;
+  __atomic_store_n(&m->owner, -1, __ATOMIC_RELAXED);
+  if (__atomic_exchange_n(&m->state, MUTEX_FREE, __ATOMIC_RELEASE) ==
+      MUTEX_CONTENDED) {
+    idris2_spinLock(&m->lock);
+    idris2_threadWakeOne(&m->waiters);
+    idris2_spinUnlock(&m->lock);
+  }
 }
 
 // Release a mutex completely, however many times it has been acquired, and
 // return the recursion depth so that it can be restored.
 static int64_t mutex_release_all(Idris2_Mutex *m) {
-  idris2_spinLock(&m->lock);
-  if (m->depth == 0 || m->owner != self_id()) {
-    idris2_spinUnlock(&m->lock);
+  if (__atomic_load_n(&m->state, __ATOMIC_RELAXED) == MUTEX_FREE ||
+      __atomic_load_n(&m->owner, __ATOMIC_RELAXED) != self_id()) {
     fatal("conditionWait: the mutex is not held by the current thread");
   }
   int64_t depth = m->depth;
   m->depth = 1;
-  idris2_spinUnlock(&m->lock);
   refc_mutexRelease((Idris2_Value *)m);
   return depth;
 }
 
 static void mutex_reacquire(Idris2_Mutex *m, int64_t depth) {
   refc_mutexAcquire((Idris2_Value *)m);
-  idris2_spinLock(&m->lock);
-  m->depth = depth;
-  idris2_spinUnlock(&m->lock);
+  m->depth = depth; // (only the owner touches the depth)
 }
 
 // ---------------------------------------------------------------------------

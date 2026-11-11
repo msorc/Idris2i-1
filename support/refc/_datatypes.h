@@ -327,16 +327,19 @@ typedef struct {
   int64_t id;
 } Idris2_ThreadID;
 
-// Mutexes are recursive, like the ones of the Scheme backends.  The mutex is
-// free when `depth` is 0; otherwise it is owned by the thread `owner`.
+// Mutexes are recursive, like the ones of the Scheme backends.  `state` is
+// 0 when the mutex is free, 1 when it is held, and 2 when it is held and
+// threads may be waiting for it (see concurrency.c); the owner is the thread
+// `owner`, which holds it `depth` times.  `lock` guards the waiting threads.
 typedef struct {
   Idris2_header header;
   Idris2_SpinLock lock;
+  int state;
   // A thread waited too long for it: the next release hands it over to the
   // first waiting thread (see refc_mutexRelease).
   int starving;
   int owner_worker; // the worker that the owner ran on when it got it
-  int64_t owner;
+  int64_t owner;    // -1 when nobody holds it
   int64_t depth;
   Idris2_WaitQueue waiters;
 } Idris2_Mutex;
