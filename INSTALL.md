@@ -140,7 +140,10 @@ set `BOOT_JOBS` to run fewer of them (each needs a few hundred MB of memory),
 and `BOOT_CFLAGS` to change the optimisation flags (`-O2`, with
 `-flto=auto` when the C compiler supports it). When the RefC backend
 compiles the compiler (or any big program) it does the same, with
-`IDRIS2_CC_JOBS` in place of `BOOT_JOBS`. Once Chez Scheme is available, you can
+`IDRIS2_CC_JOBS` in place of `BOOT_JOBS`. The modules of the compiler and of
+the libraries are checked by up to `IDRIS2_JOBS` processes in parallel (with
+every way of building Idris 2: `make IDRIS2_JOBS=1` checks them one after the
+other). Once Chez Scheme is available, you can
 rebuild Idris 2 with it as described in [step 5](#5-optional-self-hosting-step).
 
 When built with RefC, the compiler has no Chez Scheme evaluator, so the REPL

@@ -16,8 +16,10 @@ import Data.Either
 import Data.String
 
 import System.Directory
+import System.File
 
 import Libraries.Data.StringMap
+import Libraries.Utils.Path
 
 %default covering
 
@@ -219,14 +221,25 @@ needsBuilding sourceFile ttcFile depFiles
          | Left err => throw (FileErr ttcFile err)
        pure True
 
+-- "num/len: Building Mod (file)", without "Building"
+buildMessage : Nat -> Nat -> BuildMod -> (Doc IdrisAnn, Doc IdrisAnn)
+buildMessage num len mod
+    = let pad = minus (length $ show len) (length $ show num) in
+      (pretty0 (replicate pad ' ') <+> byShow num <+> slash <+> byShow len <+> colon,
+       pretty0 mod.buildNS <++> parens (pretty0 mod.buildFile))
+
 export
 buildMod : {auto c : Ref Ctxt Defs} ->
            {auto s : Ref Syn SyntaxInfo} ->
            {auto o : Ref ROpts REPLOpts} ->
+           {default True announce : Bool} -> -- print "Building" when building
            FC -> Nat -> Nat -> BuildMod ->
            Core (List Error)
-buildMod loc num len mod
-   = do clearCtxt; addPrimitives
+buildMod {announce} loc num len mod
+   = do -- Also forget what the module built before set (%language,
+        -- %pair, ...): the module is built as by a process of its own, which
+        -- is how a parallel build (buildAllParallel) builds it.
+        clearCtxt; update Ctxt { options $= clearNames }; addPrimitives
         lazyActive True; setUnboundImplicits True
 
         let sourceFile = buildFile mod
@@ -250,15 +263,9 @@ buildMod loc num len mod
         put Syn initSyntax
 
         errs <- ifThenElse (not rebuild) (pure []) $
-           do let pad = minus (length $ show len) (length $ show num)
-              let msgPrefix : Doc IdrisAnn
-                  = pretty0 (replicate pad ' ') <+> byShow num
-                    <+> slash <+> byShow len <+> colon
-              let buildMsg : Doc IdrisAnn
-                  = pretty0 mod.buildNS
-                    <++> parens (pretty0 sourceFile)
+           do let (msgPrefix, buildMsg) = buildMessage num len mod
               log "import.file" 10 $ "Processing " ++ sourceFile
-              process {u} {m} msgPrefix buildMsg sourceFile modNamespace
+              process {announce} {u} {m} msgPrefix buildMsg sourceFile modNamespace
 
         ws <- emitWarningsAndErrors (if null errs then ferrs else errs)
         pure (ws ++ if null errs then ferrs else ferrs ++ errs)
@@ -313,6 +320,12 @@ getAllBuildMods fc done (f :: fs)
     = do ms <- getBuildMods fc done f
          getAllBuildMods fc (ms ++ done) fs
 
+-- There'll be duplicates, so if something is already built, drop it
+dropLater : List BuildMod -> List BuildMod
+dropLater [] = []
+dropLater (b :: bs)
+    = b :: dropLater (filter (\x => buildFile x /= buildFile b) bs)
+
 export
 buildAll : {auto c : Ref Ctxt Defs} ->
            {auto s : Ref Syn SyntaxInfo} ->
@@ -321,11 +334,136 @@ buildAll : {auto c : Ref Ctxt Defs} ->
            Core (List Error)
 buildAll allFiles
     = do mods <- getAllBuildMods EmptyFC [] allFiles
-         -- There'll be duplicates, so if something is already built, drop it
          let mods' = dropLater mods
          buildMods EmptyFC 1 (length mods') mods'
+
+||| Build one module of a package, whose imports are built already (in a
+||| process started by buildAllParallel).
+export
+buildOneModule : {auto c : Ref Ctxt Defs} ->
+                 {auto s : Ref Syn SyntaxInfo} ->
+                 {auto o : Ref ROpts REPLOpts} ->
+                 (file : String) ->
+                 Core (List Error)
+buildOneModule file
+    = do ns <- ctxtPathToNS file
+         modInfo <- readHeader file ns
+         let mod = MkBuildMod file ns (map path (imports modInfo))
+         buildMod {announce = False} EmptyFC 1 1 mod
+
+%foreign "C:idris2_spawnShell, libidris2_support, idris_system.h"
+prim__spawnShell : String -> PrimIO Int
+
+%foreign "C:idris2_waitAnyChild, libidris2_support, idris_system.h"
+prim__waitAnyChild : PrimIO Int
+
+%foreign "C:idris2_lastChildExitStatus, libidris2_support, idris_system.h"
+prim__lastChildExitStatus : PrimIO Int
+
+record Job where
+  constructor MkJob
+  pid : Int
+  mod : BuildMod
+  logFile : String
+
+||| Build the modules that `allFiles` need with up to `jobs` processes in
+||| parallel: a module is built (by the command `childCmd file logFile`,
+||| which writes its output to logFile) once its imports are built, and
+||| modules that are up to date are skipped as by buildAll.  The output of
+||| each process is printed when it ends, so that it is not interleaved.
+export
+buildAllParallel : {auto c : Ref Ctxt Defs} ->
+                   {auto s : Ref Syn SyntaxInfo} ->
+                   {auto o : Ref ROpts REPLOpts} ->
+                   (jobs : Nat) ->
+                   (childCmd : String -> String -> String) ->
+                   (allFiles : List String) ->
+                   Core (List Error)
+buildAllParallel jobs childCmd allFiles
+    = do mods <- dropLater <$> getAllBuildMods EmptyFC [] allFiles
+         let inBuild = map buildNS mods
+         let len = length mods
+         defs <- get Ctxt
+         wd <- getWorkingDir
+         let bdir = build_dir (dirs (options defs))
+         let logDir = if isAbsolute bdir then bdir else wd </> bdir
+         Right () <- coreLift $ mkdirAll logDir
+           | Left err => throw (FileErr logDir err)
+         loop inBuild len logDir (zip [1 .. len] mods) [] [] False
   where
-    dropLater : List BuildMod -> List BuildMod
-    dropLater [] = []
-    dropLater (b :: bs)
-        = b :: dropLater (filter (\x => buildFile x /= buildFile b) bs)
+    -- An import of a module of this build that is not built yet
+    blocked : List ModuleIdent -> List ModuleIdent -> BuildMod -> Bool
+    blocked inBuild done mod
+        = any (\i => (i `elem` inBuild) && not (i `elem` done)) (imports mod)
+
+    needed : BuildMod -> Core Bool
+    needed mod
+        = do ttcFile <- getTTCFileName mod.buildFile "ttc"
+             depFilesE <- traverse (nsToPath EmptyFC) mod.imports
+             let (ferrs, depFiles) = partitionEithers depFilesE
+             -- let the process report missing imports
+             if not (null ferrs)
+                then pure True
+                else needsBuilding mod.buildFile ttcFile depFiles
+
+    -- Start what can be started, skip what is up to date.  Returns the
+    -- pending, running and done modules, and whether anything changed.
+    launch : List ModuleIdent -> Nat -> String ->
+             List (Nat, BuildMod) -> List Job -> List ModuleIdent ->
+             Core (List (Nat, BuildMod), List Job, List ModuleIdent, Bool)
+    launch inBuild len logDir [] running done = pure ([], running, done, False)
+    launch inBuild len logDir ((num, mod) :: pending) running done
+        = if blocked inBuild done mod || length running >= jobs
+             then do (p, r, d, ch) <- launch inBuild len logDir pending running done
+                     pure ((num, mod) :: p, r, d, ch)
+             else if not !(needed mod)
+             then do (p, r, d, _) <- launch inBuild len logDir pending running
+                                            (mod.buildNS :: done)
+                     pure (p, r, d, True)
+             else do let logFile = logDir </> "build-" ++ show num ++ ".log"
+                     pid <- coreLift $ primIO $ prim__spawnShell (childCmd mod.buildFile logFile)
+                     when (pid < 0) $
+                       throw (InternalError "Could not start a process to build \{mod.buildFile}")
+                     let (msgPrefix, buildMsg) = buildMessage num len mod
+                     iputStrLn (msgPrefix <++> "Building" <++> buildMsg)
+                     (p, r, d, _) <- launch inBuild len logDir pending
+                                            (MkJob pid mod logFile :: running) done
+                     pure (p, r, d, True)
+
+    -- Wait for a process to end, print what it printed.
+    waitJob : List Job -> Core (Job, Bool, List Job)
+    waitJob running
+        = do pid <- coreLift $ primIO prim__waitAnyChild
+             status <- coreLift $ primIO prim__lastChildExitStatus
+             let (js, others) = partition (\j => j.pid == pid) running
+             case js of
+                  (j :: _) =>
+                    do Right out <- coreLift $ readFile j.logFile
+                         | Left err => throw (FileErr j.logFile err)
+                       unless (out == "") $ coreLift $ putStr out
+                       ignore $ coreLift $ removeFile j.logFile
+                       pure (j, status == 0, others)
+                  [] => if pid < 0
+                           then throw (InternalError "Lost track of the build processes")
+                           else waitJob running -- not one of ours
+
+    loop : List ModuleIdent -> Nat -> String ->
+           List (Nat, BuildMod) -> List Job -> List ModuleIdent -> Bool ->
+           Core (List Error)
+    loop inBuild len logDir pending running done failed
+        = do (pending, running, done, changed) <-
+                 the (Core (List (Nat, BuildMod), List Job, List ModuleIdent, Bool)) $
+                   if failed then pure ([], running, done, False)
+                             else launch inBuild len logDir pending running done
+             if changed
+                then loop inBuild len logDir pending running done failed
+                else case running of
+                  [] => if failed
+                           then pure [GenericMsg EmptyFC "Building the package failed"]
+                           else case pending of
+                                  [] => pure []
+                                  _ => throw (InternalError "Modules left that cannot be built")
+                  _ => do (j, ok, running) <- waitJob running
+                          loop inBuild len logDir pending running
+                               (if ok then j.mod.buildNS :: done else done)
+                               (failed || not ok)

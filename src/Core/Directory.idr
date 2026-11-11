@@ -265,7 +265,11 @@ mkdirAll dir = if parse dir == emptyPath
                                           Just parent => mkdirAll parent
                                           Nothing => pure (Right ())
                                         | err => pure err
-                                     createDir dir
+                                     -- another process (a parallel build)
+                                     -- may have made it in the meantime
+                                     Left FileExists <- createDir dir
+                                       | res => pure res
+                                     pure (Right ())
 
 -- Given a namespace (i.e. a module name), make the build directory for the
 -- corresponding ttc file

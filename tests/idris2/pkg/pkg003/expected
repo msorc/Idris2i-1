@@ -15,6 +15,7 @@ Overridable options are:
     --directive <directive>
     --build-dir <dir>
     --output-dir <dir>
+    --jobs <jobs>
 
 Packages must have an '.ipkg' extension: "malformed-package-name".
 Error: File error in non-existent-package.ipkg : File Not Found

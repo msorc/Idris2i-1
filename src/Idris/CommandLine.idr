@@ -147,6 +147,11 @@ data CLOpt
   IgnoreMissingIPKG |
   FindIPKG |
   Timing (Maybe Nat) |
+   ||| Build the modules of a package with this many processes
+  BuildJobs Nat |
+   ||| Build one module (file) of a package (ipkg file), in a process started
+   ||| by BuildJobs
+  BuildOneModule String String |
   DebugElabCheck |
   AltErrorCount Nat |
    ||| Treat warnings as errors
@@ -312,6 +317,11 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               (Just "Clean intermediate files/executables for the given package"),
            MkOpt ["--repl"] [Optional "package file"] (\f => [Package REPL f])
               (Just "Build the given package and launch a REPL instance."),
+           MkOpt ["--jobs", "-j"] [RequiredNat "jobs"] (\n => [BuildJobs n])
+              (Just "Build the modules of a package with this many processes in parallel"),
+           MkOpt ["--build-one-module"] [Required "package file", Required "file"]
+              (\p, f => [BuildOneModule p f])
+              (Just "Internal (used by --jobs): build only this module of the package"),
            MkOpt ["--find-ipkg"] [] [FindIPKG]
               (Just "Find and use an .ipkg file in a parent directory."),
            MkOpt ["--ignore-missing-ipkg"] [] [IgnoreMissingIPKG]

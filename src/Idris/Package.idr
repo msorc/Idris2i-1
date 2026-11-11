@@ -14,6 +14,8 @@ import Data.These
 import Parser.Package
 import System
 import System.Directory
+import System.Escape
+import System.Info
 import Libraries.System.Directory.Tree
 import System.File
 
@@ -25,6 +27,7 @@ import Libraries.Utils.Path
 import Libraries.Text.PrettyPrint.Prettyprinter.Render.String
 
 import Idris.CommandLine
+import Idris.Env
 import Idris.Doc.HTML
 import Idris.Doc.String
 import Idris.Error
@@ -490,26 +493,73 @@ withWarnings op = do o <- catch op $ \err =>
       ignore emitWarnings
       update Ctxt { warnings := [] }
 
-prepareCompilation : {auto c : Ref Ctxt Defs} ->
-                     {auto s : Ref Syn SyntaxInfo} ->
-                     {auto o : Ref ROpts REPLOpts} ->
-                     {auto _ : Ref PostS PostSession} ->
-                     PkgDesc ->
-                     List CLOpt ->
-                     Core (List Error)
-prepareCompilation pkg opts =
+setupCompilation : {auto c : Ref Ctxt Defs} ->
+                   {auto s : Ref Syn SyntaxInfo} ->
+                   {auto o : Ref ROpts REPLOpts} ->
+                   {auto _ : Ref PostS PostSession} ->
+                   PkgDesc ->
+                   List CLOpt ->
+                   Core ()
+setupCompilation pkg opts =
   do
     processOptions (options pkg)
     withWarnings $ addDeps pkg
 
     ignore $ preOptions opts
 
+-- How many processes build the modules: --jobs, or IDRIS2_BUILD_JOBS
+buildJobs : List CLOpt -> IO Nat
+buildJobs (BuildJobs n :: _) = pure n
+buildJobs (_ :: opts) = buildJobs opts
+buildJobs []
+  = do Just jobs <- idrisGetEnv "IDRIS2_BUILD_JOBS"
+         | Nothing => pure 1
+       pure $ fromMaybe 1 $ parsePositive jobs
+
+-- The package file and module that a process started by --jobs builds
+buildOneModuleOpt : List CLOpt -> Maybe (String, String)
+buildOneModuleOpt (BuildOneModule p f :: _) = Just (p, f)
+buildOneModuleOpt (_ :: opts) = buildOneModuleOpt opts
+buildOneModuleOpt [] = Nothing
+
+-- The command that builds one module of the package (the absolute path of
+-- its ipkg file) in another process: the same command, from the directory it
+-- started in, with --build-one-module.
+childBuildCommand : (startDir, ipkg : String) -> (args : List String) ->
+                    (file : String) -> (logFile : String) -> String
+childBuildCommand startDir ipkg args file logFile
+  = "cd " ++ escapeArg startDir ++ " && exec "
+      ++ escapeCmd (args ++ ["--build-one-module", ipkg, file])
+      ++ " > " ++ escapeArg logFile ++ " 2>&1 < /dev/null"
+
+prepareCompilation : {auto c : Ref Ctxt Defs} ->
+                     {auto s : Ref Syn SyntaxInfo} ->
+                     {auto o : Ref ROpts REPLOpts} ->
+                     {auto _ : Ref PostS PostSession} ->
+                     {default Nothing jobsFrom : Maybe (String, String)} ->
+                     PkgDesc ->
+                     List CLOpt ->
+                     Core (List Error)
+prepareCompilation {jobsFrom} pkg opts =
+  do
+    setupCompilation pkg opts
+
     runScript (prebuild pkg)
 
     let toBuild = maybe (map snd (modules pkg))
                         (\m => snd m :: map snd (modules pkg))
                         (mainmod pkg)
-    buildAll toBuild
+    jobs <- coreLift $ buildJobs opts
+    -- (the processes write to files: tell them whether to use colours)
+    colour <- color <$> get ROpts
+    args <- (++ [if colour then "--color" else "--no-color"]) <$> coreLift getArgs
+    -- The processes are started by a POSIX shell.
+    case jobsFrom of
+      Just (dir, ipkg) =>
+        if jobs > 1 && not isWindows && not (null args)
+           then buildAllParallel jobs (childBuildCommand dir ipkg args) toBuild
+           else buildAll toBuild
+      Nothing => buildAll toBuild
 
 assertIdrisCompatibility : PkgDesc -> Core ()
 assertIdrisCompatibility pkg
@@ -523,12 +573,13 @@ build : {auto c : Ref Ctxt Defs} ->
         {auto s : Ref Syn SyntaxInfo} ->
         {auto o : Ref ROpts REPLOpts} ->
         {auto _ : Ref PostS PostSession} ->
+        {default Nothing jobsFrom : Maybe (String, String)} ->
         PkgDesc ->
         List CLOpt ->
         Core (List Error)
-build pkg opts
+build {jobsFrom} pkg opts
     = do assertIdrisCompatibility pkg
-         [] <- prepareCompilation pkg opts
+         [] <- prepareCompilation {jobsFrom} pkg opts
             | errs => pure errs
 
          whenJust (executable pkg) $ \ exec =>
@@ -699,12 +750,13 @@ check : {auto c : Ref Ctxt Defs} ->
         {auto s : Ref Syn SyntaxInfo} ->
         {auto o : Ref ROpts REPLOpts} ->
         {auto _ : Ref PostS PostSession} ->
+        {default Nothing jobsFrom : Maybe (String, String)} ->
         PkgDesc ->
         List CLOpt ->
         Core (List Error)
-check pkg opts =
+check {jobsFrom} pkg opts =
   do assertIdrisCompatibility pkg
-     [] <- prepareCompilation pkg opts
+     [] <- prepareCompilation {jobsFrom} pkg opts
        | errs => pure errs
 
      runScript (postbuild pkg)
@@ -969,32 +1021,51 @@ processPackage opts (cmd, mfile)
              let True = isSuffixOf ".ipkg" filename
                  | _ => do coreLift $ putStrLn ("Packages must have an '.ipkg' extension: " ++ show file ++ ".")
                            coreLift (exitWith (ExitFailure 1))
+             startDir <- getWorkingDir
              setWorkingDir dir
              pkg <- parsePkgFile True filename
              whenJust (builddir pkg) setBuildDir
              whenJust (datadir pkg) addDataDir
              setOutputDir (outputdir pkg)
+             -- the package file, to tell processes started by --jobs
+             -- which package they build a module of
+             ipkg <- (</> filename) <$> getWorkingDir
+             let jobsFrom = Just (startDir, ipkg)
+             case buildOneModuleOpt opts of
+               -- A process started by --jobs to build one module, of this
+               -- package or of another one of the command line (skipped)
+               Just (p, f) =>
+                 when (p == ipkg) $
+                   do assertIdrisCompatibility pkg
+                      setupCompilation pkg opts
+                      [] <- buildOneModule f
+                        | _ => coreLift (exitWith (ExitFailure 1))
+                      coreLift (exitWith ExitSuccess)
+               Nothing => runCommand jobsFrom pkg
+  where
+    runCommand : Maybe (String, String) -> PkgDesc -> Core ()
+    runCommand jobsFrom pkg =
              case cmd of
-                  Build => do [] <- build pkg opts
+                  Build => do [] <- build {jobsFrom} pkg opts
                                  | errs => coreLift (exitWith (ExitFailure 1))
                               pure ()
                   MkDoc => do [] <- makeDoc pkg opts
                                  | errs => coreLift (exitWith (ExitFailure 1))
                               pure ()
-                  Install => do [] <- build pkg opts
+                  Install => do [] <- build {jobsFrom} pkg opts
                                    | errs => coreLift (exitWith (ExitFailure 1))
                                 install pkg opts {installSrc = False}
                   InstallWithSrc =>
-                             do [] <- build pkg opts
+                             do [] <- build {jobsFrom} pkg opts
                                    | errs => coreLift (exitWith (ExitFailure 1))
                                 install pkg opts {installSrc = True}
                   Typecheck => do
-                    [] <- check pkg opts
+                    [] <- check {jobsFrom} pkg opts
                       | errs => coreLift (exitWith (ExitFailure 1))
                     pure ()
                   Clean => clean pkg opts
                   REPL => do
-                    [] <- build pkg opts
+                    [] <- build {jobsFrom} pkg opts
                        | errs => coreLift (exitWith (ExitFailure 1))
                     runRepl (map snd $ mainmod pkg)
                   Init => pure () -- already handled earlier
@@ -1038,6 +1109,8 @@ partitionOpts opts = foldr pOptUpdate (MkPFR [] [] False) opts
     optType WarningsAsErrors       = POpt
     optType HashesInsteadOfModTime = POpt
     optType Profile                = POpt
+    optType (BuildJobs n)          = POpt
+    optType (BuildOneModule p f)   = POpt
     optType (ConsoleWidth n)       = PIgnore
     optType (Color b)              = PIgnore
     optType NoBanner               = PIgnore
@@ -1067,6 +1140,7 @@ errorMsg = unlines
   , "    --directive <directive>"
   , "    --build-dir <dir>"
   , "    --output-dir <dir>"
+  , "    --jobs <jobs>"
   ]
 
 parameters

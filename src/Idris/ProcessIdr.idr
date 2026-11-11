@@ -289,6 +289,7 @@ findCG
 ||| needs to be written to the TTC (e.g. exported infix operators)
 ||| Returns 'Nothing' if it didn't reload anything
 processMod : {auto c : Ref Ctxt Defs} ->
+             {default True announce : Bool} -> -- print msg when building
              {auto u : Ref UST UState} ->
              {auto s : Ref Syn SyntaxInfo} ->
              {auto m : Ref MD Metadata} ->
@@ -299,7 +300,7 @@ processMod : {auto c : Ref Ctxt Defs} ->
              (sourcecode : String) ->
              (origin : ModuleIdent) ->
              Core (Maybe (List Error))
-processMod sourceFileName ttcFileName msg sourcecode origin
+processMod {announce} sourceFileName ttcFileName msg sourcecode origin
     = catch (do
         setCurrentElabSource sourcecode
         session <- getSession
@@ -340,7 +341,7 @@ processMod sourceFileName ttcFileName msg sourcecode origin
                 do setNS (miAsNamespace ns)
                    pure Nothing
            else -- needs rebuilding
-             do iputStrLn msg
+             do when announce $ iputStrLn msg
                 Right (ws, MkState decor hnames, mod) <-
                     logTime 2 ("Parsing " ++ sourceFileName) $
                       pure $ runParser (PhysicalIdrSrc origin)
@@ -407,6 +408,7 @@ processMod sourceFileName ttcFileName msg sourcecode origin
 -- might be lots of errors collected across a whole file.
 export
 process : {auto c : Ref Ctxt Defs} ->
+          {default True announce : Bool} -> -- print the build message
           {auto m : Ref MD Metadata} ->
           {auto u : Ref UST UState} ->
           {auto s : Ref Syn SyntaxInfo} ->
@@ -416,12 +418,12 @@ process : {auto c : Ref Ctxt Defs} ->
           FileName ->
           (moduleIdent : ModuleIdent) ->
           Core (List Error)
-process msgPrefix buildMsg sourceFileName ident
+process {announce} msgPrefix buildMsg sourceFileName ident
     = do Right res <- coreLift (readFile sourceFileName)
                | Left err => pure [FileErr sourceFileName err]
          catch (do ttcFileName <- getTTCFileName sourceFileName "ttc"
                    Just errs <- logTime 1 ("Elaborating " ++ sourceFileName) $
-                                   processMod sourceFileName ttcFileName
+                                   processMod {announce} sourceFileName ttcFileName
                                               (msgPrefix <++> "Building" <++> buildMsg)
                                               res ident
                      | Nothing => do log "module" 10 $ show $ msgPrefix <++> "Skipping" <++> buildMsg

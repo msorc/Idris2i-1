@@ -106,6 +106,18 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Building/Packaging changes
 
+* `--jobs N` (`-j N`, or `IDRIS2_BUILD_JOBS`) builds the modules of a package
+  with up to `N` processes in parallel, each module once the modules it imports
+  are built.  `make` builds the compiler and the libraries this way
+  (`IDRIS2_JOBS`, the number of processors up to 16 by default): checking the
+  compiler with a RefC-built compiler takes 2m20s instead of 7m, and `base`
+  20s instead of 70s, on 16 cores.  The TTC files are the same.
+* A module of a package is now built as if it were built alone: the
+  `%language` extensions, `%foreign_impl`s and builtin names (`%pair`,
+  `%rewrite`, literal names) that the modules built before it in the same
+  process set are forgotten, as in the REPL.  A module that relied on them
+  must set or import them itself.
+
 * Fix parsing of capitalised package names containing hyphens.
 * Change `flake.nix` to point at `idris-community/idris2-mode` as the URL for
   `inputs.idris-emacs-src` (from the user fork `redfish64/idris2-mode`).

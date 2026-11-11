@@ -39,6 +39,8 @@ Both
 * ``RACKET_RACO`` - Racket backend: location of the ``raco`` executable.
 * ``IDRIS2_INC_CGS`` - Code generators to use (comma separated) when compiling
   modules incrementally.
+* ``IDRIS2_BUILD_JOBS`` - How many processes build the modules of a package in
+  parallel (see ``--jobs``).
 * ``IDRIS2_CC`` - RefC backend: location of the C compiler executable.
 * ``IDRIS2_CFLAGS`` - RefC backend: C compiler flags.
 * ``IDRIS2_CC_JOBS`` - RefC backend: how many C compilers compile a big program in parallel (default: the number of processors).

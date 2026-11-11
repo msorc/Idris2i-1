@@ -139,6 +139,13 @@ Given an Idris package file ``test.ipkg`` it can be used with the Idris compiler
 + ``idris2 --mkdoc test.ipkg`` will generate HTML documentation for the
   package, output to ``build/docs``
 
+With ``--build``, ``--install``, ``--typecheck`` and ``--repl``, the option
+``--jobs N`` (or ``-j N``, or the environment variable ``IDRIS2_BUILD_JOBS``)
+builds the modules of the package with up to ``N`` processes in parallel: each
+module is built by a process of its own once the modules it imports are built.
+The output of each process is shown when it ends.  This is not available on
+Windows, where the modules are built one after the other.
+
 Once the test package has been installed, the command line option
 ``--package test`` makes it accessible (abbreviated to ``-p test``).
 For example::
