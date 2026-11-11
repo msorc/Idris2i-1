@@ -39,9 +39,14 @@ Size change:
 Main> Main.doCompare
 Arguments [{arg:1}, {arg:2}]
 Compile time tree: compareNat {arg:1} {arg:2}
-Compiled: \ {arg:1}, {arg:2} => Prelude.EqOrd.compare {arg:1} {arg:2}
+Compiled: \ {arg:1}, {arg:2} => case {arg:1} < {arg:2} of
+  { 0 => case {arg:1} == {arg:2} of
+           { 0 => 2
+           ; _ => 1
+           }
+  ; _ => 0
+  }
 Refers to: Prelude.Types.compareNat
-Refers to (runtime): Prelude.EqOrd.compare
 Flags: covering
 Size change:
   Prelude.Types.compareNat:

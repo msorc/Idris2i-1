@@ -31,9 +31,49 @@ parameters (fn : Name)
     simple (CErased {}) = True
     simple (CCrash {}) = False
 
+    mutual
+      -- A small body, which costs less to inline than to call: primitive
+      -- operations, calls and constructors on small arguments (`x == y` on
+      -- `Int` is `intToBool (prim__eq_Int x y)`), and cases on small
+      -- expressions with small alternatives (`div` on `Int` checks for 0).
+      -- `small k e` is the budget (in nodes) that is left once `e` is
+      -- counted, if it fits in `k`.
+      small : Nat -> CExp vars -> Maybe Nat
+      small Z _ = Nothing
+      small (S k) (CLocal {}) = Just k
+      small (S k) (CRef _ fn') = if fn == fn' then Nothing else Just k
+      small (S k) (CPrimVal {}) = Just k
+      small (S k) (CErased {}) = Just k
+      small (S k) (CCrash {}) = Just k
+      small (S k) (COp _ _ xs) = smalls k (toList xs)
+      small (S k) (CCon _ _ _ _ xs) = smalls k xs
+      small (S k) (CApp _ (CRef _ fn') xs)
+          = if fn == fn' then Nothing else smalls k xs
+      small (S k) (CConstCase _ sc alts def)
+          = do k <- small k sc
+               k <- constAlts k alts
+               maybe (Just k) (small k) def
+      small (S k) (CConCase _ sc alts def)
+          = do k <- small k sc
+               k <- conAlts k alts
+               maybe (Just k) (small k) def
+      small _ _ = Nothing
+
+      smalls : Nat -> List (CExp vars) -> Maybe Nat
+      smalls k [] = Just k
+      smalls k (x :: xs) = small k x >>= \k => smalls k xs
+
+      constAlts : Nat -> List (CConstAlt vars) -> Maybe Nat
+      constAlts k [] = Just k
+      constAlts k (MkConstAlt _ e :: as) = small k e >>= \k => constAlts k as
+
+      conAlts : Nat -> List (CConAlt vars) -> Maybe Nat
+      conAlts k [] = Just k
+      conAlts k (MkConAlt _ _ _ _ e :: as) = small k e >>= \k => conAlts k as
+
     inlineCDef : CDef -> Bool
     inlineCDef (MkFun args exp) =
-        simple exp
+        simple exp || isJust (small 12 exp)
     inlineCDef _ = False
 
 export

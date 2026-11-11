@@ -4,6 +4,7 @@ import Core.CompileExpr
 import Core.Context.Log
 import Core.Primitives
 import Core.Value
+import Data.Maybe
 import Data.Vect
 
 import Data.List.HasLength
@@ -19,10 +20,18 @@ findConstAlt c (MkConstAlt c' exp :: alts) def = if c == c'
 
 foldableOp : PrimFn ar -> Bool
 foldableOp BelieveMe = False
-foldableOp (Cast IntType _) = False
-foldableOp (Cast _ IntType) = False
+-- (the casts from and to `Int` are folded when the values are small, see
+-- smallInt)
+foldableOp (Cast IntType to) = isJust (intKind to)
+foldableOp (Cast from IntType) = isJust (intKind from)
 foldableOp (Cast from to)   = isJust (intKind from) && isJust (intKind to)
 foldableOp _                = True
+
+-- `Int` has different widths on different back ends, but values that fit in
+-- 32 bits are the same everywhere: an operation on such values whose result
+-- fits too can be folded.
+smallInt : Integer -> Bool
+smallInt x = x >= -2147483648 && x <= 2147483647
 
 
 data Subst : Scope -> Scoped where
@@ -124,18 +133,38 @@ constFold rho (COp {arity} fc fn xs) =
      in fromMaybe e $ do
           guard (foldableOp fn)
           nfs <- traverse toNF xs'
+          guard (smallCast fn xs')
           nf <- getOp fn nfs
           fromNF nf
   where
     toNF : CExp vars' -> Maybe (NF vars')
-    -- Don't fold `Int` and `Double` because they have varying widths
-    toNF (CPrimVal fc (I _)) = Nothing
+    -- `Int` only when it is small (see smallInt), not `Double`: their
+    -- widths vary
+    toNF (CPrimVal fc (I x)) = toMaybe (smallInt (cast x)) (NPrimVal fc (I x))
     toNF (CPrimVal fc (Db _)) = Nothing
     -- Fold the rest
     toNF (CPrimVal fc c) = Just $ NPrimVal fc c
     toNF _ = Nothing
 
+    -- A cast to `Int` of a value that is not small would depend on the width
+    -- of `Int`.
+    smallCast : PrimFn ar -> Vect ar (CExp vars') -> Bool
+    smallCast (Cast _ IntType) [CPrimVal _ c] = case c of
+      BI x => smallInt x
+      I8 x => True
+      I16 x => True
+      I32 x => True
+      B8 x => True
+      B16 x => True
+      B32 x => smallInt (cast x)
+      I64 x => smallInt (cast x)
+      B64 x => smallInt (cast x)
+      _ => False
+    smallCast (Cast _ IntType) _ = False
+    smallCast _ _ = True
+
     fromNF : NF vars' -> Maybe (CExp vars')
+    fromNF (NPrimVal fc (I x)) = toMaybe (smallInt (cast x)) (CPrimVal fc (I x))
     fromNF (NPrimVal fc c) = Just $ CPrimVal fc c
     fromNF _ = Nothing
 

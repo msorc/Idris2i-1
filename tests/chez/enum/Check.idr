@@ -7,7 +7,9 @@ path = "build/exec/enum_app/enum.ss"
 
 mainLine : String -> Bool
 mainLine str =
-  ("(define Enum-main" `isPrefixOf` str) && (" 120 17))" `isInfixOf` str)
+  ("(define Enum-main" `isPrefixOf` str) &&
+  -- The tags are compared, or the comparison of the constants is folded.
+  ((" 120 17))" `isInfixOf` str) || ("show_Show_Bool 0)" `isInfixOf` str))
 
 main : IO ()
 main = do

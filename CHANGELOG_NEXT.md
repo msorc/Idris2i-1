@@ -40,6 +40,12 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Compiler changes
 
+* The inlining heuristic also inlines small public definitions that are not
+  just a call (up to 12 nodes: nested primitive operations, calls and cases),
+  such as `==`, `div` and `mod` on `Int`, and constant folding folds `Int`
+  operations, and casts to `Int`, whose arguments and result fit in 32 bits
+  (the same on every back end).  A loop over `Int` doing `mod`, `div` and
+  `==` runs 2.5 times faster with the RefC backend.
 * Fixed ill-typed program where a typed lambda would not have its type checked #3771
 * Fixed missing handling of dotted patterns See
   [#3669](https://github.com/idris-lang/Idris2/issues/3669),
