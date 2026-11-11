@@ -134,9 +134,13 @@ code that the RefC backend generated for the compiler
 The compiler built this way uses the RefC backend as its default code
 generator, so install it with `IDRIS2_CG=refc make install`. It is slower than
 a compiler built with Chez Scheme, and it needs a large stack, so it is run
-by a launcher script that raises the stack limit (`ulimit -s`). Compiling the
-generated C needs about 4GB of memory; set `BOOT_CFLAGS` to change the
-optimisation flags (`-O1` by default). Once Chez Scheme is available, you can
+by a launcher script that raises the stack limit (`ulimit -s`). The generated
+C is compiled in parts by C compilers running in parallel, one per processor;
+set `BOOT_JOBS` to run fewer of them (each needs a few hundred MB of memory),
+and `BOOT_CFLAGS` to change the optimisation flags (`-O2`, with
+`-flto=auto` when the C compiler supports it). When the RefC backend
+compiles the compiler (or any big program) it does the same, with
+`IDRIS2_CC_JOBS` in place of `BOOT_JOBS`. Once Chez Scheme is available, you can
 rebuild Idris 2 with it as described in [step 5](#5-optional-self-hosting-step).
 
 When built with RefC, the compiler has no Chez Scheme evaluator, so the REPL

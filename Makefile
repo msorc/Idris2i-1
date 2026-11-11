@@ -74,8 +74,11 @@ idris2-exec: ${TARGET}
 ${TARGET}: support src/IdrisPaths.idr
 ifeq ($(IDRIS2_CG), refc)
 	# Optimise the generated C unless told otherwise (older compilers, like the
-	# one of bootstrap-c, do not do it by default).
-	IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:--O2}}" ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
+	# one of bootstrap-c, do not do it by default).  The compiler is compiled
+	# in parts in parallel: link time optimisation, when the C compiler has it,
+	# gives back the inlining across parts.
+	LTO=$$(sh bootstrap/cc-has-lto.sh "$${IDRIS2_CC:-$${CC:-cc}}" && echo " -flto=auto"); \
+	IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:--O2$$LTO}}" ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 else
 	${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 endif

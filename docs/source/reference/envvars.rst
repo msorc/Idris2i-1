@@ -41,6 +41,7 @@ Both
   modules incrementally.
 * ``IDRIS2_CC`` - RefC backend: location of the C compiler executable.
 * ``IDRIS2_CFLAGS`` - RefC backend: C compiler flags.
+* ``IDRIS2_CC_JOBS`` - RefC backend: how many C compilers compile a big program in parallel (default: the number of processors).
 * ``IDRIS2_CPPFLAGS`` - RefC backend: C preprocessor flags.
 * ``IDRIS2_LDFLAGS`` - RefC backend: C linker flags.
 * ``IDRIS2_LDLIBS`` - RefC backend: C linker library names or flags.

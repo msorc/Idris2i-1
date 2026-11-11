@@ -117,6 +117,8 @@ should target this file (`CHANGELOG_NEXT`).
   builds the compiler from the C code that the RefC backend generated for it
   (`bootstrap/idris2_app/idris2.c.xz`), then rebuilds it with the RefC
   backend.  `bootstrap/update-c-bootstrap.sh` regenerates that file.
+  The generated C is compiled in parallel (see below), so that compiling it
+  takes seconds instead of minutes.
 
 ### Backend changes
 
@@ -255,6 +257,12 @@ should target this file (`CHANGELOG_NEXT`).
   immortal closure mortal again.
 * The compiler itself can be compiled with RefC.  Such a compiler has no Chez
   Scheme evaluator (`:set eval scheme` in the REPL).
+* Big programs (more than 4MB of C) are compiled in parts by C compilers
+  running in parallel (`IDRIS2_CC_JOBS` of them, the number of processors by
+  default).  The generated file is still a single file: its definitions are
+  in chunks guarded by `#if`, and `-DIDRIS2_PARTS=p -DIDRIS2_PART=i` selects
+  the `i`th of `p` parts; without these flags it compiles whole.  Add
+  `-flto` (or `-flto=auto`) to the C flags to keep the inlining across parts.
 
 ### Library changes
 

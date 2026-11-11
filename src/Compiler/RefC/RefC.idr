@@ -1159,7 +1159,9 @@ createCFunctions n (MkACon tag arity nt) =
   case conTag tag of
     Nothing => do
       let n' = cName n
-      update FunctionDefinitions $ \otherDefs => "char const idris2_constr_\{n'}[];" :: otherDefs
+      -- extern: in a generated file compiled in parts (see
+      -- generateCSourceFile) the definition is in one part only.
+      update FunctionDefinitions $ \otherDefs => "extern char const idris2_constr_\{n'}[];" :: otherDefs
       emit EmptyFC "char const idris2_constr_\{n'}[] = \{cStringQuoted $ show n};"
     Just _ =>
       emit EmptyFC $ ( "// \{show n} Constructor tag " ++ show tag ++ " arity " ++ show arity) -- Nothing to compile here
@@ -1282,27 +1284,93 @@ footer = do
       }
       """
 
+-- Big programs are split in parts that a C compiler can compile in parallel
+-- (one compile of the whole compiler takes minutes).  The file stays a single
+-- file: the definitions are grouped in chunks of at least `minChunkSize`
+-- bytes, and at most about `maxChunks` of them, each guarded by
+--
+--   #if !defined(IDRIS2_PARTS) || k * IDRIS2_PARTS / chunks == IDRIS2_PART
+--
+-- so compiling with -DIDRIS2_PARTS=p -DIDRIS2_PART=i (for i < p) builds the
+-- i-th of p parts, and compiling without them builds the whole program.  The
+-- prototypes and constants before the chunks are in every part.  Programs of
+-- less than `minSplitSize` bytes are not split.
+minSplitSize : Nat
+minSplitSize = 4000000
+
+minChunkSize : Nat
+minChunkSize = 256000
+
+maxChunks : Nat
+maxChunks = 256
+
+-- Group sized definitions in chunks of at least `target` bytes.
+chunkDefs : (target : Nat) -> List (Nat, List String) -> List (List String)
+chunkDefs target = go 0 [<]
+  where
+    go : Nat -> SnocList (List String) -> List (Nat, List String) -> List (List String)
+    go _ [<] [] = []
+    go _ acc [] = [concat (acc <>> [])]
+    go n acc ((s, ls) :: rest)
+      = let n' = n + s
+            acc' = acc :< ls in
+        if n' >= target
+           then concat (acc' <>> []) :: go 0 [<] rest
+           else go n' acc' rest
+
 export
-generateCSourceFile : {auto c : Ref Ctxt Defs}
-                   -> {default [] additionalFFILangs : List String}
-                   -> List (Name, ANFDef)
-                   -> (outn : String)
-                   -> Core ()
-generateCSourceFile defs outn =
+generateCSourceFileParts : {auto c : Ref Ctxt Defs}
+                        -> {default [] additionalFFILangs : List String}
+                        -> List (Name, ANFDef)
+                        -> (outn : String)
+                        -> Core Nat -- the number of chunks, 0 when not split
+generateCSourceFileParts defs outn =
   do _ <- newRef ArgCounter 0
      _ <- newRef FunctionDefinitions []
      _ <- newRef ConstDef Data.SortedMap.empty
      _ <- newRef OutfileText DList.Nil
      _ <- newRef HeaderFiles empty
      _ <- newRef IndentLevel 0
-     traverse_ (uncurry $ createCFunctions {additionalFFILangs}) defs
-     header -- added after the definition traversal in order to add all encountered function defintions
+     -- Each definition separately, so that a chunk never splits one (a CAF
+     -- is a static function and the function that calls it).
+     bodies <- traverse (\(n, d) =>
+                 do put OutfileText DList.Nil
+                    createCFunctions {additionalFFILangs} n d
+                    ls <- reify <$> get OutfileText
+                    pure (the Nat (foldl (\s, l => s + length l + 1) 0 ls), ls)) defs
+     put OutfileText DList.Nil
      footer
-     fileContent <- get OutfileText
-     let code = fastConcat (map (++ "\n") (reify fileContent))
+     footerLines <- reify <$> get OutfileText
+     put OutfileText DList.Nil
+     header -- added after the definition traversal in order to add all encountered function defintions
+     headerLines <- reify <$> get OutfileText
+
+     let totalSize = the Nat (foldl (\s, b => s + fst b) 0 bodies)
+     let chunks = if totalSize < minSplitSize
+                     then []
+                     else chunkDefs (max minChunkSize (totalSize `div` maxChunks + 1)) bodies
+     let nchunks = length chunks
+     let guarded = concat $ zipWith
+           (\k, ls => "#if !defined(IDRIS2_PARTS) || \{show k} * IDRIS2_PARTS / \{show nchunks} == IDRIS2_PART"
+                      :: ls ++ (if k + 1 == nchunks then footerLines else []) ++ ["#endif"])
+           [0 .. pred nchunks] chunks
+     let allLines = if nchunks == 0
+                       then headerLines ++ concatMap snd bodies ++ footerLines
+                       else headerLines ++ guarded
+     let code = fastConcat (map (++ "\n") allLines)
 
      coreLift_ $ writeFile outn code
-     log "compiler.refc" 10 $ "Generated C file " ++ outn
+     log "compiler.refc" 10 $ "Generated C file " ++ outn ++ " in " ++ show nchunks ++ " chunks"
+     pure nchunks
+
+export
+generateCSourceFile : {auto c : Ref Ctxt Defs}
+                   -> {default [] additionalFFILangs : List String}
+                   -> List (Name, ANFDef)
+                   -> (outn : String)
+                   -> Core ()
+generateCSourceFile defs outn
+  = ignore $ generateCSourceFileParts {additionalFFILangs} defs outn
 
 export
 compileExpr : UsePhase
@@ -1322,10 +1390,10 @@ compileExpr ANF c s _ outputDir tm outfile =
      cdata <- getCompileData False ANF tm
      let defs = anf cdata
 
-     generateCSourceFile defs outn
-     Just _ <- compileCObjectFile outn outobj
+     chunks <- generateCSourceFileParts defs outn
+     Just objs <- compileCObjectFiles chunks outn outobj
        | Nothing => pure Nothing
-     compileCFile outobj outexec
+     compileCFiles objs outexec
 
 compileExpr _ _ _ _ _ _ _ = pure Nothing
 
