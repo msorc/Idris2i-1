@@ -41,6 +41,7 @@ Idris2_Value *Main_last
         Idris2_Value *tmp_49 = var_2;                        // Main:10:20--10:24
         var_0 = tmp_48;                                      // Main:10:20--10:24
         var_1 = tmp_49;                                      // Main:10:20--10:24
+        IDRIS2_SAFEPOINT();                                  // Main:10:20--10:24
         goto idris2_self_entry;                              // Main:10:20--10:24
         tmp_47 = NULL /* unreachable */;
     }

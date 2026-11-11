@@ -179,6 +179,8 @@ Idris2_Value *idris2_trampolineSlow(Idris2_Value *it) {
     Idris2_Closure *clos = (Idris2_Closure *)it;
     if (clos->filled < clos->arity)
       break;
+    // (the call is in the closure, not in the worker: we may switch here)
+    IDRIS2_SAFEPOINT();
 
     if (idris2_isShared(clos) && !idris2_tryUnshare((Idris2_Value *)clos)) {
       it = idris2_call_shared_closure(clos, 0, NULL, NULL);

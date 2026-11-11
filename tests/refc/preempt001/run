@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 -o refc_preempt001 Main.idr
+IDRIS2_WORKERS=2 ./build/exec/refc_preempt001

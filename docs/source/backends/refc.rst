@@ -181,12 +181,15 @@ that wakes another one up (by putting a value in a channel, say) leaves it to
 run next on the same worker, so that threads that pass values back and
 forth do not need the operating system to switch between them.
 
-Within a worker, scheduling is *cooperative*: a green thread runs until it
-blocks on a synchronisation object, sleeps, forks a thread, or finishes.
-This has a few consequences:
+Within a worker, scheduling is mostly *cooperative*: a green thread runs
+until it blocks on a synchronisation object, sleeps, forks a thread, or
+finishes.  A thread that has run for more than 10ms while other threads wait
+for its worker yields at its next safepoint (the end of an iteration of a
+loop); ``IDRIS2_PREEMPT=0`` turns this off.  With a single worker, threads
+are never preempted.  This has a few consequences:
 
-* A thread that computes without blocking keeps the other threads of its
-  worker waiting, until an idle worker takes them over.
+* A thread that computes without looping (deep recursion, say) keeps the
+  other threads of its worker waiting, until an idle worker takes them over.
 
 * A blocking system call, such as reading from standard input, blocks the
   worker that makes it, but not the others.  The ``sleep`` and ``usleep``

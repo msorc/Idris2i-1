@@ -86,6 +86,9 @@ typedef struct {
 typedef struct Idris2_Worker {
   Idris2_SizeClass classes[IDRIS2_ALLOC_CLASSES + 1];
   Idris2_PendingTailCall tailcall;
+  // Set when the thread that runs has run for long while others wait for
+  // the worker: it yields at its next safepoint (see IDRIS2_SAFEPOINT).
+  int preempt;
   // The scheduler of the worker (see threads.c).
   void *sched;
   // The values of the pages of this worker that other workers freed: they
@@ -164,3 +167,33 @@ static inline void idris2_spinUnlock(Idris2_SpinLock *lock) {
   (void)lock;
 #endif
 }
+
+// ---------------------------------------------------------------------------
+// Preemption
+//
+// Within a worker, threads run until they block.  So that a thread that
+// computes for long does not keep the other threads of its worker waiting,
+// the generated code has safepoints (at the back edges of its loops), where
+// a thread yields when the scheduler asks it to (see threads.c).
+// ---------------------------------------------------------------------------
+
+// Set while some worker has `preempt` set: the safepoints test this global
+// (one load) rather than their worker.
+extern int idris2_preemptPending;
+#if defined(__GNUC__)
+__attribute__((cold))
+#endif
+void idris2_preemptYield(void);
+
+#if IDRIS2_MULTICORE
+#define IDRIS2_SAFEPOINT()                                                     \
+  do {                                                                         \
+    if (__builtin_expect(                                                      \
+            __atomic_load_n(&idris2_preemptPending, __ATOMIC_RELAXED), 0))     \
+      idris2_preemptYield();                                                   \
+  } while (0)
+#else
+#define IDRIS2_SAFEPOINT()                                                     \
+  do {                                                                         \
+  } while (0)
+#endif

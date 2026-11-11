@@ -447,6 +447,9 @@ makeTailCall fc n args = do
       tmps <- traverse (\_ => getNewVarThatWillNotBeFreedAtEndOfBlock) vals
       for_ (zip tmps vals) $ \(t, v) => emit fc "Idris2_Value *\{t} = \{v};"
       for_ (zip params tmps) $ \(p, t) => emit fc "var_\{show p} = \{t};"
+      -- A loop may run for long: let the other threads of the worker run
+      -- if the scheduler asks for it.
+      emit fc "IDRIS2_SAFEPOINT();"
       emit fc "goto idris2_self_entry;"
       pure "NULL /* unreachable */"
 

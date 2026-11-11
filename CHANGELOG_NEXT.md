@@ -171,6 +171,9 @@ should target this file (`CHANGELOG_NEXT`).
   passing stays as fast as with a single OS thread.  The values that threads
   hand over to each other are reference counted atomically; the others are
   not.  A blocking system call only blocks the OS thread that makes it.
+  A thread that runs for more than 10ms while others wait for its OS thread
+  yields at the end of an iteration of a loop (`IDRIS2_PREEMPT=0` turns this
+  off).
 * Fixed memory leaks of the arguments passed to the external primitives
   (`writeIORef`, `newIORef`, `newArray`, `arraySet`, `onCollect`, ...): the
   primitives take a reference to what they keep, but the caller did not

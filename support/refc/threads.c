@@ -21,7 +21,9 @@
 //   restores the signal mask, which costs a system call per switch.
 //
 // Scheduling is cooperative: a worker runs a thread until it blocks, sleeps,
-// forks a thread or finishes.  The program ends when the main expression is
+// forks a thread or finishes, or until it reaches a safepoint (the back edge
+// of a loop) after the monitor asked it to yield, as it ran for more than
+// PREEMPT_INTERVAL_NS while other threads waited for its worker.  The program ends when the main expression is
 // done, like in the Chez backend.
 //
 // The program has a single worker, the main OS thread, until it forks its
@@ -328,6 +330,8 @@ typedef struct Sched {
   // identifier (-1 then), which other workers may read.
   Idris2_Thread *current;
   int64_t current_id;
+  // The number of threads that the worker started running (see monitor).
+  uint64_t switches;
 #if IDRIS2_GREEN_THREADS
   Context ctx; // the context of the scheduler
   After after;
@@ -1060,6 +1064,16 @@ void idris2_threadYield(void) {
 #endif
 }
 
+int idris2_preemptPending = 0;
+
+void idris2_preemptYield(void) {
+  Idris2_Worker *w = idris2_worker();
+  if (__atomic_load_n(&w->preempt, __ATOMIC_RELAXED)) {
+    __atomic_store_n(&w->preempt, 0, __ATOMIC_RELAXED);
+    idris2_threadYield();
+  }
+}
+
 void idris2_threadSleep(int64_t microseconds) {
   if (microseconds <= 0) {
     return;
@@ -1300,6 +1314,7 @@ static void scheduler_loop(void) {
     thread = find_work(s);
     s->current = thread;
     __atomic_store_n(&s->current_id, thread->id, __ATOMIC_RELAXED);
+    __atomic_store_n(&s->switches, s->switches + 1, __ATOMIC_RELAXED);
     context_switch(&s->ctx, &thread->ctx);
     __atomic_store_n(&s->current_id, -1, __ATOMIC_RELAXED);
   }
@@ -1343,6 +1358,41 @@ static void *worker_main(void *arg) {
   Sched *s = (Sched *)arg;
   idris2_tlsWorker = s->worker;
   scheduler_loop();
+  return NULL;
+}
+
+// How often the monitor looks at the workers, and so how long a thread may
+// run while others wait for its worker.
+#define PREEMPT_INTERVAL_NS ((int64_t)10000000)
+
+// The monitor asks the threads that ran for a whole interval while other
+// threads waited for their worker to yield (see IDRIS2_SAFEPOINT).
+static void *monitor_main(void *arg) {
+  (void)arg;
+  int n = n_workers;
+  uint64_t *seen = calloc((size_t)n, sizeof(uint64_t));
+  if (!seen) {
+    return NULL;
+  }
+  for (;;) {
+    struct timespec delay;
+    delay.tv_sec = 0;
+    delay.tv_nsec = (long)PREEMPT_INTERVAL_NS;
+    nanosleep(&delay, NULL);
+    int pending = 0;
+    for (int i = 0; i < n; i++) {
+      Sched *w = workers[i];
+      uint64_t switches = __atomic_load_n(&w->switches, __ATOMIC_RELAXED);
+      if (switches == seen[i] &&
+          __atomic_load_n(&w->current_id, __ATOMIC_RELAXED) != -1 &&
+          queued(w) > 0) {
+        __atomic_store_n(&w->worker->preempt, 1, __ATOMIC_RELAXED);
+      }
+      pending |= __atomic_load_n(&w->worker->preempt, __ATOMIC_RELAXED);
+      seen[i] = switches;
+    }
+    __atomic_store_n(&idris2_preemptPending, pending, __ATOMIC_RELAXED);
+  }
   return NULL;
 }
 
@@ -1399,6 +1449,14 @@ static void start_workers(void) {
   for (int i = 1; i < created; i++) {
     pthread_t pthread;
     if (pthread_create(&pthread, &attr, worker_main, all[i]) != 0) {
+      fatal("could not start the workers (try IDRIS2_WORKERS=1)");
+    }
+  }
+  // IDRIS2_PREEMPT=0 turns preemption off.
+  const char *preempt = getenv("IDRIS2_PREEMPT");
+  if (!preempt || strcmp(preempt, "0") != 0) {
+    pthread_t monitor;
+    if (pthread_create(&monitor, &attr, monitor_main, NULL) != 0) {
       fatal("could not start the workers (try IDRIS2_WORKERS=1)");
     }
   }
