@@ -6,8 +6,8 @@
 ||| primitives that back ends should support.
 |||
 ||| The RefC backend implements these in terms of green threads: user level
-||| threads that are multiplexed onto a single OS thread.  This means that
-||| they provide concurrency, but not parallelism.
+||| threads that run in parallel on a pool of OS threads (one per processor,
+||| or `IDRIS2_WORKERS`).
 module System.Concurrency
 
 import System.Info

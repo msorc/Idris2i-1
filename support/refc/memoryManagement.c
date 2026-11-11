@@ -69,8 +69,12 @@ void idris2_dumpMemoryStats() {}
  * page, found by masking its address.  The pages are never given back to
  * the system, they are reused for new values.
  *
- * Every value is allocated and freed by the same OS thread (green threads
- * all run on one), so the pages need no locking.
+ * Every worker (see worker.h) has pages of its own, and only allocates from
+ * them, so allocating takes no lock.  A value may be freed by another worker
+ * than the one that allocated it (green threads move between workers, and
+ * shared values are seen by several of them): it is then pushed on a list of
+ * the worker that owns its page, without a lock, and that worker puts it
+ * back in its page the next time that it needs a page.
  *
  * Compile the support library with -DIDRIS2_REFC_NO_POOLS to allocate every
  * value with malloc, e.g. to look for leaks with a memory checker.
@@ -94,11 +98,11 @@ static void *allocAligned(size_t alignment, size_t size) {
   return retVal;
 }
 
-Idris2_SizeClass idris2_classes[IDRIS2_ALLOC_CLASSES + 1];
-
-static Idris2_Page *newPage(unsigned cls) {
+static Idris2_Page *newPage(Idris2_Worker *w, unsigned cls) {
   Idris2_Page *page = allocAligned(IDRIS2_PAGE_SIZE, IDRIS2_PAGE_SIZE);
   size_t size = (size_t)cls * IDRIS2_ALLOC_UNIT;
+  page->owner = w;
+  page->cls = cls;
   // The values start after the header of the page, aligned on 16 bytes.
   char *start = (char *)page + ((sizeof(Idris2_Page) + 15) & ~(size_t)15);
   page->free = NULL;
@@ -125,19 +129,51 @@ static int runningOnValgrind(void) {
 #endif
 }
 
+// Put a value of a page of `w` back in its page.
+static void freeLocal(Idris2_Worker *w, Idris2_Page *page,
+                      Idris2_FreeValue *v) {
+  v->next = page->free;
+  page->free = v;
+  if (!page->available) {
+    // The page was full and had been left: make it available again.
+    Idris2_SizeClass *c = &w->classes[page->cls];
+    page->available = 1;
+    page->nextAvailable = c->available;
+    c->available = page;
+  }
+}
+
+// Put the values that other workers freed back in their pages.
+static void collectRemoteFrees(Idris2_Worker *w) {
+  if (!__atomic_load_n(&w->remoteFree, __ATOMIC_RELAXED))
+    return;
+  Idris2_FreeValue *v =
+      __atomic_exchange_n(&w->remoteFree, NULL, __ATOMIC_ACQUIRE);
+  while (v) {
+    Idris2_FreeValue *next = v->next;
+    freeLocal(w,
+              (Idris2_Page *)((uintptr_t)v &
+                              ~(uintptr_t)(IDRIS2_PAGE_SIZE - 1)),
+              v);
+    v = next;
+  }
+}
+
 Idris2_Value *idris2_allocSlow(unsigned cls) {
   if (runningOnValgrind()) {
     // A value from malloc: its class is 0.
     return idris2_allocLarge((size_t)cls * IDRIS2_ALLOC_UNIT);
   }
-  Idris2_SizeClass *c = &idris2_classes[cls];
+  Idris2_Worker *w = idris2_worker();
+  collectRemoteFrees(w);
+  Idris2_SizeClass *c = &w->classes[cls];
   if (c->current)
     c->current->available = 0;
   Idris2_Page *page = c->available;
   if (page) {
     c->available = page->nextAvailable;
   } else {
-    page = newPage(cls);
+    page = newPage(w, cls);
   }
   c->current = page;
   page->available = 1;
@@ -165,7 +201,7 @@ Idris2_Value *idris2_allocLarge(size_t size) {
 }
 
 void idris2_freeValue(Idris2_Value *value) {
-  unsigned cls = value->header.reserved;
+  unsigned cls = value->header.reserved & IDRIS2_CLASS_MASK;
   if (cls == 0) {
     free(value);
     return;
@@ -173,15 +209,124 @@ void idris2_freeValue(Idris2_Value *value) {
   Idris2_Page *page =
       (Idris2_Page *)((uintptr_t)value & ~(uintptr_t)(IDRIS2_PAGE_SIZE - 1));
   Idris2_FreeValue *v = (Idris2_FreeValue *)value;
-  v->next = page->free;
-  page->free = v;
-  if (!page->available) {
-    // The page was full and had been left: make it available again.
-    Idris2_SizeClass *c = &idris2_classes[cls];
-    page->available = 1;
-    page->nextAvailable = c->available;
-    c->available = page;
+  Idris2_Worker *w = idris2_worker();
+  if (page->owner == w) {
+    freeLocal(w, page, v);
+    return;
   }
+  // A value of another worker: hand it over to that worker.
+  Idris2_Worker *owner = page->owner;
+  Idris2_FreeValue *head = __atomic_load_n(&owner->remoteFree, __ATOMIC_RELAXED);
+  do {
+    v->next = head;
+  } while (!__atomic_compare_exchange_n(&owner->remoteFree, &head, v, 1,
+                                        __ATOMIC_RELEASE, __ATOMIC_RELAXED));
+}
+
+// ---------------------------------------------------------------------------
+// Shared values (see memoryManagement.h)
+// ---------------------------------------------------------------------------
+
+void idris2_newReferenceSlow(Idris2_Value *v) {
+  if (!idris2_isShared(v))
+    return; // immortal
+  uint16_t c = __atomic_load_n(&v->header.refCounter, __ATOMIC_RELAXED);
+  while (c != IDRIS2_VP_REFCOUNTER_MAX &&
+         !__atomic_compare_exchange_n(&v->header.refCounter, &c, c + 1, 1,
+                                      __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+  }
+}
+
+// Drop a reference to a shared value: 1 when it was the last one.
+static int sharedDropReference(Idris2_Value *v) {
+  uint16_t c = __atomic_load_n(&v->header.refCounter, __ATOMIC_ACQUIRE);
+  // The only reference cannot be taken by anybody else.
+  if (c == 1)
+    return 1;
+  for (;;) {
+    if (c == IDRIS2_VP_REFCOUNTER_MAX)
+      return 0;
+    if (__atomic_compare_exchange_n(&v->header.refCounter, &c, c - 1, 1,
+                                    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))
+      return c == 1;
+  }
+}
+
+void idris2_removeReferenceSlow(Idris2_Value *v) {
+  if (idris2_isShared(v) && sharedDropReference(v))
+    idris2_releaseValue(v);
+}
+
+void idris2_markShared(Idris2_Value *root) {
+  // A stack of the values to visit, rather than recursion: lists are long.
+  Idris2_Value *small[64];
+  Idris2_Value **stack = small;
+  size_t capacity = 64, n = 0;
+#define IDRIS2_PUSH(x)                                                         \
+  do {                                                                         \
+    Idris2_Value *x_ = (x);                                                    \
+    if (!x_ || idris2_vp_is_unboxed(x_) ||                                     \
+        (x_->header.reserved & (IDRIS2_STATIC_FLAG | IDRIS2_SHARED_FLAG)))     \
+      break;                                                                   \
+    if (n == capacity) {                                                       \
+      Idris2_Value **bigger = malloc(2 * capacity * sizeof(Idris2_Value *));   \
+      IDRIS2_REFC_VERIFY(bigger, "malloc failed");                             \
+      memcpy(bigger, stack, n * sizeof(Idris2_Value *));                       \
+      if (stack != small)                                                      \
+        free(stack);                                                           \
+      stack = bigger;                                                          \
+      capacity *= 2;                                                           \
+    }                                                                          \
+    stack[n++] = x_;                                                           \
+  } while (0)
+
+  IDRIS2_PUSH(root);
+  while (n > 0) {
+    Idris2_Value *v = stack[--n];
+    if (v->header.reserved & IDRIS2_SHARED_FLAG)
+      continue; // (pushed twice)
+    v->header.reserved |= IDRIS2_SHARED_FLAG;
+    switch (v->header.tag) {
+    case CONSTRUCTOR_TAG: {
+      Idris2_Constructor *c = (Idris2_Constructor *)v;
+      for (int i = 0; i < c->total; i++)
+        IDRIS2_PUSH(c->args[i]);
+      break;
+    }
+    case CLOSURE_TAG: {
+      Idris2_Closure *c = (Idris2_Closure *)v;
+      for (int i = 0; i < c->filled; i++)
+        IDRIS2_PUSH(c->args[i]);
+      break;
+    }
+    case IOREF_TAG:
+      IDRIS2_PUSH(((Idris2_IORef *)v)->v);
+      break;
+    case ARRAY_TAG: {
+      Idris2_Array *a = (Idris2_Array *)v;
+      for (int i = 0; i < a->capacity; i++)
+        IDRIS2_PUSH(a->arr[i]);
+      break;
+    }
+    case GC_POINTER_TAG: {
+      Idris2_GCPointer *p = (Idris2_GCPointer *)v;
+      IDRIS2_PUSH((Idris2_Value *)p->p);
+      IDRIS2_PUSH((Idris2_Value *)p->onCollectFct);
+      break;
+    }
+    case CHANNEL_TAG: {
+      Idris2_Channel *c = (Idris2_Channel *)v;
+      if (c->full)
+        IDRIS2_PUSH(c->value);
+      break;
+    }
+    default:
+      break;
+    }
+  }
+#undef IDRIS2_PUSH
+  if (stack != small)
+    free(stack);
 }
 
 Idris2_Value *idris2_newZeroedValue(size_t size) {
@@ -319,6 +464,7 @@ Idris2_Buffer *idris2_makeBuffer(void *buf) {
 Idris2_Array *idris2_makeArray(int length) {
   Idris2_Array *a = IDRIS2_NEW_VALUE(Idris2_Array);
   a->header.tag = ARRAY_TAG;
+  a->lock = 0;
   a->capacity = length;
   a->arr = (Idris2_Value **)malloc(sizeof(Idris2_Value *) * length);
   memset(a->arr, 0, sizeof(Idris2_Value *) * length);
@@ -431,12 +577,18 @@ void idris2_releaseValue(Idris2_Value *elem) {
     idris2_freeValue(elem);
 
     // Release the last field, here when it was its last reference.
-    if (!last || idris2_vp_is_unboxed(last) ||
-        last->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
+    if (!last || idris2_vp_is_unboxed(last))
       return;
-    if (last->header.refCounter != 1) {
-      --last->header.refCounter;
-      return;
+    if (idris2_isShared(last)) {
+      if (!sharedDropReference(last))
+        return;
+    } else {
+      if (last->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
+        return;
+      if (last->header.refCounter != 1) {
+        --last->header.refCounter;
+        return;
+      }
     }
     elem = last;
   }
@@ -507,8 +659,17 @@ Idris2_Value *idris2_makeIntegerConstant(Idris2_Value **slot,
   Idris2_Value *v = idris2_normaliseInteger(value);
   if (!idris2_vp_is_unboxed(v))
     v->header.refCounter = IDRIS2_VP_REFCOUNTER_MAX;
-  *slot = v;
-  return *slot;
+  // Another thread may have made it at the same time: keep the first one.
+  Idris2_Value *first = NULL;
+  if (!__atomic_compare_exchange_n(slot, &first, v, 0, __ATOMIC_ACQ_REL,
+                                   __ATOMIC_ACQUIRE)) {
+    if (!idris2_vp_is_unboxed(v)) {
+      mpz_clear(((Idris2_Integer *)v)->i);
+      idris2_freeValue(v);
+    }
+    return first;
+  }
+  return v;
 }
 
 Idris2_Value *idris2_getPredefinedInteger(int n) {

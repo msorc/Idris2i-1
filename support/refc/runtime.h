@@ -4,7 +4,10 @@
 
 void idris2_missing_ffi();
 
-#define idris2_isUnique(x) ((x)->header.refCounter == 1)
+// May the value be updated in place?  A shared value never is (see
+// memoryManagement.h).
+#define idris2_isUnique(x)                                                     \
+  ((x)->header.refCounter == 1 && !idris2_isShared(x))
 void idris2_removeReuseConstructor(Idris2_Constructor *constr);
 
 Idris2_Value *idris2_apply_closure(Idris2_Value *, Idris2_Value *arg);
@@ -21,13 +24,9 @@ Idris2_Value *idris2_tailcall_apply_closure2(Idris2_Value *_clos,
 // trampoline of its caller makes.  Nothing can run in between but the release
 // of values; the finaliser of a GC pointer saves and restores the pending
 // call (see idris2_releaseValue).
-#define IDRIS2_MAX_TAILCALL_ARGS 16
-typedef struct {
-  void *f;
-  uint8_t arity;
-  Idris2_Value *args[IDRIS2_MAX_TAILCALL_ARGS];
-} Idris2_PendingTailCall;
-extern Idris2_PendingTailCall idris2_pendingTailCall;
+//
+// The pending call is in the current worker (see worker.h).
+#define idris2_pendingTailCall (idris2_worker()->tailcall)
 extern Idris2_Value const idris2_tailCallMarker;
 #define IDRIS2_TAILCALL ((Idris2_Value *)&idris2_tailCallMarker)
 
@@ -71,3 +70,30 @@ static inline int64_t idris2_extractUInt64(Idris2_Value *v) {
     return (uint32_t)((uintptr_t)(v) >> idris2_vp_int_shift);
   return idris2_extractInt64Boxed(v);
 }
+
+// ---------------------------------------------------------------------------
+// Constants of the program
+//
+// A definition without arguments is evaluated once, the first time that it
+// is needed (see createCFunctions in RefC.idr), and its value is kept for
+// good: it is immortal, and shared (see memoryManagement.h) once several
+// workers run.  Threads that need it while another one evaluates it wait.
+// ---------------------------------------------------------------------------
+
+typedef struct {
+  Idris2_Value *value;
+  int state;     // 0: not evaluated, 1: being evaluated, 2: evaluated
+  int64_t maker; // the thread that evaluates it
+} Idris2_Constant;
+
+Idris2_Value *idris2_makeConstant(Idris2_Constant *c,
+                                  Idris2_Value *(*make)(void));
+static inline Idris2_Value *idris2_constantValue(Idris2_Constant *c,
+                                                 Idris2_Value *(*make)(void)) {
+  if (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) == 2)
+    return c->value;
+  return idris2_makeConstant(c, make);
+}
+
+// Make the constants evaluated so far shared (when the second worker starts).
+void idris2_shareConstants(void);

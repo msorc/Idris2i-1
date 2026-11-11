@@ -8,18 +8,19 @@
 // Green threads
 //
 // The RefC backend runs Idris programs as a set of "green threads": user
-// level threads that are multiplexed onto a single OS thread.  Each forked
-// green thread owns a stack, and switching between green threads is done
-// with swapcontext(3).  The main expression runs on a large stack of its own
-// (see IDRIS2_MAIN_STACK_SIZE in threads.c).
+// level threads that the scheduler in threads.c runs on a pool of OS threads,
+// the workers (see worker.h).  Each forked green thread owns a stack, and
+// switching between green threads takes a few instructions.  The main
+// expression runs on a large stack of its own (see IDRIS2_MAIN_STACK_SIZE in
+// threads.c).
 //
-// Scheduling is cooperative: a green thread gives up control when it blocks
-// on a synchronisation object (a mutex, a condition variable, a semaphore, a
-// barrier, a channel or threadWait), when it sleeps, when it forks a thread
-// or when it finishes.
-//
-// Note that this gives concurrency, not parallelism: only one green thread
-// runs at any given moment.
+// A worker runs a green thread until it blocks on a synchronisation object
+// (a mutex, a condition variable, a semaphore, a barrier, a channel or
+// threadWait), sleeps, forks a thread or finishes; the idle workers take
+// work from the busy ones.  So the green threads run in parallel, one per
+// worker at a time.  There is one worker per processor, or as many as the
+// IDRIS2_WORKERS environment variable says; the program has a single one
+// until it forks its first thread.
 // ---------------------------------------------------------------------------
 
 // Entry point used by the generated `main` function.  `mainAction` is the
@@ -49,26 +50,34 @@ int64_t idris2_monotonicNanoseconds(void);
 // positive), saturating instead of overflowing.
 int64_t idris2_deadlineAfter(int64_t microseconds);
 
-// Block the current thread until it is woken up through `queue`.
-void idris2_threadBlockOn(Idris2_WaitQueue *queue);
+// Block the current thread until it is woken up through `queue`.  `lock`
+// guards the queue: the caller holds it, and it is released once the thread
+// is blocked (it is not held any more when this returns).
+void idris2_threadBlockOn(Idris2_WaitQueue *queue, Idris2_SpinLock *lock);
 
 // Block the current thread until it is woken up through `queue`, or until
-// the monotonic clock reaches `deadline_ns`.  Returns 1 if the thread was
-// woken up, and 0 if the deadline expired.  On expiry the thread is removed
-// from `queue`, so it cannot be woken up by a later event.
-int idris2_threadBlockOnUntil(Idris2_WaitQueue *queue, int64_t deadline_ns);
+// the monotonic clock reaches `deadline_ns`, as idris2_threadBlockOn.
+// Returns 1 if the thread was woken up, and 0 if the deadline expired.  On
+// expiry the thread is removed from `queue`, so it cannot be woken up by a
+// later event.
+int idris2_threadBlockOnUntil(Idris2_WaitQueue *queue, Idris2_SpinLock *lock,
+                              int64_t deadline_ns);
 
 // Remove the first thread waiting in `queue` without scheduling it.  Returns
-// NULL if the queue is empty.
+// NULL if the queue is empty.  The caller holds the lock of the queue.  The
+// queue must not have threads waiting with a deadline.
 Idris2_Thread *idris2_threadTakeWaiter(Idris2_WaitQueue *queue);
 
-// Make a blocked thread runnable again.  Does nothing if it is not blocked.
+// Make a thread taken with idris2_threadTakeWaiter runnable again.
 void idris2_threadSchedule(Idris2_Thread *thread);
 
-// Wake up the first thread waiting in `queue`, if any.
-void idris2_threadWakeOne(Idris2_WaitQueue *queue);
+// Wake up the first thread waiting in `queue`, if any (one whose deadline
+// has not expired).  The caller holds the lock of the queue.  Returns 1 when
+// a thread was woken up.
+int idris2_threadWakeOne(Idris2_WaitQueue *queue);
 
-// Wake up all the threads waiting in `queue`.
+// Wake up all the threads waiting in `queue`.  The caller holds the lock of
+// the queue.
 void idris2_threadWakeAll(Idris2_WaitQueue *queue);
 
 // Let the other runnable threads run before the current one carries on.
@@ -77,3 +86,15 @@ void idris2_threadYield(void);
 // Sleep for the given number of microseconds.  Unlike a system call, this
 // does not block the other green threads.
 void idris2_threadSleep(int64_t microseconds);
+
+// Are several workers running?
+int idris2_threadsInParallel(void);
+
+// The index of the current worker.
+int idris2_workerIndex(void);
+
+// Is the thread `thread` running on the worker `worker`, another one than
+// the current one, which has nothing else to do?  (Then a lock that the
+// thread holds is worth spinning on for a while, as it runs at the same
+// time.)
+int idris2_threadRunsElsewhere(int worker, int64_t thread);

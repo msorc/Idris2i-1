@@ -8,8 +8,16 @@ Idris2_Value *idris2_Data_IORef_prim__newIORef(Idris2_Value *erased,
                                                Idris2_Value *_world) {
   Idris2_IORef *ioRef = IDRIS2_NEW_VALUE(Idris2_IORef);
   ioRef->header.tag = IOREF_TAG;
+  ioRef->lock = 0;
   ioRef->v = idris2_newReference(input_value);
   return (Idris2_Value *)ioRef;
+}
+
+Idris2_Value *idris2_readSharedIORef(Idris2_IORef *ioref) {
+  idris2_spinLock(&ioref->lock);
+  Idris2_Value *v = idris2_newReference(ioref->v);
+  idris2_spinUnlock(&ioref->lock);
+  return v;
 }
 
 Idris2_Value *idris2_Data_IORef_prim__writeIORef(Idris2_Value *erased,
@@ -18,8 +26,18 @@ Idris2_Value *idris2_Data_IORef_prim__writeIORef(Idris2_Value *erased,
                                                  Idris2_Value *_world) {
   Idris2_IORef *ioref = (Idris2_IORef *)_ioref;
   idris2_newReference(new_value);
-  Idris2_Value *old = ioref->v;
-  ioref->v = new_value;
+  Idris2_Value *old;
+  if (idris2_isShared(_ioref)) {
+    // Other threads see the value from now on.
+    idris2_markShared(new_value);
+    idris2_spinLock(&ioref->lock);
+    old = ioref->v;
+    ioref->v = new_value;
+    idris2_spinUnlock(&ioref->lock);
+  } else {
+    old = ioref->v;
+    ioref->v = new_value;
+  }
   idris2_removeReference(old);
   return NULL;
 }
@@ -91,9 +109,28 @@ Idris2_Value *idris2_Data_IOArray_Prims_prim__arraySet(Idris2_Value *erased,
                                                        Idris2_Value *v,
                                                        Idris2_Value *_word) {
   Idris2_Array *a = (Idris2_Array *)_array;
-  idris2_removeReference(a->arr[idris2_vp_to_Int64(index)]);
-  a->arr[idris2_vp_to_Int64(index)] = idris2_newReference(v);
+  int64_t i = idris2_vp_to_Int64(index);
+  idris2_newReference(v);
+  Idris2_Value *old;
+  if (idris2_isShared(_array)) {
+    idris2_markShared(v);
+    idris2_spinLock(&a->lock);
+    old = a->arr[i];
+    a->arr[i] = v;
+    idris2_spinUnlock(&a->lock);
+  } else {
+    old = a->arr[i];
+    a->arr[i] = v;
+  }
+  idris2_removeReference(old);
   return NULL;
+}
+
+Idris2_Value *idris2_sharedArrayGet(Idris2_Array *a, int64_t i) {
+  idris2_spinLock(&a->lock);
+  Idris2_Value *v = idris2_newReference(a->arr[i]);
+  idris2_spinUnlock(&a->lock);
+  return v;
 }
 
 //

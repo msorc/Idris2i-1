@@ -1140,16 +1140,13 @@ createCFunctions n (MkAFun args anf) = do
     emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
     decreaseIndentation
     emit EmptyFC  "}\n"
+    -- (idris2_constantValue makes it once, even with threads running in
+    -- parallel.)
     when (nargs == 0) $ do
       emit EmptyFC fn
       emit EmptyFC "{"
-      emit EmptyFC "  static Idris2_Value *value;"
-      emit EmptyFC "  static int known = 0;"
-      emit EmptyFC "  if (!known) {"
-      emit EmptyFC "    value = idris2_makeImmortal(idris2_trampoline(\{cn}_constant()));"
-      emit EmptyFC "    known = 1;"
-      emit EmptyFC "  }"
-      emit EmptyFC "  return value;"
+      emit EmptyFC "  static Idris2_Constant constant;"
+      emit EmptyFC "  return idris2_constantValue(&constant, \{cn}_constant);"
       emit EmptyFC "}\n"
     emit EmptyFC  ""
     pure ()

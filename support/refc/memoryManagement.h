@@ -1,31 +1,11 @@
 #pragma once
 
-#include "cBackend.h"
+#include "_datatypes.h"
+#include "worker.h"
 
 // Allocation of values: see the description in memoryManagement.c.  The
-// common case is inlined.
-#define IDRIS2_ALLOC_UNIT 8
-#define IDRIS2_ALLOC_CLASSES 32 /* values of up to 256 bytes */
-#define IDRIS2_PAGE_SIZE ((size_t)64 * 1024)
-
-typedef struct Idris2_FreeValue {
-  struct Idris2_FreeValue *next;
-} Idris2_FreeValue;
-
-typedef struct Idris2_Page {
-  Idris2_FreeValue *free; // freed values of this page
-  char *bump;             // the values after this one were never allocated
-  char *end;
-  struct Idris2_Page *nextAvailable; // in the available list of the class
-  int available;                     // in that list, or the current page
-} Idris2_Page;
-
-typedef struct {
-  Idris2_Page *current;   // the page that the class allocates from
-  Idris2_Page *available; // pages with free values, besides the current one
-} Idris2_SizeClass;
-
-extern Idris2_SizeClass idris2_classes[IDRIS2_ALLOC_CLASSES + 1];
+// common case is inlined.  The pages are those of the current worker (see
+// worker.h).
 
 // The current page of the class is full: move on to another one.
 Idris2_Value *idris2_allocSlow(unsigned cls);
@@ -41,7 +21,7 @@ static inline Idris2_Value *idris2_newValue(size_t size) {
     if (cls == 0)
       cls = 1;
     Idris2_Value *retVal;
-    Idris2_Page *page = idris2_classes[cls].current;
+    Idris2_Page *page = idris2_worker()->classes[cls].current;
     Idris2_FreeValue *v;
     if (page && (v = page->free) != NULL) {
       page->free = v->next;
@@ -70,13 +50,71 @@ Idris2_Value *idris2_newZeroedValue(size_t size);
 
 void idris2_releaseValue(Idris2_Value *elem);
 
+// ---------------------------------------------------------------------------
+// Shared values
+//
+// A value that only one green thread can see is reference counted with
+// plain increments and decrements.  Once a value may be seen by several
+// green threads, which may run in parallel, it is "shared": its counter is
+// updated atomically.  A value becomes shared, together with all the values
+// that it refers to, when it is handed over to another thread (the action of
+// `fork`, a value put in a shared channel, IORef or array, a constant of the
+// program; see idris2_markShared).  A shared value only refers to shared
+// values, and it is never updated in place: idris2_isUnique is false for it,
+// whatever its reference count.
+//
+// Until a second worker starts, no value is shared.
+// ---------------------------------------------------------------------------
+
+// Make `v` and everything that it refers to shared.
+void idris2_markShared(Idris2_Value *v);
+
+// The reference counting of shared and immortal values, out of line.
+void idris2_newReferenceSlow(Idris2_Value *v);
+void idris2_removeReferenceSlow(Idris2_Value *v);
+
+// Is the value neither shared nor immortal, i.e. is its reference count
+// updated in place?  This is the common case, tested with one comparison
+// where the layout of the header allows it.
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+static inline uint32_t idris2_headerWord(Idris2_Value *v) {
+  uint32_t word;
+  memcpy(&word, &v->header, sizeof(word));
+  return word;
+}
+// The reference count is in the low 16 bits, the shared flag in the top one.
+#define idris2_isPlainCounted(word)                                           \
+  (((word) & (0x80000000u | IDRIS2_VP_REFCOUNTER_MAX)) <                       \
+   IDRIS2_VP_REFCOUNTER_MAX)
+#define idris2_wordRefCounter(word) ((uint16_t)(word))
+#else
+static inline Idris2_header idris2_headerWord(Idris2_Value *v) {
+  return v->header;
+}
+#define idris2_isPlainCounted(h)                                               \
+  (!((h).reserved & IDRIS2_SHARED_FLAG) &&                                     \
+   (h).refCounter != IDRIS2_VP_REFCOUNTER_MAX)
+#define idris2_wordRefCounter(h) ((h).refCounter)
+#endif
+
 // Take a reference.  NULL (an erased value), unboxed values and immortal
 // values (the reference count of which reached its maximum, or statically
 // allocated values) are left alone.
-static inline Idris2_Value *idris2_newReference(Idris2_Value *source) {
-  if (source && !idris2_vp_is_unboxed(source) &&
-      source->header.refCounter != IDRIS2_VP_REFCOUNTER_MAX)
-    ++source->header.refCounter;
+// (Forced inline: GCC otherwise calls an out of line copy in big functions,
+// which costs much more than the few instructions of the common case.)
+#if defined(__GNUC__)
+#define IDRIS2_INLINE static inline __attribute__((always_inline))
+#else
+#define IDRIS2_INLINE static inline
+#endif
+
+IDRIS2_INLINE Idris2_Value *idris2_newReference(Idris2_Value *source) {
+  if (source && !idris2_vp_is_unboxed(source)) {
+    if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(source)), 1))
+      ++source->header.refCounter;
+    else
+      idris2_newReferenceSlow(source);
+  }
   return source;
 }
 
@@ -85,26 +123,34 @@ static inline Idris2_Value *idris2_makeImmortal(Idris2_Value *v) {
   // (static values are immortal already, and may be read only)
   if (v && !idris2_vp_is_unboxed(v) &&
       v->header.refCounter != IDRIS2_VP_REFCOUNTER_MAX)
-    v->header.refCounter = IDRIS2_VP_REFCOUNTER_MAX;
+    __atomic_store_n(&v->header.refCounter, IDRIS2_VP_REFCOUNTER_MAX,
+                     __ATOMIC_RELAXED);
   return v;
 }
 
-// Drop a reference to a value that has other references (but may be
-// immortal).
-static inline void idris2_dropSharedReference(Idris2_Value *v) {
-  if (v->header.refCounter != IDRIS2_VP_REFCOUNTER_MAX)
-    --v->header.refCounter;
+// Drop a reference, releasing the value when it was the last one.
+IDRIS2_INLINE void idris2_removeReference(Idris2_Value *elem) {
+  if (!elem || idris2_vp_is_unboxed(elem))
+    return;
+  if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(elem)), 1)) {
+    uint16_t count = idris2_wordRefCounter(idris2_headerWord(elem));
+    if (count != 1)
+      elem->header.refCounter = count - 1;
+    else
+      idris2_releaseValue(elem);
+  } else {
+    idris2_removeReferenceSlow(elem);
+  }
 }
 
-// Drop a reference, releasing the value when it was the last one.
-static inline void idris2_removeReference(Idris2_Value *elem) {
-  if (!elem || idris2_vp_is_unboxed(elem) ||
-      elem->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
-    return;
-  if (elem->header.refCounter != 1)
-    --elem->header.refCounter;
+// Drop a reference to a value that has other references (but may be
+// immortal).  Another thread may drop the other references of a shared
+// value at the same time, so that one is released if need be.
+IDRIS2_INLINE void idris2_dropSharedReference(Idris2_Value *v) {
+  if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(v)), 1))
+    --v->header.refCounter;
   else
-    idris2_releaseValue(elem);
+    idris2_removeReferenceSlow(v);
 }
 
 #define IDRIS2_NEW_VALUE(t) ((t *)idris2_newValue(sizeof(t)))
@@ -241,7 +287,8 @@ Idris2_Value *idris2_makeIntegerConstant(Idris2_Value **slot,
                                          char const *digits);
 static inline Idris2_Value *idris2_integerConstant(Idris2_Value **slot,
                                                    char const *digits) {
-  return *slot ? *slot : idris2_makeIntegerConstant(slot, digits);
+  Idris2_Value *v = __atomic_load_n(slot, __ATOMIC_ACQUIRE);
+  return v ? v : idris2_makeIntegerConstant(slot, digits);
 }
 extern Idris2_ShortString const idris2_predefined_nullstring;
 

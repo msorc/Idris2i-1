@@ -157,7 +157,7 @@ Green threads
 =============
 
 The RefC backend supports concurrency through *green threads*: user level
-threads that are multiplexed onto a single OS thread by the runtime.
+threads that the runtime runs on a pool of OS threads, the *workers*.
 Switching between green threads is done by a few lines of assembly on x86-64
 and AArch64, and with ``swapcontext(3)`` on the other POSIX systems (which is
 slower, as it makes a system call on every switch).  Green threads are only
@@ -172,17 +172,25 @@ Chez backend (mutexes are recursive, a channel holds at most one value, and
 a forked thread inherits the thread local data of its parent), but they are
 implemented by the RefC scheduler rather than by the operating system.
 
-Scheduling is *cooperative*: a green thread gives up control when it blocks
-on a synchronisation object, when it sleeps, when it forks a thread, or when
-it finishes.  This has a few consequences:
+A program has a single worker until it forks its first thread.  Then there
+is one worker per processor, or as many as the ``IDRIS2_WORKERS``
+environment variable says (``IDRIS2_WORKERS=1`` runs every green thread on
+the main OS thread).  The green threads run in parallel, one per worker at a
+time: a worker with nothing to run takes threads from a busy one.  A thread
+that wakes another one up (by putting a value in a channel, say) leaves it to
+run next on the same worker, so that threads that pass values back and
+forth do not need the operating system to switch between them.
 
-* Green threads provide concurrency, but not parallelism: only one green
-  thread runs at any given moment, and a thread that computes without
-  blocking keeps the others waiting.
+Within a worker, scheduling is *cooperative*: a green thread runs until it
+blocks on a synchronisation object, sleeps, forks a thread, or finishes.
+This has a few consequences:
 
-* A blocking system call, such as reading from standard input, blocks every
-  green thread.  The ``sleep`` and ``usleep`` functions of ``System`` are
-  exceptions: they are implemented in terms of the scheduler, so that the
+* A thread that computes without blocking keeps the other threads of its
+  worker waiting, until an idle worker takes them over.
+
+* A blocking system call, such as reading from standard input, blocks the
+  worker that makes it, but not the others.  The ``sleep`` and ``usleep``
+  functions of ``System`` are implemented in terms of the scheduler, so the
   other green threads keep running while a thread sleeps.
 
 * Like in the Chez backend, the program ends when the main expression is
@@ -190,6 +198,19 @@ it finishes.  This has a few consequences:
   abandoned.  Use ``threadWait`` to wait for a thread to finish.  If every
   thread is blocked forever while the main expression is still running, the
   program reports a deadlock and exits with an error.
+
+* The arguments of a function are evaluated before the call, so in
+  ``fork (channelPut ch (work x))`` the work is done by the parent, before
+  the thread starts.  Write ``fork (do pure (); channelPut ch (work x))`` to
+  do it in the new thread.
+
+Values are reference counted.  A value that only one thread can see is
+counted with plain increments and decrements; once a value is handed over to
+another thread (it is captured by the action of ``fork``, put in a channel,
+or written to an ``IORef`` or an array that other threads can see), it and
+everything it refers to become *shared*, and their counts are updated
+atomically.  Shared values are never updated in place.  Every worker
+allocates from memory of its own, without locks.
 
 Much of the library is not tail recursive (``map``, ``++``, ``sort``, ...),
 so working on a long list needs a deep stack.  Like in the Chez backend,

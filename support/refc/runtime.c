@@ -133,8 +133,36 @@ static inline Idris2_Value *idris2_dispatch(void *f, uint8_t arity,
   }
 }
 
-Idris2_PendingTailCall idris2_pendingTailCall;
 Idris2_Value const idris2_tailCallMarker = {IDRIS2_STOCKVAL(NO_TAG)};
+
+// Call a shared closure that `n` more arguments complete.  Other threads may
+// use the closure at the same time, so the arguments go in an array of our
+// own rather than in the room of the closure.  Consumes the reference to the
+// closure.  The result is not trampolined.
+static Idris2_Value *idris2_call_shared_closure(Idris2_Closure *clos, int n,
+                                                Idris2_Value *arg1,
+                                                Idris2_Value *arg2) {
+  Idris2_Value *small[IDRIS2_MAX_TAILCALL_ARGS];
+  Idris2_Value **xs = small;
+  if (clos->arity > IDRIS2_MAX_TAILCALL_ARGS) {
+    xs = malloc(sizeof(Idris2_Value *) * clos->arity);
+    IDRIS2_REFC_VERIFY(xs, "malloc failed");
+  }
+  uint8_t filled = clos->filled;
+  for (int i = 0; i < filled; ++i)
+    xs[i] = idris2_newReference(clos->args[i]);
+  if (n >= 1)
+    xs[filled] = arg1;
+  if (n == 2)
+    xs[filled + 1] = arg2;
+  void *f = clos->f;
+  uint8_t arity = clos->arity;
+  idris2_removeReference((Idris2_Value *)clos);
+  Idris2_Value *r = idris2_dispatch(f, arity, xs);
+  if (xs != small)
+    free(xs);
+  return r;
+}
 
 Idris2_Value *idris2_trampolineSlow(Idris2_Value *it) {
   for (;;) {
@@ -152,6 +180,10 @@ Idris2_Value *idris2_trampolineSlow(Idris2_Value *it) {
     if (clos->filled < clos->arity)
       break;
 
+    if (idris2_isShared(clos)) {
+      it = idris2_call_shared_closure(clos, 0, NULL, NULL);
+      continue;
+    }
     it = idris2_dispatch(clos->f, clos->arity, clos->args);
     if (idris2_isUnique(clos))
       idris2_freeValue((Idris2_Value *)clos);
@@ -218,6 +250,8 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
 static inline Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
                                                 Idris2_Value *arg1,
                                                 Idris2_Value *arg2, int n) {
+  if (idris2_isShared(clos))
+    return idris2_trampoline(idris2_call_shared_closure(clos, n, arg1, arg2));
   uint8_t filled = clos->filled;
   int unique = idris2_isUnique(clos);
   if (!unique)
@@ -341,4 +375,67 @@ int idris2_extractInt(Idris2_Value *v) {
   default:
     return -1;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Constants of the program (see runtime.h)
+// ---------------------------------------------------------------------------
+
+// The constants evaluated while there is a single worker, to be made shared
+// when the others start.  (Only the main worker touches this list.)
+static Idris2_Value **unshared_constants = NULL;
+static size_t n_unshared_constants = 0, unshared_capacity = 0;
+
+static void publish_constant(Idris2_Value *v) {
+  if (!v || idris2_vp_is_unboxed(v))
+    return;
+  if (__atomic_load_n(&idris2_multicoreStarted, __ATOMIC_ACQUIRE)) {
+    idris2_markShared(v);
+    return;
+  }
+  if (n_unshared_constants == unshared_capacity) {
+    size_t capacity = unshared_capacity ? 2 * unshared_capacity : 256;
+    Idris2_Value **bigger = (Idris2_Value **)realloc(
+        unshared_constants, capacity * sizeof(Idris2_Value *));
+    IDRIS2_REFC_VERIFY(bigger, "malloc failed");
+    unshared_constants = bigger;
+    unshared_capacity = capacity;
+  }
+  unshared_constants[n_unshared_constants++] = v;
+}
+
+void idris2_shareConstants(void) {
+  for (size_t i = 0; i < n_unshared_constants; i++)
+    idris2_markShared(unshared_constants[i]);
+  free(unshared_constants);
+  unshared_constants = NULL;
+  n_unshared_constants = unshared_capacity = 0;
+}
+
+Idris2_Value *idris2_makeConstant(Idris2_Constant *c,
+                                  Idris2_Value *(*make)(void)) {
+  int64_t me = idris2_threadId(idris2_currentThread());
+  int expected = 0;
+  if (__atomic_compare_exchange_n(&c->state, &expected, 1, 0,
+                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+    __atomic_store_n(&c->maker, me, __ATOMIC_RELAXED);
+    Idris2_Value *v = idris2_makeImmortal(idris2_trampoline(make()));
+    publish_constant(v);
+    c->value = v;
+    __atomic_store_n(&c->state, 2, __ATOMIC_RELEASE);
+    return v;
+  }
+  if (expected == 1 && __atomic_load_n(&c->maker, __ATOMIC_RELAXED) == me) {
+    // The constant needs itself: evaluate it again, as when constants were
+    // not kept.
+    Idris2_Value *v = idris2_makeImmortal(idris2_trampoline(make()));
+    publish_constant(v);
+    return v;
+  }
+  // Another thread evaluates it.
+  while (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) != 2) {
+    idris2_threadYield();
+    idris2_cpuRelax();
+  }
+  return c->value;
 }

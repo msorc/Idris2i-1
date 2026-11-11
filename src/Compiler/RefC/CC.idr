@@ -166,7 +166,7 @@ compileCFiles {asShared} objectFiles outFile =
               "-lidris2_refc",
               "-L" ++ refcDir
               ] ++ clibdirs (lib_dirs dirs) ++ [
-              "-lgmp", "-lm"])
+              "-lgmp", "-lm", "-pthread"])
               ++ " " ++ (unwords [cFlags, ldFlags, ldLibs])
 
      log "compiler.refc.cc" 10 runcc

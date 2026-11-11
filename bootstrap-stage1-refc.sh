@@ -56,7 +56,7 @@ fi
 # shellcheck disable=SC2086
 "$CC" $BOOT_CFLAGS $objs -o idris2_app/idris2 \
     "$SUPPORT_C/libidris2_support.a" "$SUPPORT_REFC/libidris2_refc.a" \
-    $LDFLAGS -lgmp -lm $LDLIBS
+    $LDFLAGS -lgmp -lm -pthread $LDLIBS
 
 # Put the result in the usual place where the target goes
 mkdir -p ../build/exec/idris2_app

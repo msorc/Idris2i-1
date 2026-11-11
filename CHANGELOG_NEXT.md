@@ -164,6 +164,13 @@ should target this file (`CHANGELOG_NEXT`).
   thread; `sleep` and `usleep` do not, as they are implemented in terms of
   the scheduler.  Like in the Chez backend, the program ends when the main
   expression is done.
+* Green threads now run in parallel: once a program forks a thread, the RefC
+  runtime runs the green threads on a pool of OS threads, one per processor
+  (or `IDRIS2_WORKERS`), that take work from each other.  A thread that wakes
+  another one up lets it run next on the same OS thread, so that message
+  passing stays as fast as with a single OS thread.  The values that threads
+  hand over to each other are reference counted atomically; the others are
+  not.  A blocking system call only blocks the OS thread that makes it.
 * Fixed memory leaks of the arguments passed to the external primitives
   (`writeIORef`, `newIORef`, `newArray`, `arraySet`, `onCollect`, ...): the
   primitives take a reference to what they keep, but the caller did not

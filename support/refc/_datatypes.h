@@ -40,10 +40,25 @@ typedef struct {
 #define IDRIS2_VP_REFCOUNTER_MAX UINT16_MAX
   uint16_t refCounter;
   uint8_t tag;
+  // The size class of the value (see memoryManagement.c), and two flags.
   uint8_t reserved;
 } Idris2_header;
+
+#define IDRIS2_CLASS_MASK 0x3F
+// A statically allocated value, which may be in read only memory.
+#define IDRIS2_STATIC_FLAG 0x40
+// A value that more than one green thread may see (see memoryManagement.h):
+// its reference count is updated atomically.  The values that it refers to
+// are shared too.
+#define IDRIS2_SHARED_FLAG 0x80
+
 #define IDRIS2_STOCKVAL(t)                                                     \
-  { IDRIS2_VP_REFCOUNTER_MAX, t, 0 }
+  { IDRIS2_VP_REFCOUNTER_MAX, t, IDRIS2_STATIC_FLAG }
+
+#define idris2_isShared(v) ((v)->header.reserved & IDRIS2_SHARED_FLAG)
+
+// A spin lock (see worker.h); 0 when it is free.
+typedef uint32_t Idris2_SpinLock;
 
 typedef struct {
   Idris2_header header;
@@ -252,6 +267,8 @@ typedef struct {
 
 typedef struct {
   Idris2_header header;
+  // Guards `v` when the IORef is shared (see prim.h).
+  Idris2_SpinLock lock;
   Idris2_Value *v;
 } Idris2_IORef;
 
@@ -268,6 +285,8 @@ typedef struct {
 
 typedef struct {
   Idris2_header header;
+  // Guards the elements when the array is shared (see prim.h).
+  Idris2_SpinLock lock;
   int capacity;
   Idris2_Value **arr;
 } Idris2_Array;
@@ -281,9 +300,10 @@ typedef struct {
 // Concurrency
 //
 // The RefC backend implements its own "green threads": user level threads
-// that are multiplexed onto a single OS thread by the scheduler in
-// threads.c.  The synchronisation objects below are therefore implemented in
-// terms of green threads rather than in terms of OS threads.
+// that the scheduler in threads.c runs on a pool of OS threads.  The
+// synchronisation objects below are therefore implemented in terms of green
+// threads rather than in terms of OS threads.  Each one has a spin lock,
+// which guards its state.
 // ---------------------------------------------------------------------------
 
 // A green thread.  Its definition is private to threads.c.
@@ -296,17 +316,26 @@ typedef struct {
   Idris2_Thread *tail;
 } Idris2_WaitQueue;
 
-// The handle returned by `fork` and accepted by `threadWait`.  `thread` is
-// reset to NULL when the thread finishes, so a handle may outlive its thread.
+// The handle returned by `fork` and accepted by `threadWait`.  It outlives
+// the thread: the threads waiting for the thread to finish wait in the
+// handle, and `finished` tells that it is done.
 typedef struct {
   Idris2_header header;
-  Idris2_Thread *thread;
+  Idris2_SpinLock lock;
+  int finished;
+  Idris2_WaitQueue joiners;
+  int64_t id;
 } Idris2_ThreadID;
 
 // Mutexes are recursive, like the ones of the Scheme backends.  The mutex is
 // free when `depth` is 0; otherwise it is owned by the thread `owner`.
 typedef struct {
   Idris2_header header;
+  Idris2_SpinLock lock;
+  // A thread waited too long for it: the next release hands it over to the
+  // first waiting thread (see refc_mutexRelease).
+  int starving;
+  int owner_worker; // the worker that the owner ran on when it got it
   int64_t owner;
   int64_t depth;
   Idris2_WaitQueue waiters;
@@ -314,17 +343,20 @@ typedef struct {
 
 typedef struct {
   Idris2_header header;
+  Idris2_SpinLock lock;
   Idris2_WaitQueue waiters;
 } Idris2_Condition;
 
 typedef struct {
   Idris2_header header;
+  Idris2_SpinLock lock;
   int64_t count;
   Idris2_WaitQueue waiters;
 } Idris2_Semaphore;
 
 typedef struct {
   Idris2_header header;
+  Idris2_SpinLock lock;
   int64_t count;
   int64_t num_threads;
   Idris2_WaitQueue waiters;
@@ -336,6 +368,7 @@ typedef struct {
 // are represented by NULL at runtime.
 typedef struct {
   Idris2_header header;
+  Idris2_SpinLock lock;
   int full;
   Idris2_Value *value;
   Idris2_WaitQueue readers;
