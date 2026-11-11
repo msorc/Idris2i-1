@@ -193,10 +193,35 @@ typedef struct {
   double d;
 } Idris2_Double;
 
+// A string: `len` bytes of UTF-8 (which may include NUL characters), stored
+// after the header and followed by a NUL, so that `str` is also a C string
+// (cut at the first NUL character, if any).
 typedef struct {
   Idris2_header header;
-  char *str;
+  size_t len;
+  char str[];
 } Idris2_String;
+
+// A string constant of up to 15 bytes, with the layout of Idris2_String.
+typedef struct {
+  Idris2_header header;
+  size_t len;
+  char str[16];
+} Idris2_ShortString;
+
+// A string constant `name` of the generated code, for the C string literal
+// `lit` (which may contain NUL characters).
+#define IDRIS2_STRING_CONSTANT(name, lit)                                      \
+  static const struct {                                                        \
+    Idris2_header header;                                                      \
+    size_t len;                                                                \
+    char str[sizeof(lit)];                                                     \
+  } name = {IDRIS2_STOCKVAL(STRING_TAG), sizeof(lit) - 1, lit}
+
+// Is the string `v` the C string literal `lit`?
+#define idris2_eqStringLiteral(v, lit)                                         \
+  (((Idris2_String *)(v))->len == sizeof(lit) - 1 &&                           \
+   memcmp(((Idris2_String *)(v))->str, lit, sizeof(lit) - 1) == 0)
 
 // A constructor has a tag, or (when it has none, tag is -1) its name in a
 // slot after its arguments (see idris2_newNamedConstructor).

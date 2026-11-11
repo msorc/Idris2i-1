@@ -75,21 +75,24 @@ uint32_t idris2_utf8_decode(char const **p) {
   return c;
 }
 
-/* Skip at most n code points. */
-static char const *utf8_skip(char const *s, int64_t n) {
-  while (n > 0 && *s != '\0') {
+#define STR(v) ((Idris2_String *)(v))
+
+/* Skip at most n code points of the bytes from s to end. */
+static char const *utf8_skip(char const *s, char const *end, int64_t n) {
+  while (n > 0 && s < end) {
     if ((unsigned char)*s < 0x80)
       s++;
     else
       idris2_utf8_decode(&s);
     n--;
   }
-  return s;
+  return s < end ? s : end;
 }
 
-int64_t idris2_utf8_length(char const *s) {
+int64_t idris2_utf8_length(char const *s, size_t len) {
+  char const *end = s + len;
   int64_t n = 0;
-  while (*s != '\0') {
+  while (s < end) {
     if ((unsigned char)*s < 0x80)
       s++;
     else
@@ -101,14 +104,19 @@ int64_t idris2_utf8_length(char const *s) {
 
 /* An Idris String that holds the l bytes at s. */
 static Idris2_Value *stringOfBytes(char const *s, size_t l) {
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
-  if (l > 0)
-    memcpy(retVal->str, s, l);
-  return (Idris2_Value *)retVal;
+  return (Idris2_Value *)idris2_mkStringN(s, l);
+}
+
+int idris2_compareStrings(Idris2_Value *a, Idris2_Value *b) {
+  size_t la = STR(a)->len, lb = STR(b)->len;
+  int c = memcmp(STR(a)->str, STR(b)->str, la < lb ? la : lb);
+  if (c != 0)
+    return c;
+  return (la > lb) - (la < lb);
 }
 
 Idris2_Value *stringLength(Idris2_Value *str) {
-  return idris2_mkInt64(idris2_utf8_length(((Idris2_String *)str)->str));
+  return idris2_mkInt64(idris2_utf8_length(STR(str)->str, STR(str)->len));
 }
 
 Idris2_Value *head(Idris2_Value *str) {
@@ -116,61 +124,63 @@ Idris2_Value *head(Idris2_Value *str) {
 }
 
 Idris2_Value *tail(Idris2_Value *input) {
-  char const *s = ((Idris2_String *)input)->str;
-  char const *rest = utf8_skip(s, 1);
-  return stringOfBytes(rest, strlen(rest));
+  char const *s = STR(input)->str, *end = s + STR(input)->len;
+  char const *rest = utf8_skip(s, end, 1);
+  return stringOfBytes(rest, end - rest);
 }
 
 Idris2_Value *reverse(Idris2_Value *str) {
-  char const *input = ((Idris2_String *)str)->str;
-  size_t l = strlen(input);
+  char const *input = STR(str)->str;
+  size_t l = STR(str)->len;
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   if (l == 0)
     return (Idris2_Value *)retVal;
 
   /* Copy the encoding of each code point to the mirrored position. */
-  char *end = retVal->str + l;
-  char const *p = input;
-  while (*p != '\0') {
+  char *out = retVal->str + l;
+  char const *p = input, *end = input + l;
+  while (p < end) {
     char const *start = p;
     if ((unsigned char)*p < 0x80)
       p++;
     else
       idris2_utf8_decode(&p);
-    end -= p - start;
-    memcpy(end, start, p - start);
+    if (p > end)
+      p = end;
+    out -= p - start;
+    memcpy(out, start, p - start);
   }
   return (Idris2_Value *)retVal;
 }
 
 Idris2_Value *strIndex(Idris2_Value *str, Idris2_Value *i) {
   int64_t idx = idris2_vp_to_Int64(i);
-  char const *s = ((Idris2_String *)str)->str;
+  char const *s = STR(str)->str, *end = s + STR(str)->len;
   if (idx < 0)
     return idris2_mkChar(0);
-  s = utf8_skip(s, idx);
-  return idris2_mkChar(*s == '\0' ? 0 : idris2_utf8_decode(&s));
+  s = utf8_skip(s, end, idx);
+  return idris2_mkChar(s >= end ? 0 : idris2_utf8_decode(&s));
 }
 
 Idris2_Value *strCons(Idris2_Value *c, Idris2_Value *str) {
-  char const *s = ((Idris2_String *)str)->str;
   uint32_t ch = idris2_vp_to_Char(c);
-  size_t l = strlen(s);
+  size_t l = STR(str)->len;
   int cl = idris2_utf8_encodedLength(ch);
   Idris2_String *retVal = idris2_mkEmptyString(cl + l + 1);
   idris2_utf8_encode(ch, retVal->str);
-  memcpy(retVal->str + cl, s, l);
+  memcpy(retVal->str + cl, STR(str)->str, l);
   return (Idris2_Value *)retVal;
 }
 
 Idris2_Value *strAppend(Idris2_Value *a, Idris2_Value *b) {
-  size_t la = strlen(((Idris2_String *)a)->str);
-  size_t lb = strlen(((Idris2_String *)b)->str);
+  size_t la = STR(a)->len, lb = STR(b)->len;
+  if (lb == 0)
+    return idris2_newReference(a);
+  if (la == 0)
+    return idris2_newReference(b);
   Idris2_String *retVal = idris2_mkEmptyString(la + lb + 1);
-  if (la + lb == 0)
-    return (Idris2_Value *)retVal;
-  memcpy(retVal->str, ((Idris2_String *)a)->str, la);
-  memcpy(retVal->str + la, ((Idris2_String *)b)->str, lb);
+  memcpy(retVal->str, STR(a)->str, la);
+  memcpy(retVal->str + la, STR(b)->str, lb);
   return (Idris2_Value *)retVal;
 }
 
@@ -178,7 +188,7 @@ Idris2_Value *strAppend(Idris2_Value *a, Idris2_Value *b) {
  * substring stops at the end of the string. */
 Idris2_Value *strSubstr(Idris2_Value *start, Idris2_Value *len,
                         Idris2_Value *s) {
-  char const *input = ((Idris2_String *)s)->str;
+  char const *input = STR(s)->str, *end = input + STR(s)->len;
   int64_t offset = idris2_vp_to_Int64(start);
   int64_t l = idris2_vp_to_Int64(len);
   if (offset < 0)
@@ -186,12 +196,12 @@ Idris2_Value *strSubstr(Idris2_Value *start, Idris2_Value *len,
   if (l < 0)
     l = 0;
 
-  char const *from = utf8_skip(input, offset);
-  char const *to = utf8_skip(from, l);
+  char const *from = utf8_skip(input, end, offset);
+  char const *to = utf8_skip(from, end, l);
   return stringOfBytes(from, to - from);
 }
 
-char *fastPack(Idris2_Value *charList) {
+Idris2_Value *fastPack(Idris2_Value *charList) {
   Idris2_Constructor *current;
 
   size_t l = 0;
@@ -201,32 +211,27 @@ char *fastPack(Idris2_Value *charList) {
     current = (Idris2_Constructor *)current->args[1];
   }
 
-  char *retVal = malloc(l + 1);
-  IDRIS2_REFC_VERIFY(retVal, "malloc failed");
-  retVal[l] = 0;
-
-  char *p = retVal;
+  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  char *p = retVal->str;
   current = (Idris2_Constructor *)charList;
   while (current != NULL) {
     p += idris2_utf8_encode(idris2_vp_to_Char(current->args[0]), p);
     current = (Idris2_Constructor *)current->args[1];
   }
-
-  return retVal;
+  return (Idris2_Value *)retVal;
 }
 
-Idris2_Value *fastUnpack(char *str) {
-  char const *p = str;
-  if (*p == '\0') {
+Idris2_Value *fastUnpack(Idris2_Value *str) {
+  char const *p = STR(str)->str, *end = p + STR(str)->len;
+  if (p >= end)
     return NULL;
-  }
 
   Idris2_Constructor *retVal = idris2_newConstructor(2, 1);
   retVal->args[0] = idris2_mkChar(idris2_utf8_decode(&p));
 
   Idris2_Constructor *current = (Idris2_Constructor *)retVal;
   Idris2_Constructor *next;
-  while (*p != '\0') {
+  while (p < end) {
     next = idris2_newConstructor(2, 1);
     next->args[0] = idris2_mkChar(idris2_utf8_decode(&p));
     current->args[1] = (Idris2_Value *)next;
@@ -237,48 +242,44 @@ Idris2_Value *fastUnpack(char *str) {
   return (Idris2_Value *)retVal;
 }
 
-char *fastConcat(Idris2_Value *strList) {
+Idris2_Value *fastConcat(Idris2_Value *strList) {
   Idris2_Constructor *current;
 
-  int totalLength = 0;
+  size_t totalLength = 0;
   current = (Idris2_Constructor *)strList;
   while (current != NULL) {
-    totalLength += strlen(((Idris2_String *)current->args[0])->str);
+    totalLength += STR(current->args[0])->len;
     current = (Idris2_Constructor *)current->args[1];
   }
 
-  char *retVal = malloc(totalLength + 1);
-  retVal[totalLength] = '\0';
-
-  char *currentStr;
-  int currentStrLen;
-  int offset = 0;
+  Idris2_String *retVal = idris2_mkEmptyString(totalLength + 1);
+  size_t offset = 0;
   current = (Idris2_Constructor *)strList;
   while (current != NULL) {
-    currentStr = ((Idris2_String *)current->args[0])->str;
-    currentStrLen = strlen(currentStr);
-    memcpy(retVal + offset, currentStr, currentStrLen);
-
-    offset += currentStrLen;
+    Idris2_String *s = STR(current->args[0]);
+    memcpy(retVal->str + offset, s->str, s->len);
+    offset += s->len;
     current = (Idris2_Constructor *)current->args[1];
   }
-
-  return retVal;
+  return (Idris2_Value *)retVal;
 }
 
 typedef struct {
   char *str;
-  int pos;
+  size_t len;
+  size_t pos;
 } String_Iterator;
 
-Idris2_Value *stringIteratorNew(char *str) {
-  int l = strlen(str);
+Idris2_Value *stringIteratorNew(Idris2_Value *str) {
+  size_t l = STR(str)->len;
 
   String_Iterator *it = (String_Iterator *)malloc(sizeof(String_Iterator));
   IDRIS2_REFC_VERIFY(it, "malloc failed");
   it->str = (char *)malloc(l + 1);
+  IDRIS2_REFC_VERIFY(it->str, "malloc failed");
+  it->len = l;
   it->pos = 0;
-  memcpy(it->str, str, l + 1); // Take a copy of str, in case it gets GCed
+  memcpy(it->str, STR(str)->str, l + 1); // a copy, in case it is freed
 
   return (Idris2_Value *)idris2_makeGCPointer(
       it, (Idris2_Closure *)idris2_mkClosure(
@@ -292,20 +293,20 @@ Idris2_Value *onCollectStringIterator(Idris2_Pointer *ptr, void *null) {
   return NULL;
 }
 
-Idris2_Value *stringIteratorToString(void *a, char *str, Idris2_Value *it_p,
-                                     Idris2_Closure *f) {
+Idris2_Value *stringIteratorToString(void *a, Idris2_Value *str,
+                                     Idris2_Value *it_p, Idris2_Closure *f) {
   String_Iterator *it = ((Idris2_GCPointer *)it_p)->p->p;
-  Idris2_Value *strVal = (Idris2_Value *)idris2_mkString(it->str + it->pos);
+  Idris2_Value *strVal = stringOfBytes(it->str + it->pos, it->len - it->pos);
   return idris2_apply_closure(idris2_newReference((Idris2_Value *)f), strVal);
 }
 
 // contrib/Data.String.Iterator.uncons :
 //   (str : String) -> (1 it : StringIterator str) -> UnconsResult str
-Idris2_Value *stringIteratorNext(char *s, Idris2_Value *it_p) {
+Idris2_Value *stringIteratorNext(Idris2_Value *s, Idris2_Value *it_p) {
   String_Iterator *it = (String_Iterator *)((Idris2_GCPointer *)it_p)->p->p;
   char const *p = it->str + it->pos;
 
-  if (*p == '\0')
+  if (it->pos >= it->len)
     return NULL; // EOF [nil]
 
   uint32_t c = idris2_utf8_decode(&p);
@@ -323,4 +324,18 @@ Idris2_Value *stringIteratorNext(char *s, Idris2_Value *it_p) {
 void idris2_refc_putChar(uint32_t c) {
   char buf[4];
   fwrite(buf, 1, idris2_utf8_encode(c, buf), stdout);
+}
+
+// putStr and fPutStr: the whole string, NUL characters included.
+void idris2_refc_putStr(Idris2_Value *str) {
+  fwrite(STR(str)->str, 1, STR(str)->len, stdout);
+}
+
+int idris2_refc_writeLine(void *f, Idris2_Value *str) {
+  size_t l = STR(str)->len;
+  return fwrite(STR(str)->str, 1, l, (FILE *)f) == l ? 1 : 0;
+}
+
+int64_t idris2_refc_stringByteLength(Idris2_Value *str) {
+  return (int64_t)STR(str)->len;
 }

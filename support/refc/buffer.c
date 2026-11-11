@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "memoryManagement.h"
 #include "refc_util.h"
 #include <string.h>
 #include <sys/stat.h>
@@ -65,11 +66,12 @@ void setBufferDouble(void *buffer, int loc, double val) {
   setBufferUIntLE(buffer, loc, tmp.i, 8);
 }
 
-void setBufferString(void *buffer, int loc, char *str) {
+// (strings are Idris values, see buffer.h)
+void setBufferString(void *buffer, int loc, void *str) {
   Buffer *b = buffer;
-  size_t len = strlen(str);
-  assert_valid_range(b, loc, len);
-  memcpy((b->data) + loc, str, len);
+  Idris2_String *s = str;
+  assert_valid_range(b, loc, s->len);
+  memcpy((b->data) + loc, s->str, s->len);
 }
 
 double getBufferDouble(void *buffer, int loc) {
@@ -81,12 +83,8 @@ double getBufferDouble(void *buffer, int loc) {
   return tmp.d;
 }
 
-char *getBufferString(void *buffer, int loc, int len) {
+void *getBufferString(void *buffer, int loc, int len) {
   Buffer *b = buffer;
   assert_valid_range(b, loc, len);
-  char *s = (char *)(b->data + loc);
-  char *rs = malloc(len + 1);
-  strncpy(rs, s, len);
-  rs[len] = '\0';
-  return rs;
+  return idris2_mkStringN((char const *)(b->data + loc), len);
 }

@@ -189,6 +189,8 @@ Idris2_Integer *idris2_mkInteger();
 Idris2_Value *idris2_mkIntegerLiteral(char *i);
 Idris2_String *idris2_mkEmptyString(size_t l);
 Idris2_String *idris2_mkString(char *);
+// The l bytes at s (which may include NUL characters).
+Idris2_String *idris2_mkStringN(char const *s, size_t l);
 // Takes ownership of a string from malloc instead of copying it.
 Idris2_String *idris2_mkStringOwned(char *);
 
@@ -241,7 +243,7 @@ static inline Idris2_Value *idris2_integerConstant(Idris2_Value **slot,
                                                    char const *digits) {
   return *slot ? *slot : idris2_makeIntegerConstant(slot, digits);
 }
-extern Idris2_String const idris2_predefined_nullstring;
+extern Idris2_ShortString const idris2_predefined_nullstring;
 
 // Immortal nullary constructors with the tags 0 .. IDRIS2_PREDEFINED_NULLARY-1,
 // which the generated code uses instead of allocating them.

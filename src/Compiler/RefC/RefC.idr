@@ -858,7 +858,7 @@ mutual
                 else do
                   _ <- foldlC (\els, (MkAConstAlt c body) => do
                       case c of
-                          Str x => emit emptyFC "\{els}if (! strcmp(\{cStringQuoted x}, ((Idris2_String *)\{sc'})->str)) {"
+                          Str x => emit emptyFC "\{els}if (idris2_eqStringLiteral(\{sc'}, \{cStringQuoted x})) {"
                           Db  x => emit emptyFC "\{els}if (((Idris2_Double *)\{sc'})->d == \{cDouble x}) {"
                           x => throw $ InternalError "[refc] AConstCase : unsupported type. \{show fc} \{show x}"
                       concaseBody env switchReturnVar "" [] body tailPosition
@@ -1020,6 +1020,9 @@ extractValue _ CFUnsigned8      varName = "(idris2_vp_to_Bits8(" ++ varName ++ "
 extractValue _ CFUnsigned16     varName = "(idris2_vp_to_Bits16(" ++ varName ++ "))"
 extractValue _ CFUnsigned32     varName = "(idris2_vp_to_Bits32(" ++ varName ++ "))"
 extractValue _ CFUnsigned64     varName = "(idris2_vp_to_Bits64(" ++ varName ++ "))"
+-- The functions of the `RefC` calling convention take strings as Idris values
+-- (which may contain NUL characters); C functions get a C string.
+extractValue CLangRefC CFString varName = "(Idris2_Value*)" ++ varName
 extractValue _ CFString         varName = "((Idris2_String*)" ++ varName ++ ")->str"
 extractValue _ CFInteger        varName = "(Idris2_Value*)" ++ varName
 extractValue _ CFDouble         varName = "(idris2_vp_to_Double(" ++ varName ++ "))"
@@ -1064,12 +1067,17 @@ packCFType CFForeignObj    varName = varName
 packCFType n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
 
 ||| The result of a foreign function.  A String returned by a function of the
-||| `RefC` calling convention is a `char *` from `malloc` that the caller owns, so
-||| it becomes the Idris String as it is; one from a plain C function is copied.
+||| `RefC` calling convention is an Idris value (a new reference); one from a
+||| plain C function is a `char *`, which is copied.
 packFFIResult : CLang -> (cfType : CFType) -> (varName : String) -> String
-packFFIResult CLangRefC CFString    varName = "idris2_mkStringOwned(" ++ varName ++ ")"
+packFFIResult CLangRefC CFString    varName = varName
 packFFIResult c         (CFIORes x) varName = packFFIResult c x varName
 packFFIResult _         t           varName = packCFType t varName
+
+||| The C type of the result of a foreign function (see `packFFIResult`).
+cResultType : CLang -> CFType -> String
+cResultType CLangRefC CFString = "Idris2_Value *"
+cResultType _ t = cTypeOfCFType t
 
 discardLastArgument : List ty -> List ty
 discardLastArgument [] = []
@@ -1190,14 +1198,14 @@ createCFunctions n (MkAForeign ccs fargs ret) = do
                   removeVarsArgList
                   emit EmptyFC "return NULL;"
               CFIORes ret => do
-                  emit EmptyFC $ cTypeOfCFType ret ++ " retVal = " ++ cName fctName
+                  emit EmptyFC $ cResultType cLang ret ++ " retVal = " ++ cName fctName
                               ++ "("
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) (discardLastArgument typeVarNameArgList))
                               ++ ");"
                   removeVarsArgList
                   emit EmptyFC $ "return (Idris2_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
               _ => do
-                  emit EmptyFC $ cTypeOfCFType ret ++ " retVal = " ++ cName fctName
+                  emit EmptyFC $ cResultType cLang ret ++ " retVal = " ++ cName fctName
                               ++ "("
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) typeVarNameArgList)
                               ++ ");"
@@ -1245,7 +1253,7 @@ header = do
       I64 x => go cdef "Int64" "INT64" (showInt64Min x)
       B64 x => go cdef "Bits64" "BITS64" "UINT64_C(\{show x})"
       Db x  => go cdef "Double" "DOUBLE" (cDouble x)
-      Str x => go cdef "String" "STRING" (cStringQuoted x)
+      Str x => "IDRIS2_STRING_CONSTANT(\{constantName cdef}, \{cStringQuoted x});"
       BI _  => "static Idris2_Value *\{constantName cdef} = NULL;"
       _ => "/* bad constant */"
 

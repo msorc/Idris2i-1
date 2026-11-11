@@ -6,6 +6,8 @@
 #include <math.h>
 #include "memoryManagement.h"
 
+int idris2_compareStrings(Idris2_Value *a, Idris2_Value *b);
+
 // Compare two Integers (like mpz_cmp, the sign of the result tells).
 int idris2_cmpIntegerSlow(Idris2_Value *x, Idris2_Value *y);
 static inline int idris2_cmpInteger(Idris2_Value *x, Idris2_Value *y) {
@@ -210,7 +212,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_lt_Char(l, r) (idris2_cmpop(Char, <, l, r))
 #define idris2_lt_string(l, r)                                                 \
   (idris2_mkBool(                                                              \
-      strcmp(((Idris2_String *)(l))->str, ((Idris2_String *)(r))->str) < 0))
+      idris2_compareStrings((l), (r)) < 0))
 
 /* gt */
 #define idris2_gt_Bits8(l, r) (idris2_cmpop(Bits8, >, l, r))
@@ -228,7 +230,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_gt_Char(l, r) (idris2_cmpop(Char, >, l, r))
 #define idris2_gt_string(l, r)                                                 \
   (idris2_mkBool(                                                              \
-      strcmp(((Idris2_String *)(l))->str, ((Idris2_String *)(r))->str) > 0))
+      idris2_compareStrings((l), (r)) > 0))
 
 /* eq */
 #define idris2_eq_Bits8(l, r) (idris2_cmpop(Bits8, ==, l, r))
@@ -246,7 +248,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_eq_Char(l, r) (idris2_cmpop(Char, ==, l, r))
 #define idris2_eq_string(l, r)                                                 \
   (idris2_mkBool(                                                              \
-      strcmp(((Idris2_String *)(l))->str, ((Idris2_String *)(r))->str) == 0))
+      idris2_compareStrings((l), (r)) == 0))
 
 /* lte */
 #define idris2_lte_Bits8(l, r) (idris2_cmpop(Bits8, <=, l, r))
@@ -264,7 +266,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_lte_Char(l, r) (idris2_cmpop(Char, <=, l, r))
 #define idris2_lte_string(l, r)                                                \
   (idris2_mkBool(                                                              \
-      strcmp(((Idris2_String *)(l))->str, ((Idris2_String *)(r))->str) <= 0))
+      idris2_compareStrings((l), (r)) <= 0))
 
 /* gte */
 #define idris2_gte_Bits8(l, r) (idris2_cmpop(Bits8, >=, l, r))
@@ -282,7 +284,7 @@ Idris2_Value *idris2_xor_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_gte_Char(l, r) (idris2_cmpop(Char, >=, l, r))
 #define idris2_gte_string(l, r)                                                \
   (idris2_mkBool(                                                              \
-      strcmp(((Idris2_String *)(l))->str, ((Idris2_String *)(r))->str) >= 0))
+      idris2_compareStrings((l), (r)) >= 0))
 
 /* IEEE constants of Data.Double */
 double idris2_flonumUnitRoundoff(void);

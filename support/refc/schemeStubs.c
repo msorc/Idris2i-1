@@ -8,7 +8,7 @@ static void scheme_unavailable(char const *what) {
   abort();
 }
 
-Idris2_Value *idris2_refc_scheme_eval_scheme(char *expr) {
+Idris2_Value *idris2_refc_scheme_eval_scheme(Idris2_Value *expr) {
   (void)expr;
   return NULL;
 }
@@ -50,7 +50,7 @@ NOT_A(box)
     return 0;                                                                  \
   }
 UNREACHABLE(Idris2_Value *, id_integer, Idris2_Value *obj)
-UNREACHABLE(char *, id_string, Idris2_Value *obj)
+UNREACHABLE(Idris2_Value *, id_string, Idris2_Value *obj)
 UNREACHABLE(double, id_float, Idris2_Value *obj)
 UNREACHABLE(char, id_char, Idris2_Value *obj)
 UNREACHABLE(Idris2_Value *, car, Idris2_Value *obj)
@@ -61,10 +61,10 @@ UNREACHABLE(Idris2_Value *, vector_ref, Idris2_Value *obj, Idris2_Value *idx)
 UNREACHABLE(Idris2_Value *, unbox, Idris2_Value *obj)
 UNREACHABLE(Idris2_Value *, vector_length, Idris2_Value *obj)
 UNREACHABLE(Idris2_Value *, vector_list, Idris2_Value *obj)
-UNREACHABLE(char *, read_symbol, Idris2_Value *obj)
+UNREACHABLE(Idris2_Value *, read_symbol, Idris2_Value *obj)
 #undef UNREACHABLE
 
-Idris2_Value *idris2_refc_scheme_make_symbol(char *name) {
+Idris2_Value *idris2_refc_scheme_make_symbol(Idris2_Value *name) {
   (void)name;
   return NULL;
 }

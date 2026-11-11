@@ -25,7 +25,8 @@ prim__readChars : Int -> FilePtr -> PrimIO (Ptr String)
 %foreign "C:fgetc,libc 6"
 prim__readChar : FilePtr -> PrimIO Int
 
-%foreign supportC "idris2_writeLine"
+%foreign "RefC:idris2_refc_writeLine"
+         supportC "idris2_writeLine"
          "node:lambda:(filePtr, line) => require('fs').writeSync(filePtr.fd, line, undefined, 'utf-8')"
 prim__writeLine : FilePtr -> String -> PrimIO Int
 

@@ -88,7 +88,8 @@ prim__putChar : Char -> (1 x : %World) -> IORes ()
          "node:support:getStr,support_system_file"
 prim__getStr : PrimIO String
 
-%foreign "C:idris2_putStr, libidris2_support, idris_support.h"
+%foreign "RefC:idris2_refc_putStr"
+         "C:idris2_putStr, libidris2_support, idris_support.h"
          "node:lambda:x=>process.stdout.write(x)"
          "browser:lambda:x=>console.log(x)"
 prim__putStr : String -> PrimIO ()

@@ -28,10 +28,10 @@ if [ -z "$CONST" ]; then
     exit 1
 fi
 
-sed "s|^\(static Idris2_String const $CONST = { IDRIS2_STOCKVAL(STRING_TAG), \)\".*\"\( };\)$|\1\"__PREFIX__\"\2|" "$SRC" \
+sed "s|^\(IDRIS2_STRING_CONSTANT($CONST, \)\".*\"\();\)$|\1\"__PREFIX__\"\2|" "$SRC" \
     | xz -9 -T0 > "$OUT"
 
-if ! xz -dc "$OUT" | grep -q "^static Idris2_String const $CONST = { IDRIS2_STOCKVAL(STRING_TAG), \"__PREFIX__\" };$"; then
+if ! xz -dc "$OUT" | grep -q "^IDRIS2_STRING_CONSTANT($CONST, \"__PREFIX__\");$"; then
     echo "Could not replace the prefix in $SRC"
     exit 1
 fi

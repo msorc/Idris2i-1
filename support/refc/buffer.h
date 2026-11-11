@@ -49,7 +49,8 @@ void setBufferUIntLE(void *buffer, int loc, uint64_t val, size_t len);
   } while (0)
 
 void setBufferDouble(void *buffer, int loc, double val);
-void setBufferString(void *buffer, int loc, char *str);
+// The strings are Idris values (Idris2_String), which are declared later.
+void setBufferString(void *buffer, int loc, void *str);
 
 void copyBuffer(void *from, int start, int len, void *to, int loc);
 
@@ -64,4 +65,4 @@ uint64_t getBufferUIntLE(void *buffer, int loc, size_t len);
 #define getBufferInt32LE(b, l) ((int64_t)getBufferUIntLE(b, l, 4))
 #define getBufferInt64LE(b, l) ((int64_t)getBufferUIntLE(b, l, 8))
 double getBufferDouble(void *buffer, int loc);
-char *getBufferString(void *buffer, int loc, int len);
+void *getBufferString(void *buffer, int loc, int len);

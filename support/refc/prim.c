@@ -28,35 +28,35 @@ Idris2_Value *idris2_Data_IORef_prim__writeIORef(Idris2_Value *erased,
 //       System operations
 // -----------------------------------
 
-Idris2_String const idris2_predefined_osstring = {IDRIS2_STOCKVAL(STRING_TAG),
 #ifdef _WIN32
-                                                  "windows"
+#define IDRIS2_OS_NAME "windows"
 #elif _WIN64
-                                                  "windows"
+#define IDRIS2_OS_NAME "windows"
 #elif __APPLE__ || __MACH__
-                                                  "macOS"
+#define IDRIS2_OS_NAME "macOS"
 #elif __linux__
-                                                  "Linux"
+#define IDRIS2_OS_NAME "Linux"
 #elif __FreeBSD__
-                                                  "FreeBSD"
+#define IDRIS2_OS_NAME "FreeBSD"
 #elif __OpenBSD__
-                                                  "OpenBSD"
+#define IDRIS2_OS_NAME "OpenBSD"
 #elif __NetBSD__
-                                                  "NetBSD"
+#define IDRIS2_OS_NAME "NetBSD"
 #elif __DragonFly__
-                                                  "DragonFly"
+#define IDRIS2_OS_NAME "DragonFly"
 #elif __unix || __unix__
-                                                  "Unix"
+#define IDRIS2_OS_NAME "Unix"
 #else
-                                                  "Other"
+#define IDRIS2_OS_NAME "Other"
 #endif
-};
+Idris2_ShortString const idris2_predefined_osstring = {
+    IDRIS2_STOCKVAL(STRING_TAG), sizeof(IDRIS2_OS_NAME) - 1, IDRIS2_OS_NAME};
 
 // NOTE: The codegen is obviously determined at compile time,
 //       so the backend should optimize it by replacing it with a constant.
 //       It would probably also be useful for conditional compilation.
-Idris2_String const idris2_predefined_codegenstring = {
-    IDRIS2_STOCKVAL(STRING_TAG), "refc"};
+Idris2_ShortString const idris2_predefined_codegenstring = {
+    IDRIS2_STOCKVAL(STRING_TAG), 4, "refc"};
 
 Idris2_Value *idris2_crash(Idris2_Value *msg) {
   Idris2_String *str = (Idris2_String *)msg;

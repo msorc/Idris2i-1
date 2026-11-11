@@ -207,7 +207,7 @@ should target this file (`CHANGELOG_NEXT`).
   * Large `Integer` literals are made once instead of being parsed every time
     that they are used.
 * Freeing a long list no longer needs a deep stack.
-* Faster generated code again, by a factor of 1.5 to 2.3 (the compiler itself
+* Faster generated code again, by a factor of 1.4 to 2.1 (the compiler itself
   by about 1.5):
   * The generated C is compiled with `-O2` unless `IDRIS2_CFLAGS` or `CFLAGS`
     say otherwise; it used to be compiled without optimisation.
@@ -235,6 +235,18 @@ should target this file (`CHANGELOG_NEXT`).
   in 32 bits chose the wrong branch: the value was truncated to an `int`.
 * Casting an `Integer` to a `Double` rounds to the nearest `Double`, like the
   other backends, instead of truncating.
+* Casting a `String` to a number reads the whole string as a number, like the
+  Chez backend: `"12.7"` gives 12 instead of 0 for an `Integer`, `"12abc"`
+  gives 0 instead of 12, and casts to `Int`, `Int64` and `Bits64` are no
+  longer limited to 32 bits.
+* Strings store their length (and their bytes are allocated with them), so
+  they may contain the NUL character
+  ([#3161](https://github.com/idris-lang/Idris2/issues/3161)).  C functions
+  still receive a C string, which ends at the first NUL.  `putStr`,
+  `fPutStr` and `stringByteLength` take the whole string.
+* Foreign functions of the `RefC` calling convention take and return a
+  `String` as an Idris value (`Idris2_Value *`) instead of a `char *`, like
+  `Integer`: the arguments are borrowed, and a result is a new reference.
 * Arithmetic on `Int`, `Int8`, `Int16`, `Int32` and `Int64` wrapped around by
   relying on the overflow of signed C integers, which is undefined behaviour
   that an optimising C compiler may exploit: it is now done on unsigned

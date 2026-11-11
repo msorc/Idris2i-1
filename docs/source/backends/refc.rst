@@ -59,19 +59,22 @@ A ``Char`` holds a full code point.  Casting a number that is not a Unicode
 scalar value to ``Char`` gives ``'\0'``.  A ``Char`` passed to a C function
 through the FFI is still a C ``char``.
 
-A string cannot contain the NUL character, since it ends the string.
+A string stores its length, so it may contain the NUL character.  It is also
+followed by a NUL, so a C function receives a usual C string, which ends at
+the first NUL character of the Idris string.  Reading a line from a file
+(``fGetLine``) also stops at a NUL character.
 
 ``show`` prints a ``Double`` like the Chez backend: the shortest digits that
 read back as the same number (``0.1``, ``1e-10``, ``+inf.0``).
 
-The ``C`` and ``RefC`` calling conventions differ in who owns a ``String``
-that a foreign function returns.  With ``%foreign "C:f"``, the generated code
-copies the ``char *`` and leaves the original to the function (so it may be a
-literal or a static buffer, like the result of ``getenv``).  With
-``%foreign "RefC:f"``, the string must come from ``malloc``: the caller takes
-it over as the Idris ``String`` and frees it when it is no longer used.
-``Integer`` and foreign objects are passed to ``RefC`` functions as
-``Idris2_Value *``; the arguments are borrowed, a result is a new reference.
+The ``C`` and ``RefC`` calling conventions pass strings differently.  With
+``%foreign "C:f"``, a ``String`` argument is a ``char *``, and a ``String``
+result is a ``char *`` that the generated code copies and leaves to the
+function (so it may be a literal or a static buffer, like the result of
+``getenv``).  With ``%foreign "RefC:f"``, a ``String`` is an Idris value
+(``Idris2_Value *``, an ``Idris2_String`` with its length ``len`` and its
+bytes ``str``), like ``Integer`` and foreign objects: the arguments are
+borrowed, a result is a new reference (``idris2_mkStringN`` makes one).
 
 Building Idris 2 with RefC
 ==========================

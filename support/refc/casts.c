@@ -258,60 +258,138 @@ Idris2_Value *idris2_cast_Char_to_string(Idris2_Value *input) {
 
 Idris2_Value *idris2_cast_string_to_Char(Idris2_Value *input) {
   char const *s = ((Idris2_String *)input)->str;
-  return idris2_mkChar(*s == '\0' ? 0 : idris2_utf8_decode(&s));
+  return idris2_mkChar(((Idris2_String *)input)->len == 0
+                           ? 0
+                           : idris2_utf8_decode(&s));
 }
 
-Idris2_Value *idris2_cast_string_to_Bits8(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-  return (Idris2_Value *)idris2_mkBits8((uint8_t)atoi(from->str));
+/* Conversions from String, like the Chez backend: the whole string is read
+   as a number (an integer, a decimal number or a fraction, see
+   `cast-string-int` in support.ss); anything else is 0.  The number is
+   truncated towards zero, and wrapped around to fit a fixed size type. */
+
+enum { IDRIS2_NOT_A_NUMBER, IDRIS2_INTEGER_SYNTAX, IDRIS2_DECIMAL_SYNTAX,
+       IDRIS2_FRACTION_SYNTAX };
+
+static size_t idris2_digits(char const *s) {
+  size_t n = 0;
+  while (s[n] >= '0' && s[n] <= '9')
+    ++n;
+  return n;
 }
 
-Idris2_Value *idris2_cast_string_to_Bits16(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-  return (Idris2_Value *)idris2_mkBits16((uint16_t)atoi(from->str));
+// The kind of number that `s` is written as.
+static int idris2_numberSyntax(char const *s) {
+  char const *p = s;
+  if (*p == '+' || *p == '-')
+    ++p;
+  size_t whole = idris2_digits(p);
+  p += whole;
+  if (*p == '\0')
+    return whole > 0 ? IDRIS2_INTEGER_SYNTAX : IDRIS2_NOT_A_NUMBER;
+  if (*p == '/') {
+    size_t denom = idris2_digits(p + 1);
+    return whole > 0 && denom > 0 && p[1 + denom] == '\0'
+               ? IDRIS2_FRACTION_SYNTAX
+               : IDRIS2_NOT_A_NUMBER;
+  }
+  size_t frac = 0;
+  if (*p == '.') {
+    frac = idris2_digits(p + 1);
+    p += 1 + frac;
+  }
+  if (whole + frac == 0)
+    return IDRIS2_NOT_A_NUMBER;
+  if (*p == 'e' || *p == 'E') {
+    ++p;
+    if (*p == '+' || *p == '-')
+      ++p;
+    size_t e = idris2_digits(p);
+    if (e == 0)
+      return IDRIS2_NOT_A_NUMBER;
+    p += e;
+  }
+  return *p == '\0' ? IDRIS2_DECIMAL_SYNTAX : IDRIS2_NOT_A_NUMBER;
 }
 
-Idris2_Value *idris2_cast_string_to_Bits32(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-  return (Idris2_Value *)idris2_mkBits32((uint32_t)atoi(from->str));
+// The digits of an integer or of a fraction, for GMP (which does not take a
+// '+' sign).
+static char const *idris2_gmpDigits(char const *s) {
+  return *s == '+' ? s + 1 : s;
 }
 
-Idris2_Value *idris2_cast_string_to_Bits64(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-  return (Idris2_Value *)idris2_mkBits64((uint64_t)atoi(from->str));
-}
-
-Idris2_Value *idris2_cast_string_to_Int8(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-  return (Idris2_Value *)idris2_mkInt8((int8_t)atoi(from->str));
-}
-
-Idris2_Value *idris2_cast_string_to_Int16(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-  return (Idris2_Value *)idris2_mkInt16((int16_t)atoi(from->str));
-}
-
-Idris2_Value *idris2_cast_string_to_Int32(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-  return (Idris2_Value *)idris2_mkInt32((int32_t)atoi(from->str));
-}
-
-Idris2_Value *idris2_cast_string_to_Int64(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-  return (Idris2_Value *)idris2_mkInt64((int64_t)atoi(from->str));
+// The number in `s`, truncated towards zero, in `out` (which is initialised).
+static void idris2_parseInteger(Idris2_String *str, mpz_t out) {
+  char const *s = str->str;
+  // (a string with a NUL character in it is not a number)
+  switch (strlen(s) == str->len ? idris2_numberSyntax(s)
+                                : IDRIS2_NOT_A_NUMBER) {
+  case IDRIS2_INTEGER_SYNTAX:
+    mpz_set_str(out, idris2_gmpDigits(s), 10);
+    break;
+  case IDRIS2_DECIMAL_SYNTAX: {
+    double d = strtod(s, NULL);
+    if (isfinite(d))
+      mpz_set_d(out, trunc(d));
+    else
+      mpz_set_ui(out, 0);
+    break;
+  }
+  case IDRIS2_FRACTION_SYNTAX: {
+    mpq_t q;
+    mpq_init(q);
+    mpq_set_str(q, idris2_gmpDigits(s), 10);
+    mpz_tdiv_q(out, mpq_numref(q), mpq_denref(q));
+    mpq_clear(q);
+    break;
+  }
+  default:
+    mpz_set_ui(out, 0);
+  }
 }
 
 Idris2_Value *idris2_cast_string_to_Integer(Idris2_Value *input) {
-  Idris2_String *from = (Idris2_String *)input;
-
   Idris2_Integer *retVal = idris2_mkInteger();
-  mpz_set_str(retVal->i, from->str, 10);
-
+  idris2_parseInteger((Idris2_String *)input, retVal->i);
   return idris2_normaliseInteger(retVal);
 }
 
+// A string to a fixed size integer: through an Integer, which wraps around.
+#define IDRIS2_CAST_STRING_TO(ty)                                              \
+  Idris2_Value *idris2_cast_string_to_##ty(Idris2_Value *input) {              \
+    Idris2_Value *i = idris2_cast_string_to_Integer(input);                    \
+    Idris2_Value *r = idris2_cast_Integer_to_##ty(i);                          \
+    idris2_removeReference(i);                                                 \
+    return r;                                                                  \
+  }
+IDRIS2_CAST_STRING_TO(Bits8)
+IDRIS2_CAST_STRING_TO(Bits16)
+IDRIS2_CAST_STRING_TO(Bits32)
+IDRIS2_CAST_STRING_TO(Bits64)
+IDRIS2_CAST_STRING_TO(Int8)
+IDRIS2_CAST_STRING_TO(Int16)
+IDRIS2_CAST_STRING_TO(Int32)
+IDRIS2_CAST_STRING_TO(Int64)
+
 Idris2_Value *idris2_cast_string_to_Double(Idris2_Value *input) {
-  return (Idris2_Value *)idris2_mkDouble(atof(((Idris2_String *)input)->str));
+  char const *s = ((Idris2_String *)input)->str;
+  switch (strlen(s) == ((Idris2_String *)input)->len ? idris2_numberSyntax(s)
+                                                     : IDRIS2_NOT_A_NUMBER) {
+  case IDRIS2_INTEGER_SYNTAX:
+  case IDRIS2_DECIMAL_SYNTAX:
+    return idris2_mkDouble(strtod(s, NULL));
+  case IDRIS2_FRACTION_SYNTAX: {
+    mpq_t q;
+    mpq_init(q);
+    mpq_set_str(q, idris2_gmpDigits(s), 10);
+    mpq_canonicalize(q);
+    double d = mpq_get_d(q);
+    mpq_clear(q);
+    return idris2_mkDouble(d);
+  }
+  default:
+    return idris2_mkDouble(0.0);
+  }
 }
 
 /*  conversions from Bits8  */
@@ -485,10 +563,5 @@ Idris2_Value *idris2_cast_Integer_to_Char(Idris2_Value *input) {
 
 Idris2_Value *idris2_cast_Integer_to_string(Idris2_Value *input) {
   IDRIS2_INTEGER_MPZ(fromi, input);
-
-  Idris2_String *retVal = IDRIS2_NEW_VALUE(Idris2_String);
-  retVal->header.tag = STRING_TAG;
-  retVal->str = mpz_get_str(NULL, 10, fromi);
-
-  return (Idris2_Value *)retVal;
+  return (Idris2_Value *)idris2_mkStringOwned(mpz_get_str(NULL, 10, fromi));
 }
