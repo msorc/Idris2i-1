@@ -179,7 +179,8 @@ should target this file (`CHANGELOG_NEXT`).
   not.  A blocking system call only blocks the OS thread that makes it.
   A thread that runs for more than 10ms while others wait for its OS thread
   yields at the end of an iteration of a loop (`IDRIS2_PREEMPT=0` turns this
-  off).
+  off).  Mutexes are taken and released with one atomic operation when no
+  thread waits for them.
 * Fixed memory leaks of the arguments passed to the external primitives
   (`writeIORef`, `newIORef`, `newArray`, `arraySet`, `onCollect`, ...): the
   primitives take a reference to what they keep, but the caller did not
@@ -293,6 +294,11 @@ should target this file (`CHANGELOG_NEXT`).
   `-flto` (or `-flto=auto`) to the C flags to keep the inlining across parts.
 
 ### Library changes
+
+* The `HasIO` functions of `Data.IORef` and `System.Concurrency` are
+  specialised (`%spec`) on their `HasIO` implementation: at `IO`, they are
+  direct calls of the primitives instead of going through the `Monad`
+  implementation at runtime.  A loop of `modifyIORef` runs 4 times faster.
 
 #### Base
 

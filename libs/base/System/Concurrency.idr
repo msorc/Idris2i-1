@@ -29,19 +29,22 @@ prim__getThreadId : PrimIO Int
 
 ||| Set the data stored in a thread's parameter to the given value.
 ||| Currently only supported under the scheme backends.
+%spec hio
 export
-setThreadData : HasIO io => {a : Type} -> a -> io ()
+setThreadData : {auto hio : HasIO io} -> {a : Type} -> a -> io ()
 setThreadData val = primIO (prim__setThreadData val)
 
 ||| Get the data stored in a thread's parameter.
 ||| Currently only supported under the scheme backends.
+%spec hio
 export
-getThreadData : HasIO io => (a : Type) -> io a
+getThreadData : {auto hio : HasIO io} -> (a : Type) -> io a
 getThreadData a = primIO (prim__getThreadData a)
 
 ||| Get the thread id of the current thread (chez backend).
+%spec hio
 export
-getThreadId : HasIO io => io Int
+getThreadId : {auto hio : HasIO io} -> io Int
 getThreadId = primIO prim__getThreadId
 
 
@@ -61,8 +64,9 @@ prim__mutexAcquire : Mutex -> PrimIO ()
 prim__mutexRelease : Mutex -> PrimIO ()
 
 ||| Creates and returns a new mutex.
+%spec hio
 export
-makeMutex : HasIO io => io Mutex
+makeMutex : {auto hio : HasIO io} -> io Mutex
 makeMutex = primIO prim__makeMutex
 
 ||| Acquires the mutex identified by `mutex`. The thread blocks until the mutex
@@ -72,14 +76,16 @@ makeMutex = primIO prim__makeMutex
 ||| calling thread can use mutex-acquire to (re)acquire a mutex it already has.
 ||| In this case, an equal number of mutex-release calls is necessary to release
 ||| the mutex.
+%spec hio
 export
-mutexAcquire : HasIO io => Mutex -> io ()
+mutexAcquire : {auto hio : HasIO io} -> Mutex -> io ()
 mutexAcquire m = primIO (prim__mutexAcquire m)
 
 ||| Releases the mutex identified by `mutex`. Unpredictable behavior results if
 ||| the mutex is not owned by the calling thread.
+%spec hio
 export
-mutexRelease : HasIO io => Mutex -> io ()
+mutexRelease : {auto hio : HasIO io} -> Mutex -> io ()
 mutexRelease m = primIO (prim__mutexRelease m)
 
 
@@ -111,8 +117,9 @@ prim__conditionBroadcast : Condition -> PrimIO ()
 
 
 ||| Creates and returns a new condition variable.
+%spec hio
 export
-makeCondition : HasIO io => io Condition
+makeCondition : {auto hio : HasIO io} -> io Condition
 makeCondition = primIO prim__makeCondition
 
 ||| Waits up to the specified timeout for the condition identified by the
@@ -121,25 +128,29 @@ makeCondition = primIO prim__makeCondition
 ||| released as a side effect of the call to `conditionWait`. When a thread is
 ||| later released from the condition variable by one of the procedures
 ||| described below, the mutex is reacquired and `conditionWait` returns.
+%spec hio
 export
-conditionWait : HasIO io => Condition -> Mutex -> io ()
+conditionWait : {auto hio : HasIO io} -> Condition -> Mutex -> io ()
 conditionWait cond mutex = primIO (prim__conditionWait cond mutex)
 
 ||| Variant of `conditionWait` with a timeout in microseconds.
 ||| When the timeout expires, the thread is released, `mutex` is reacquired, and
 ||| `conditionWaitTimeout` returns.
+%spec hio
 export
-conditionWaitTimeout : HasIO io => Condition -> Mutex -> Int -> io ()
+conditionWaitTimeout : {auto hio : HasIO io} -> Condition -> Mutex -> Int -> io ()
 conditionWaitTimeout cond mutex timeout = primIO (prim__conditionWaitTimeout cond mutex timeout)
 
 ||| Releases one of the threads waiting for the condition identified by `cond`.
+%spec hio
 export
-conditionSignal : HasIO io => Condition -> io ()
+conditionSignal : {auto hio : HasIO io} -> Condition -> io ()
 conditionSignal c = primIO (prim__conditionSignal c)
 
 ||| Releases all of the threads waiting for the condition identified by `cond`.
+%spec hio
 export
-conditionBroadcast : HasIO io => Condition -> io ()
+conditionBroadcast : {auto hio : HasIO io} -> Condition -> io ()
 conditionBroadcast c = primIO (prim__conditionBroadcast c)
 
 
@@ -160,19 +171,22 @@ prim__semaphoreWait : Semaphore -> PrimIO ()
 
 
 ||| Creates and returns a new semaphore with the counter initially set to `init`.
+%spec hio
 export
-makeSemaphore : HasIO io => Int -> io Semaphore
+makeSemaphore : {auto hio : HasIO io} -> Int -> io Semaphore
 makeSemaphore init = primIO (prim__makeSemaphore init)
 
 ||| Increments the semaphore's internal counter.
+%spec hio
 export
-semaphorePost : HasIO io => Semaphore -> io ()
+semaphorePost : {auto hio : HasIO io} -> Semaphore -> io ()
 semaphorePost sema = primIO (prim__semaphorePost sema)
 
 ||| Blocks until the internal counter for semaphore sema is non-zero. When the
 ||| counter is non-zero, it is decremented and `semaphoreWait` returns.
+%spec hio
 export
-semaphoreWait : HasIO io => Semaphore -> io ()
+semaphoreWait : {auto hio : HasIO io} -> Semaphore -> io ()
 semaphoreWait sema = primIO (prim__semaphoreWait sema)
 
 
@@ -193,13 +207,15 @@ prim__barrierWait : Barrier -> PrimIO ()
 ||| Creates a new barrier that can block a given number of threads.
 |||
 ||| @ numThreads the number of threads to block
+%spec hio
 export
-makeBarrier : HasIO io => (numThreads : Int) -> io Barrier
+makeBarrier : {auto hio : HasIO io} -> (numThreads : Int) -> io Barrier
 makeBarrier numThreads = primIO (prim__makeBarrier numThreads)
 
 ||| Blocks the current thread until all threads have rendezvoused here.
+%spec hio
 export
-barrierWait : HasIO io => Barrier -> io ()
+barrierWait : {auto hio : HasIO io} -> Barrier -> io ()
 barrierWait barrier = primIO (prim__barrierWait barrier)
 
 
@@ -230,24 +246,27 @@ prim__channelPut : Channel a -> a -> PrimIO ()
 ||| channel.
 ||| The channel can be used with `channelPut` to send a value through the
 ||| channel.
+%spec hio
 export
-makeChannel : HasIO io => io (Channel a)
+makeChannel : {auto hio : HasIO io} -> io (Channel a)
 makeChannel = primIO prim__makeChannel
 
 ||| Blocks until a sender is ready to provide a value through `chan`. The result
 ||| is the sent value.
 |||
 ||| @ chan the channel to receive on
+%spec hio
 export
-channelGet : HasIO io => (chan : Channel a) -> io a
+channelGet : {auto hio : HasIO io} -> (chan : Channel a) -> io a
 channelGet chan = primIO (prim__channelGet chan)
 
 ||| Non-blocking version of channelGet (chez backend).
 |||
 ||| @ chan the channel to receive on
+%spec hio
 partial
 export
-channelGetNonBlocking : HasIO io => (chan : Channel a) -> io (Maybe a)
+channelGetNonBlocking : {auto hio : HasIO io} -> (chan : Channel a) -> io (Maybe a)
 channelGetNonBlocking chan = primIO (prim__channelGetNonBlocking chan)
 
 ||| Timeout version of channelGet (chez backend).
@@ -255,9 +274,10 @@ channelGetNonBlocking chan = primIO (prim__channelGetNonBlocking chan)
 |||
 ||| @ chan the channel to receive on
 ||| @ milliseconds how many milliseconds to wait until timeout
+%spec hio
 partial
 export
-channelGetWithTimeout : HasIO io => (chan : Channel a) -> (milliseconds : Nat) -> io (Maybe a)
+channelGetWithTimeout : {auto hio : HasIO io} -> (chan : Channel a) -> (milliseconds : Nat) -> io (Maybe a)
 channelGetWithTimeout chan milliseconds =
   case os of
     "windows" =>
@@ -270,6 +290,7 @@ channelGetWithTimeout chan milliseconds =
 |||
 ||| @ chan the `Channel` to send the value over
 ||| @ val  the value to send
+%spec hio
 export
-channelPut : HasIO io => (chan : Channel a) -> (val : a) -> io ()
+channelPut : {auto hio : HasIO io} -> (chan : Channel a) -> (val : a) -> io ()
 channelPut chan val = primIO (prim__channelPut chan val)
