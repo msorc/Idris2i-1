@@ -60,14 +60,27 @@ void idris2_releaseValue(Idris2_Value *elem);
 // that it refers to, when it is handed over to another thread (the action of
 // `fork`, a value put in a shared channel, IORef or array, a constant of the
 // program; see idris2_markShared).  A shared value only refers to shared
-// values, and it is never updated in place: idris2_isUnique is false for it,
-// whatever its reference count.
+// values, and it is never updated in place while other threads may see it
+// (see idris2_tryUnshare).
 //
 // Until a second worker starts, no value is shared.
 // ---------------------------------------------------------------------------
 
 // Make `v` and everything that it refers to shared.
 void idris2_markShared(Idris2_Value *v);
+
+// A shared value with a single reference: the thread that holds it is the
+// only one that can see it, so it can stop being shared (what it refers to
+// stays shared, which is allowed).  Returns 1 when `v` has a single
+// reference, and is not shared any more.
+static inline int idris2_tryUnshare(Idris2_Value *v) {
+  // (acquire: the writes of the threads that dropped their references are
+  // visible before we update the value in place)
+  if (__atomic_load_n(&v->header.refCounter, __ATOMIC_ACQUIRE) != 1)
+    return 0;
+  v->header.reserved &= (uint8_t)~IDRIS2_SHARED_FLAG;
+  return 1;
+}
 
 // The reference counting of shared and immortal values, out of line.
 void idris2_newReferenceSlow(Idris2_Value *v);

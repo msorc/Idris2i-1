@@ -180,7 +180,7 @@ Idris2_Value *idris2_trampolineSlow(Idris2_Value *it) {
     if (clos->filled < clos->arity)
       break;
 
-    if (idris2_isShared(clos)) {
+    if (idris2_isShared(clos) && !idris2_tryUnshare((Idris2_Value *)clos)) {
       it = idris2_call_shared_closure(clos, 0, NULL, NULL);
       continue;
     }
@@ -250,7 +250,7 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
 static inline Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
                                                 Idris2_Value *arg1,
                                                 Idris2_Value *arg2, int n) {
-  if (idris2_isShared(clos))
+  if (idris2_isShared(clos) && !idris2_tryUnshare((Idris2_Value *)clos))
     return idris2_trampoline(idris2_call_shared_closure(clos, n, arg1, arg2));
   uint8_t filled = clos->filled;
   int unique = idris2_isUnique(clos);

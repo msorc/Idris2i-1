@@ -4,10 +4,15 @@
 
 void idris2_missing_ffi();
 
-// May the value be updated in place?  A shared value never is (see
-// memoryManagement.h).
-#define idris2_isUnique(x)                                                     \
-  ((x)->header.refCounter == 1 && !idris2_isShared(x))
+// May the value be updated in place?  Only when this is its only reference.
+// A shared value (see memoryManagement.h) that has a single reference left
+// is ours alone: it stops being shared first.
+#define idris2_isUnique(x) (idris2_isUniqueValue((Idris2_Value *)(x)))
+static inline int idris2_isUniqueValue(Idris2_Value *v) {
+  if (__builtin_expect(idris2_isShared(v), 0))
+    return idris2_tryUnshare(v);
+  return v->header.refCounter == 1;
+}
 void idris2_removeReuseConstructor(Idris2_Constructor *constr);
 
 Idris2_Value *idris2_apply_closure(Idris2_Value *, Idris2_Value *arg);
