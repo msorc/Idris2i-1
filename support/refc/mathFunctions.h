@@ -120,11 +120,60 @@ static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
 #define idris2_div_Bits16(l, r) (idris2_binop(Bits16, /, l, r))
 #define idris2_div_Bits32(l, r) (idris2_binop(Bits32, /, l, r))
 #define idris2_div_Bits64(l, r) (idris2_binop(Bits64, /, l, r))
-Idris2_Value *idris2_div_Int8(Idris2_Value *x, Idris2_Value *y);
-Idris2_Value *idris2_div_Int16(Idris2_Value *x, Idris2_Value *y);
-Idris2_Value *idris2_div_Int32(Idris2_Value *x, Idris2_Value *y);
-Idris2_Value *idris2_div_Int64(Idris2_Value *x, Idris2_Value *y);
-Idris2_Value *idris2_div_Integer(Idris2_Value *x, Idris2_Value *y);
+// The signed `div` and `mod` are Euclidean (`mod` is never negative), unlike
+// C's `/` and `%`, which truncate.  They are inline, so that a division by a
+// constant (`x `mod` 2`) is compiled to shifts and masks instead of a
+// division instruction.
+
+// The Euclidean remainder: the truncated one, plus the absolute value of the
+// divisor when it is negative.  (`r - denom` and `r + denom` cannot overflow,
+// as `r` is between them.)
+#define IDRIS2_EUCLID_REM(num, denom, rem)                                     \
+  do {                                                                         \
+    rem = (num) % (denom);                                                     \
+    if (rem < 0)                                                               \
+      rem = (denom) < 0 ? rem - (denom) : rem + (denom);                       \
+  } while (0)
+
+// The Euclidean quotient: the truncated one, one closer to -infinity (for a
+// positive divisor) or +infinity (for a negative one) when the truncated
+// remainder is negative.  See Division and Modulus for Computer Scientists
+// (Daan Leijen).
+#define IDRIS2_EUCLID_DIVMOD(ty, cty)                                          \
+  static inline Idris2_Value *idris2_div_##ty(Idris2_Value *x,                 \
+                                              Idris2_Value *y) {               \
+    cty num = idris2_vp_to_##ty(x);                                            \
+    cty denom = idris2_vp_to_##ty(y);                                          \
+    cty rem = num % denom;                                                     \
+    return (Idris2_Value *)idris2_mk##ty(                                      \
+        num / denom + ((rem < 0) ? (denom < 0) ? 1 : -1 : 0));                 \
+  }                                                                            \
+  static inline Idris2_Value *idris2_mod_##ty(Idris2_Value *x,                 \
+                                              Idris2_Value *y) {               \
+    cty num = idris2_vp_to_##ty(x);                                            \
+    cty denom = idris2_vp_to_##ty(y);                                          \
+    cty rem;                                                                   \
+    IDRIS2_EUCLID_REM(num, denom, rem);                                        \
+    return (Idris2_Value *)idris2_mk##ty(rem);                                 \
+  }
+IDRIS2_EUCLID_DIVMOD(Int8, int8_t)
+IDRIS2_EUCLID_DIVMOD(Int16, int16_t)
+IDRIS2_EUCLID_DIVMOD(Int32, int32_t)
+IDRIS2_EUCLID_DIVMOD(Int64, int64_t)
+
+// The Integers have a fast path for the small ones (see idris2_add_Integer),
+// with a divisor that is not 0 (division by 0 is left to the slow path).
+Idris2_Value *idris2_div_IntegerSlow(Idris2_Value *x, Idris2_Value *y);
+static inline Idris2_Value *idris2_div_Integer(Idris2_Value *x,
+                                                Idris2_Value *y) {
+  if (idris2_isSmallInteger(x) && idris2_isSmallInteger(y) &&
+      idris2_smallInteger(y) != 0) {
+    int64_t a = idris2_smallInteger(x), b = idris2_smallInteger(y), r;
+    IDRIS2_EUCLID_REM(a, b, r);
+    return idris2_mkIntegerFromInt64((a - r) / b);
+  }
+  return idris2_div_IntegerSlow(x, y);
+}
 #define idris2_div_Double(l, r) (idris2_binop(Double, /, l, r))
 
 /* mod */
@@ -132,11 +181,17 @@ Idris2_Value *idris2_div_Integer(Idris2_Value *x, Idris2_Value *y);
 #define idris2_mod_Bits16(l, r) (idris2_binop(Bits16, %, l, r))
 #define idris2_mod_Bits32(l, r) (idris2_binop(Bits32, %, l, r))
 #define idris2_mod_Bits64(l, r) (idris2_binop(Bits64, %, l, r))
-Idris2_Value *idris2_mod_Int8(Idris2_Value *x, Idris2_Value *y);
-Idris2_Value *idris2_mod_Int16(Idris2_Value *x, Idris2_Value *y);
-Idris2_Value *idris2_mod_Int32(Idris2_Value *x, Idris2_Value *y);
-Idris2_Value *idris2_mod_Int64(Idris2_Value *x, Idris2_Value *y);
-Idris2_Value *idris2_mod_Integer(Idris2_Value *x, Idris2_Value *y);
+Idris2_Value *idris2_mod_IntegerSlow(Idris2_Value *x, Idris2_Value *y);
+static inline Idris2_Value *idris2_mod_Integer(Idris2_Value *x,
+                                                Idris2_Value *y) {
+  if (idris2_isSmallInteger(x) && idris2_isSmallInteger(y) &&
+      idris2_smallInteger(y) != 0) {
+    int64_t a = idris2_smallInteger(x), b = idris2_smallInteger(y), r;
+    IDRIS2_EUCLID_REM(a, b, r);
+    return idris2_mkIntegerFromInt64(r);
+  }
+  return idris2_mod_IntegerSlow(x, y);
+}
 
 /* shiftl */
 #define idris2_shiftl_Bits8(l, r) (idris2_binop(Bits8, <<, l, r))

@@ -10,71 +10,7 @@
 
 /* mul */
 
-/* div */
-Idris2_Value *idris2_div_Int8(Idris2_Value *x, Idris2_Value *y) {
-  // Correction term added to convert from truncated division (C default) to
-  // Euclidean division For proof of correctness, see Division and Modulus for
-  // Computer Scientists (Daan Leijen)
-  // https://www.microsoft.com/en-us/research/publication/division-and-modulus-for-computer-scientists/
-
-  int8_t num = idris2_vp_to_Int8(x);
-  int8_t denom = idris2_vp_to_Int8(y);
-  int8_t rem = num % denom;
-  return idris2_mkInt8(num / denom + ((rem < 0) ? (denom < 0) ? 1 : -1 : 0));
-}
-Idris2_Value *idris2_div_Int16(Idris2_Value *x, Idris2_Value *y) {
-  // Correction term added to convert from truncated division (C default) to
-  // Euclidean division For proof of correctness, see Division and Modulus for
-  // Computer Scientists (Daan Leijen)
-  // https://www.microsoft.com/en-us/research/publication/division-and-modulus-for-computer-scientists/
-
-  int16_t num = idris2_vp_to_Int16(x);
-  int16_t denom = idris2_vp_to_Int16(y);
-  int16_t rem = num % denom;
-  return idris2_mkInt16(num / denom + ((rem < 0) ? (denom < 0) ? 1 : -1 : 0));
-}
-Idris2_Value *idris2_div_Int32(Idris2_Value *x, Idris2_Value *y) {
-  // Correction term added to convert from truncated division (C default) to
-  // Euclidean division For proof of correctness, see Division and Modulus for
-  // Computer Scientists (Daan Leijen)
-  // https://www.microsoft.com/en-us/research/publication/division-and-modulus-for-computer-scientists/
-
-  int32_t num = idris2_vp_to_Int32(x);
-  int32_t denom = idris2_vp_to_Int32(y);
-  int32_t rem = num % denom;
-  return idris2_mkInt32(num / denom + ((rem < 0) ? (denom < 0) ? 1 : -1 : 0));
-}
-Idris2_Value *idris2_div_Int64(Idris2_Value *x, Idris2_Value *y) {
-  // Correction term added to convert from truncated division (C default) to
-  // Euclidean division For proof of correctness, see Division and Modulus for
-  // Computer Scientists (Daan Leijen)
-  // https://www.microsoft.com/en-us/research/publication/division-and-modulus-for-computer-scientists/
-
-  int64_t num = idris2_vp_to_Int64(x);
-  int64_t denom = idris2_vp_to_Int64(y);
-  int64_t rem = num % denom;
-  return (Idris2_Value *)idris2_mkInt64(num / denom +
-                                        ((rem < 0) ? (denom < 0) ? 1 : -1 : 0));
-}
-
-
-/* mod */
-// The Euclidean remainder, which is never negative: the truncated one (C
-// default), plus the absolute value of the divisor when it is negative.
-// (`r - denom` and `r + denom` cannot overflow, as `r` is between them.)
-#define IDRIS2_EUCLID_MOD(ty, cty)                                             \
-  Idris2_Value *idris2_mod_##ty(Idris2_Value *x, Idris2_Value *y) {            \
-    cty num = idris2_vp_to_##ty(x);                                            \
-    cty denom = idris2_vp_to_##ty(y);                                          \
-    cty rem = num % denom;                                                     \
-    if (rem < 0)                                                               \
-      rem = denom < 0 ? rem - denom : rem + denom;                             \
-    return (Idris2_Value *)idris2_mk##ty(rem);                                 \
-  }
-IDRIS2_EUCLID_MOD(Int8, int8_t)
-IDRIS2_EUCLID_MOD(Int16, int16_t)
-IDRIS2_EUCLID_MOD(Int32, int32_t)
-IDRIS2_EUCLID_MOD(Int64, int64_t)
+/* div, mod: see mathFunctions.h */
 
 /* shiftl */
 
@@ -130,12 +66,13 @@ IDRIS2_INTEGER_OP2(idris2_xor_Integer,
 
 // The remainder of the Euclidean division (non-negative, like mpz_mod).
 static int64_t idris2_euclidRem(int64_t num, int64_t denom) {
-  int64_t rem = num % denom;
-  return rem < 0 ? rem + (denom < 0 ? -denom : denom) : rem;
+  int64_t rem;
+  IDRIS2_EUCLID_REM(num, denom, rem);
+  return rem;
 }
 
 IDRIS2_INTEGER_OP2(
-    idris2_div_Integer,
+    idris2_div_IntegerSlow,
     return idris2_mkIntegerFromInt64((a - idris2_euclidRem(a, b)) / b);
     , {
       mpz_t rem, yq;
@@ -145,7 +82,7 @@ IDRIS2_INTEGER_OP2(
       mpz_divexact(retVal->i, yq, mb);
       mpz_clears(rem, yq, NULL);
     })
-IDRIS2_INTEGER_OP2(idris2_mod_Integer,
+IDRIS2_INTEGER_OP2(idris2_mod_IntegerSlow,
                    return idris2_mkIntegerFromInt64(idris2_euclidRem(a, b));,
                    mpz_mod(retVal->i, ma, mb))
 IDRIS2_INTEGER_OP2(
