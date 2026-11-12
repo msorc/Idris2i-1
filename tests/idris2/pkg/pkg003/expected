@@ -16,6 +16,8 @@ Overridable options are:
     --build-dir <dir>
     --output-dir <dir>
     --jobs <jobs>
+    -Werror
+    -Wwhere-recompute
 
 Packages must have an '.ipkg' extension: "malformed-package-name".
 Error: File error in non-existent-package.ipkg : File Not Found
