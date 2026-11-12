@@ -59,31 +59,22 @@ Idris2_Value *idris2_div_Int64(Idris2_Value *x, Idris2_Value *y) {
 
 
 /* mod */
-Idris2_Value *idris2_mod_Int8(Idris2_Value *x, Idris2_Value *y) {
-  int8_t num = idris2_vp_to_Int8(x);
-  int8_t denom = idris2_vp_to_Int8(y);
-  denom = (denom < 0) ? -denom : denom;
-  return (Idris2_Value *)idris2_mkInt8(num % denom + (num < 0 ? denom : 0));
-}
-
-Idris2_Value *idris2_mod_Int16(Idris2_Value *x, Idris2_Value *y) {
-  int16_t num = idris2_vp_to_Int16(x);
-  int16_t denom = idris2_vp_to_Int16(y);
-  denom = (denom < 0) ? -denom : denom;
-  return (Idris2_Value *)idris2_mkInt16(num % denom + (num < 0 ? denom : 0));
-}
-Idris2_Value *idris2_mod_Int32(Idris2_Value *x, Idris2_Value *y) {
-  int32_t num = idris2_vp_to_Int32(x);
-  int32_t denom = idris2_vp_to_Int32(y);
-  denom = (denom < 0) ? -denom : denom;
-  return (Idris2_Value *)idris2_mkInt32(num % denom + (num < 0 ? denom : 0));
-}
-Idris2_Value *idris2_mod_Int64(Idris2_Value *x, Idris2_Value *y) {
-  int64_t num = idris2_vp_to_Int64(x);
-  int64_t denom = idris2_vp_to_Int64(y);
-  denom = (denom < 0) ? -denom : denom;
-  return (Idris2_Value *)idris2_mkInt64(num % denom + (num < 0 ? denom : 0));
-}
+// The Euclidean remainder, which is never negative: the truncated one (C
+// default), plus the absolute value of the divisor when it is negative.
+// (`r - denom` and `r + denom` cannot overflow, as `r` is between them.)
+#define IDRIS2_EUCLID_MOD(ty, cty)                                             \
+  Idris2_Value *idris2_mod_##ty(Idris2_Value *x, Idris2_Value *y) {            \
+    cty num = idris2_vp_to_##ty(x);                                            \
+    cty denom = idris2_vp_to_##ty(y);                                          \
+    cty rem = num % denom;                                                     \
+    if (rem < 0)                                                               \
+      rem = denom < 0 ? rem - denom : rem + denom;                             \
+    return (Idris2_Value *)idris2_mk##ty(rem);                                 \
+  }
+IDRIS2_EUCLID_MOD(Int8, int8_t)
+IDRIS2_EUCLID_MOD(Int16, int16_t)
+IDRIS2_EUCLID_MOD(Int32, int32_t)
+IDRIS2_EUCLID_MOD(Int64, int64_t)
 
 /* shiftl */
 

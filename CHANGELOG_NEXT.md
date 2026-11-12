@@ -199,6 +199,8 @@ should target this file (`CHANGELOG_NEXT`).
   release its own.  `modifyIORef` used to leak the previous value of the
   `IORef` on every call.
 * Fixed the finaliser of a `GCPtr` / `GCAnyPtr` releasing the pointer twice.
+* Fixed `mod` on `Int`, `Int8`, `Int16`, `Int32` and `Int64` giving the
+  divisor instead of 0 for a negative multiple of it (`-4 `mod` 2` was 2).
 * `System.Clock` now reads the clocks with `clock_gettime`: they used to have
   a resolution of a second (`nanoseconds` was always 0), and the monotonic
   clock was the UTC one.

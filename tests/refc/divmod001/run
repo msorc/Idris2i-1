@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 -o divmod DivMod.idr > /dev/null
+$VALGRIND ./build/exec/divmod
