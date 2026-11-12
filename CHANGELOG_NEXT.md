@@ -187,6 +187,12 @@ should target this file (`CHANGELOG_NEXT`).
   yields at the end of an iteration of a loop (`IDRIS2_PREEMPT=0` turns this
   off).  Mutexes are taken and released with one atomic operation when no
   thread waits for them.
+* A full application of a foreign function borrows its arguments, like a
+  primitive operation: the caller no longer takes a reference to each
+  argument for the wrapper of the function to release after the call.  This
+  saves two atomic operations per argument that threads share (a mutex 8
+  threads contend for is taken and released twice as fast), and a call
+  through the trampoline in tail position.
 * Fixed memory leaks of the arguments passed to the external primitives
   (`writeIORef`, `newIORef`, `newArray`, `arraySet`, `onCollect`, ...): the
   primitives take a reference to what they keep, but the caller did not

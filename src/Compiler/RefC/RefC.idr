@@ -218,6 +218,7 @@ varName (ANull)    = "NULL"
 
 data ArgCounter : Type where
 data EnvTracker : Type where
+data Foreigns : Type where
 data FunctionDefinitions : Type where
 data IndentLevel : Type where
 data HeaderFiles : Type where
@@ -256,6 +257,8 @@ record Env where
   ||| The number of parameters of the function being compiled (see
   ||| `makeTailCall`).
   selfArity : Nat
+  ||| The arities of the foreign functions, by C name (see `foreignCall`).
+  foreigns : SortedMap String Nat
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -675,7 +678,10 @@ mutual
     cStatementsFromANF (AV fc x) _ = pure $ avarToC !(get EnvTracker) x
     cStatementsFromANF (AAppName fc _ n args) tailPosition = do
         let nargs = length args
-        case tailPosition of
+        env <- get EnvTracker
+        if lookup (cName n) env.foreigns == Just nargs
+           then foreignCall fc env n args
+           else case tailPosition of
             InTailPosition =>
                 if nargs > MaxExtractFunArgs
                    then makeClosure fc n args 0
@@ -686,6 +692,25 @@ mutual
                     env <- get EnvTracker
                     let args' = avarsToC env.owned args
                     pure "idris2_trampoline(\{cName n}(\{concat $ intersperse ", " args'}))"
+      where
+        -- A full application of a foreign function calls the variant of
+        -- its wrapper that borrows the arguments (see `createCFunctions`),
+        -- like a primitive operation: the arguments are passed as they are,
+        -- and those that we own are released after.  This saves taking and
+        -- releasing a reference to each of them, which are atomic operations
+        -- on a value that threads share (a mutex, a channel).  The result is
+        -- a value, never a pending tail call, even in tail position.
+        foreignCall : FC -> Env -> Name -> List AVar -> Core String
+        foreignCall fc env n args = do
+            let call = "\{cName n}_borrow(\{concat $ intersperse ", " (map varName args)})"
+            let owned = Prelude.toList $ intersection (fromList args) env.owned
+            if null owned
+               then pure call
+               else do
+                 let resultVar = "ffiVar_" ++ !(getNextCounter)
+                 emit fc $ "Idris2_Value *" ++ resultVar ++ " = " ++ call ++ ";"
+                 removeVars (map varName owned)
+                 pure resultVar
 
     cStatementsFromANF (AUnderApp fc n missing args) _ = makeClosure fc n args missing
     cStatementsFromANF (AApp fc _ closure arg) tailPosition = do
@@ -996,12 +1021,12 @@ createFFIArgList cftypeList = do
 
 emitFDef : {auto oft : Ref OutfileText Output}
         -> {auto il : Ref IndentLevel Nat}
-        -> (funcName:Name)
+        -> (funcName : String) -- the C name
         -> (arglist:List (String, String, CFType))
         -> Core ()
-emitFDef funcName [] = emit EmptyFC $ "Idris2_Value *" ++ cName funcName ++ "(void)"
+emitFDef funcName [] = emit EmptyFC $ "Idris2_Value *" ++ funcName ++ "(void)"
 emitFDef funcName ((varType, varName, varCFType) :: xs) = do
-    emit EmptyFC $ "Idris2_Value *" ++ cName funcName
+    emit EmptyFC $ "Idris2_Value *" ++ funcName
     emit EmptyFC "("
     increaseIndentation
     emit EmptyFC $ "  Idris2_Value *" ++ varName
@@ -1094,6 +1119,7 @@ additionalFFIStub name argTypes retType =
     (concat $ intersperse ", " $ map cTypeOfCFType argTypes) ++ ") = (void*)idris2_missing_ffi;\n"
 
 createCFunctions : {auto c : Ref Ctxt Defs}
+                -> {auto fo : Ref Foreigns (SortedMap String Nat)}
                 -> {auto a : Ref ArgCounter Nat}
                 -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
                 -> {auto f : Ref FunctionDefinitions (List String)}
@@ -1139,7 +1165,8 @@ createCFunctions n (MkAFun args anf) = do
     _ <- newRef EnvTracker (MkEnv bodyFreeVars empty
                               (if loops then Just (cn, args) else Nothing)
                               -- (many arguments are passed in an array)
-                              (if nargs > MaxExtractFunArgs then 1 else nargs))
+                              (if nargs > MaxExtractFunArgs then 1 else nargs)
+                              !(get Foreigns))
     emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
     decreaseIndentation
     emit EmptyFC  "}\n"
@@ -1182,36 +1209,48 @@ createCFunctions n (MkAForeign ccs fargs ret) = do
                       [lib, header] => update HeaderFiles $ insert header
                       _ => pure ()
              else emit EmptyFC $ additionalFFIStub fctName fargs ret
-          let fnDef = "Idris2_Value *" ++ (cName n) ++ "(" ++ showSep ", " (replicate (length fargs) "Idris2_Value *") ++ ");"
-          update FunctionDefinitions $ \otherDefs => (fnDef ++ "\n") :: otherDefs
+          let params = "(" ++ showSep ", " (replicate (length fargs) "Idris2_Value *") ++ ");"
+          let fnDef = "Idris2_Value *" ++ cName n ++ params
+          let borrowDef = "Idris2_Value *" ++ cName n ++ "_borrow" ++ params
+          update FunctionDefinitions $ \otherDefs => (fnDef ++ "\n") :: (borrowDef ++ "\n") :: otherDefs
           typeVarNameArgList <- createFFIArgList fargs
+          let argNames = (\(_, varName, _) => varName) <$> typeVarNameArgList
 
-          emitFDef n typeVarNameArgList
+          -- The wrapper, which takes the arguments over (as the other
+          -- functions do), for closures and partial applications
+          emitFDef (cName n) typeVarNameArgList
+          emit EmptyFC "{"
+          increaseIndentation
+          emit EmptyFC $ "Idris2_Value *retVal = " ++ cName n ++ "_borrow(" ++ showSep ", " argNames ++ ");"
+          removeVars argNames
+          emit EmptyFC "return retVal;"
+          decreaseIndentation
+          emit EmptyFC "}"
+
+          -- The variant that borrows the arguments, for full applications
+          -- (see `foreignCall`)
+          emitFDef (cName n ++ "_borrow") typeVarNameArgList
           emit EmptyFC "{"
           increaseIndentation
           emit EmptyFC $ " // ffi call to " ++ cName fctName
-          let removeVarsArgList = removeVars ((\(_, varName, _) => varName) <$> typeVarNameArgList)
           case ret of
               CFIORes CFUnit => do
                   emit EmptyFC $ cName fctName
                               ++ "("
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) (discardLastArgument typeVarNameArgList))
                               ++ ");"
-                  removeVarsArgList
                   emit EmptyFC "return NULL;"
               CFIORes ret => do
                   emit EmptyFC $ cResultType cLang ret ++ " retVal = " ++ cName fctName
                               ++ "("
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) (discardLastArgument typeVarNameArgList))
                               ++ ");"
-                  removeVarsArgList
                   emit EmptyFC $ "return (Idris2_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
               _ => do
                   emit EmptyFC $ cResultType cLang ret ++ " retVal = " ++ cName fctName
                               ++ "("
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) typeVarNameArgList)
                               ++ ");"
-                  removeVarsArgList
                   emit EmptyFC $ "return (Idris2_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
 
           decreaseIndentation
@@ -1326,6 +1365,9 @@ generateCSourceFileParts : {auto c : Ref Ctxt Defs}
                         -> Core Nat -- the number of chunks, 0 when not split
 generateCSourceFileParts defs outn =
   do _ <- newRef ArgCounter 0
+     _ <- newRef Foreigns $ fromList $ mapMaybe
+            (\case (n, MkAForeign _ fargs _) => Just (cName n, length fargs)
+                   _ => Nothing) defs
      _ <- newRef FunctionDefinitions []
      _ <- newRef ConstDef Data.SortedMap.empty
      _ <- newRef OutfileText DList.Nil
