@@ -20,15 +20,16 @@ findCC
            | Just cc => pure cc
          pure "cc"
 
+-- Without optimisation, the inline functions of the runtime (reference
+-- counting, allocation) are not inlined, which makes the code several times
+-- slower: -O2 comes first, so that the flags of the user (`-g`, `-Wall`) keep
+-- it, and a later `-O` of theirs wins.
 findCFLAGS : IO String
 findCFLAGS
   = do Nothing <- idrisGetEnv "IDRIS2_CFLAGS"
-         | Just cflags => pure cflags
+         | Just cflags => pure ("-O2 " ++ cflags)
        Nothing <- idrisGetEnv "CFLAGS"
-         | Just cflags => pure cflags
-       -- Without optimisation, the inline functions of the runtime (reference
-       -- counting, allocation) are not inlined, which makes the code several
-       -- times slower.
+         | Just cflags => pure ("-O2 " ++ cflags)
        pure "-O2"
 
 findCPPFLAGS : IO String
