@@ -48,14 +48,7 @@ Idris2_Value *Main_insert
         }
         Idris2_Value * tmp_47 = NULL;                        // Prelude.EqOrd:121:3--121:6
         if (((Idris2_Constructor *)var_0)->tag == 0 /* Prelude.EqOrd.MkOrd */) {
-            Idris2_Value *var_8 = ((Idris2_Constructor*)var_0)->args[0];
-            Idris2_Value *var_9 = ((Idris2_Constructor*)var_0)->args[1];
             Idris2_Value *var_10 = ((Idris2_Constructor*)var_0)->args[2];
-            Idris2_Value *var_11 = ((Idris2_Constructor*)var_0)->args[3];
-            Idris2_Value *var_12 = ((Idris2_Constructor*)var_0)->args[4];
-            Idris2_Value *var_13 = ((Idris2_Constructor*)var_0)->args[5];
-            Idris2_Value *var_14 = ((Idris2_Constructor*)var_0)->args[6];
-            Idris2_Value *var_15 = ((Idris2_Constructor*)var_0)->args[7];
             idris2_newReference(var_10);
             tmp_47 = idris2_apply_closure2(var_10, idris2_newReference(var_1), idris2_newReference(var_6));
         }

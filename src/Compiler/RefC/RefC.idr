@@ -942,12 +942,18 @@ mutual
 
             let conArgs = ALocal <$> args
             let ownedWithArgs = union (fromList conArgs) $ if erased then delete sc env.owned else env.owned
-            let (shouldDrop, actualOwned) = dropUnusedOwnedVars ownedWithArgs (freeVariables body)
+            let usedVars = freeVariables body
+            let (shouldDrop, actualOwned) = dropUnusedOwnedVars ownedWithArgs usedVars
             let usedCons = usedConstructors body
             let (dropReuseCons, actualReuseMap) = dropUnusedReuseCons env.reuseMap usedCons
+            -- A field is read when the body uses it, or when the scrutinee is
+            -- dropped (addReuseConstructor then releases the unused fields);
+            -- otherwise it would be an unused variable.
+            let scDropped = isJust (find (== sc') shouldDrop)
             increaseIndentation
             _ <- foldlC (\k, arg => do
-                emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
+                when (scDropped || contains (ALocal arg) usedVars) $
+                  emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
                 pure (S k) ) 0 args
             (shouldDrop, actualReuseMap) <- addReuseConstructor env.reuseMap sc' name (varName <$> conArgs) usedCons shouldDrop actualReuseMap
             removeVars shouldDrop
