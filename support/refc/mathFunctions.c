@@ -73,7 +73,9 @@ static int64_t idris2_euclidRem(int64_t num, int64_t denom) {
 
 IDRIS2_INTEGER_OP2(
     idris2_div_IntegerSlow,
-    return idris2_mkIntegerFromInt64((a - idris2_euclidRem(a, b)) / b);
+    // (by 0: GMP reports the division by zero)
+    if (b != 0) return idris2_mkIntegerFromInt64(
+        (a - idris2_euclidRem(a, b)) / b);
     , {
       mpz_t rem, yq;
       mpz_inits(rem, yq, NULL);
@@ -83,7 +85,8 @@ IDRIS2_INTEGER_OP2(
       mpz_clears(rem, yq, NULL);
     })
 IDRIS2_INTEGER_OP2(idris2_mod_IntegerSlow,
-                   return idris2_mkIntegerFromInt64(idris2_euclidRem(a, b));,
+                   if (b != 0) return idris2_mkIntegerFromInt64(
+                       idris2_euclidRem(a, b));,
                    mpz_mod(retVal->i, ma, mb))
 IDRIS2_INTEGER_OP2(
     idris2_shiftl_Integer,
