@@ -1,0 +1,53 @@
+1/1: Building Recompute (Recompute.idr)
+1/1: Building Recompute (Recompute.idr)
+Warning: us is a local definition without arguments that uses m from sumLookups, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+
+Recompute:15:5--15:18
+ 11 | -- Used from a local function with arguments
+ 12 | sumLookups : Nat -> List Nat -> Nat
+ 13 | sumLookups m xs = sum (map go xs)
+ 14 |   where
+ 15 |     us : List Nat
+          ^^^^^^^^^^^^^
+
+Warning: us is a local definition without arguments that uses m from countIn, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+
+Recompute:25:5--25:18
+ 21 | -- Used under a lambda
+ 22 | countIn : Nat -> List Nat -> Nat
+ 23 | countIn m xs = length (filter (\x => elem x us) xs)
+ 24 |   where
+ 25 |     us : List Nat
+          ^^^^^^^^^^^^^
+
+Warning: us is a local definition without arguments that uses m from twice, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+
+Recompute:32:5--32:18
+ 28 | -- Used twice
+ 29 | twice : Nat -> Nat
+ 30 | twice m = length us + sum us
+ 31 |   where
+ 32 |     us : List Nat
+          ^^^^^^^^^^^^^
+
+Warning: us is a local definition without arguments that uses m from letBlock, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+
+Recompute:38:9--38:22
+ 34 |
+ 35 | -- Local definitions in a `let` block are lifted in the same way
+ 36 | letBlock : Nat -> List Nat -> List Nat
+ 37 | letBlock m xs
+ 38 |   = let us : List Nat
+              ^^^^^^^^^^^^^
+
+Warning: us is a local definition without arguments that uses m from inCase, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+
+Recompute:50:5--50:18
+ 46 | inCase m xs = sum (map (\x => case x of
+ 47 |                                    Z => length us
+ 48 |                                    S k => k) xs)
+ 49 |   where
+ 50 |     us : List Nat
+          ^^^^^^^^^^^^^
+
+1/1: Building NoRecompute (NoRecompute.idr)

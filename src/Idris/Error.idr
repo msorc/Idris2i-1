@@ -302,6 +302,22 @@ pwarningRaw (Deprecated fc s fcAndName)
          pure . vsep $ catMaybes [ Just $ "Deprecation warning:" <++> pretty0 s
                                  , reAnnotate (const Pretty.UserDocString) <$> docs
                                  ]
+pwarningRaw (WhereRecompute fc n outer deps)
+    = pure $ vcat
+    [ code (pretty0 (localName n))
+        <++> reflow "is a local definition without arguments that uses"
+        <++> concatWith (surround (comma <+> space))
+               (map (code . pretty0 . localName) (forget deps))
+        <++> reflow "from" <++> code (pretty0 (localName outer))
+        <+> reflow ", so it is recomputed at each use. If it is expensive, bind it with"
+        <++> code "let" <++> reflow "and pass it on."
+    , !(ploc fc)
+    ]
+  where
+    localName : Name -> String
+    localName nm = case dropNS nm of
+      Nested _ nm' => localName nm'
+      nm' => sugarName nm'
 pwarningRaw (GenericWarn fc s)
     = pure $ vcat [pretty0 s, !(ploc fc)]
 

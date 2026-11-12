@@ -233,6 +233,7 @@ record Session where
   warningsAsErrors : Bool
   showShadowingWarning : Bool
   errorFormat : ErrorFormat -- how to report errors and warnings
+  warnWhereRecompute : Bool -- warn about local constants recomputed at each use
 
   -- Experimental
   checkHashesInsteadOfModTime : Bool
@@ -309,7 +310,7 @@ defaultSession : Session
 defaultSession = MkSessionOpts False CoveringOnly False False Chez [] 1000 False False
                                defaultLogLevel Nothing False Nothing Nothing
                                Nothing Nothing False 1 False False True
-                               HumanErrors False [] False False
+                               HumanErrors False False [] False False
 
 export
 defaultElab : ElabDirectives

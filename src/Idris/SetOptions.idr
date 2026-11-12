@@ -532,6 +532,9 @@ preOptions (IgnoreShadowingWarnings :: opts)
 preOptions (SetErrorFormat fmt :: opts)
     = do updateSession ({ errorFormat := fmt })
          preOptions opts
+preOptions (WarnWhereRecompute :: opts)
+    = do updateSession ({ warnWhereRecompute := True })
+         preOptions opts
 preOptions (HashesInsteadOfModTime :: opts)
     = do throw (InternalError "-Xcheck-hashes disabled (see issue #1935)")
          updateSession ({ checkHashesInsteadOfModTime := True })

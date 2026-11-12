@@ -230,6 +230,30 @@ of how this works in practice:
                   where z : Nat -> Nat
                         z w = y + w
 
+.. note::
+
+    Definitions in a ``where`` block are lifted to the top level, taking the
+    variables of the enclosing definition as extra arguments. A ``where``
+    definition without arguments of its own is therefore *not* shared like a
+    ``let`` binding: if it uses a variable of the enclosing definition, it is
+    recomputed each time it is used. In the following, ``us`` is computed again
+    for every element of ``xs``:
+
+    .. code-block:: idris
+
+        f : Nat -> List Nat -> Nat
+        f m xs = sum (map go xs)
+          where
+            us : List Nat
+            us = expensive m
+
+            go : Nat -> Nat
+            go x = if elem x us then x else 0
+
+    If the value is expensive to compute, bind it with ``let`` and pass it to
+    the local functions that need it. The ``-Wwhere-recompute`` flag makes
+    Idris warn about such definitions.
+
 .. _sect-holes:
 
 Totality and Covering

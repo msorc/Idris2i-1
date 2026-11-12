@@ -2,6 +2,7 @@ module TTImp.Elab.Local
 
 import Core.Env
 import Core.Metadata
+import Core.Normalise
 import Core.Unify
 
 import Idris.REPL.Opts
@@ -9,6 +10,8 @@ import Idris.Syntax
 
 import TTImp.Elab.Check
 import TTImp.TTImp
+
+import Data.List1
 
 import Libraries.Data.NameMap
 import Libraries.Data.WithDefault
@@ -149,6 +152,256 @@ localHelper {vars} nest env nestdecls_in func
         = INamespace fc ps (map setErased decls)
     setErased d = d
 
+------------------------------------------------------------------------
+-- Warning about local constants which are recomputed at each use
+--
+-- A local definition without arguments of its own, such as
+--
+--   f m xs = sum (map go xs)
+--     where
+--       us : SortedMap Nat Nat
+--       us = expensive m
+--       go : Nat -> Nat
+--       go x = fromMaybe 0 (lookup x us)
+--
+-- is lifted to a top level function of the enclosing environment
+-- (`us m xs`), so `us` is recomputed at each use rather than shared like a
+-- `let` binding. We warn when such a definition (a) has no arguments of its
+-- own, (b) uses a runtime relevant variable of the enclosing environment and
+-- (c) is used repeatedly: from a local function with arguments, under a
+-- lambda, or from more than one place.
+
+-- The runtime relevant pattern variables that a right hand side refers to.
+-- `d` counts the binders we went under inside the term.
+outerVarsUsed : {vs : _} -> Env Term vs -> Term vs -> List Name
+outerVarsUsed env tm = go (rigs env) Z tm []
+  where
+    rigs : {vs' : _} -> Env Term vs' -> List (Name, RigCount)
+    rigs {vs' = []} [] = []
+    rigs {vs' = x :: _} (b :: bs) = (x, multiplicity b) :: rigs bs
+
+    -- `outer` is passed on rather than being a `where` constant, which
+    -- would be recomputed at each use
+    mutual
+      go : List (Name, RigCount) -> Nat -> Term ns -> List Name -> List Name
+      go outer d (Local _ _ idx _) acc
+          = if idx < d
+               then acc
+               else case getAt (minus idx d) outer of
+                         Just (n, r) => if isErased r || elem n acc
+                                           then acc
+                                           else n :: acc
+                         Nothing => acc
+      go outer d (Meta _ _ _ args) acc = foldr (go outer d) acc args
+      go outer d (Bind _ _ b sc) acc
+          = goBinder outer d b (go outer (S d) sc acc)
+      go outer d (App _ f a) acc = go outer d f (go outer d a acc)
+      go outer d (As _ _ a p) acc = go outer d a (go outer d p acc)
+      go outer d (TDelayed _ _ t) acc = go outer d t acc
+      go outer d (TDelay _ _ ty t) acc = go outer d t acc
+      go outer d (TForce _ _ t) acc = go outer d t acc
+      go outer d _ acc = acc
+
+      goBinder : List (Name, RigCount) -> Nat -> Binder (Term ns) ->
+                 List Name -> List Name
+      goBinder outer d (Let _ _ v _) acc = go outer d v acc
+      goBinder outer d (PLet _ _ v _) acc = go outer d v acc
+      goBinder outer d _ acc = acc
+
+-- What we know about how a local definition is used
+record Uses where
+  constructor MkUses
+  count : Nat -- number of references found
+  repeated : Bool -- found a reference which is evaluated repeatedly
+  seen : List Name -- auxiliary definitions already looked at
+
+-- Count the references to `target` in a term. `rep` says whether we're in
+-- a context which is evaluated repeatedly (a lambda or a function with
+-- arguments). We look inside the case and with blocks, nested functions
+-- and solved holes the term refers to, except those in `skip` (the local
+-- definitions of the block, which are looked at separately).
+mutual
+  usesIn : {auto c : Ref Ctxt Defs} ->
+           (target : Name -> Bool) -> (skip : List Name) ->
+           Bool -> Uses -> Term ns -> Core Uses
+  usesIn tgt skip rep u (Ref _ _ n)
+      = if tgt n
+           then pure ({ count $= S, repeated $= (|| rep) } u)
+           else do n' <- getFullName n
+                   case auxRep n' of
+                        Nothing => pure u
+                        Just rep' => usesInDef tgt skip (rep || rep') u n'
+    where
+      auxRep : Name -> Maybe Bool
+      auxRep nm
+          = if nm `elem` skip
+               then Nothing
+               else case dropNS nm of
+                         CaseBlock {} => Just False
+                         WithBlock {} => Just False
+                         Nested {} => Just True
+                         _ => Nothing
+  usesIn tgt skip rep u (Meta _ n i args)
+      = do u <- usesInDef tgt skip rep u (Resolved i)
+           usesInList tgt skip rep u args
+  usesIn tgt skip rep u (Bind _ _ b sc)
+      = do let rep' = case b of
+                           Lam {} => True
+                           _ => rep
+           u <- usesInBinder tgt skip rep u b
+           usesIn tgt skip rep' u sc
+  usesIn tgt skip rep u (App _ f a)
+      = do u <- usesIn tgt skip rep u f
+           usesIn tgt skip rep u a
+  usesIn tgt skip rep u (As _ _ _ p) = usesIn tgt skip rep u p
+  usesIn tgt skip rep u (TDelayed _ _ t) = usesIn tgt skip rep u t
+  usesIn tgt skip rep u (TDelay _ _ _ t) = usesIn tgt skip rep u t
+  usesIn tgt skip rep u (TForce _ _ t) = usesIn tgt skip rep u t
+  usesIn tgt skip rep u _ = pure u
+
+  usesInList : {auto c : Ref Ctxt Defs} ->
+               (target : Name -> Bool) -> (skip : List Name) ->
+               Bool -> Uses -> List (Term ns) -> Core Uses
+  usesInList tgt skip rep u [] = pure u
+  usesInList tgt skip rep u (t :: ts)
+      = do u <- usesIn tgt skip rep u t
+           usesInList tgt skip rep u ts
+
+  usesInBinder : {auto c : Ref Ctxt Defs} ->
+                 (target : Name -> Bool) -> (skip : List Name) ->
+                 Bool -> Uses -> Binder (Term ns) -> Core Uses
+  usesInBinder tgt skip rep u (Let _ _ v _) = usesIn tgt skip rep u v
+  usesInBinder tgt skip rep u (PLet _ _ v _) = usesIn tgt skip rep u v
+  usesInBinder tgt skip rep u _ = pure u
+
+  -- References in the right hand sides of a definition
+  usesInDef : {auto c : Ref Ctxt Defs} ->
+              (target : Name -> Bool) -> (skip : List Name) ->
+              Bool -> Uses -> Name -> Core Uses
+  usesInDef tgt skip rep u n
+      = if n `elem` seen u
+           then pure u
+           else do defs <- get Ctxt
+                   let u = { seen $= (n ::) } u
+                   Just gdef <- lookupCtxtExact n (gamma defs)
+                        | Nothing => pure u
+                   let PMDef _ _ _ _ pats = definition gdef
+                        | _ => pure u
+                   usesInPats u pats
+    where
+      usesInPats : Uses -> List (vs ** (Env Term vs, Term vs, Term vs)) ->
+                   Core Uses
+      usesInPats u [] = pure u
+      usesInPats u ((_ ** (_, _, rhs)) :: ps)
+          = do u <- usesIn tgt skip rep u rhs
+               usesInPats u ps
+
+-- What we need to know about each local definition of the block
+record LocalInfo where
+  constructor MkLocalInfo
+  userName : Name
+  fullName : Name
+  resName : Name
+  loc : FC
+  hasArgs : Bool
+  outerUses : List Name -- enclosing variables used, if it has no arguments
+  rhss : List (vs ** Term vs)
+
+usesInRhss : {auto c : Ref Ctxt Defs} ->
+             (Name -> Bool) -> List Name -> Bool -> Uses ->
+             List (vs ** Term vs) -> Core Uses
+usesInRhss tgt skip rep u [] = pure u
+usesInRhss tgt skip rep u ((_ ** t) :: ts)
+    = do u <- usesIn tgt skip rep u t
+         usesInRhss tgt skip rep u ts
+
+-- Look for the candidates among the definitions of a local block. If one is
+-- used repeatedly from the other definitions of the block, warn now.
+-- Otherwise, the decision depends on the uses in the scope of the block,
+-- which may still be in delayed elaborators, so we save it until the
+-- enclosing definition is complete (see `checkWhereUses`).
+warnRecomputed : {vars : _} ->
+                 {auto c : Ref Ctxt Defs} ->
+                 {auto u : Ref UST UState} ->
+                 {auto e : Ref EST (EState vars)} ->
+                 List (Name, (Maybe Name, List (Var vars), FC -> NameType -> Term vars)) ->
+                 Core ()
+warnRecomputed {vars} new
+    = do est <- get EST
+         defs <- get Ctxt
+         Just outer <- lookupCtxtExact (Resolved (defining est)) (gamma defs)
+              | Nothing => pure ()
+         -- Nothing to share at runtime if the enclosing definition is erased
+         let False = isErased (multiplicity outer)
+              | True => pure ()
+         infos <- traverse getInfo new
+         let infos = catMaybes infos
+         let skip = map fullName infos
+         traverse_ (checkInfo (defining est) (fullname outer) skip infos) infos
+  where
+    getInfo : (Name, (Maybe Name, List (Var vars), FC -> NameType -> Term vars)) ->
+              Core (Maybe LocalInfo)
+    getInfo (inner, (Just n, _, _))
+        = do defs <- get Ctxt
+             Just gdef <- lookupCtxtExact n (gamma defs)
+                  | Nothing => pure Nothing
+             let PMDef _ args _ _ pats = definition gdef
+                  | _ => pure Nothing
+             rn <- toResolvedNames (fullname gdef)
+             arity <- getArity defs Env.empty (type gdef)
+             let hasArgs = arity > length vars || length args > length vars
+             -- Only runtime relevant definitions matter
+             let outerUses
+                   = if hasArgs || isErased (multiplicity gdef)
+                        then []
+                        else nub $ concatMap (\ (_ ** (penv, _, rhs)) =>
+                                                outerVarsUsed penv rhs) pats
+             pure $ Just $ MkLocalInfo inner (fullname gdef) rn (location gdef)
+                         hasArgs outerUses
+                         (map (\ (vs ** (_, _, rhs)) => (vs ** rhs)) pats)
+    getInfo _ = pure Nothing
+
+    checkInfo : Int -> Name -> List Name -> List LocalInfo -> LocalInfo -> Core ()
+    checkInfo outerIdx outer skip infos info
+        = case outerUses info of
+               [] => pure ()
+               (d :: ds) =>
+                 do let tgt = \ n => n == resName info || n == fullName info
+                    let others = filter (\ i => fullName i /= fullName info) infos
+                    u <- foldlC (\ u, i => usesInRhss tgt skip (hasArgs i) u (rhss i))
+                                (MkUses 0 False []) others
+                    if repeated u || count u > 1
+                       then recordWarning (WhereRecompute (loc info) (userName info)
+                                                          outer (d ::: ds))
+                       else update UST { whereChecks $=
+                                 (MkWhereCheck outerIdx (resName info) (fullName info)
+                                               (userName info) (loc info) (d ::: ds)
+                                               skip (count u) ::) }
+
+||| Called once a definition is complete, with its checked clauses: decide
+||| whether the local definitions saved by `warnRecomputed` for it are used
+||| repeatedly.
+export
+checkWhereUses : {auto c : Ref Ctxt Defs} ->
+                 {auto u : Ref UST UState} ->
+                 Int -> List (vs ** (Env Term vs, Term vs, Term vs)) -> Core ()
+checkWhereUses n pats
+    = do ust <- get UST
+         let (mine, rest) = partition (\ w => wcOuter w == n) (whereChecks ust)
+         let (_ :: _) = mine
+              | [] => pure ()
+         put UST ({ whereChecks := rest } ust)
+         outerName <- getFullName (Resolved n)
+         traverse_ (checkOne outerName) (reverse mine)
+  where
+    checkOne : Name -> WhereCheck -> Core ()
+    checkOne outerName w
+        = do let tgt = \ nm => nm == wcLocal w || nm == wcLocalFull w
+             u <- usesInRhss tgt (wcSkip w) False (MkUses (wcUses w) False [])
+                             (map (\ (vs ** (_, _, rhs)) => (vs ** rhs)) pats)
+             when (repeated u || count u > 1) $
+               recordWarning (WhereRecompute (wcLoc w) (wcUser w) outerName (wcDeps w))
+
 export
 checkLocal : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
@@ -163,7 +416,13 @@ checkLocal : {vars : _} ->
              (expTy : Maybe (Glued vars)) ->
              Core (Term vars, Glued vars)
 checkLocal {vars} rig elabinfo nest env fc nestdecls_in scope expty
-    = localHelper nest env nestdecls_in $ \nest' => check rig elabinfo nest' env scope expty
+    = localHelper nest env nestdecls_in $ \nest' =>
+        do res <- check rig elabinfo nest' env scope expty
+           when (warnWhereRecompute !getSession) $
+             do let new = take (length (definedInBlock emptyNS nestdecls_in))
+                               (names nest')
+                warnRecomputed new
+           pure res
 
 getLocalTerm : {vars : _} ->
                {auto c : Ref Ctxt Defs} ->

@@ -722,6 +722,7 @@ HasNames Warning where
   full gam (IncompatibleVisibility fc x y n) = IncompatibleVisibility fc x y <$> full gam n
   full gam w@(ShadowingLocalBindings {}) = pure w
   full gam (Deprecated fc x y) = Deprecated fc x <$> traverseOpt (traversePair (full gam)) y
+  full gam (WhereRecompute fc x y z) = WhereRecompute fc x <$> full gam y <*> pure z
   full gam (GenericWarn fc x) = pure (GenericWarn fc x)
 
   resolved gam (ParserWarning fc x) = pure (ParserWarning fc x)
@@ -731,6 +732,7 @@ HasNames Warning where
   resolved gam (IncompatibleVisibility fc x y n) = IncompatibleVisibility fc x y <$> resolved gam n
   resolved gam w@(ShadowingLocalBindings {}) = pure w
   resolved gam (Deprecated fc x y) = Deprecated fc x <$> traverseOpt (traversePair (resolved gam)) y
+  resolved gam (WhereRecompute fc x y z) = WhereRecompute fc x <$> resolved gam y <*> pure z
   resolved gam (GenericWarn fc x) = pure (GenericWarn fc x)
 
 export

@@ -1,0 +1,8 @@
+. ../../../testutils.sh
+
+# The warning is off by default
+check Recompute.idr
+rm -rf build
+
+check -Wwhere-recompute Recompute.idr
+check -Wwhere-recompute NoRecompute.idr

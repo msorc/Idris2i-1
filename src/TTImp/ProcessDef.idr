@@ -22,6 +22,7 @@ import TTImp.BindImplicits
 import TTImp.Elab
 import TTImp.Elab.Binders
 import TTImp.Elab.Check
+import TTImp.Elab.Local
 import TTImp.Elab.Utils
 import TTImp.Impossible
 import TTImp.PartialEval
@@ -936,6 +937,11 @@ processDef opts nest env fc n_in cs_in
          ignore $ addDef (Resolved nidx)
                   ({ definition := PMDef pi cargs tree_ct tree_ct pats
                    } gdef)
+
+         -- Now that the definition is complete, we can see how the local
+         -- definitions of its where blocks are used
+         when (warnWhereRecompute !getSession) $
+           checkWhereUses nidx pats
 
          when (collapseDefault (visibility gdef) == Public) $
              do let rmetas = getMetas tree_ct

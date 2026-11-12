@@ -84,6 +84,14 @@ data Warning : Type where
      ||| A warning about a deprecated definition. Supply an FC and Name to
      ||| have the documentation for the definition printed with the warning.
      Deprecated : FC -> String -> Maybe (FC, Name) -> Warning
+     ||| A local (e.g. `where`) definition without arguments of its own which
+     ||| uses variables of the enclosing definition. It is lifted to a
+     ||| function of those variables, so it is recomputed at each use.
+     ||| @ local the local definition
+     ||| @ outer the enclosing definition
+     ||| @ deps  the enclosing variables it uses
+     WhereRecompute : FC -> (local : Name) -> (outer : Name) ->
+                      (deps : List1 Name) -> Warning
      GenericWarn : FC -> String -> Warning
 
 %name Warning wrn
@@ -227,6 +235,7 @@ Show Warning where
     show (IncompatibleVisibility fc _ _ _) = show fc ++ ":Incompatible Visibility"
     show (ShadowingLocalBindings fc _) = show fc ++ ":Shadowing names"
     show (Deprecated fc name _) = show fc ++ ":Deprecated " ++ name
+    show (WhereRecompute fc n _ _) = show fc ++ ":Local definition recomputed at each use " ++ show n
     show (GenericWarn fc msg) = show fc ++ msg
 
 
@@ -428,6 +437,7 @@ getWarningLoc (ShadowingGlobalDefs fc _) = fc
 getWarningLoc (IncompatibleVisibility loc _ _ _) = loc
 getWarningLoc (ShadowingLocalBindings fc _) = fc
 getWarningLoc (Deprecated fc _ fcAndName) = fromMaybe fc (fst <$> fcAndName)
+getWarningLoc (WhereRecompute fc _ _ _) = fc
 getWarningLoc (GenericWarn fc _) = fc
 
 export
@@ -521,6 +531,7 @@ killWarningLoc (IncompatibleVisibility fc x y z) = IncompatibleVisibility emptyF
 killWarningLoc (ShadowingLocalBindings fc xs) =
     ShadowingLocalBindings emptyFC $ (\(n, _, _) => (n, emptyFC, emptyFC)) <$> xs
 killWarningLoc (Deprecated fc x y) = Deprecated emptyFC x (map ((emptyFC,) . snd) y)
+killWarningLoc (WhereRecompute fc x y z) = WhereRecompute emptyFC x y z
 killWarningLoc (GenericWarn fc x) = GenericWarn emptyFC x
 
 export

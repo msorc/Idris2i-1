@@ -126,6 +126,12 @@ should target this file (`CHANGELOG_NEXT`).
   `col`, omitted when there is no location) and `message` (plain text, without
   the source excerpt). Informational output such as the "Building" progress
   lines goes to stderr instead. The default is `human`.
+* Added the `-Wwhere-recompute` (or `--warn-where-recompute`) flag, which
+  warns about local (`where` or `let` block) definitions without arguments of
+  their own that use variables of the enclosing definition and are used
+  repeatedly. Such definitions are lifted to functions of those variables, so
+  they are recomputed at each use rather than shared like a `let` binding.
+  The warning is off by default.
 
 ### Building/Packaging changes
 

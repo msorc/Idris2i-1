@@ -6,6 +6,8 @@ import Core.Env
 import Core.Normalise
 import Core.Value
 
+import Data.List1
+
 import Libraries.Data.IntMap
 import Libraries.Data.NameMap
 import Libraries.Data.WithDefault
@@ -76,6 +78,23 @@ Ord DelayReason where
       tag RecordUpdate = 4
       tag Rewrite = 5
 
+||| A local definition without arguments which uses the enclosing
+||| definition's variables, and which is recomputed at each use if it
+||| is used repeatedly. Whether it is can only be decided once the
+||| enclosing definition has been elaborated completely, because uses may be
+||| in delayed elaborators. (See TTImp.Elab.Local.)
+public export
+record WhereCheck where
+  constructor MkWhereCheck
+  wcOuter : Int -- the enclosing definition (resolved name)
+  wcLocal : Name -- the local definition (resolved name)
+  wcLocalFull : Name -- the local definition (full name)
+  wcUser : Name -- the local definition as written by the user
+  wcLoc : FC
+  wcDeps : List1 Name -- the enclosing variables it uses
+  wcSkip : List Name -- local definitions of the same block (full names)
+  wcUses : Nat -- number of uses in the other definitions of the block
+
 public export
 record UState where
   constructor MkUState
@@ -105,6 +124,9 @@ record UState where
                 -- successfully yet.
                 -- The 'Int' is the resolved name.
                 -- NameMap () is the set of local hints at the point of delay
+  whereChecks : List WhereCheck
+                -- Local definitions to check for repeated uses once their
+                -- enclosing definition is complete
   logging : Bool
 
 export
@@ -121,6 +143,7 @@ initUState = MkUState
   , nextName = 0
   , nextConstraint = 0
   , delayedElab = []
+  , whereChecks = []
   , logging = False
   }
 

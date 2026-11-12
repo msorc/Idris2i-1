@@ -160,6 +160,9 @@ data CLOpt
   IgnoreShadowingWarnings |
    ||| How to report errors and warnings
   SetErrorFormat ErrorFormat |
+   ||| Warn about local definitions without arguments which use the
+   ||| enclosing definition's variables (they are recomputed at each use)
+  WarnWhereRecompute |
    ||| Use SHA256 hashes to determine if a source file needs rebuilding instead
    ||| of modification time.
   HashesInsteadOfModTime |
@@ -276,6 +279,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               (Just "Treat warnings as errors"),
            MkOpt ["-Wno-shadowing"] [] [IgnoreShadowingWarnings]
               (Just "Do not print shadowing warnings"),
+           MkOpt ["-Wwhere-recompute", "--warn-where-recompute"] [] [WarnWhereRecompute]
+              (Just "Warn about local definitions without arguments which are recomputed at each use"),
 
            optSeparator,
            MkOpt ["-Xcheck-hashes"] [] [HashesInsteadOfModTime]
