@@ -164,9 +164,14 @@ pshowNoNorm env tm
          itm <- resugar env tm
          pure (pShowMN tm env $ prettyBy Syntax itm)
 
-ploc : {auto o : Ref ROpts REPLOpts} ->
+-- Source excerpts are left out of machine-readable (JSON) diagnostics, since
+-- the location is reported separately there.
+ploc : {auto c : Ref Ctxt Defs} ->
+       {auto o : Ref ROpts REPLOpts} ->
        FC -> Core (Doc IdrisAnn)
 ploc fc = do
+    HumanErrors <- errorFormat <$> getSession
+      | JSONErrors => pure emptyDoc
     let Just (fn, s, e) = isNonEmptyFC fc
         | Nothing => pure emptyDoc
     let (sr, sc) = mapHom (fromInteger . cast) s
@@ -190,10 +195,13 @@ ploc fc = do
       snd $ foldl (\(i, s), l => (S i, snoc s (space <+> annotate FileCtxt (pretty0 (pad size $ show $ i + 1) <++> pipe) <++> l))) (st, []) xs
 
 -- Assumes the two FCs are sorted
-ploc2 : {auto o : Ref ROpts REPLOpts} ->
+ploc2 : {auto c : Ref Ctxt Defs} ->
+        {auto o : Ref ROpts REPLOpts} ->
         FC -> FC -> Core (Doc IdrisAnn)
 ploc2 fc1 fc2 =
-    do let Just (fn1, s1, e1) = isNonEmptyFC fc1
+    do HumanErrors <- errorFormat <$> getSession
+         | JSONErrors => pure emptyDoc
+       let Just (fn1, s1, e1) = isNonEmptyFC fc1
            | Nothing => ploc fc2
        let Just (fn2, s2, e2) = isNonEmptyFC fc2
            | Nothing => ploc fc1

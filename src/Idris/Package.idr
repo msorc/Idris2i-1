@@ -1114,6 +1114,8 @@ partitionOpts opts = foldr pOptUpdate (MkPFR [] [] False) opts
     optType (ConsoleWidth n)       = PIgnore
     optType (Color b)              = PIgnore
     optType NoBanner               = PIgnore
+    -- already set by preOptions, before the package is processed
+    optType (SetErrorFormat f)     = PIgnore
     optType x                      = PErr
 
     pOptUpdate : CLOpt -> (PackageOpts -> PackageOpts)

@@ -1097,6 +1097,19 @@ process (ImportPackage package) = do
 
 process (FuzzyTypeSearch expr) = fuzzySearch expr
 
+||| Turn an error from a REPL command into a result to display. With
+||| `--error-format json` the error is reported as a JSON diagnostic straight
+||| away instead.
+replError : {auto c : Ref Ctxt Defs} ->
+            {auto s : Ref Syn SyntaxInfo} ->
+            {auto o : Ref ROpts REPLOpts} ->
+            (Error -> Core (Doc IdrisAnn)) -> Error -> Core REPLResult
+replError mkDoc err
+    = if !jsonErrors
+         then do emitError err
+                 pure Done
+         else REPLError <$> mkDoc err
+
 processCatch : {auto c : Ref Ctxt Defs} ->
                {auto u : Ref UST UState} ->
                {auto s : Ref Syn SyntaxInfo} ->
@@ -1115,8 +1128,7 @@ processCatch cmd
                            put UST u'
                            put Syn s'
                            put ROpts o'
-                           msg <- display err
-                           pure $ REPLError msg
+                           replError display err
                            )
 
 parseEmptyCmd : EmptyRule (Maybe REPLCmd)
@@ -1142,7 +1154,7 @@ interpret : {auto c : Ref Ctxt Defs} ->
 interpret inp
     = do setCurrentElabSource inp
          case parseRepl inp of
-           Left err => pure $ REPLError !(perror err)
+           Left err => replError perror err
            Right Nothing => pure Done
            Right (Just cmd) => processCatch cmd
 
@@ -1302,9 +1314,10 @@ mutual
   ||| assumption that the user has just entered the REPL via CLI arguments that
   ||| they may have used incorrectly.
   export
-  displayStartupErrors : {auto o : Ref ROpts REPLOpts} ->
+  displayStartupErrors : {auto c : Ref Ctxt Defs} ->
+                         {auto o : Ref ROpts REPLOpts} ->
                          REPLResult -> Core ()
   displayStartupErrors (ErrorLoadingFile x err) =
     let suggestion = nearMatchOptSuggestion x
-     in printError (fileLoadingError x err suggestion)
+     in printErrorDiagnostic (fileLoadingError x err suggestion)
   displayStartupErrors _ = pure ()

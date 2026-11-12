@@ -174,6 +174,31 @@ defaultPost = MkPostSession
 export
 data PostS : Type where
 
+||| How errors and warnings are reported in batch mode
+public export
+data ErrorFormat : Type where
+  ||| Human-readable output, with source excerpts and colours
+  HumanErrors : ErrorFormat
+  ||| One JSON object per diagnostic, one per line, on stdout
+  JSONErrors : ErrorFormat
+
+export
+Eq ErrorFormat where
+  HumanErrors == HumanErrors = True
+  JSONErrors == JSONErrors = True
+  _ == _ = False
+
+export
+Show ErrorFormat where
+  show HumanErrors = "human"
+  show JSONErrors = "json"
+
+export
+parseErrorFormat : String -> Maybe ErrorFormat
+parseErrorFormat "human" = Just HumanErrors
+parseErrorFormat "json" = Just JSONErrors
+parseErrorFormat _ = Nothing
+
 public export
 record Session where
   constructor MkSessionOpts
@@ -207,6 +232,7 @@ record Session where
   -- Warnings
   warningsAsErrors : Bool
   showShadowingWarning : Bool
+  errorFormat : ErrorFormat -- how to report errors and warnings
 
   -- Experimental
   checkHashesInsteadOfModTime : Bool
@@ -283,7 +309,7 @@ defaultSession : Session
 defaultSession = MkSessionOpts False CoveringOnly False False Chez [] 1000 False False
                                defaultLogLevel Nothing False Nothing Nothing
                                Nothing Nothing False 1 False False True
-                               False [] False False
+                               HumanErrors False [] False False
 
 export
 defaultElab : ElabDirectives

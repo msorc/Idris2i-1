@@ -253,9 +253,12 @@ stMain cgs opts
                 {auto o : Ref ROpts REPLOpts} ->
                 Error -> Core a
   quitWithError err = do
-    doc <- display err
-    msg <- render doc
-    coreLift (die msg)
+    True <- jsonErrors
+      | False => do doc <- display err
+                    msg <- render doc
+                    coreLift (die msg)
+    emitError err
+    coreLift (exitWith (ExitFailure 1))
 
 allMain : Entrypoint -> Core ()
 allMain (Normal cgs opts) = stMain cgs opts

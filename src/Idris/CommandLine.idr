@@ -158,6 +158,8 @@ data CLOpt
   WarningsAsErrors |
    ||| Do not print shadowing warnings
   IgnoreShadowingWarnings |
+   ||| How to report errors and warnings
+  SetErrorFormat ErrorFormat |
    ||| Use SHA256 hashes to determine if a source file needs rebuilding instead
    ||| of modification time.
   HashesInsteadOfModTime |
@@ -205,11 +207,13 @@ data OptType
    | RequiredNat String
    | AutoNat String
    | RequiredLogLevel String
+   | RequiredErrorFormat String
 
 Show OptType where
   show (Required a) = "<" ++ a ++ ">"
   show (RequiredNat a) = "<" ++ a ++ ">"
   show (RequiredLogLevel a) = "<" ++ a ++ ">"
+  show (RequiredErrorFormat a) = "<" ++ a ++ ">"
   show (Optional a) = "[" ++ a ++ "]"
   show (AutoNat a) = "<" ++ a ++ ">"
 
@@ -218,6 +222,7 @@ ActType [] = List CLOpt
 ActType (Required a :: as) = String -> ActType as
 ActType (RequiredNat a :: as) = Nat -> ActType as
 ActType (RequiredLogLevel a :: as) = LogLevel -> ActType as
+ActType (RequiredErrorFormat a :: as) = ErrorFormat -> ActType as
 ActType (Optional a :: as) = Maybe String -> ActType as
 ActType (AutoNat a :: as) = Maybe Nat -> ActType as
 
@@ -345,6 +350,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               (Just "Suppress the banner"),
            MkOpt ["--quiet", "-q"] [] [Quiet]
               (Just "Quiet mode; display fewer messages"),
+           MkOpt ["--error-format"] [RequiredErrorFormat "human|json"] (\f => [SetErrorFormat f])
+              (Just "Format for errors and warnings: human (default) or json (one JSON object per line on stdout)"),
            MkOpt ["--console-width"] [AutoNat "console width"] (\l => [ConsoleWidth l])
               (Just "Width for console output (0 for unbounded) (auto by default)"),
           MkOpt ["--show-implicits"] [] [ShowImplicits]
@@ -468,6 +475,8 @@ processArgs flag (opt@(RequiredNat _) :: as) [] f =
   Left $ "Missing required argument " ++ show opt ++ " for flag " ++ flag
 processArgs flag (opt@(RequiredLogLevel _) :: as) [] f =
   Left $ "Missing required argument " ++ show opt ++ " for flag " ++ flag
+processArgs flag (opt@(RequiredErrorFormat _) :: as) [] f =
+  Left $ "Missing required argument " ++ show opt ++ " for flag " ++ flag
 processArgs flag (Optional a :: as) [] f =
   processArgs flag as [] (f Nothing)
 processArgs flag (opt@(AutoNat _) :: as) [] f =
@@ -480,6 +489,10 @@ processArgs flag (RequiredNat a :: as) (x :: xs) f =
 processArgs flag (RequiredLogLevel a :: as) (x :: xs) f =
   do arg <- maybeToEither ("Expected LogLevel argument " ++ show x ++ " for flag " ++ flag)
                           (parseLogLevel x)
+     processArgs flag as xs (f arg)
+processArgs flag (RequiredErrorFormat a :: as) (x :: xs) f =
+  do arg <- maybeToEither ("Expected \"human\" or \"json\" argument " ++ show x ++ " for flag " ++ flag)
+                          (parseErrorFormat x)
      processArgs flag as xs (f arg)
 processArgs flag (AutoNat a :: as) ("auto" :: xs) f =
   processArgs flag as xs (f Nothing)

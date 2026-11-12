@@ -119,6 +119,13 @@ should target this file (`CHANGELOG_NEXT`).
   that name, when they are not imported (for example `Data.List` for
   `sortBy`).  The modules searched are those in the build directory and in the
   packages in use.
+* Added the `--error-format <human|json>` command line flag. With
+  `--error-format json`, errors and warnings in batch mode (`--check`,
+  `--build`, `--typecheck`, `--client`) are printed on stdout as one JSON object
+  per line, with fields `severity`, `file`, `start`/`end` (1-based `line` and
+  `col`, omitted when there is no location) and `message` (plain text, without
+  the source excerpt). Informational output such as the "Building" progress
+  lines goes to stderr instead. The default is `human`.
 
 ### Building/Packaging changes
 

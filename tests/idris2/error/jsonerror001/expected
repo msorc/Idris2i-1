@@ -1,0 +1,45 @@
+--- Undefined
+{"severity":"error","file":"Undefined.idr","start":{"line":4,"col":8},"end":{"line":4,"col":14},"message":"While processing right hand side of g. Undefined name lenght.\nDid you mean: length?"}
+exit code: 1
+--- Mismatch
+{"severity":"error","file":"Mismatch.idr","start":{"line":4,"col":5},"end":{"line":4,"col":31},"message":"While processing right hand side of f. When unifying:\n    String\nand:\n    Nat\nMismatch between: String and Nat."}
+exit code: 1
+--- Warning
+{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version."}
+exit code: 0
+--- Ok
+exit code: 0
+--- progress lines are on stderr
+1/1: Building Ok (Ok.idr)
+--- warnings as errors
+{"severity":"error","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version."}
+exit code: 1
+--- build a package
+{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version."}
+{"severity":"error","file":"Broken.idr","start":{"line":6,"col":5},"end":{"line":6,"col":8},"message":"While processing right hand side of h. Name Warning.new is private.\n\nSuggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks."}
+exit code: 1
+--- typecheck a package
+{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version."}
+{"severity":"error","file":"Broken.idr","start":{"line":6,"col":5},"end":{"line":6,"col":8},"message":"While processing right hand side of h. Name Warning.new is private.\n\nSuggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks."}
+exit code: 1
+--- REPL command
+{"severity":"error","file":null,"start":{"line":1,"col":1},"end":{"line":1,"col":5},"message":"Undefined name oops."}
+exit code: 0
+--- missing file
+{"severity":"error","file":null,"message":"Error loading file \"Missing.idr\": File Not Found"}
+exit code: 0
+--- human is the default
+1/1: Building Undefined (Undefined.idr)
+Error: While processing right hand side of g. Undefined name lenght. 
+
+Undefined:4:8--4:14
+ 1 | module Undefined
+ 2 |
+ 3 | g : List Int -> Nat
+ 4 | g xs = lenght xs
+            ^^^^^^
+Did you mean: length?
+exit code: 1
+--- bad format
+Error: Expected "human" or "json" argument "xml" for flag --error-format
+exit code: 1

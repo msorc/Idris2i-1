@@ -29,6 +29,8 @@ import System.File
 ||| This function should only be called with informational
 ||| messages, an unhandled error is an example of what should
 ||| *not* end up here.
+||| With `--error-format json`, these go to stderr so that stdout only
+||| carries the JSON diagnostics.
 export
 iputStrLn : {auto c : Ref Ctxt Defs} ->
             {auto o : Ref ROpts REPLOpts} ->
@@ -36,7 +38,10 @@ iputStrLn : {auto c : Ref Ctxt Defs} ->
 iputStrLn msg
     = do opts <- get ROpts
          case idemode opts of
-              REPL InfoLvl  => coreLift $ putStrLn !(render msg)
+              REPL InfoLvl  =>
+                case errorFormat !getSession of
+                  HumanErrors => coreLift $ putStrLn !(render msg)
+                  JSONErrors => coreLift_ $ fPutStrLn stderr !(render msg)
               -- output silenced
               REPL _ => pure ()
               IDEMode i _ f =>
@@ -96,6 +101,106 @@ printError msg = printWithStatus render msg MsgStatusError
 DocCreator : Type -> Type
 DocCreator a = a -> Core (Doc IdrisAnn)
 
+------------------------------------------------------------------------------
+-- Machine-readable (JSON) diagnostics, for `--error-format json`
+
+||| Escape a string as a JSON string literal (including the quotes)
+export
+jsonString : String -> String
+jsonString str = "\"" ++ fastConcat (map escape (unpack str)) ++ "\""
+  where
+    hexDigit : Int -> Char
+    hexDigit n = if n < 10 then chr (n + ord '0') else chr (n - 10 + ord 'a')
+
+    escape : Char -> String
+    escape '"' = "\\\""
+    escape '\\' = "\\\\"
+    escape '\n' = "\\n"
+    escape '\r' = "\\r"
+    escape '\t' = "\\t"
+    escape c
+      = let n = ord c in
+        if n == 8 then "\\b"
+        else if n == 12 then "\\f"
+        else if n < 0x20 || n == 0x7f
+          then pack ['\\', 'u', '0', '0', hexDigit (n `div` 16), hexDigit (n `mod` 16)]
+          else singleton c
+
+||| Recover the file name (relative to the working directory) that an FC
+||| refers to. Interactive input has no file.
+diagnosticFile : {auto c : Ref Ctxt Defs} ->
+                 NonEmptyFC -> Core (Maybe String)
+diagnosticFile (origin, startPos, endPos)
+    = case origin of
+           PhysicalIdrSrc ident => do
+             let fc = MkFC (PhysicalIdrSrc ident) startPos endPos
+             catch (Just <$> nsToSource fc ident) (const $ pure Nothing)
+           PhysicalPkgSrc fname => pure (Just fname)
+           Virtual Interactive => pure Nothing
+
+||| Render a message as plain text, without leading/trailing whitespace or
+||| repeated blank lines (which are left behind where the human output has a
+||| source excerpt)
+renderPlain : {auto o : Ref ROpts REPLOpts} ->
+              Doc IdrisAnn -> Core String
+renderPlain doc
+    = do str <- renderWithoutColor doc
+         pure $ ltrim $ joinBy "\n" $ squash $ map rtrim $ lines str
+  where
+    -- drop leading/trailing blank lines and collapse runs of blank lines
+    squash : List String -> List String
+    squash ls = go False (dropWhile (== "") ls)
+      where
+        go : Bool -> List String -> List String
+        go _ [] = []
+        go blank ("" :: rest) = go True rest
+        go blank (l :: rest)
+            = let ls' = l :: go False rest in
+                  if blank then "" :: ls' else ls'
+
+||| Print one diagnostic as a single-line JSON object on stdout
+export
+emitJSONDiagnostic : {auto c : Ref Ctxt Defs} ->
+                     {auto o : Ref ROpts REPLOpts} ->
+                     (severity : String) -> Maybe FC -> Doc IdrisAnn -> Core ()
+emitJSONDiagnostic severity mfc doc
+    = do msg <- renderPlain doc
+         let mnfc : Maybe NonEmptyFC = mfc >>= isNonEmptyFC
+         loc <- the (Core String) $ case mnfc of
+                     Nothing => pure "\"file\":null"
+                     Just nfc@(_, startPos, endPos) =>
+                       do file <- diagnosticFile nfc
+                          pure $ "\"file\":" ++ maybe "null" jsonString file
+                              ++ ",\"start\":" ++ jsonPos startPos
+                              ++ ",\"end\":" ++ jsonPos endPos
+         coreLift_ $ putStrLn $
+           "{\"severity\":" ++ jsonString severity ++ "," ++ loc
+             ++ ",\"message\":" ++ jsonString msg ++ "}"
+         coreLift_ $ fflush stdout
+  where
+    jsonPos : FilePos -> String
+    jsonPos (l, c) = "{\"line\":" ++ show (l + 1) ++ ",\"col\":" ++ show (c + 1) ++ "}"
+
+||| Are diagnostics to be reported as JSON?
+export
+jsonErrors : {auto c : Ref Ctxt Defs} -> Core Bool
+jsonErrors = pure $ errorFormat !getSession == JSONErrors
+
+||| Report an error that has no `Error` value (only a message), for example
+||| a file that could not be read. Respects the verbosity level like
+||| `printError`.
+export
+printErrorDiagnostic : {auto c : Ref Ctxt Defs} ->
+                       {auto o : Ref ROpts REPLOpts} ->
+                       Doc IdrisAnn -> Core ()
+printErrorDiagnostic msg
+    = if !jsonErrors
+         then do REPL lvl <- getOutput
+                   | IDEMode {} => printError msg
+                 when (doPrint MsgStatusError lvl) $
+                   emitJSONDiagnostic "error" Nothing msg
+         else printError msg
+
 export
 emitProblem : {auto c : Ref Ctxt Defs} ->
             {auto o : Ref ROpts REPLOpts} ->
@@ -104,9 +209,15 @@ emitProblem : {auto c : Ref Ctxt Defs} ->
 emitProblem a replDocCreator idemodeDocCreator getFC status
     = do opts <- get ROpts
          case idemode opts of
-              REPL _ =>
-                  do msg <- replDocCreator a
-                     printWithStatus render msg status
+              REPL lvl =>
+                case errorFormat !getSession of
+                  HumanErrors =>
+                    do msg <- replDocCreator a
+                       printWithStatus render msg status
+                  JSONErrors =>
+                    when (doPrint status lvl) $
+                      do msg <- idemodeDocCreator a
+                         emitJSONDiagnostic (severity status) (getFC a) msg
               IDEMode i _ f =>
                   do msg <- idemodeDocCreator a
                      -- TODO: Display a better message when the error doesn't contain a location
@@ -126,6 +237,11 @@ emitProblem a replDocCreator idemodeDocCreator getFC status
                             let (str,spans) = !(renderWithDecorations annToProperties msg)
                             send f (Warning (cast (the String fname, nfc)) str spans
                                             i)
+  where
+    severity : MsgStatus -> String
+    severity MsgStatusError = "error"
+    severity MsgStatusInfo = "warning"
+    severity MsgStatusNone = "info"
 
 -- Display an error message from checking a source file
 export
