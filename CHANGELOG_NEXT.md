@@ -46,6 +46,12 @@ should target this file (`CHANGELOG_NEXT`).
   operations, and casts to `Int`, whose arguments and result fit in 32 bits
   (the same on every back end).  A loop over `Int` doing `mod`, `div` and
   `==` runs 2.5 times faster with the RefC backend.
+* The `case` blocks of a function with `%spec` arguments (including those
+  of `if` and of `!` notation) are specialised by these arguments too, when
+  they are in scope: a specialised copy of the function used to call the
+  generic block, which still took the arguments at run time.  A specialised
+  copy cannot refer to the names of modules that are not imported where it
+  is made, though; it then calls the generic code.
 * Fixed ill-typed program where a typed lambda would not have its type checked #3771
 * Fixed missing handling of dotted patterns See
   [#3669](https://github.com/idris-lang/Idris2/issues/3669),
