@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 -o inlinedup InlineDup.idr > /dev/null
+$VALGRIND ./build/exec/inlinedup

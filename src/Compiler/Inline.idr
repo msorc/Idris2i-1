@@ -133,11 +133,43 @@ mutual
   tryApply {free} {vars} rec stk env (MkFun args exp)
       = do let Just (env', stk') = takeFromStack env stk args
                | Nothing => pure Nothing
+           -- The arguments are substituted in the body, so those that it uses
+           -- more than once are let-bound, not to duplicate their work.
+           let uses = map (\(MkVar p) => used p exp) (allVars args)
+           (env', shared) <- shareArgs uses env'
            res <- eval rec env' stk'
                      (rewrite sym (appendAssociative args vars free) in
                               embed {outer = vars ++ free} exp)
-           pure (Just res)
+           pure (Just (foldr (\(xn, e), sc =>
+                                CLet (getFC e) xn NotInline e
+                                     (refToLocal xn xn sc))
+                             res shared))
   tryApply rec stk env _ = pure Nothing
+
+  -- Replace the arguments (the first entries of the environment) that are
+  -- used more than once (`uses`) and compute something by fresh names, given
+  -- with the arguments that they stand for.  A value (such as a lambda, which
+  -- is then applied where it is used) is copied: that costs no work.
+  shareArgs : {auto l : Ref LVar Int} ->
+              List Int -> EEnv free vs ->
+              Core (EEnv free vs, List (Name, CExp free))
+  shareArgs (u :: us) (e :: env)
+      = do (env, shared) <- shareArgs us env
+           if u > 1 && not (isValue e)
+              then do xn <- genName "inlv"
+                      pure (CRef (getFC e) xn :: env, (xn, e) :: shared)
+              else pure (e :: env, shared)
+    where
+      isValue : CExp free -> Bool
+      isValue (CLocal {}) = True
+      isValue (CRef {}) = True
+      isValue (CPrimVal {}) = True
+      isValue (CErased {}) = True
+      isValue (CLam {}) = True
+      isValue (CDelay {}) = True
+      isValue (CCon _ _ _ _ xs) = all isValue xs
+      isValue _ = False
+  shareArgs _ env = pure (env, [])
 
   eval : {vars, free : _} ->
          {auto c : Ref Ctxt Defs} ->
