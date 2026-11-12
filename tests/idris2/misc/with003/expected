@@ -13,6 +13,8 @@ Main> Error: Can't find an implementation for Num ().
  1 | with Prelude.(>>) do myPrintLn "foo"; myPrintLn "boo"; map (+1) (myPrintLn "woo"); myPrintLn "goo"; myPrintLn "foo"
                                                                 ^^^^
 
+Possible cause: Can't find an implementation for Integral (), which is needed by a matching implementation.
+
 Main> Error: Ambiguous elaboration. Possible results:
     Prelude.Nil
     Data.Vect.Nil

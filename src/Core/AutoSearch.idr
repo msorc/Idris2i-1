@@ -39,6 +39,35 @@ tryNoDefaultsFirst f = tryUnifyUnambig {preferLeftError=True} (f False) (f True)
 SearchEnv : Scoped
 SearchEnv vars = List (NF vars, Closure vars)
 
+-- A failed search records, as its cause, the innermost sub-goal that could
+-- not be solved after a candidate's type had already matched the goal. This
+-- lets us report e.g. that `Show (List Foo)` failed because of `Show Foo`.
+hasSubgoalCause : Error -> Bool
+hasSubgoalCause (CantSolveGoal _ _ _ _ (Just (CantSolveGoal {}))) = True
+hasSubgoalCause _ = False
+
+-- Keep the first error, unless it is a plain search failure and the second
+-- one says which sub-goal failed. Any other error (e.g. an ambiguous search)
+-- is more informative, so we keep it.
+preferSubgoalCause : Error -> Error -> Error
+preferSubgoalCause e1@(CantSolveGoal _ _ _ _ Nothing) e2
+    = if hasSubgoalCause e2 then e2 else e1
+preferSubgoalCause e1 _ = e1
+
+-- Rethrow a failure as a failure of the goal 'top', keeping any recorded
+-- sub-goal cause
+failWithCause : {auto c : Ref Ctxt Defs} ->
+                FC -> (topTy : ClosedTerm) -> List Error -> Core a
+failWithCause fc top errs
+    = do defs <- get Ctxt
+         throw (CantSolveGoal fc (gamma defs) Env.empty top (findCause errs))
+  where
+    findCause : List Error -> Maybe Error
+    findCause [] = Nothing
+    findCause (CantSolveGoal _ _ _ _ (Just cause@(CantSolveGoal {})) :: _)
+        = Just cause
+    findCause (_ :: es) = findCause es
+
 searchType : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
              {auto u : Ref UST UState} ->
@@ -113,8 +142,18 @@ searchIfHole fc defaults trying ispair (S depth) def top env arg
                     then normaliseScope defs Env.empty (type gdef)
                     else pure top
 
-         argdef <- searchType fc rig defaults trying depth def False top' env
-                              !(normaliseScope defs env (argType arg))
+         argTy <- normaliseScope defs env (argType arg)
+         argdef <- catch (searchType fc rig defaults trying depth def False top' env argTy)
+                         (\case
+                            CantSolveGoal efc egam eenv eg Nothing =>
+                              do -- This argument is the innermost failing goal.
+                                 -- Normalise now, while any holes it mentions
+                                 -- are still solved
+                                 defs' <- get Ctxt
+                                 argTy' <- normaliseHoles defs' env argTy
+                                 throw (CantSolveGoal efc egam eenv eg
+                                          (Just (CantSolveGoal fc (gamma defs') env argTy' Nothing)))
+                            err => throw err)
          logTermNF "auto" 5 "Solved arg" env argdef
          logTermNF "auto" 5 "Arg meta" env (metaApp arg)
          ok <- solveIfUndefined env (metaApp arg) argdef
@@ -163,7 +202,9 @@ anyOne fc env top [elab]
            err@(AmbiguousSearch {}) => throw err
            _ => throw $ CantSolveGoal fc (gamma !(get Ctxt)) Env.empty top Nothing
 anyOne fc env top (elab :: elabs)
-    = tryUnify elab (anyOne fc env top elabs)
+    = handleUnify elab $ \err =>
+        handleUnify (anyOne fc env top elabs) $ \err' =>
+          throw (preferSubgoalCause err' err)
 
 exactlyOne : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
@@ -184,7 +225,7 @@ exactlyOne {vars} fc env top target all
                        put Ctxt defs
                        commit
                        pure res
-              [] => throw (CantSolveGoal fc (gamma !(get Ctxt)) Env.empty top Nothing)
+              [] => failWithCause fc top (lefts elabs)
               rs => throw (AmbiguousSearch fc env !(quote !(get Ctxt) env target)
                              !(traverse normRes rs))
   where
@@ -561,7 +602,7 @@ searchType {vars} fc rigc defaults trying depth def checkdets top env target
                  logNF "auto" 5 "For target" env nty
                  tryNoDefaultsFirst $ \d =>
                    searchNames fc rigc d (target :: trying) depth def top env ambigok g nty)
-             (\err => tryGroups (Just $ fromMaybe err merr) nty gs)
+             (\err => tryGroups (Just $ maybe err (\e => preferSubgoalCause e err) merr) nty gs)
 
 -- Declared in Core.Unify as:
 -- search : {vars : _} ->

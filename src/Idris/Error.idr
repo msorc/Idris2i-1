@@ -587,6 +587,17 @@ perrorRaw (CantSolveGoal fc gam env g reason)
          put Ctxt defs
          case reason of
               Nothing => pure res
+              -- A candidate matched, but one of its arguments (typically
+              -- an interface constraint) couldn't be found
+              Just (CantSolveGoal _ sgam senv sg _) =>
+                do setCtxt sgam
+                   let (_ ** (senv', sg')) = dropEnv senv sg
+                   sdesc <- pshow senv' sg'
+                   put Ctxt defs
+                   pure (res <+> line <+>
+                         reflow "Possible cause: Can't find an implementation for"
+                         <++> code sdesc <+> comma
+                         <++> reflow "which is needed by a matching implementation" <+> dot <+> line)
               Just r => do rdesc <- perrorRaw r
                            pure (res <+> line <+>
                                  (reflow "Possible cause:" <++> rdesc))

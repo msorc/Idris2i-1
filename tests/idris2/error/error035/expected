@@ -1,0 +1,59 @@
+1/1: Building SubGoal (SubGoal.idr)
+Error: While processing right hand side of direct. Can't find an implementation for Show (List Foo).
+
+SubGoal:13:10--13:22
+ 09 |   show (MkBox x) = show x
+ 10 |
+ 11 | -- Direct: the List implementation matches, but needs Show Foo
+ 12 | direct : String
+ 13 | direct = show [MkFoo]
+               ^^^^^^^^^^^^
+
+Possible cause: Can't find an implementation for Show Foo, which is needed by a matching implementation.
+
+Error: While processing right hand side of nested. Can't find an implementation for Show (List (Box Foo)).
+
+SubGoal:17:10--17:28
+ 13 | direct = show [MkFoo]
+ 14 |
+ 15 | -- Nested: List -> Box -> Foo; the innermost missing constraint is reported
+ 16 | nested : String
+ 17 | nested = show [MkBox MkFoo]
+               ^^^^^^^^^^^^^^^^^^
+
+Possible cause: Can't find an implementation for Show Foo, which is needed by a matching implementation.
+
+Error: While processing right hand side of pair. Can't find an implementation for Show (Box Nat, Box Foo).
+
+SubGoal:21:8--21:45
+ 17 | nested = show [MkBox MkFoo]
+ 18 |
+ 19 | -- Inside a pair
+ 20 | pair : String
+ 21 | pair = show (MkBox (the Nat 1), MkBox MkFoo)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Possible cause: Can't find an implementation for Show Foo, which is needed by a matching implementation.
+
+Error: While processing right hand side of noMatch. Can't find an implementation for Show Foo.
+
+SubGoal:25:11--25:21
+ 21 | pair = show (MkBox (the Nat 1), MkBox MkFoo)
+ 22 |
+ 23 | -- No implementation matches at all: no extra line
+ 24 | noMatch : String
+ 25 | noMatch = show MkFoo
+                ^^^^^^^^^^
+
+Error: While processing right hand side of poly. Can't find an implementation for Show (Box a).
+
+SubGoal:29:10--29:24
+ 25 | noMatch = show MkFoo
+ 26 |
+ 27 | -- Missing constraint on a polymorphic argument
+ 28 | poly : a -> String
+ 29 | poly x = show (MkBox x)
+               ^^^^^^^^^^^^^^
+
+Possible cause: Can't find an implementation for Show a, which is needed by a matching implementation.
+

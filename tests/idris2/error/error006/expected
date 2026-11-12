@@ -9,6 +9,8 @@ IfErr:15:10--15:30
  15 | test x = showIfEq MkFoo MkBar
                ^^^^^^^^^^^^^^^^^^^^
 
+Possible cause: Can't find an implementation for Ord Foo, which is needed by a matching implementation.
+
 Error: While processing right hand side of test2. Can't find an implementation for Show Foo.
 
 IfErr:23:9--23:29
@@ -18,4 +20,6 @@ IfErr:23:9--23:29
  22 | test2 : String
  23 | test2 = showIfEq MkFoo MkBar
               ^^^^^^^^^^^^^^^^^^^^
+
+Possible cause: Can't find an implementation for Show Foo, which is needed by a matching implementation.
 

@@ -9,6 +9,8 @@ UninhabitedRec:30:12--30:21
  30 | lkup3Bad = fff xxs 3
                  ^^^^^^^^^
 
+Possible cause: Can't find an implementation for Lookup 3 [], which is needed by a matching implementation.
+
 Error: While processing right hand side of uniqBad. Can't find an implementation for Uninhabited (Elem 1 (toList [2, 1])).
 
 UninhabitedRec:49:11--49:12
@@ -18,5 +20,7 @@ UninhabitedRec:49:11--49:12
  48 | uniqBad : Uniq Nat
  49 | uniqBad = [1, 2, 1]
                 ^
+
+Possible cause: Can't find an implementation for Uninhabited (0 = 0), which is needed by a matching implementation.
 
 UninhabitedRec> Bye for now!

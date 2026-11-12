@@ -11,3 +11,5 @@ Issue3763:7:18--7:38
  7 | main = putStrLn (show (toList values))
                       ^^^^^^^^^^^^^^^^^^^^
 
+Possible cause: Can't find an implementation for Show MyNat, which is needed by a matching implementation.
+

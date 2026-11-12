@@ -8,6 +8,8 @@ IfErr:4:11--4:17
  4 | foo x y = x == y
                ^^^^^^
 
+Possible cause: Can't find an implementation for Ord a, which is needed by a matching implementation.
+
 Error: While processing right hand side of bar. Can't find an implementation for Eq Wibble.
 
 IfErr:7:11--7:17
@@ -17,4 +19,6 @@ IfErr:7:11--7:17
  6 | bar : Wibble -> Wibble -> Bool
  7 | bar x y = x == y
                ^^^^^^
+
+Possible cause: Can't find an implementation for Ord Wibble, which is needed by a matching implementation.
 
