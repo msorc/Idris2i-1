@@ -141,24 +141,29 @@ static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
 // remainder is negative.  See Division and Modulus for Computer Scientists
 // (Daan Leijen).  The quotient by -1 is the negation, which wraps around for
 // the smallest value (as in the other backends) instead of trapping.
+// idris2_euclidDiv_Int64 and idris2_euclidMod_Int64 work on C integers: the
+// code generator uses them on the Ints that it keeps unboxed.
 #define IDRIS2_EUCLID_DIVMOD(ty, cty, uty)                                     \
+  static inline cty idris2_euclidDiv_##ty(cty num, cty denom) {                \
+    if (denom == -1)                                                           \
+      return (cty)(0u - (uty)num);                                             \
+    cty rem = num % denom;                                                     \
+    return num / denom + ((rem < 0) ? (denom < 0) ? 1 : -1 : 0);               \
+  }                                                                            \
+  static inline cty idris2_euclidMod_##ty(cty num, cty denom) {                \
+    cty rem;                                                                   \
+    IDRIS2_EUCLID_REM(num, denom, rem);                                        \
+    return rem;                                                                \
+  }                                                                            \
   static inline Idris2_Value *idris2_div_##ty(Idris2_Value *x,                 \
                                               Idris2_Value *y) {               \
-    cty num = idris2_vp_to_##ty(x);                                            \
-    cty denom = idris2_vp_to_##ty(y);                                          \
-    if (denom == -1)                                                           \
-      return (Idris2_Value *)idris2_mk##ty((cty)(0u - (uty)num));              \
-    cty rem = num % denom;                                                     \
     return (Idris2_Value *)idris2_mk##ty(                                      \
-        num / denom + ((rem < 0) ? (denom < 0) ? 1 : -1 : 0));                 \
+        idris2_euclidDiv_##ty(idris2_vp_to_##ty(x), idris2_vp_to_##ty(y)));    \
   }                                                                            \
   static inline Idris2_Value *idris2_mod_##ty(Idris2_Value *x,                 \
                                               Idris2_Value *y) {               \
-    cty num = idris2_vp_to_##ty(x);                                            \
-    cty denom = idris2_vp_to_##ty(y);                                          \
-    cty rem;                                                                   \
-    IDRIS2_EUCLID_REM(num, denom, rem);                                        \
-    return (Idris2_Value *)idris2_mk##ty(rem);                                 \
+    return (Idris2_Value *)idris2_mk##ty(                                      \
+        idris2_euclidMod_##ty(idris2_vp_to_##ty(x), idris2_vp_to_##ty(y)));    \
   }
 IDRIS2_EUCLID_DIVMOD(Int8, int8_t, uint32_t)
 IDRIS2_EUCLID_DIVMOD(Int16, int16_t, uint32_t)

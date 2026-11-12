@@ -208,6 +208,11 @@ should target this file (`CHANGELOG_NEXT`).
   a constant is compiled to shifts and masks (a loop of `mod` and `div` by 2
   on `Int` runs 2.8 times faster), and they have a fast path
   for small `Integer`s.
+* `Int` and `Int64` variables are C integers where they are only used for
+  arithmetic: the parameters of those types (told from the types of the
+  functions), and the `let`s of operations on them.  They are no longer
+  untagged and tagged again at every operation, which makes a loop on `Int`s
+  (a function calling itself in tail position) run about 1.7 times faster.
 * `System.Clock` now reads the clocks with `clock_gettime`: they used to have
   a resolution of a second (`nanoseconds` was always 0), and the monotonic
   clock was the UTC one.

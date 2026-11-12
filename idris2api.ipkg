@@ -40,6 +40,7 @@ modules =
     Compiler.RefC,
     Compiler.RefC.CC,
     Compiler.RefC.RefC,
+    Compiler.RefC.Unbox,
 
     Compiler.Scheme.Chez,
     Compiler.Scheme.ChezSep,

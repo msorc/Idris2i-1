@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 -o unboxed Main.idr > /dev/null
+$VALGRIND ./build/exec/unboxed
