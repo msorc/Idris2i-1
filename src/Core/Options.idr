@@ -307,7 +307,7 @@ docsPPrint = MkPPOpts
 
 export
 defaultSession : Session
-defaultSession = MkSessionOpts False CoveringOnly False False Chez [] 1000 False False
+defaultSession = MkSessionOpts False CoveringOnly False False RefC [] 1000 False False
                                defaultLogLevel Nothing False Nothing Nothing
                                Nothing Nothing False 1 False False True
                                HumanErrors False False [] False False

@@ -42,8 +42,8 @@ Again, ``expr`` must have type ``IO ()``. This will generate a temporary
 executable script ``_tmpchez`` in the ``build/exec`` directory, and execute
 that.
 
-Chez Scheme is the default code generator, so if you invoke ``idris2`` with the
-``-o execname`` flag, it will generate an executable script
+Chez Scheme is not the default code generator: select it with ``--cg chez`` or
+``IDRIS2_CG=chez``. Then, if you invoke ``idris2`` with the ``-o execname`` flag, it will generate an executable script
 ``build/exec/execname``, again with support files in ``build/exec/execname_app``.
 
 

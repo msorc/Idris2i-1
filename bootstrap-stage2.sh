@@ -8,7 +8,7 @@ else
     BOOTSTRAP_PREFIX=$PWD/bootstrap-build
 fi
 
-IDRIS2_CG="${IDRIS2_CG-"chez"}"
+IDRIS2_CG="${IDRIS2_CG-"refc"}"
 
 echo "bootstrapping in: $BOOTSTRAP_PREFIX"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-"${BOOTSTRAP_PREFIX}/lib"}"

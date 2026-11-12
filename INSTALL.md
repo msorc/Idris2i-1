@@ -59,8 +59,9 @@ modify it in `config.mk`.
 
 On Raspberry Pi, you can bootstrap via Racket.
 
-By default, code generation is via Chez Scheme. You can use Racket instead,
-by setting the environment variable `IDRIS2_CG=racket` before running `make`.
+By default, code generation is via the RefC backend, which needs a C compiler.
+You can use Chez Scheme or Racket instead, by setting the environment variable
+`IDRIS2_CG=chez` or `IDRIS2_CG=racket` before running `make`.
 If you install Chez Scheme from source files, building it locally,
 make sure you run `./configure --threads` to build multithreading support in.
 
@@ -131,8 +132,8 @@ code that the RefC backend generated for the compiler
 
 - `make bootstrap-c`
 
-The compiler built this way uses the RefC backend as its default code
-generator, so install it with `IDRIS2_CG=refc make install`. It is slower than
+The compiler built this way uses the RefC backend, which is the default code
+generator. It is slower than
 a compiler built with Chez Scheme, and it needs a large stack, so it is run
 by a launcher script that raises the stack limit (`ulimit -s`). The generated
 C is compiled in parts by C compilers running in parallel, one per processor;

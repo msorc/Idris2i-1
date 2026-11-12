@@ -10,7 +10,7 @@ TARGET = ${TARGETDIR}/${NAME}
 
 # Default code generator. This is passed to the libraries for incremental
 # builds, but overridable via environment variables or arguments to make
-IDRIS2_CG ?= chez
+IDRIS2_CG ?= refc
 
 # How many processes build the modules of the compiler and of the libraries in
 # parallel (IDRIS2_BUILD_JOBS of the compiler that builds them, which older

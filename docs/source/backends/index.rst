@@ -67,7 +67,7 @@ support generating profile data.
 
 There are five code generators provided in Idris 2, and there is
 a system for plugging in new code generators for a variety of targets. The
-default is to compile via Chez Scheme, with an alternative via Racket or Gambit.
+default is to compile via C with the RefC backend, with alternatives via Chez Scheme, Racket or Gambit.
 You can set the code generator at the REPL with the `:set codegen` command,
 or via the `IDRIS2_CG` environment variable.
 
