@@ -14,3 +14,6 @@ partial:13:1--14:37
  13 | total
  14 | qsortBad : Ord a => List a -> List a
 
+Calls on the recursive path:
+    Main.qsortBad called at partial:17:6--17:14
+

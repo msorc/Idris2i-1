@@ -9,3 +9,6 @@ Issue2448:5:1--5:19
  5 | boom : Nat -> Void
      ^^^^^^^^^^^^^^^^^^
 
+Calls on the recursive path:
+    Main.boom called at Issue2448:7:10--7:14
+

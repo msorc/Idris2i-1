@@ -463,7 +463,36 @@ perrorRaw (NotCovering fc n (NonCoveringCall ns))
              _ => pretty0 's' <+> colon <++> concatWith (surround (comma <+> space)) (pretty0 <$> ns)
 perrorRaw (NotTotal fc n r)
     = pure $ errorDesc (code (pretty0 !(prettyName n)) <++> reflow "is not total," <++> pretty0 r)
-        <+> line <+> !(ploc fc)
+        <+> line <+> !(ploc fc) <+> !(callPath r)
+  where
+    -- Say where each call on the problematic path happens, so that it's
+    -- clear which call needs fixing
+    callSite : (FC, Name) -> Core (Maybe (Doc IdrisAnn))
+    callSite (cfc, cn)
+        = case isNonEmptyFC cfc of
+               Nothing => pure Nothing
+               Just _ => pure $ Just $
+                   code !(displayName cn) <++> reflow "called at"
+                   <++> annotate FileCtxt (pretty0 cfc)
+      where
+        -- Machine generated names (e.g. for `where` blocks) are unreadable,
+        -- so tidy those, but otherwise use the same names as the reason
+        displayName : Name -> Core (Doc IdrisAnn)
+        displayName n@(NS _ (Nested {})) = pretty0 <$> prettyName n
+        displayName n@(Nested {}) = pretty0 <$> prettyName n
+        displayName n = pure (pretty0 n)
+
+    callSites : String -> List (FC, Name) -> Core (Doc IdrisAnn)
+    callSites hdr cs
+        = case catMaybes !(traverse callSite cs) of
+               [] => pure emptyDoc
+               ds => pure $ line <+> reflow hdr <+> colon <+> line
+                       <+> indent 4 (vsep ds) <+> line
+
+    callPath : PartialReason -> Core (Doc IdrisAnn)
+    callPath (RecPath loop) = callSites "Calls on the recursive path" loop
+    callPath (BadPath init _) = callSites "Calls leading to the non-terminating function" init
+    callPath _ = pure emptyDoc
 perrorRaw ImpossibleCase
     = pure $ errorDesc (reflow "<ImpossibleCase: this should never be displayed>")
 perrorRaw (LinearUsed fc count n)

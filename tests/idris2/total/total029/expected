@@ -5,3 +5,6 @@ Issue806:3:1--4:36
  3 | total
  4 | nonProductive : Integer -> Inf Void
 
+Calls on the recursive path:
+    Issue806.nonProductive called at Issue806:5:26--5:39
+

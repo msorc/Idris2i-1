@@ -5,11 +5,19 @@ Issue-3030:16:1--17:12
  16 | total
  17 | boom : Void
 
+Calls leading to the non-terminating function:
+    Main.oops called at Issue-3030:18:16--18:20
+    Main.MkOops called at Issue-3030:14:8--14:14
+
 Error: boom2 is not total, possibly not terminating due to function Main.MkFoo being reachable via Main.foo -> Main.MkFoo
 
 Issue-3030:31:1--32:13
  31 | total
  32 | boom2 : Void
+
+Calls leading to the non-terminating function:
+    Main.foo called at Issue-3030:33:16--33:19
+    Main.MkFoo called at Issue-3030:29:7--29:12
 
 1/1: Building Issue-3030b (Issue-3030b.idr)
 Error: boom is not total, possibly not terminating due to function Main.MkOops being reachable via Main.oops -> Main.MkOops
@@ -18,10 +26,18 @@ Issue-3030b:16:1--17:12
  16 | total
  17 | boom : Void
 
+Calls leading to the non-terminating function:
+    Main.oops called at Issue-3030b:18:16--18:20
+    Main.MkOops called at Issue-3030b:14:8--14:14
+
 1/1: Building Issue-524 (Issue-524.idr)
 Error: ohno is not total, possibly not terminating due to function Main.MkBad being reachable via Main.bad -> Main.MkBad
 
 Issue-524:12:1--13:12
  12 | total
  13 | ohno : Void
+
+Calls leading to the non-terminating function:
+    Main.bad called at Issue-524:14:11--14:14
+    Main.MkBad called at Issue-524:10:7--10:12
 

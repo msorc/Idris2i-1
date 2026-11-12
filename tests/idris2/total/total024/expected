@@ -5,3 +5,7 @@ Issue1988:11:1--12:13
  11 | total
  12 | Omega : Void
 
+Calls leading to the non-terminating function:
+    Issue1988.omega called at Issue1988:13:13--13:18
+    Issue1988.Abs called at Issue1988:9:9--9:12
+

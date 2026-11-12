@@ -9,6 +9,9 @@ AgdaIssue6059:23:3--23:21
  23 |   f : (x : D) -> P x
         ^^^^^^^^^^^^^^^^^^
 
+Calls leading to the non-terminating function:
+    Main.g called at AgdaIssue6059:25:40--25:41
+
 Error: g is not total, possibly not terminating due to recursive path Main.f -> Main.f -> Main.g
 
 AgdaIssue6059:31:3--31:32
@@ -18,6 +21,11 @@ AgdaIssue6059:31:3--31:32
  30 |
  31 |   g : (h : Nat -> D) -> P (h 2)
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls on the recursive path:
+    Main.f called at AgdaIssue6059:32:9--32:10
+    Main.f called at AgdaIssue6059:26:47--26:48
+    Main.g called at AgdaIssue6059:25:40--25:41
 
 Error: loop is not total, possibly not terminating due to call to Main.f
 
