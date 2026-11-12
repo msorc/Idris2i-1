@@ -27,6 +27,11 @@ supportNode fn = "node:support:\{fn},support_system_directory"
 ok : {auto hio : HasIO io} -> a -> io (Either FileError a)
 ok x = pure (Right x)
 
+-- (see System.File.ReadWrite)
+%foreign "C:idris2_getString, libidris2_support, idris_support.h"
+         "javascript:lambda:x=>x"
+prim__getStringIO : Ptr String -> PrimIO String
+
 %foreign supportC "idris2_currentDirectory"
          "node:lambda:()=>process.cwd()"
 prim__currentDir : PrimIO (Ptr String)
@@ -88,7 +93,7 @@ currentDir
     = do res <- primIO prim__currentDir
          if prim__nullPtr res /= 0
             then pure Nothing
-            else do let s = prim__getString res
+            else do s <- primIO (prim__getStringIO res)
                     free $ prim__forgetPtr res
                     pure (Just s)
 

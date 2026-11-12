@@ -38,6 +38,13 @@ prim__eof : FilePtr -> PrimIO Int
          "javascript:lambda:()=>undefined"
 prim__freeString : Ptr String -> PrimIO ()
 
+-- `prim__getString` as an IO action: the string must be copied before the
+-- pointer is freed, and `prim__getString` is pure, so that once the code is
+-- specialised and inlined, the copy may be moved after the call of `free`.
+%foreign "C:idris2_getString, libidris2_support, idris_support.h"
+         "javascript:lambda:x=>x"
+prim__getStringIO : Ptr String -> PrimIO String
+
 -- The functions of this module (and of System.File.Handle) call `pure (Right
 -- x)` instead of `ok x`, and `prim__freeString` instead of `free`: when a
 -- module that only imports System.File calls them at `IO`, their `%spec`
@@ -72,7 +79,7 @@ getStringAndFree : {auto hio : HasIO io} -> File -> Ptr String -> io (Either Fil
 getStringAndFree f res
     = if prim__nullPtr res /= 0
          then if !(fileError f) then returnError else pure @{Compose} ""
-         else do let s = prim__getString res
+         else do s <- primIO (prim__getStringIO res)
                  primIO (prim__freeString res)
                  pure (Right s)
 
