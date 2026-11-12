@@ -201,6 +201,9 @@ should target this file (`CHANGELOG_NEXT`).
 * Fixed the finaliser of a `GCPtr` / `GCAnyPtr` releasing the pointer twice.
 * Fixed `mod` on `Int`, `Int8`, `Int16`, `Int32` and `Int64` giving the
   divisor instead of 0 for a negative multiple of it (`-4 mod 2` was 2).
+* Fixed `div` and `mod` by -1 of the smallest `Int`, `Int32` or `Int64`
+  crashing the program (with `SIGFPE`): the quotient wraps around, like in the
+  other backends.
 * `div` and `mod` on fixed-width integers are inline, so that a division by
   a constant is compiled to shifts and masks (a loop of `mod` and `div` by 2
   on `Int` runs 2.8 times faster), and they have a fast path

@@ -127,10 +127,11 @@ static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
 
 // The Euclidean remainder: the truncated one, plus the absolute value of the
 // divisor when it is negative.  (`r - denom` and `r + denom` cannot overflow,
-// as `r` is between them.)
+// as `r` is between them.)  The divisor -1 is a special case: in C the
+// smallest value `% -1` overflows (and traps on x86), but the remainder is 0.
 #define IDRIS2_EUCLID_REM(num, denom, rem)                                     \
   do {                                                                         \
-    rem = (num) % (denom);                                                     \
+    rem = (denom) == -1 ? 0 : (num) % (denom);                                 \
     if (rem < 0)                                                               \
       rem = (denom) < 0 ? rem - (denom) : rem + (denom);                       \
   } while (0)
@@ -138,12 +139,15 @@ static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
 // The Euclidean quotient: the truncated one, one closer to -infinity (for a
 // positive divisor) or +infinity (for a negative one) when the truncated
 // remainder is negative.  See Division and Modulus for Computer Scientists
-// (Daan Leijen).
-#define IDRIS2_EUCLID_DIVMOD(ty, cty)                                          \
+// (Daan Leijen).  The quotient by -1 is the negation, which wraps around for
+// the smallest value (as in the other backends) instead of trapping.
+#define IDRIS2_EUCLID_DIVMOD(ty, cty, uty)                                     \
   static inline Idris2_Value *idris2_div_##ty(Idris2_Value *x,                 \
                                               Idris2_Value *y) {               \
     cty num = idris2_vp_to_##ty(x);                                            \
     cty denom = idris2_vp_to_##ty(y);                                          \
+    if (denom == -1)                                                           \
+      return (Idris2_Value *)idris2_mk##ty((cty)(0u - (uty)num));              \
     cty rem = num % denom;                                                     \
     return (Idris2_Value *)idris2_mk##ty(                                      \
         num / denom + ((rem < 0) ? (denom < 0) ? 1 : -1 : 0));                 \
@@ -156,10 +160,10 @@ static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
     IDRIS2_EUCLID_REM(num, denom, rem);                                        \
     return (Idris2_Value *)idris2_mk##ty(rem);                                 \
   }
-IDRIS2_EUCLID_DIVMOD(Int8, int8_t)
-IDRIS2_EUCLID_DIVMOD(Int16, int16_t)
-IDRIS2_EUCLID_DIVMOD(Int32, int32_t)
-IDRIS2_EUCLID_DIVMOD(Int64, int64_t)
+IDRIS2_EUCLID_DIVMOD(Int8, int8_t, uint32_t)
+IDRIS2_EUCLID_DIVMOD(Int16, int16_t, uint32_t)
+IDRIS2_EUCLID_DIVMOD(Int32, int32_t, uint32_t)
+IDRIS2_EUCLID_DIVMOD(Int64, int64_t, uint64_t)
 
 // The Integers have a fast path for the small ones (see idris2_add_Integer),
 // with a divisor that is not 0 (division by 0 is left to the slow path).

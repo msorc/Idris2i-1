@@ -22,6 +22,11 @@ halves : (Show a, Integral a, Neg a) => (Integer -> a) -> String
 halves from =
   show [ (dm x 2, dm x (-4), dm x 17) | (a, _) <- pairs, let x = from a ]
 
+-- The smallest value divided by -1 wraps around, like the other overflows.
+-- (In C, the division overflows, and traps on x86.)
+smallest : (Show a, Integral a, Neg a) => (Integer -> a) -> Integer -> String
+smallest from m = show [ dm (from m) (from d) | d <- [-1, 1, -2, 3] ]
+
 main : IO ()
 main = do
   putStrLn $ "Int8    " ++ both (cast {to = Int8})
@@ -36,6 +41,12 @@ main = do
   putStrLn $ "Int64   " ++ halves (cast {to = Int64})
   putStrLn $ "Int     " ++ halves (cast {to = Int})
   putStrLn $ "Integer " ++ halves id
+  putStrLn $ "Int8    " ++ smallest (cast {to = Int8}) (-128)
+  putStrLn $ "Int16   " ++ smallest (cast {to = Int16}) (-32768)
+  putStrLn $ "Int32   " ++ smallest (cast {to = Int32}) (-2147483648)
+  putStrLn $ "Int64   " ++ smallest (cast {to = Int64}) (-9223372036854775808)
+  putStrLn $ "Int     " ++ smallest (cast {to = Int}) (-9223372036854775808)
+  putStrLn $ "Integer " ++ smallest id (-9223372036854775808)
   -- beyond 32 bits (boxed values) and beyond 64 bits (GMP)
   putStrLn $ show [ (x `div` y, x `mod` y)
                   | x <- the (List Int) [-6000000000, 6000000000, -12884901888]
