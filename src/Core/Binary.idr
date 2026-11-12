@@ -14,6 +14,8 @@ import Data.SortedSet
 
 import System.File
 
+import IdrisPaths
+
 import Libraries.Data.NameMap
 import Libraries.Data.NatSet
 
@@ -26,7 +28,18 @@ import public Libraries.Utils.Binary
 ||| version number if you're changing the version more than once in the same day.
 export
 ttcVersion : Int
-ttcVersion = 2025_08_16_00
+ttcVersion = 2026_11_12_00
+
+||| The version of the compiler that writes a TTC file, including the commit
+||| it was built from. A module whose TTC was written by another compiler is
+||| rebuilt, because the TTC holds choices made by that compiler (such as
+||| inlining flags or specialised copies of functions).
+export
+compilerVersion : String
+compilerVersion = case idrisVersion of
+  ((maj, min, patch), tag) =>
+    let num = show maj ++ "." ++ show min ++ "." ++ show patch in
+    if tag == "" then num else num ++ "-" ++ tag
 
 export
 checkTTCVersion : String -> Int -> Int -> Core ()
@@ -193,6 +206,7 @@ writeTTCFile b file_in
       = do file <- toFullNames file_in
            toBuf "TT2"
            toBuf @{Wasteful} (version file)
+           toBuf compilerVersion
            toBuf (totalReq file)
            toBuf (sourceHash file)
            toBuf (ifaceHash file)
@@ -226,6 +240,7 @@ readTTCFile readall file as b
              corrupt ("TTC header in " ++ file ++ " " ++ show hdr)
            ver <- fromBuf @{Wasteful}
            checkTTCVersion file ver ttcVersion
+           ignore $ fromBuf {a = String} -- compiler version
            totalReq <- fromBuf
            sourceFileHash <- fromBuf
            ifaceHash <- fromBuf
@@ -522,15 +537,23 @@ readFromTTC nestedns loc reexp fname modNS importAs
           || alreadyDone modns importAs rest
 
 -- Implements a portion of @readTTCFile@. The fields must be read in order.
--- This reads everything up to and including `totalReq`.
+-- This reads everything up to and including the compiler version.
 export
-getTotalReq : String -> Ref Bin Binary -> Core TotalReq
-getTotalReq file b
+getCompilerVersion : String -> Ref Bin Binary -> Core String
+getCompilerVersion file b
     = do hdr <- fromBuf {a = String}
          when (hdr /= "TT2") $
            corrupt ("TTC header in " ++ file ++ " " ++ show hdr)
          ver <- fromBuf @{Wasteful}
          checkTTCVersion file ver ttcVersion
+         fromBuf -- the compiler version
+
+-- Implements a portion of @readTTCFile@. The fields must be read in order.
+-- This reads everything up to and including `totalReq`.
+export
+getTotalReq : String -> Ref Bin Binary -> Core TotalReq
+getTotalReq file b
+    = do ignore $ getCompilerVersion file b
          fromBuf -- `totalReq`
 
 -- Implements a portion of @readTTCFile@. The fields must be read in order.
@@ -558,6 +581,24 @@ getIncData : String -> Ref Bin Binary ->
 getIncData file b
     = do ignore $ getImportHashes file b
          fromBuf -- `incData`
+
+||| The version of the compiler that wrote a TTC file, or Nothing if the file
+||| cannot be read or has another TTC format.
+export
+readCompilerVersion : (fileName : String) -> Core (Maybe String)
+readCompilerVersion fileName
+    = do Right buffer <- coreLift $ readFromFile fileName
+            | Left err => pure Nothing
+         b <- newRef Bin buffer
+         catch (Just <$> getCompilerVersion fileName b)
+               (\err => pure Nothing)
+
+||| Whether a TTC file was written by this compiler. A file that cannot be
+||| read counts as written by another compiler.
+export
+builtByThisCompiler : (fileName : String) -> Core Bool
+builtByThisCompiler fileName
+    = (== Just compilerVersion) <$> readCompilerVersion fileName
 
 export
 readTotalReq : (fileName : String) -> -- file containing the module

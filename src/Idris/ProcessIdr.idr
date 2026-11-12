@@ -333,9 +333,10 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
         sourceUnchanged <- isUnchanged ttcFileName sourceFileName
 
         incrementalOK <- not <$> missingIncremental ttcFileName
+        sameCompiler <- builtByThisCompiler ttcFileName
 
         -- If neither the source nor the interface hashes of imports have changed then no rebuilding is needed
-        if (sourceUnchanged && sort importInterfaceHashes == sort storedImportInterfaceHashes && incrementalOK)
+        if (sourceUnchanged && sameCompiler && sort importInterfaceHashes == sort storedImportInterfaceHashes && incrementalOK)
            then -- Hashes the same, source up to date, just set the ns
                 -- for the REPL
                 do setNS (miAsNamespace ns)

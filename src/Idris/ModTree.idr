@@ -187,6 +187,11 @@ needsBuilding sourceFile ttcFile depFiles
        -- whether we need to rebuild it
        True <- coreLift $ exists ttcFile
          | False => pure True
+       -- a TTC written by another compiler may hold choices that this one
+       -- would make differently (or not understand), so rebuild it
+       True <- builtByThisCompiler ttcFile
+         | False => do log "import" 20 $ ttcFile ++ " was written by another compiler"
+                       pure True
        -- check if hash match
        checkHashesInsteadOfTime <- checkHashesInsteadOfModTime <$> getSession
        False <- ifThenElse checkHashesInsteadOfTime

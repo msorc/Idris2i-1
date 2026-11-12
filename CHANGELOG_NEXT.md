@@ -118,6 +118,12 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Building/Packaging changes
 
+* TTC files record the version of the compiler that wrote them, and a module
+  whose TTC was written by another version is rebuilt.  A TTC holds choices
+  made by its compiler (inlining flags, specialised copies of functions), so
+  reusing it could give a different result from building with this compiler.
+  The TTC format version changes accordingly.
+
 * `--jobs N` (`-j N`, or `IDRIS2_BUILD_JOBS`) builds the modules of a package
   with up to `N` processes in parallel, each module once the modules it imports
   are built.  `make` builds the compiler and the libraries this way
