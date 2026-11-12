@@ -18,6 +18,7 @@ import IdrisPaths
 
 import Libraries.Data.NameMap
 import Libraries.Data.NatSet
+import Libraries.Data.WithDefault
 
 import public Libraries.Utils.Binary
 
@@ -599,6 +600,32 @@ export
 builtByThisCompiler : (fileName : String) -> Core Bool
 builtByThisCompiler fileName
     = (== Just compilerVersion) <$> readCompilerVersion fileName
+
+||| The exported definitions of a module whose name ends in `root`, read from
+||| its TTC file without adding anything to the context. This is for hinting
+||| at an import when a name is undefined, so any failure gives no names.
+export
+exportedDefsNamed : TTC extra =>
+                    {auto c : Ref Ctxt Defs} ->
+                    (fileName : String) -> (root : String) -> Core (List Name)
+exportedDefsNamed fileName root
+    = do Right buffer <- coreLift $ readFromFile fileName
+            | Left err => pure []
+         b <- newRef Bin buffer
+         catch (do ttc <- readTTCFile {extra} True fileName Nothing b
+                   let cands = filter (hasRoot . fst) (context ttc)
+                   map fst <$> filterM exported cands)
+               (\err => pure [])
+  where
+    hasRoot : Name -> Bool
+    hasRoot (NS _ (UN (Basic n))) = n == root
+    hasRoot _ = False
+
+    exported : (Name, Binary) -> Core Bool
+    exported (_, bin)
+        = do b <- newRef Bin bin
+             def <- fromBuf {a = GlobalDef}
+             pure (collapseDefault (visibility def) /= Private)
 
 export
 readTotalReq : (fileName : String) -> -- file containing the module

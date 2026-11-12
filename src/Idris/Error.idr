@@ -1,11 +1,13 @@
 module Idris.Error
 
+import Core.Directory
 import Core.Env
 
 import Idris.Doc.String
 import Idris.REPL.Opts
 import Idris.Resugar
 import Idris.Syntax
+import Idris.Syntax.TTC
 import Idris.Pretty
 
 import Data.List
@@ -14,9 +16,11 @@ import Data.List1
 import Data.String
 
 import Libraries.Data.List.Extra
+import Libraries.System.Directory.Tree
 import Libraries.Text.PrettyPrint.Prettyprinter.Util
 
 import System.File
+import Libraries.Utils.Path
 
 %default covering
 
@@ -300,6 +304,61 @@ pwarning : {auto c : Ref Ctxt Defs} ->
            Warning -> Core (Doc IdrisAnn)
 pwarning wrn = pwarningRaw !(toFullNames wrn)
 
+||| The modules in the build directory and in the packages in use that export
+||| a definition called like the undefined name `n`, with the full names.
+||| These modules are not loaded (or the name would not be undefined), so this
+||| reads their TTC files; it only happens when the error is displayed.
+importCandidates : {auto c : Ref Ctxt Defs} ->
+                   Name -> Core (List (String, List Name))
+importCandidates n
+    = do let Just (Basic root) = userNameRoot n
+             | _ => pure []
+         bdir <- ttcBuildDirectory
+         dirs <- extraSearchDirectories
+         found <- traverse (inDir root) (nub (bdir :: dirs))
+         -- directories are listed in no particular order
+         pure (sortBy (compare `on` fst) (concat found))
+  where
+    ttcFiles : {root : _} -> Tree root -> IO (List String)
+    ttcFiles tree
+        = depthFirst (\f, rest => if isSuffixOf ".ttc" (fileName f)
+                                     then map (toFilePath f ::) (force rest)
+                                     else force rest)
+                     tree (pure [])
+
+    moduleName : String -> String
+    moduleName rel
+        = joinBy "." (forget $ split (== dirSeparator) (dropExtensions rel))
+
+    inDir : String -> String -> Core (List (String, List Name))
+    inDir root dir
+        = do tree <- coreLift $ explore (parse dir)
+             files <- coreLift $ ttcFiles (toRelative tree)
+             res <- for files $ \rel =>
+                      do ns <- exportedDefsNamed {extra = SyntaxInfo}
+                                                 (dir </> rel) root
+                         pure (moduleName rel, ns)
+             pure (filter (not . null . snd) res)
+
+||| A hint to import a module, for an undefined name that another module
+||| exports.
+importHint : {auto c : Ref Ctxt Defs} ->
+             Name -> Core (Doc IdrisAnn)
+importHint n
+    = case !(catch (importCandidates n) (\_ => pure [])) of
+        [] => pure emptyDoc
+        [(m, _)] => pure $ reflow "Suggestion:" <++> code (pretty0 m)
+                      <++> reflow "exports" <++> code (pretty0 (nameRoot n))
+                      <+> reflow "; add" <++> code ("import" <++> pretty0 m) <+> dot
+                      <+> line
+        ms => pure $ reflow "Suggestion:" <++> code (pretty0 (nameRoot n))
+                <++> reflow "is exported by"
+                <++> concatWith (surround (comma <+> space))
+                       (map (code . pretty0 . fst) (take 5 ms))
+                <+> (if length ms > 5 then comma <++> "..." else emptyDoc)
+                <+> reflow "; import one of them" <+> dot
+                <+> line
+
 perrorRaw : {auto c : Ref Ctxt Defs} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto o : Ref ROpts REPLOpts} ->
@@ -363,6 +422,7 @@ perrorRaw (ValidCase _ env (Right err))
     = pure $ errorDesc (reflow "Impossible pattern gives an error" <+> colon) <+> line <+> !(perrorRaw err)
 perrorRaw (UndefinedName fc x)
     = pure $ errorDesc (reflow "Undefined name" <++> code (pretty0 x) <+> dot) <++> line <+> !(ploc fc)
+        <+> !(importHint x)
 perrorRaw (InvisibleName fc n (Just ns))
     = pure $ errorDesc ("Name" <++> code (pretty0 n) <++> reflow "is inaccessible since"
         <++> code (pretty0 ns) <++> reflow "is not explicitly imported.")

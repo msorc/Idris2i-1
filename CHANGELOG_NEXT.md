@@ -115,6 +115,10 @@ should target this file (`CHANGELOG_NEXT`).
 * Check recursive calls to the left of binders in the termination checker (#3896).
 * Fixed %transform rules application regardless of module load order (#3868)
 * Added %transform rules for `concatMap` to avoid quadratic blowup (#3869)
+* An "Undefined name" error suggests the modules that export a definition of
+  that name, when they are not imported (for example `Data.List` for
+  `sortBy`).  The modules searched are those in the build directory and in the
+  packages in use.
 
 ### Building/Packaging changes
 

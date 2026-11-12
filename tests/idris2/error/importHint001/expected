@@ -1,0 +1,33 @@
+1/1: Building Hint (Hint.idr)
+Error: While processing right hand side of sorted. Undefined name sortBy. 
+
+Hint:7:13--7:19
+ 3 | import Data.Vect
+ 4 |
+ 5 | -- exported by a module that is not imported
+ 6 | sorted : List Nat -> List Nat
+ 7 | sorted xs = sortBy compare xs
+                 ^^^^^^
+Suggestion: Data.List exports sortBy; add import Data.List.
+Did you mean: sorted?
+Error: While processing right hand side of infix_. Undefined name isInfixOf. 
+
+Hint:11:14--11:23
+ 07 | sorted xs = sortBy compare xs
+ 08 |
+ 09 | -- exported by several modules
+ 10 | infix_ : String -> String -> Bool
+ 11 | infix_ s t = isInfixOf s t
+                   ^^^^^^^^^
+Suggestion: isInfixOf is exported by Data.List, Data.String; import one of them.
+Did you mean any of: isPrefixOf, or isSuffixOf?
+Error: While processing right hand side of nowhere. Undefined name definitelyNotDefinedAnywhere. 
+
+Hint:15:11--15:39
+ 11 | infix_ s t = isInfixOf s t
+ 12 |
+ 13 | -- not defined anywhere
+ 14 | nowhere : Nat
+ 15 | nowhere = definitelyNotDefinedAnywhere 3
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
