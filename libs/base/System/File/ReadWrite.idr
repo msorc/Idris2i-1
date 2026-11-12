@@ -34,6 +34,17 @@ prim__writeLine : FilePtr -> String -> PrimIO Int
          "node:lambda:f=>(f.eof?1:0)"
 prim__eof : FilePtr -> PrimIO Int
 
+%foreign "C:idris2_free, libidris2_support, idris_memory.h"
+         "javascript:lambda:()=>undefined"
+prim__freeString : Ptr String -> PrimIO ()
+
+-- The functions of this module (and of System.File.Handle) call `pure (Right
+-- x)` instead of `ok x`, and `prim__freeString` instead of `free`: when a
+-- module that only imports System.File calls them at `IO`, their `%spec`
+-- copies are elaborated there, where the names of System.File.Support and
+-- System.FFI are not in scope, so referring to these modules would leave the
+-- copies calling the generic code (see TTImp.PartialEval).
+
 %foreign supportC "idris2_removeFile"
          supportNode "removeFile"
 prim__removeFile : String -> PrimIO Int
@@ -43,33 +54,36 @@ prim__removeFile : String -> PrimIO Int
 ||| any characters.
 |||
 ||| @ h the file handle to seek through
+%spec hio
 export
 covering
-fSeekLine : HasIO io => (h : File) -> io (Either FileError ())
+fSeekLine : {auto hio : HasIO io} -> (h : File) -> io (Either FileError ())
 fSeekLine (FHandle f)
     = do res <- primIO (prim__seekLine f)
          if res /= 0
             then returnError
-            else ok ()
+            else pure (Right ())
 
 
 ||| Get a garbage collected String from a Ptr String and and free the original
+%spec hio
 export
-getStringAndFree : HasIO io => File -> Ptr String -> io (Either FileError String)
+getStringAndFree : {auto hio : HasIO io} -> File -> Ptr String -> io (Either FileError String)
 getStringAndFree f res
     = if prim__nullPtr res /= 0
          then if !(fileError f) then returnError else pure @{Compose} ""
          else do let s = prim__getString res
-                 free $ prim__forgetPtr res
-                 ok s
+                 primIO (prim__freeString res)
+                 pure (Right s)
 
 ||| Get the next line from the given file handle, returning the empty string if
 ||| nothing was read.
 |||
 ||| @ h the file handle to get the line from
+%spec hio
 export
 covering
-fGetLine : HasIO io => (h : File) -> io (Either FileError String)
+fGetLine : {auto hio : HasIO io} -> (h : File) -> io (Either FileError String)
 fGetLine ff@(FHandle f)
     = do res <- primIO (prim__readLine f)
          getStringAndFree ff res
@@ -78,8 +92,9 @@ fGetLine ff@(FHandle f)
 |||
 ||| @ h   the file handle to read from
 ||| @ max the number of characters to read
+%spec hio
 export
-fGetChars : HasIO io => (h : File) -> (max : Int) -> io (Either FileError String)
+fGetChars : {auto hio : HasIO io} -> (h : File) -> (max : Int) -> io (Either FileError String)
 fGetChars ff@(FHandle f) max
     = do res <- primIO (prim__readChars max f)
          getStringAndFree ff res
@@ -87,48 +102,53 @@ fGetChars ff@(FHandle f) max
 ||| Get the next character from the given file handle.
 |||
 ||| @ h the file handle to read from
+%spec hio
 export
-fGetChar : HasIO io => (h : File) -> io (Either FileError Char)
+fGetChar : {auto hio : HasIO io} -> (h : File) -> io (Either FileError Char)
 fGetChar h@(FHandle f)
     = do c <- primIO (prim__readChar f)
          ferr <- fileError h
          if ferr
             then returnError
-            else ok (cast c)
+            else pure (Right (cast c))
 
 ||| Write the given string to the file handle.
 |||
 ||| @ h   the file handle to write to
 ||| @ str the string to write
+%spec hio
 export
-fPutStr : HasIO io => (h : File) -> (str : String) -> io (Either FileError ())
+fPutStr : {auto hio : HasIO io} -> (h : File) -> (str : String) -> io (Either FileError ())
 fPutStr (FHandle f) str
     = do res <- primIO (prim__writeLine f str)
          if res == 0
             then returnError
-            else ok ()
+            else pure (Right ())
 
 ||| Write the given string, followed by a newline, to the file handle.
 |||
 ||| @ fh  the file handle to write to
 ||| @ str the string to write
+%spec hio
 export
-fPutStrLn : HasIO io => (fh : File) -> (str : String) -> io (Either FileError ())
+fPutStrLn : {auto hio : HasIO io} -> (fh : File) -> (str : String) -> io (Either FileError ())
 fPutStrLn fh str = fPutStr fh (str ++ "\n")
 
 ||| Check whether the end-of-file indicator for the given file handle is set.
 |||
 ||| @ h the file handle to check
+%spec hio
 export
-fEOF : HasIO io => (h : File) -> io Bool
+fEOF : {auto hio : HasIO io} -> (h : File) -> io Bool
 fEOF (FHandle f)
     = do res <- primIO (prim__eof f)
          pure (res /= 0)
 
 ||| Read all the remaining contents of a file handle
+%spec hio
 export
 covering
-fRead : HasIO io => (h : File) -> io (Either FileError String)
+fRead : {auto hio : HasIO io} -> (h : File) -> io (Either FileError String)
 fRead h = fRead' h [<]
   where
     fRead' : HasIO io' => (h : File) -> (acc : SnocList String) -> io' (Either FileError String)
@@ -143,12 +163,13 @@ fRead h = fRead' h [<]
 ||| Delete the file at the given name.
 |||
 ||| @ fname the file to delete
+%spec hio
 export
-removeFile : HasIO io => (fname : String) -> io (Either FileError ())
+removeFile : {auto hio : HasIO io} -> (fname : String) -> io (Either FileError ())
 removeFile fname
     = do res <- primIO (prim__removeFile fname)
          if res == 0
-            then ok ()
+            then pure (Right ())
             else returnError
 
 ||| Read a number of lines into an accumulator, optionally starting at an offset
@@ -208,8 +229,9 @@ readLinesOnto acc offset (More fuel) h
 ||| @ offset the offset to start reading at
 ||| @ until  the `Fuel` limiting how far we can read
 ||| @ fname  the name of the file to read
+%spec hio
 export
-readFilePage : HasIO io => (offset : Nat) -> (until : Fuel) -> (fname :  String) ->
+readFilePage : {auto hio : HasIO io} -> (offset : Nat) -> (until : Fuel) -> (fname :  String) ->
                            io (Either FileError (Bool, List String))
 readFilePage offset fuel fname
   = withFile fname Read pure $
@@ -219,9 +241,10 @@ readFilePage offset fuel fname
 ||| there is no guarantee that the given file isn't infinite.
 |||
 ||| @ fname the name of the file to read
+%spec hio
 export
 covering
-readFile : HasIO io => (fname : String) -> io (Either FileError String)
+readFile : {auto hio : HasIO io} -> (fname : String) -> io (Either FileError String)
 readFile = (map $ map (fastConcat . snd)) . readFilePage 0 forever
 
 ||| Write the given string to the file at the specified name. Opens the file
@@ -230,8 +253,9 @@ readFile = (map $ map (fastConcat . snd)) . readFilePage 0 forever
 |||
 ||| @ filePath the file to write to
 ||| @ contents the string to write to the file
+%spec hio
 export
-writeFile : HasIO io =>
+writeFile : {auto hio : HasIO io} ->
             (filePath : String) -> (contents : String) ->
             io (Either FileError ())
 writeFile file contents
@@ -243,8 +267,9 @@ writeFile file contents
 |||
 ||| @ filePath the file to write to
 ||| @ contents the string to write to the file
+%spec hio
 export
-appendFile : HasIO io =>
+appendFile : {auto hio : HasIO io} ->
              (filePath : String) -> (contents : String) ->
              io (Either FileError ())
 appendFile file contents

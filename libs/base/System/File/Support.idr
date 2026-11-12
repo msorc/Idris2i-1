@@ -17,6 +17,7 @@ supportNode : (fn : String) -> String
 supportNode fn = "node:support:\{fn},support_system_file"
 
 ||| Wrap x in the `Right` part of an `io . Either`.
+%spec hio
 export
-ok : HasIO io => (x : a) -> io (Either err a)
+ok : {auto hio : HasIO io} -> (x : a) -> io (Either err a)
 ok x = pure (Right x)

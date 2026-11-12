@@ -26,8 +26,9 @@ prim__writeBufferData : FilePtr -> Buffer -> (offset : Int) -> (size : Int) -> P
 ||| @ buf      the buffer to read the data into
 ||| @ offset   the position in buffer to start adding
 ||| @ maxbytes the maximum size to read; must not exceed buffer length
+%spec hio
 export
-readBufferData : HasIO io => (fh : File) -> (buf : Buffer) ->
+readBufferData : {auto hio : HasIO io} -> (fh : File) -> (buf : Buffer) ->
                  (offset : Int) ->
                  (maxbytes : Int) ->
                  io (Either FileError Int)
@@ -47,8 +48,9 @@ readBufferData (FHandle h) buf offset max
 ||| @ buf      the buffer from which to get the data to write
 ||| @ offset   the position in buffer to write from
 ||| @ size     the number of bytes to write; must not exceed buffer length
+%spec hio
 export
-writeBufferData : HasIO io => (fh : File) -> (buf : Buffer) ->
+writeBufferData : {auto hio : HasIO io} -> (fh : File) -> (buf : Buffer) ->
                   (offset : Int) ->
                   (size : Int) ->
                   io (Either (FileError, Int) ())
@@ -65,8 +67,9 @@ writeBufferData (FHandle h) buf offset size
 ||| @ fn   the file name to write to
 ||| @ buf  the buffer from which to get the data to write
 ||| @ size the number of bytes to write; must not exceed buffer length
+%spec hio
 export
-writeBufferToFile : HasIO io => (fn : String) -> (buf : Buffer) -> (size : Int) ->
+writeBufferToFile : {auto hio : HasIO io} -> (fn : String) -> (buf : Buffer) -> (size : Int) ->
                                 io (Either (FileError, Int) ())
 writeBufferToFile fn buf size
     = do Right f <- openFile fn WriteTruncate
@@ -80,8 +83,9 @@ writeBufferToFile fn buf size
 ||| buffer whose size matches the file size.
 |||
 ||| @ fn the name of the file to read
+%spec hio
 export
-createBufferFromFile : HasIO io => (fn : String) -> io (Either FileError Buffer)
+createBufferFromFile : {auto hio : HasIO io} -> (fn : String) -> io (Either FileError Buffer)
 createBufferFromFile fn
     = do Right f <- openFile fn Read
              | Left err => pure (Left err)

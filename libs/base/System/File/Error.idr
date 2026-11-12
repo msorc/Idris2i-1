@@ -27,8 +27,9 @@ data FileError = ||| A generic error with an errno
 
 ||| Return the `FileError` corresponding to the errno that was set when the
 ||| function call before this one errored.
+%spec hio
 export
-returnError : HasIO io => io (Either FileError a)
+returnError : {auto hio : HasIO io} -> io (Either FileError a)
 returnError
     = do err <- primIO prim__fileErrno
          pure $ Left $
@@ -50,8 +51,9 @@ Show FileError where
   show FileExists = "File Exists"
 
 ||| Check if the error indicator for the given file handle is set.
+%spec hio
 export
-fileError : HasIO io => File -> io Bool
+fileError : {auto hio : HasIO io} -> File -> io Bool
 fileError (FHandle f)
     = do x <- primIO $ prim__error f
          pure (x /= 0)

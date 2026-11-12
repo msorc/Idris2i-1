@@ -19,26 +19,29 @@ prim__close : FilePtr -> PrimIO ()
 |||
 ||| @ f the file name to open
 ||| @ m the mode to open the file with
+%spec hio
 export
-openFile : HasIO io => (f : String) -> (m : Mode) -> io (Either FileError File)
+openFile : {auto hio : HasIO io} -> (f : String) -> (m : Mode) -> io (Either FileError File)
 openFile f m
     = do res <- primIO (prim__open f (modeStr m))
          if prim__nullAnyPtr res /= 0
             then returnError
-            else ok (FHandle res)
+            else pure (Right (FHandle res))
 
 ||| Close the given file handle.
 |||
 ||| @ fh the file handle to close
+%spec hio
 export
-closeFile : HasIO io => (fh : File) -> io ()
+closeFile : {auto hio : HasIO io} -> (fh : File) -> io ()
 closeFile (FHandle f) = primIO (prim__close f)
 
 ||| Perform a given operation on successful file open
 ||| and ensure the file is closed afterwards or perform
 ||| a different operation if the file fails to open.
+%spec hio
 export
-withFile : HasIO io => (filename : String) ->
+withFile : {auto hio : HasIO io} -> (filename : String) ->
                        Mode ->
                        (onError : FileError -> io a) ->
                        (onOpen  : File -> io (Either a b)) ->

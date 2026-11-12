@@ -18,8 +18,9 @@ import public System.File.Virtual
 |||
 ||| @ src  the file to copy
 ||| @ dest the place to copy the file to
+%spec hio
 export
-copyFile : HasIO io => (src : String) -> (dest : String) -> io (Either (FileError, Int) ())
+copyFile : {auto hio : HasIO io} -> (src : String) -> (dest : String) -> io (Either (FileError, Int) ())
 copyFile src dest
     = do Right buf <- createBufferFromFile src
              | Left err => pure (Left (err, 0))

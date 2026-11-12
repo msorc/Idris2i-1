@@ -44,8 +44,9 @@ prim__popen2FileOut : Ptr Popen2Result -> PrimIO FilePtr
 ||| Force a write of all user-space buffered data for the given `File`.
 |||
 ||| @ h the file handle to flush
+%spec hio
 export
-fflush : HasIO io => (h : File) -> io ()
+fflush : {auto hio : HasIO io} -> (h : File) -> io ()
 fflush (FHandle f)
     = ignore $ primIO (prim__flush f)
 
@@ -60,8 +61,9 @@ fflush (FHandle f)
 |||
 ||| @ cmd the command to pass to the shell
 ||| @ m   the mode the pipe should have
+%spec hio
 export
-popen : HasIO io => (cmd : String) -> (m : Mode) -> io (Either FileError File)
+popen : {auto hio : HasIO io} -> (cmd : String) -> (m : Mode) -> io (Either FileError File)
 popen cmd m = do
     ptr <- primIO (prim__popen cmd (modeStr m))
     if prim__nullAnyPtr ptr /= 0
@@ -72,8 +74,9 @@ popen cmd m = do
 ||| Wait for the process associated with the pipe to terminate.
 |||
 ||| @ fh the file handle to the stream to close/wait on
+%spec hio
 export
-pclose : HasIO io => (fh : File) -> io Int
+pclose : {auto hio : HasIO io} -> (fh : File) -> io Int
 pclose (FHandle h) = primIO (prim__pclose h)
 
 ||| Result of a popen2 command, containing the
@@ -100,8 +103,9 @@ record SubProcess where
 |||            its output.  It is recommended to read and write from separate threads.
 |||
 ||| This function is not supported on node at this time.
+%spec hio
 export
-popen2 : HasIO io => (cmd : String) -> io (Either FileError SubProcess)
+popen2 : {auto hio : HasIO io} -> (cmd : String) -> io (Either FileError SubProcess)
 popen2 cmd = do
   ptr <- primIO (prim__popen2 cmd)
   if prim__nullPtr ptr /= 0
@@ -123,7 +127,8 @@ popen2 cmd = do
 ||| Support of this function in the backends must be the same as for `popen2`.
 export
 covering -- significantly non-total
-popen2Wait : HasIO io => SubProcess -> io Int
+%spec hio
+popen2Wait : {auto hio : HasIO io} -> SubProcess -> io Int
 popen2Wait sp = primIO $
   if prim__nullAnyPtr sp.handler /= 0
     then prim__popen2WaitByPid sp.pid

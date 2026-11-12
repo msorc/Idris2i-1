@@ -308,6 +308,9 @@ should target this file (`CHANGELOG_NEXT`).
   specialised (`%spec`) on their `HasIO` implementation: at `IO`, they are
   direct calls of the primitives instead of going through the `Monad`
   implementation at runtime.  A loop of `modifyIORef` runs 4 times faster.
+  So are those of `System`, `System.File` and `System.Directory` (except
+  `usleep` and `readLinesOnto`): reading a file line by line with `fGetLine`
+  runs 3 times faster, writing one with `fPutStr` 4.5 times faster.
 
 #### Base
 

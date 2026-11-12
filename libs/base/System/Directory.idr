@@ -23,7 +23,8 @@ supportC fn = "C:\{fn}, libidris2_support, idris_directory.h"
 supportNode : (fn : String) -> String
 supportNode fn = "node:support:\{fn},support_system_directory"
 
-ok : HasIO io => a -> io (Either FileError a)
+%spec hio
+ok : {auto hio : HasIO io} -> a -> io (Either FileError a)
 ok x = pure (Right x)
 
 %foreign supportC "idris2_currentDirectory"
@@ -60,8 +61,9 @@ data Directory : Type where
      MkDir : DirPtr -> Directory
 
 ||| Try to create a directory at the specified path.
+%spec hio
 export
-createDir : HasIO io => String -> io (Either FileError ())
+createDir : {auto hio : HasIO io} -> String -> io (Either FileError ())
 createDir dir
     = do res <- primIO (prim__createDir dir)
          if res == 0
@@ -70,16 +72,18 @@ createDir dir
 
 ||| Change the current working directory to the specified path. Returns whether
 ||| the operation succeeded.
+%spec hio
 export
-changeDir : HasIO io => String -> io Bool
+changeDir : {auto hio : HasIO io} -> String -> io Bool
 changeDir dir
     = do ok <- primIO (prim__changeDir dir)
          pure (ok == 0)
 
 ||| Get the absolute path of the current working directory. Returns `Nothing` if
 ||| an error occurred.
+%spec hio
 export
-currentDir : HasIO io => io (Maybe String)
+currentDir : {auto hio : HasIO io} -> io (Maybe String)
 currentDir
     = do res <- primIO prim__currentDir
          if prim__nullPtr res /= 0
@@ -89,8 +93,9 @@ currentDir
                     pure (Just s)
 
 ||| Try to open the directory at the specified path.
+%spec hio
 export
-openDir : HasIO io => String -> io (Either FileError Directory)
+openDir : {auto hio : HasIO io} -> String -> io (Either FileError Directory)
 openDir d
     = do res <- primIO (prim__openDir d)
          if prim__nullAnyPtr res /= 0
@@ -98,19 +103,22 @@ openDir d
             else ok (MkDir res)
 
 ||| Close the given `Directory`.
+%spec hio
 export
-closeDir : HasIO io => Directory -> io ()
+closeDir : {auto hio : HasIO io} -> Directory -> io ()
 closeDir (MkDir d) = primIO (prim__closeDir d)
 
 ||| Remove the directory at the specified path.
 ||| If the directory is not empty, this operation fails.
+%spec hio
 export
-removeDir : HasIO io => String -> io ()
+removeDir : {auto hio : HasIO io} -> String -> io ()
 removeDir dirName = primIO (prim__removeDir dirName)
 
 ||| Get the next entry in the `Directory`, omitting the '.' and '..' entries.
+%spec hio
 export
-nextDirEntry : HasIO io => Directory -> io (Either FileError (Maybe String))
+nextDirEntry : {auto hio : HasIO io} -> Directory -> io (Either FileError (Maybe String))
 nextDirEntry (MkDir d)
     = do res <- primIO (prim__dirEntry d)
          if prim__nullPtr res /= 0
@@ -124,7 +132,8 @@ nextDirEntry (MkDir d)
 
 ||| Get a list of all the entries in the `Directory`, excluding the '.' and '..'
 ||| entries.
-collectDir : HasIO io => Directory -> io (Either FileError (List String))
+%spec hio
+collectDir : {auto hio : HasIO io} -> Directory -> io (Either FileError (List String))
 collectDir d
     = liftIO $ do let (>>=) : (IO . Either e) a -> (a -> (IO . Either e) b) -> (IO . Either e) b
                       (>>=) = Prelude.(>>=) @{Monad.Compose {m = IO} {t = Either e}}
@@ -137,8 +146,9 @@ collectDir d
 ||| excluding the '.' and '..' entries.
 |||
 ||| @ name the directory to list
+%spec hio
 export
-listDir : HasIO io => (name : String) -> io (Either FileError (List String))
+listDir : {auto hio : HasIO io} -> (name : String) -> io (Either FileError (List String))
 listDir name = do Right d <- openDir name
                     | Left e => pure $ Left e
                   ns <- collectDir d

@@ -43,8 +43,9 @@ mkMode p
 |||
 ||| @ fname the name of the file whose permissions to change
 ||| @ p     the integer representation of the permissions to set
+%spec hio
 export
-chmodRaw : HasIO io => (fname : String) -> (p : Int) -> io (Either FileError ())
+chmodRaw : {auto hio : HasIO io} -> (fname : String) -> (p : Int) -> io (Either FileError ())
 chmodRaw fname p
     = do ok <- primIO $ prim__chmod fname p
          if ok == 0
@@ -56,6 +57,7 @@ chmodRaw fname p
 |||
 ||| @ fname the name of the file whose permissions to change
 ||| @ p     a `Permissions` record containing the permissions to set
+%spec hio
 export
-chmod : HasIO io => (fname : String) -> (p : Permissions) -> io (Either FileError ())
+chmod : {auto hio : HasIO io} -> (fname : String) -> (p : Permissions) -> io (Either FileError ())
 chmod fname p = chmodRaw fname (mkMode p)

@@ -55,8 +55,9 @@ prim__filetimeStatusTimeNsec : FileTimePtr -> PrimIO Int
 prim__fileIsTTY : FilePtr -> PrimIO Int
 
 ||| Check if a file exists for reading.
+%spec hio
 export
-exists : HasIO io => String -> io Bool
+exists : {auto hio : HasIO io} -> String -> io Bool
 exists f
     = do Right ok <- openFile f Read
              | Left err => pure False
@@ -64,8 +65,9 @@ exists f
          pure True
 
 ||| Pick the first existing file
+%spec hio
 export
-firstExists : HasIO io => List String -> io (Maybe String)
+firstExists : {auto hio : HasIO io} -> List String -> io (Maybe String)
 firstExists [] = pure Nothing
 firstExists (x :: xs) = if !(exists x) then pure (Just x) else firstExists xs
 
@@ -97,8 +99,9 @@ record FileTime where
   ctime : Timestamp
 
 ||| Get File's time attributes
+%spec hio
 export
-fileTime : HasIO io => (h : File) -> io (Either FileError FileTime)
+fileTime : {auto hio : HasIO io} -> (h : File) -> io (Either FileError FileTime)
 fileTime (FHandle f)
     = do res <- primIO (prim__fileTime f)
          ft <- parseFileTime res
@@ -120,23 +123,27 @@ fileTime (FHandle f)
                                            }
 
 ||| Get the File's atime.
+%spec hio
 export
-fileAccessTime : HasIO io => (h : File) -> io (Either FileError Int)
+fileAccessTime : {auto hio : HasIO io} -> (h : File) -> io (Either FileError Int)
 fileAccessTime h = (fileTime h <&> (.atime.sec)) @{Compose}
 
 ||| Get the File's mtime.
+%spec hio
 export
-fileModifiedTime : HasIO io => (h : File) -> io (Either FileError Int)
+fileModifiedTime : {auto hio : HasIO io} -> (h : File) -> io (Either FileError Int)
 fileModifiedTime h = (fileTime h <&> (.mtime.sec)) @{Compose}
 
 ||| Get the File's ctime.
+%spec hio
 export
-fileStatusTime : HasIO io => (h : File) -> io (Either FileError Int)
+fileStatusTime : {auto hio : HasIO io} -> (h : File) -> io (Either FileError Int)
 fileStatusTime h = (fileTime h <&> (.ctime.sec)) @{Compose}
 
 ||| Get the File's size.
+%spec hio
 export
-fileSize : HasIO io => (h : File) -> io (Either FileError Int)
+fileSize : {auto hio : HasIO io} -> (h : File) -> io (Either FileError Int)
 fileSize (FHandle f)
     = do res <- primIO (prim__fileSize f)
          if res >= 0
@@ -144,14 +151,16 @@ fileSize (FHandle f)
             else returnError
 
 ||| Check whether the given File's size is non-zero.
+%spec hio
 export
-fPoll : HasIO io => File -> io Bool
+fPoll : {auto hio : HasIO io} -> File -> io Bool
 fPoll (FHandle f)
     = do p <- primIO (prim__fPoll f)
          pure (p > 0)
 
 ||| Check whether the given File is a terminal device.
+%spec hio
 export
-isTTY : HasIO io => (h : File) -> io Bool
+isTTY : {auto hio : HasIO io} -> (h : File) -> io Bool
 isTTY (FHandle f) = (/= 0) <$> primIO (prim__fileIsTTY f)
 

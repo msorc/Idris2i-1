@@ -45,8 +45,9 @@ prim__usleep : Int -> PrimIO ()
 ||| the system is and the resolution of the system's clock.
 |||
 ||| @ sec the number of seconds to sleep for
+%spec hio
 export
-sleep : HasIO io => (sec : Int) -> io ()
+sleep : {auto hio : HasIO io} -> (sec : Int) -> io ()
 sleep sec = primIO (prim__sleep sec)
 
 ||| Sleep for the specified number of microseconds or, if signals are supported,
@@ -79,8 +80,9 @@ prim__getArgCount : PrimIO Int
 prim__getArg : Int -> PrimIO String
 
 ||| Retrieve the arguments to the program call, if there were any.
+%spec hio
 export
-getArgs : HasIO io => io (List String)
+getArgs : {auto hio : HasIO io} -> io (List String)
 getArgs = do
             n <- primIO prim__getArgCount
             if n > 0
@@ -112,8 +114,9 @@ prim__resetRawMode : (1 x : %World) -> IORes ()
 ||| exiting. Consider using `withRawMode` instead to ensure the tty is reset.
 |||
 ||| This is not supported on windows.
+%spec hio
 export
-enableRawMode : HasIO io => io (Either FileError ())
+enableRawMode : {auto hio : HasIO io} -> io (Either FileError ())
 enableRawMode =
   case !(primIO prim__enableRawMode) of
     0 => pure $ Right ()
@@ -121,16 +124,18 @@ enableRawMode =
 
 ||| `resetRawMode` resets stdin raw mode to original state if
 ||| `enableRawMode` had been previously called.
+%spec hio
 export
-resetRawMode : HasIO io => io ()
+resetRawMode : {auto hio : HasIO io} -> io ()
 resetRawMode = primIO prim__resetRawMode
 
 ||| `withRawMode` performs a given operation after setting stdin to raw mode
 ||| and ensure that stdin is reset to its original state afterwards.
 |||
 ||| This is not supported on windows.
+%spec hio
 export
-withRawMode : HasIO io =>
+withRawMode : {auto hio : HasIO io} ->
               (onError   : FileError -> io a) ->
               (onSuccess : () -> io a) ->
               io a
@@ -145,8 +150,9 @@ withRawMode onError onSuccess = do
 ||| there is no such environment variable.
 |||
 ||| @ var the name of the environment variable to look up
+%spec hio
 export
-getEnv : HasIO io => (var : String) -> io (Maybe String)
+getEnv : {auto hio : HasIO io} -> (var : String) -> io (Maybe String)
 getEnv var
    = do env <- primIO $ prim__getEnv var
         if prim__nullPtr env /= 0
@@ -155,9 +161,10 @@ getEnv var
 
 ||| Retrieve all the key-value pairs of the environment variables, and return a
 ||| list containing them.
+%spec hio
 export
 covering
-getEnvironment : HasIO io => io (List (String, String))
+getEnvironment : {auto hio : HasIO io} -> io (List (String, String))
 getEnvironment = getAllPairs 0 []
   where
     splitEq : String -> (String, String)
@@ -183,8 +190,9 @@ getEnvironment = getAllPairs 0 []
 ||| @ val       the value string to set the environment variable to
 ||| @ overwrite whether to overwrite the existing value if an environment
 |||             variable with the specified name already exists
+%spec hio
 export
-setEnv : HasIO io => (var : String) -> (val : String) -> (overwrite : Bool) ->
+setEnv : {auto hio : HasIO io} -> (var : String) -> (val : String) -> (overwrite : Bool) ->
                      io Bool
 setEnv var val overwrite
    = do ok <- primIO $ prim__setEnv var val (if overwrite then 1 else 0)
@@ -193,8 +201,9 @@ setEnv var val overwrite
 ||| Delete the specified environment variable. Returns `True` either if the
 ||| value was deleted or if the value was not defined/didn't exist. Returns
 ||| `False` if a system error occurred. You can `getErrno` to check the error.
+%spec hio
 export
-unsetEnv : HasIO io => (var : String) -> io Bool
+unsetEnv : {auto hio : HasIO io} -> (var : String) -> io Bool
 unsetEnv var
    = do ok <- primIO $ prim__unsetEnv var
         pure $ ok == 0
@@ -205,8 +214,9 @@ prim__system : String -> PrimIO Int
 
 ||| Execute a shell command, returning its termination status or -1 if an error
 ||| occurred.
+%spec hio
 export
-system : HasIO io => String -> io Int
+system : {auto hio : HasIO io} -> String -> io Int
 system cmd = primIO (prim__system cmd)
 
 namespace Escaped
@@ -215,9 +225,10 @@ namespace Escaped
   system = system . escapeCmd
 
 ||| Run a shell command, returning its stdout, and exit code.
+%spec hio
 export
 covering
-run : HasIO io => (cmd : String) -> io (String, Int)
+run : {auto hio : HasIO io} -> (cmd : String) -> io (String, Int)
 run cmd = do
     Right f <- popen cmd Read
         | Left err => pure ("", 1)
@@ -238,9 +249,10 @@ namespace Escaped
 ||| it will be present in the string passed to the processing function.
 |||
 ||| This function returns an exit code which value should be consistent with the `run` function.
+%spec hio
 export
 covering
-runProcessingOutput : HasIO io => (String -> io ()) -> (cmd : String) -> io Int
+runProcessingOutput : {auto hio : HasIO io} -> (String -> io ()) -> (cmd : String) -> io Int
 runProcessingOutput pr cmd = do
   Right f <- popen cmd Read
     | Left err => pure 1
@@ -267,8 +279,9 @@ namespace Escaped
 prim__time : PrimIO Int
 
 ||| Return the number of seconds since epoch.
+%spec hio
 export
-time : HasIO io => io Integer
+time : {auto hio : HasIO io} -> io Integer
 time = pure $ cast !(primIO prim__time)
 
 %foreign supportC "idris2_getPID"
@@ -276,8 +289,9 @@ time = pure $ cast !(primIO prim__time)
 prim__getPID : PrimIO Int
 
 ||| Get the ID of the currently running process.
+%spec hio
 export
-getPID : HasIO io => io Int
+getPID : {auto hio : HasIO io} -> io Int
 getPID = primIO prim__getPID
 
 %foreign libc "exit"
@@ -307,24 +321,28 @@ Cast ExitCode Int where
   cast (ExitFailure code) = code
 
 ||| Exit the program normally, with the specified status.
+%spec hio
 export
-exitWith : HasIO io => ExitCode -> io a
+exitWith : {auto hio : HasIO io} -> ExitCode -> io a
 exitWith = primIO . believe_me . prim__exit . cast
 
 ||| Exit the program with status value 1, indicating failure.
 ||| If you want to specify a custom status value, see `exitWith`.
+%spec hio
 export
-exitFailure : HasIO io => io a
+exitFailure : {auto hio : HasIO io} -> io a
 exitFailure = exitWith (ExitFailure 1)
 
 ||| Exit the program after a successful run.
+%spec hio
 export
-exitSuccess : HasIO io => io a
+exitSuccess : {auto hio : HasIO io} -> io a
 exitSuccess = exitWith ExitSuccess
 
 ||| Print the error message and call exitFailure
+%spec hio
 export
-die : HasIO io => String -> io a
+die : {auto hio : HasIO io} -> String -> io a
 die str
   = do ignore $ fPutStrLn stderr str
        exitFailure
