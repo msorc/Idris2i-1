@@ -187,6 +187,9 @@ should target this file (`CHANGELOG_NEXT`).
   release its own.  `modifyIORef` used to leak the previous value of the
   `IORef` on every call.
 * Fixed the finaliser of a `GCPtr` / `GCAnyPtr` releasing the pointer twice.
+* `System.Clock` now reads the clocks with `clock_gettime`: they used to have
+  a resolution of a second (`nanoseconds` was always 0), and the monotonic
+  clock was the UTC one.
 * Strings are now sequences of Unicode code points, like in the other
   backends.  They are still stored as NUL-terminated UTF-8, so the C FFI is
   unchanged, but `length`, `strIndex`, `substr`, `strCons`, `strHead`,
