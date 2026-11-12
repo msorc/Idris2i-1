@@ -147,7 +147,7 @@ constFold rho (COp {arity} fc fn xs) =
     toNF _ = Nothing
 
     -- A cast to `Int` of a value that is not small would depend on the width
-    -- of `Int`.
+    -- of `Int`, and so would some shifts.
     smallCast : PrimFn ar -> Vect ar (CExp vars') -> Bool
     smallCast (Cast _ IntType) [CPrimVal _ c] = case c of
       BI x => smallInt x
@@ -161,6 +161,10 @@ constFold rho (COp {arity} fc fn xs) =
       B64 x => smallInt (cast x)
       _ => False
     smallCast (Cast _ IntType) _ = False
+    -- A shift of `Int` by its width or more depends on the back end (it is
+    -- undefined in C), even when the result is small.
+    smallCast (ShiftL IntType) [_, CPrimVal _ (I n)] = n >= 0 && n < 32
+    smallCast (ShiftR IntType) [_, CPrimVal _ (I n)] = n >= 0 && n < 32
     smallCast _ _ = True
 
     fromNF : NF vars' -> Maybe (CExp vars')
