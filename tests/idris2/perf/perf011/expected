@@ -20,6 +20,7 @@ C:5:7--5:14
  4 |
  5 | foo : BFunc x
            ^^^^^^^
+Suggestion: A exports BFromInteger; add import A.
 Did you mean: fromInteger?
 Error: While processing type of foo1. Can't find an implementation for BFromInteger ?x.
 
@@ -40,6 +41,7 @@ C:6:8--6:15
  5 | foo : BFunc x
  6 | foo1 : BFunc x
             ^^^^^^^
+Suggestion: A exports BFromInteger; add import A.
 Did you mean: fromInteger?
 Error: While processing type of foo2. Can't find an implementation for BFromInteger ?x.
 
@@ -60,6 +62,7 @@ C:7:8--7:15
  6 | foo1 : BFunc x
  7 | foo2 : BFunc x
             ^^^^^^^
+Suggestion: A exports BFromInteger; add import A.
 Did you mean: fromInteger?
 Error: While processing type of foo3. Can't find an implementation for BFromInteger ?x.
 
@@ -80,4 +83,5 @@ C:8:8--8:15
  7 | foo2 : BFunc x
  8 | foo3 : BFunc x
             ^^^^^^^
+Suggestion: A exports BFromInteger; add import A.
 Did you mean: fromInteger?

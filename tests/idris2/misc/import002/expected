@@ -10,6 +10,7 @@ Test:5:9--5:12
  4 |
  5 | thing : Nat -> Nat
              ^^^
+Suggestion: Nat is exported by Nat, Prelude.Types; import one of them.
 
 Error: While processing right hand side of thing. Undefined name plus. 
 
@@ -20,4 +21,5 @@ Test:6:19--6:23
  5 | thing : Nat -> Nat
  6 | thing x = mult x (plus x x)
                        ^^^^
+Suggestion: plus is exported by Nat, Prelude.Types; import one of them.
 

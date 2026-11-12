@@ -3,6 +3,7 @@ Main> Error: Undefined name fromMaybe.
 (Interactive):1:1--1:10
  1 | fromMaybe "test" Nothing
      ^^^^^^^^^
+Suggestion: Data.Maybe exports fromMaybe; add import Data.Maybe.
 
 Main> Imported module Data.Maybe
 Main> "test"

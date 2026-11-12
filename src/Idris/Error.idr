@@ -340,9 +340,22 @@ importCandidates n
          bdir <- ttcBuildDirectory
          dirs <- extraSearchDirectories
          found <- traverse (inDir root) (nub (bdir :: dirs))
+         -- an imported module that exports the name does not help: the name
+         -- is hidden, or qualified with another namespace
+         defs <- get Ctxt
+         let imported = map (show . fst . snd) (allImported defs)
+         let found = filter (\ (m, _) => not (m `elem` imported)) (concat found)
+         -- a qualified name only matches definitions in that namespace
+         let found = filter (\ (_, ns) => not (isNil ns)) $
+                       map (\ (m, ns) => (m, filter (qualifiedLike n) ns)) found
          -- directories are listed in no particular order
-         pure (sortBy (compare `on` fst) (concat found))
+         pure (sortBy (compare `on` fst) found)
   where
+    qualifiedLike : Name -> Name -> Bool
+    qualifiedLike (NS q _) (NS ns _) = q `isApproximationOf` ns
+    qualifiedLike (NS q _) _ = False
+    qualifiedLike _ _ = True
+
     ttcFiles : {root : _} -> Tree root -> IO (List String)
     ttcFiles tree
         = depthFirst (\f, rest => if isSuffixOf ".ttc" (fileName f)

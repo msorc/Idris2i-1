@@ -12,4 +12,5 @@ C:14:5--14:12
           ^^^^^^^
 
 Possible cause: Undefined name A.AFoo. 
+Suggestion: A exports AFoo; add import A.
 
