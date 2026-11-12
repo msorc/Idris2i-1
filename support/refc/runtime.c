@@ -186,11 +186,17 @@ Idris2_Value *idris2_trampolineSlow(Idris2_Value *it) {
       it = idris2_call_shared_closure(clos, 0, NULL, NULL);
       continue;
     }
+    // The call consumes the arguments: when another reference to the closure
+    // remains, it keeps its own (as in idris2_call_closure).
+    int unique = idris2_isUnique(clos);
+    if (!unique)
+      for (int i = 0; i < clos->filled; ++i)
+        idris2_newReference(clos->args[i]);
     it = idris2_dispatch(clos->f, clos->arity, clos->args);
-    if (idris2_isUnique(clos))
+    if (unique)
       idris2_freeValue((Idris2_Value *)clos);
     else
-      idris2_dropSharedReference((Idris2_Value *)clos);
+      idris2_removeReference((Idris2_Value *)clos);
   }
   return it;
 }
