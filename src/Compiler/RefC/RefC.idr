@@ -1458,7 +1458,7 @@ header = do
   where
     go : ConstDef -> String -> String -> String -> String
     go cdef ty tag v =
-      "static Idris2_\{ty} const \{constantName cdef}"
+      "IDRIS2_UNUSED static Idris2_\{ty} const \{constantName cdef}"
         ++ " = { IDRIS2_STOCKVAL(\{tag}_TAG), \{v} };"
     genConstant : Constant -> ConstDef -> String
     genConstant c cdef = case c of
@@ -1467,7 +1467,7 @@ header = do
       B64 x => go cdef "Bits64" "BITS64" "UINT64_C(\{show x})"
       Db x  => go cdef "Double" "DOUBLE" (cDouble x)
       Str x => "IDRIS2_STRING_CONSTANT(\{constantName cdef}, \{cStringQuoted x});"
-      BI _  => "static Idris2_Value *\{constantName cdef} = NULL;"
+      BI _  => "IDRIS2_UNUSED static Idris2_Value *\{constantName cdef} = NULL;"
       _ => "/* bad constant */"
 
 

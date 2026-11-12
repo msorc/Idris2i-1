@@ -224,10 +224,14 @@ typedef struct {
   char str[16];
 } Idris2_ShortString;
 
+// The constants of a program are defined in a header that goes into every
+// part of a split C file, most of which do not use most of them.
+#define IDRIS2_UNUSED __attribute__((unused))
+
 // A string constant `name` of the generated code, for the C string literal
 // `lit` (which may contain NUL characters).
 #define IDRIS2_STRING_CONSTANT(name, lit)                                      \
-  static const struct {                                                        \
+  IDRIS2_UNUSED static const struct {                                          \
     Idris2_header header;                                                      \
     size_t len;                                                                \
     char str[sizeof(lit)];                                                     \
