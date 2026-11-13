@@ -1,0 +1,3 @@
+[3]
+[3]
+RefC leak check: 0 leaked values, 3 constants and 0 values that they hold; 0 large values (from malloc, not looked at)

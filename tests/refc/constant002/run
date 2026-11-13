@@ -1,0 +1,6 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+$VALGRIND ./build/exec/main
+# (not under Valgrind: the leak check looks at the pages)
+IDRIS2_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null

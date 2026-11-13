@@ -528,10 +528,10 @@ Idris2_Value *idris2_makeConstant(Idris2_Constant *c,
   }
   if (expected == 1 && __atomic_load_n(&c->maker, __ATOMIC_RELAXED) == me) {
     // The constant needs itself: evaluate it again, as when constants were
-    // not kept.
-    Idris2_Value *v = idris2_makeImmortal(idris2_trampoline(make()));
-    publish_constant(v);
-    return v;
+    // not kept.  This value is an ordinary one, owned by the caller (as any
+    // result), which releases it once it is done with it: only the value of
+    // the outer evaluation is kept.
+    return idris2_trampoline(make());
   }
   // Another thread evaluates it.
   while (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) != 2) {

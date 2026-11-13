@@ -104,6 +104,8 @@ static inline int64_t idris2_extractUInt64(Idris2_Value *v) {
 // is needed (see createCFunctions in RefC.idr), and its value is kept for
 // good: it is immortal, and shared (see memoryManagement.h) once several
 // workers run.  Threads that need it while another one evaluates it wait.
+// A constant that needs itself while it is evaluated is evaluated again
+// (and that value is not kept).
 // ---------------------------------------------------------------------------
 
 typedef struct {
