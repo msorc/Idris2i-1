@@ -837,146 +837,206 @@ Idris2_Array *idris2_makeArray(int length) {
   return a;
 }
 
+// The release of values (see idris2_releaseValue) takes no stack, whatever
+// their shape.  The last field of a constructor or a closure (the tail of a
+// list) is released by looping.  A value released from another field (the
+// spine of a SnocList is its first field, the left branch of a tree
+// another one) is released by releaseDeep, which keeps the values that it
+// has still to release on a stack of its own (in its frame, then on the
+// heap when it is full) rather than calling itself: the C stack never holds
+// more than these two frames.  (Only the finaliser of a GC pointer, which
+// runs Idris code, may release values from frames of its own.)
+typedef struct {
+  Idris2_Value **items;
+  size_t n, capacity;
+  Idris2_Value **small;
+} ReleaseStack;
+
+#if defined(__GNUC__)
+__attribute__((noinline, cold))
+#endif
+static void releasePushSlow(ReleaseStack *st, Idris2_Value *v) {
+  size_t capacity = 2 * st->capacity;
+  Idris2_Value **bigger = malloc(capacity * sizeof(Idris2_Value *));
+  IDRIS2_REFC_VERIFY(bigger, "malloc failed");
+  memcpy(bigger, st->items, st->n * sizeof(Idris2_Value *));
+  if (st->items != st->small)
+    free(st->items);
+  st->items = bigger;
+  st->capacity = capacity;
+  st->items[st->n++] = v;
+}
+
+// Drop a reference that a value being released holds: 1 when it was the
+// last one, and the value has to be released too.
+IDRIS2_INLINE int dropField(Idris2_Value *v) {
+  if (!v || idris2_vp_is_unboxed(v)) {
+    IDRIS2_STAT(drop[IDRIS2_RC_IMMEDIATE]);
+    return 0;
+  }
+  if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(v)), 1)) {
+    IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
+    uint16_t count = idris2_wordRefCounter(idris2_headerWord(v));
+    if (count != 1) {
+      v->header.refCounter = count - 1;
+      return 0;
+    }
+    return 1;
+  }
+  if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX) {
+    IDRIS2_STAT(drop[IDRIS2_RC_IMMORTAL]);
+    return 0;
+  }
+  if (idris2_isShared(v)) {
+    IDRIS2_STAT(drop[IDRIS2_RC_SHARED]);
+    return sharedDropReference(v);
+  }
+  // overflowed (see IDRIS2_VP_REFCOUNTER_OVERFLOW): not the last reference
+  IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
+  plainOverflowDrop(v);
+  return 0;
+}
+
+#if defined(__GNUC__)
+__attribute__((noinline))
+#endif
+static void releaseDeep(Idris2_Value *elem);
+
+// Release the fields of `elem` and free it.  Gives back its last field when
+// that was its last reference (to be released next), NULL otherwise.  The
+// other fields that have to be released go on the stack `st`, or to
+// releaseDeep when there is none.
+IDRIS2_INLINE Idris2_Value *releaseOne(Idris2_Value *elem, ReleaseStack *st) {
+#define RELEASE_FIELD(x)                                                       \
+  do {                                                                         \
+    Idris2_Value *x_ = (x);                                                    \
+    if (dropField(x_)) {                                                       \
+      if (!st)                                                                 \
+        releaseDeep(x_);                                                       \
+      else if (__builtin_expect(st->n == st->capacity, 0))                     \
+        releasePushSlow(st, x_);                                               \
+      else                                                                     \
+        st->items[st->n++] = x_;                                               \
+    }                                                                          \
+  } while (0)
+  Idris2_Value *last = NULL;
+  switch (elem->header.tag) {
+  case INTEGER_TAG:
+    mpz_clear(((Idris2_Integer *)elem)->i);
+    break;
+
+  case CLOSURE_TAG: {
+    Idris2_Closure *cl = (Idris2_Closure *)elem;
+    if (cl->filled > 0) {
+      for (int i = 0; i < cl->filled - 1; ++i)
+        RELEASE_FIELD(cl->args[i]);
+      last = cl->args[cl->filled - 1];
+    }
+    break;
+  }
+
+  case CONSTRUCTOR_TAG: {
+    Idris2_Constructor *constr = (Idris2_Constructor *)elem;
+    if (constr->total > 0) {
+      for (int i = 0; i < constr->total - 1; i++)
+        RELEASE_FIELD(constr->args[i]);
+      last = constr->args[constr->total - 1];
+    }
+    break;
+  }
+  case IOREF_TAG:
+    last = ((Idris2_IORef *)elem)->v;
+    break;
+
+  case BUFFER_TAG: {
+    Idris2_Buffer *b = (Idris2_Buffer *)elem;
+    free(b->buffer);
+    break;
+  }
+
+  case ARRAY_TAG: {
+    Idris2_Array *a = (Idris2_Array *)elem;
+    for (int i = 0; i < a->capacity; i++)
+      RELEASE_FIELD(a->arr[i]);
+    free(a->arr);
+    break;
+  }
+
+  case GC_POINTER_TAG: {
+    /* Run the finaliser.  Applying a closure consumes both the closure and
+       its argument, so the references held by the GC pointer are handed
+       over to the finaliser. */
+    Idris2_GCPointer *vPtr = (Idris2_GCPointer *)elem;
+    /* The finaliser may run while the caller has a pending tail call (see
+       runtime.h): keep it. */
+    Idris2_PendingTailCall pending = idris2_pendingTailCall;
+    Idris2_Value *closure1 = idris2_apply_closure(
+        (Idris2_Value *)vPtr->onCollectFct, (Idris2_Value *)vPtr->p);
+    idris2_removeReference(idris2_apply_closure(closure1, NULL));
+    idris2_pendingTailCall = pending;
+    break;
+  }
+
+  case CHANNEL_TAG: {
+    /* Nobody can be waiting on a channel that is being freed: a waiting
+       thread holds a reference to it. */
+    Idris2_Channel *channel = (Idris2_Channel *)elem;
+    if (channel->full)
+      last = channel->value;
+    break;
+  }
+
+  // Nothing to release: BITS32_TAG, BITS64_TAG, INT32_TAG, INT64_TAG,
+  // DOUBLE_TAG, STRING_TAG (the bytes are part of the value), POINTER_TAG,
+  // THREAD_ID_TAG (the thread clears the handle when it finishes, and it
+  // holds a reference to the handle until then).
+  default:
+    break;
+  }
+#undef RELEASE_FIELD
+  idris2_freeValue(elem);
+  return last && dropField(last) ? last : NULL;
+}
+
+// (The stack never overflows its array, which a stack protector would check
+// at every call.)
+#if defined(__has_attribute)
+#if __has_attribute(no_stack_protector)
+__attribute__((no_stack_protector))
+#endif
+#endif
+static void releaseDeep(Idris2_Value *elem) {
+  Idris2_Value *small[16];
+  ReleaseStack st = {small, 0, 16, small};
+  for (;;) {
+    elem = releaseOne(elem, &st);
+    if (!elem) {
+      if (st.n == 0)
+        break;
+      elem = st.items[--st.n];
+    }
+  }
+  if (st.items != small)
+    free(st.items);
+}
+
 // The last reference to `elem` is gone: release what it refers to, and free
 // it.  The common cases of idris2_removeReference are inlined (see
 // memoryManagement.h).
-#ifdef IDRIS2_REFC_STATS
-// The nesting of the releases is counted around the function.
-static void releaseValue(Idris2_Value *elem);
-
 void idris2_releaseValue(Idris2_Value *elem) {
-  Idris2_Stats *st = &idris2_worker()->stats;
-  if (++st->releaseDepth > st->maxReleaseDepth)
-    st->maxReleaseDepth = st->releaseDepth;
-  releaseValue(elem);
+#ifdef IDRIS2_REFC_STATS
+  // (the nesting of the releases: the finalisers of GC pointers)
+  Idris2_Stats *stats = &idris2_worker()->stats;
+  if (++stats->releaseDepth > stats->maxReleaseDepth)
+    stats->maxReleaseDepth = stats->releaseDepth;
+#endif
+  do
+    elem = releaseOne(elem, NULL);
+  while (elem);
+#ifdef IDRIS2_REFC_STATS
   // (the finaliser of a GC pointer may have switched workers)
   --idris2_worker()->stats.releaseDepth;
-}
-
-static void releaseValue(Idris2_Value *elem) {
-#else
-void idris2_releaseValue(Idris2_Value *elem) {
 #endif
-  // The last field of a constructor or a closure is released by looping
-  // rather than by a recursive call: freeing a long list (the tail is the
-  // last field) does not need a deep stack.
-  for (;;) {
-    Idris2_Value *last = NULL;
-    switch (elem->header.tag) {
-    case BITS32_TAG:
-    case BITS64_TAG:
-    case INT32_TAG:
-    case INT64_TAG:
-      /* nothing to delete, added for sake of completeness */
-      break;
-    case INTEGER_TAG:
-      mpz_clear(((Idris2_Integer *)elem)->i);
-      break;
-
-    case DOUBLE_TAG:
-      /* nothing to delete, added for sake of completeness */
-      break;
-
-    case STRING_TAG:
-      /* the bytes are part of the value */
-      break;
-
-    case CLOSURE_TAG: {
-      Idris2_Closure *cl = (Idris2_Closure *)elem;
-      if (cl->filled > 0) {
-        for (int i = 0; i < cl->filled - 1; ++i)
-          idris2_removeReference(cl->args[i]);
-        last = cl->args[cl->filled - 1];
-      }
-      break;
-    }
-
-    case CONSTRUCTOR_TAG: {
-      Idris2_Constructor *constr = (Idris2_Constructor *)elem;
-      if (constr->total > 0) {
-        for (int i = 0; i < constr->total - 1; i++)
-          idris2_removeReference(constr->args[i]);
-        last = constr->args[constr->total - 1];
-      }
-      break;
-    }
-    case IOREF_TAG:
-      idris2_removeReference(((Idris2_IORef *)elem)->v);
-      break;
-
-    case BUFFER_TAG: {
-      Idris2_Buffer *b = (Idris2_Buffer *)elem;
-      free(b->buffer);
-      break;
-    }
-
-    case ARRAY_TAG: {
-      Idris2_Array *a = (Idris2_Array *)elem;
-      for (int i = 0; i < a->capacity; i++) {
-        idris2_removeReference(a->arr[i]);
-      }
-      free(a->arr);
-      break;
-    }
-    case POINTER_TAG:
-      /* nothing to delete, added for sake of completeness */
-      break;
-
-    case GC_POINTER_TAG: {
-      /* Run the finaliser.  Applying a closure consumes both the closure and
-         its argument, so the references held by the GC pointer are handed
-         over to the finaliser. */
-      Idris2_GCPointer *vPtr = (Idris2_GCPointer *)elem;
-      /* The finaliser may run while the caller has a pending tail call (see
-         runtime.h): keep it. */
-      Idris2_PendingTailCall pending = idris2_pendingTailCall;
-      Idris2_Value *closure1 = idris2_apply_closure(
-          (Idris2_Value *)vPtr->onCollectFct, (Idris2_Value *)vPtr->p);
-      idris2_removeReference(idris2_apply_closure(closure1, NULL));
-      idris2_pendingTailCall = pending;
-      break;
-    }
-
-    case CHANNEL_TAG: {
-      /* Nobody can be waiting on a channel that is being freed: a waiting
-         thread holds a reference to it. */
-      Idris2_Channel *channel = (Idris2_Channel *)elem;
-      if (channel->full)
-        idris2_removeReference(channel->value);
-      break;
-    }
-
-    case THREAD_ID_TAG:
-      /* The thread clears the handle when it finishes, and it holds a
-         reference to the handle until then. */
-      break;
-
-    default:
-      break;
-    }
-    // finally, free element
-    idris2_freeValue(elem);
-
-    // Release the last field, here when it was its last reference.
-    if (!last || idris2_vp_is_unboxed(last))
-      return;
-    if (idris2_isShared(last)) {
-      if (!sharedDropReference(last))
-        return;
-    } else {
-      uint16_t count = last->header.refCounter;
-      if (count >= IDRIS2_VP_REFCOUNTER_OVERFLOW) {
-        // immortal, or overflowed (and so not the last reference)
-        idris2_removeReferenceSlow(last);
-        return;
-      }
-      if (count != 1) {
-        last->header.refCounter = count - 1;
-        return;
-      }
-    }
-    elem = last;
-  }
 }
 
 // /////////////////////////////////////////////////////////////////////////
