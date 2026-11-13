@@ -2,6 +2,7 @@ module Compiler.RefC.RefC
 
 import Compiler.RefC.Borrow
 import Compiler.RefC.CC
+import Compiler.RefC.LocalClosures
 import Compiler.RefC.Unbox
 
 import Compiler.Common
@@ -1846,8 +1847,15 @@ generateCSourceFileParts : {auto c : Ref Ctxt Defs}
                         -> List (Name, ANFDef)
                         -> (outn : String)
                         -> Core Nat -- the number of chunks, 0 when not split
-generateCSourceFileParts defs outn =
-  do _ <- newRef ArgCounter 0
+generateCSourceFileParts defs0 outn =
+  do -- The closures that are only applied once are made there (see
+     -- Compiler.RefC.LocalClosures), unless
+     -- `--directive refc-no-local-closures`.
+     local <- pure $ not ("refc-no-local-closures" `elem` !(getDirectives RefC))
+     let defs : List (Name, ANFDef)
+              = if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
+                         else defs0
+     _ <- newRef ArgCounter 0
      _ <- newRef Foreigns $ fromList $ mapMaybe
             (\case (n, MkAForeign _ fargs _) => Just (cName n, length fargs)
                    _ => Nothing) defs
@@ -1868,7 +1876,7 @@ generateCSourceFileParts defs outn =
                then fromList $ mapMaybe (\(cn, _, d) =>
                       case d of
                         MkAFun args anf =>
-                          if returnsValue (\m, k => lookup (cName m) foreigns == Just k) cn args anf
+                          if returnsValue (\m, k => SortedMap.lookup (cName m) foreigns == Just k) cn args anf
                              then Just (cn, length args) else Nothing
                         _ => Nothing) named
                else empty
@@ -1876,8 +1884,8 @@ generateCSourceFileParts defs outn =
      _ <- newRef BorrowSigs $
             if borrowing
                then inferBorrowing cName
-                      (\f, k => lookup f foreigns == Just k)
-                      (\f => fromMaybe empty (lookup f unboxed))
+                      (\f, k => SortedMap.lookup f foreigns == Just k)
+                      (\f => fromMaybe empty (SortedMap.lookup f unboxed))
                       MaxExtractFunArgs
                       (map (\(cn, _, d) => (cn, d)) named)
                else empty
