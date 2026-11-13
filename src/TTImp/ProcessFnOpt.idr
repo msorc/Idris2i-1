@@ -30,6 +30,14 @@ throwIfHasFlag fc ndef fl msg = throwIf fc !(hasFlag fc ndef fl) msg
 throwIfHasTotality : {auto c : Ref Ctxt Defs} -> FC -> Name -> String -> Core ()
 throwIfHasTotality fc ndef msg = throwIf fc !(hasSetTotal fc ndef) msg
 
+||| The positions of the arguments of a function to specialise it by (see
+||| `%spec`), given the names of the arguments that are to be static: those
+||| arguments, and the arguments they depend on that no dynamic argument
+||| depends on (or that are parameters of the types of the static ones).
+export
+specPositions : {auto c : Ref Ctxt Defs} ->
+                FC -> GlobalDef -> List Name -> Core NatSet
+
 export
 processFnOpt : {auto c : Ref Ctxt Defs} ->
                FC -> Bool -> -- ^ top level name?
@@ -78,11 +86,15 @@ processFnOpt fc _ ndef (SpecArgs ns)
     = do defs <- get Ctxt
          Just gdef <- lookupCtxtExact ndef (gamma defs)
               | Nothing => undefinedName fc ndef
+         specs <- specPositions fc gdef ns
+         ignore $ addDef ndef ({ specArgs := specs } gdef)
+
+specPositions fc gdef ns
+    = do defs <- get Ctxt
          nty <- nf defs Env.empty (type gdef)
          ps <- getNamePos 0 nty
          ddeps <- collectDDeps nty
-         specs <- collectSpec NatSet.empty ddeps ps nty
-         ignore $ addDef ndef ({ specArgs := specs } gdef)
+         collectSpec NatSet.empty ddeps ps nty
   where
     insertDeps : NatSet -> List (Name, Nat) -> List Name -> NatSet
     insertDeps acc ps [] = acc

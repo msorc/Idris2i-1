@@ -1108,6 +1108,7 @@ partitionOpts opts = foldr pOptUpdate (MkPFR [] [] False) opts
     optType (OutputDir f)          = POpt
     optType WarningsAsErrors       = POpt
     optType WarnWhereRecompute     = POpt
+    optType SpecInterfaces         = POpt
     optType HashesInsteadOfModTime = POpt
     optType Profile                = POpt
     optType (BuildJobs n)          = POpt
@@ -1146,6 +1147,7 @@ errorMsg = unlines
   , "    --jobs <jobs>"
   , "    -Werror"
   , "    -Wwhere-recompute"
+  , "    --spec-interfaces"
   ]
 
 parameters

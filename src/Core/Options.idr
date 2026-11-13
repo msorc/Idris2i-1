@@ -243,6 +243,10 @@ record Session where
      -- incremental CGs are set (intended for overriding any environment
      -- variables that set incremental compilation)
   caseTreeHeuristics : Bool -- apply heuristics to pick matches for case tree building
+  specInterfaces : Bool
+     -- specialise the calls of functions with known implementations of their
+     -- interface constraints, as if they were declared %spec on them
+     -- (see TTImp.PartialEval)
 
 public export
 record PPrinter where
@@ -310,7 +314,7 @@ defaultSession : Session
 defaultSession = MkSessionOpts False CoveringOnly False False RefC [] 1000 False False
                                defaultLogLevel Nothing False Nothing Nothing
                                Nothing Nothing False 1 False False True
-                               HumanErrors False False [] False False
+                               HumanErrors False False [] False False False
 
 export
 defaultElab : ElabDirectives

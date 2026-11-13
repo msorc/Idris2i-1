@@ -565,6 +565,9 @@ preOptions (Total :: opts)
 preOptions (NoCSE :: opts)
     = do updateSession ({ noCSE := True })
          preOptions opts
+preOptions (SpecInterfaces :: opts)
+    = do updateSession ({ specInterfaces := True })
+         preOptions opts
 preOptions (_ :: opts) = preOptions opts
 
 -- Options to be processed after type checking. Returns whether execution

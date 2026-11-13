@@ -183,7 +183,9 @@ data CLOpt
    ||| Turn on %default total globally
   Total |
    ||| Disable common subexpression elimination
-  NoCSE
+  NoCSE |
+   ||| Specialise functions by the implementations of their interfaces
+  SpecInterfaces
 
 ||| Extract the host and port to bind the IDE socket to
 export
@@ -271,6 +273,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               (Just "Generate profile data when compiling, if supported"),
            MkOpt ["--no-cse"] [] [NoCSE]
               (Just "Disable common subexpression elimination"),
+           MkOpt ["--spec-interfaces"] [] [SpecInterfaces]
+              (Just "Specialise the calls of small or recursive functions by the known implementations of their interfaces (experimental)"),
 
            optSeparator,
            MkOpt ["--total"] [] [Total]

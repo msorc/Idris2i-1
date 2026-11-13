@@ -1058,6 +1058,12 @@ record Defs where
   peFailures : NameMap ()
      -- ^ Partial evaluation names which have failed, so don't bother trying
      -- again
+  autoSpecs : NameMap NatSet
+     -- ^ The arguments that functions are specialised by when their
+     -- interfaces are known (empty: not specialised), see
+     -- TTImp.PartialEval; computed once per function and module
+  autoSpecCount : Nat
+     -- ^ How many functions were specialised that way in this module
   timings : StringMap (Bool, Integer)
      -- ^ record of timings from logTimeRecord
   timer : Maybe (Integer, String)
@@ -1114,6 +1120,8 @@ initDefs
            , toIR = empty
            , userHoles = empty
            , peFailures = empty
+           , autoSpecs = empty
+           , autoSpecCount = 0
            , timings = empty
            , timer = Nothing
            , warnings = []

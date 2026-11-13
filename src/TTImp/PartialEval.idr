@@ -10,6 +10,7 @@ import Idris.REPL.Opts
 import Idris.Syntax
 
 import TTImp.Elab.Check
+import TTImp.ProcessFnOpt
 import TTImp.TTImp
 import TTImp.TTImp.Functor
 import TTImp.TTImp.Traversals
@@ -17,6 +18,7 @@ import TTImp.Unelab
 
 import Protocol.Hex
 
+import Libraries.Data.ANameMap
 import Libraries.Data.NameMap
 import Libraries.Data.NatSet
 import Libraries.Data.WithDefault
@@ -219,6 +221,98 @@ getSpecPats fc pename fn stk fnty args sargs pats
         = do lhsapp <- unelabNoSugar env lhs
              pure $ dropArgs pename (map rawName lhsapp)
 
+-- Specialising by the implementations of interfaces (--spec-interfaces)
+--
+-- With the option, a function that takes implementations of interfaces
+-- (`Ord a => ...`) is specialised by them where they are known, as if it was
+-- declared `%spec` on them: the methods of a known implementation are known
+-- functions, so the copy calls them directly (or inlines them) instead of
+-- applying the closures of a dictionary.  This is for functions that are
+-- small, or recursive (where the methods are called again and again) and not
+-- too big, and for at most `autoSpecLimit` functions per module, so that the
+-- code does not grow too much.  Specialising one function makes the calls
+-- that its copy makes with known implementations specialised in turn (see
+-- quoteGenNF).
+
+-- The size of a term: roughly its number of nodes.
+termSize : Term vs -> Nat
+termSize (Bind _ _ b sc) = 1 + termSize (binderType b) + termSize sc
+termSize (App _ f a) = 1 + termSize f + termSize a
+termSize (Meta _ _ _ as) = 1 + foldl (\n, t => n + termSize t) 0 as
+termSize (As _ _ _ p) = termSize p
+termSize (TDelayed _ _ t) = 1 + termSize t
+termSize (TDelay _ _ _ t) = 1 + termSize t
+termSize (TForce _ _ t) = 1 + termSize t
+termSize _ = 1
+
+-- Specialised by its interfaces when it is at most this big...
+autoSpecSmall : Nat
+autoSpecSmall = 150
+
+-- ... or recursive, and at most this big.
+autoSpecRecursive : Nat
+autoSpecRecursive = 1500
+
+-- The number of functions that a module specialises that way.
+autoSpecLimit : Nat
+autoSpecLimit = 400
+
+-- The names of the arguments of a type that are implementations of
+-- interfaces (an `auto` argument, or another one for the case blocks and
+-- local definitions that take the implementations of their parent).
+interfaceArgs : {auto c : Ref Ctxt Defs} ->
+                {auto s : Ref Syn SyntaxInfo} ->
+                Term vs -> Core (List Name)
+interfaceArgs (Bind _ x (Pi _ rig _ ty) sc)
+    = do rest <- interfaceArgs sc
+         case getFn ty of
+              Ref _ (TyCon _) n =>
+                if isErased rig then pure rest else do
+                  n' <- toFullNames n
+                  syn <- get Syn
+                  pure $ if isJust (lookupExact n' (ifaces syn))
+                            then x :: rest else rest
+              _ => pure rest
+interfaceArgs _ = pure []
+
+-- The arguments that the function is specialised by when its interfaces
+-- are known (empty when it is not).
+autoSpecArgs : {auto c : Ref Ctxt Defs} ->
+               {auto s : Ref Syn SyntaxInfo} ->
+               FC -> Name -> GlobalDef -> Core NatSet
+autoSpecArgs fc fn gdef
+    = do let PMDef _ _ _ _ pats = definition gdef
+             | _ => pure NatSet.empty
+         defs <- get Ctxt
+         fnfull <- toFullNames fn
+         case lookup fnfull (autoSpecs defs) of
+              Just specs => pure specs
+              Nothing =>
+                do ns <- interfaceArgs (type gdef)
+                   let size = foldl (\n, (_ ** (_, _, rhs)) => n + termSize rhs) 0 pats
+                   refs <- traverse toFullNames (keys (refersTo gdef))
+                   let recursive = fnfull `elem` refs
+                   specs <- if null ns
+                               || not (size <= autoSpecSmall
+                                       || (recursive && size <= autoSpecRecursive))
+                               then pure NatSet.empty
+                               else specPositions fc gdef ns
+                   log "specialise.auto" 10 $
+                     "\{show fnfull}: interface arguments \{show ns}, size \{show size}"
+                     ++ (if recursive then ", recursive" else "")
+                     ++ ", specialised by \{show specs}"
+                   update Ctxt { autoSpecs $= insert fnfull specs }
+                   pure specs
+
+-- The names that a definition refers to, in full.
+fullRefs : {auto c : Ref Ctxt Defs} -> GlobalDef -> Core (List Name)
+fullRefs d = traverse toFullNames (keys (refersTo d))
+
+-- In the reduction limits of a copy made by --spec-interfaces: the limits
+-- are applied (see applySpecialise).
+autoLimits : (Name, Nat)
+autoLimits = (NS partialEvalNS (UN $ Basic "autoSpecLimits"), 0)
+
 -- Get the reducible names in a function to be partially evaluated. In practice,
 -- that's all the functions it refers to
 -- TODO: May want to take care with 'partial' names?
@@ -242,10 +336,10 @@ mkSpecDef : {auto c : Ref Ctxt Defs} ->
             {auto u : Ref UST UState} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto o : Ref ROpts REPLOpts} ->
-            FC -> GlobalDef ->
+            FC -> GlobalDef -> (isAuto : Bool) ->
             Name -> List (Nat, ArgMode) -> Name -> List (FC, Term vars) ->
             Core (Term vars)
-mkSpecDef {vars} fc gdef pename sargs fn stk
+mkSpecDef {vars} fc gdef isAuto pename sargs fn stk
     = handleUnify {unResolve = True}
        (do defs <- get Ctxt
            setAllPublic True
@@ -275,7 +369,16 @@ mkSpecDef {vars} fc gdef pename sargs fn stk
            -- Add as RigW - if it's something else, we don't need it at
            -- runtime anyway so this is wasted effort, therefore a failure
            -- is okay!
-           let defflags := propagateFlags (flags gdef)
+           -- (a copy made by --spec-interfaces is code of the program that
+           -- was checked already: it is not checked again, against the
+           -- default totality of the module where it is made, which may ask
+           -- more of it than its function did; its callers still see how
+           -- total it is)
+           let flags0 : List DefFlag = propagateFlags (flags gdef)
+           let defflags : List DefFlag
+                 = if isAuto
+                      then SetTotal PartialOK :: filter (not . isSetTotal) flags0
+                      else flags0
            log "specialise.flags" 20 "Defining \{show pename} with flags: \{show defflags}"
            peidx <- addDef pename
                   $ the (GlobalDef -> GlobalDef) { flags := defflags }
@@ -291,7 +394,9 @@ mkSpecDef {vars} fc gdef pename sargs fn stk
 
            defs <- get Ctxt
            reds <- getReducible [fn] empty defs
-           setFlag fc (Resolved peidx) (PartialEval (specLimits ++ toList reds))
+           reds <- if isAuto then (autoLimits ::) <$> autoReducible staticargs (keys specnames) (toList reds)
+                             else pure (toList reds)
+           setFlag fc (Resolved peidx) (PartialEval (specLimits ++ reds))
 
            let PMDef pminfo pmargs ct tr pats = definition gdef
                | _ => pure (applyStackWithFC (Ref fc Func fn) stk)
@@ -307,6 +412,15 @@ mkSpecDef {vars} fc gdef pename sargs fn stk
                     showSep "\n" (map showPat newpats)
            processDecl [InPartialEval] (MkNested []) Env.empty
                        (IDef fc (Resolved peidx) newpats)
+           -- A copy made by --spec-interfaces of a function that does not
+           -- call itself must not call itself either: that happens when the
+           -- function could not be reduced, and the call left was
+           -- specialised again, to the copy.  The copy is not used then.
+           when isAuto $
+             do bad <- callsItself (Resolved peidx)
+                when bad $
+                  do setAllPublic False
+                     throw (GenericMsg fc "\{show pename} calls itself")
            setAllPublic False
            pure peapp)
            -- If the partially evaluated definition fails, just use the initial
@@ -320,6 +434,82 @@ mkSpecDef {vars} fc gdef pename sargs fn stk
               update Ctxt { peFailures $= insert pename () }
               pure (applyStackWithFC (Ref fc Func fn) stk))
   where
+    -- A specialisation made because of --spec-interfaces only reduces the
+    -- implementations that it is given (see specLimits) and the methods of
+    -- interfaces, small functions that take an implementation (projections
+    -- of a known implementation give its functions), once.  The function
+    -- itself is reduced once when its clauses do not take the
+    -- implementations as variables (see getSpecPats), not at all otherwise.
+    -- (Reducing everything that the function refers to, as a `%spec` does,
+    -- unfolds infinite structures like the streams of `iterate`.)  The
+    -- list is never empty: an empty list would reduce everything.
+    autoReducible : List (Nat, ClosedTerm) -> List Name -> List (Name, Nat) ->
+                    Core (List (Name, Nat))
+    autoReducible staticargs staticrefs reds
+        = do defs <- get Ctxt
+             let byVar = case definition gdef of
+                              PMDef _ _ _ _ pats => isJust (specByVar staticargs pats)
+                              _ => False
+             glue <- allGlue defs
+             pure ((fn, if byVar then 0 else 1) :: map (\n => (n, 1)) glue)
+      where
+        -- An implementation of an interface: its type is an interface.
+        isImplementation : Defs -> Term vs -> Core Bool
+        isImplementation defs (Bind _ _ (Pi {}) sc) = isImplementation defs sc
+        isImplementation defs ty
+            = case getFn ty of
+                   Ref _ (TyCon _) n =>
+                     do n' <- toFullNames n
+                        syn <- get Syn
+                        pure (isJust (lookupExact n' (ifaces syn)))
+                   _ => pure False
+
+        -- A method of an interface (a small function that takes an
+        -- implementation), or an implementation.
+        isGlue : Defs -> Name -> Core Bool
+        isGlue defs n
+            = do Just d <- lookupCtxtExact n (gamma defs)
+                   | Nothing => pure False
+                 let PMDef _ _ _ _ pats = definition d
+                   | _ => pure False
+                 if !(isImplementation defs (type d)) then pure True else do
+                   let size = foldl (\k, (_ ** (_, _, rhs)) => k + termSize rhs) 0 pats
+                   if size > 10 then pure False
+                      else pure (not (null !(interfaceArgs (type d))))
+
+        -- The glue that the function and the implementations it is given
+        -- refer to, transitively through implementations (an
+        -- implementation refers to the implementations of its parents).
+        allGlue : Defs -> Core (List Name)
+        allGlue defs
+            = go [] (map fst reds ++ staticrefs)
+          where
+            go : List Name -> List Name -> Core (List Name)
+            go acc [] = pure acc
+            go acc (n :: ns)
+                = if n `elem` acc then go acc ns else
+                    if not !(isGlue defs n) then go acc ns else do
+                      Just d <- lookupCtxtExact n (gamma defs)
+                        | Nothing => go acc ns
+                      let more = if !(isImplementation defs (type d))
+                                    then keys (refersTo d) else []
+                      go (n :: acc) (more ++ ns)
+
+    -- Does the copy call itself, when the function does not?
+    callsItself : Name -> Core Bool
+    callsItself pen
+        = do defs <- get Ctxt
+             Just pedef <- lookupCtxtExact pen (gamma defs)
+               | Nothing => pure False
+             perefs <- fullRefs pedef
+             fnrefs <- fullRefs gdef
+             pefull <- toFullNames pename
+             fnfull <- toFullNames fn
+             pure (any (== pefull) perefs && not (any (== fnfull) fnrefs))
+
+    isSetTotal : DefFlag -> Bool
+    isSetTotal (SetTotal _) = True
+    isSetTotal _ = False
 
     identityFlag : List (Nat, ArgMode) -> Nat -> Maybe Nat
     identityFlag [] k = pure k
@@ -380,10 +570,40 @@ eraseInferred tm
                 do args' <- traverse eraseInferred args
                    pure (apply (getLoc f) f args)
 
+-- The arguments that a function is specialised by, and whether that is
+-- because of --spec-interfaces.
+-- (Within a copy, `inCopy`, the methods of interfaces are not specialised:
+-- they are reduced, see autoReducible, and a copy of a method would stop the
+-- reduction there.)
+specArgsOf : {auto c : Ref Ctxt Defs} ->
+             {auto s : Ref Syn SyntaxInfo} ->
+             (inCopy : Bool) -> FC -> Name -> GlobalDef -> Core (NatSet, Bool)
+specArgsOf inCopy fc fn gdef
+    = if not (NatSet.isEmpty (specArgs gdef))
+         then pure (specArgs gdef, False)
+         else do defs <- get Ctxt
+                 if not (specInterfaces (session (options defs)))
+                    then pure (NatSet.empty, False)
+                    else do specs <- autoSpecArgs fc fn gdef
+                            if inCopy && not (NatSet.isEmpty specs)
+                                      && !(isMethod gdef)
+                               then pure (NatSet.empty, True)
+                               else pure (specs, True)
+  where
+    isMethod : GlobalDef -> Core Bool
+    isMethod d
+        = do let PMDef _ _ _ _ pats = definition d
+               | _ => pure False
+             let size = foldl (\k, (_ ** (_, _, rhs)) => k + termSize rhs) 0 pats
+             fnfull <- toFullNames fn
+             refs <- fullRefs d
+             pure (size <= 10 && not (any (== fnfull) refs))
+
 -- Specialise a function name according to arguments. Return the specialised
 -- application on success, or Nothing if it's not specialisable (due to static
 -- arguments not being concrete)
 specialise : {vars : _} ->
+             (inCopy : Bool) ->
              {auto c : Ref Ctxt Defs} ->
              {auto m : Ref MD Metadata} ->
              {auto u : Ref UST UState} ->
@@ -392,25 +612,9 @@ specialise : {vars : _} ->
              FC -> Env Term vars -> GlobalDef ->
              Name -> List (FC, Term vars) ->
              Core (Maybe (Term vars))
-specialise {vars} fc env gdef fn stk
-    = let specs = specArgs gdef in
-      if NatSet.isEmpty specs then pure Nothing else do
-        fnfull <- toFullNames fn
-        -- If all the arguments are concrete (meaning, no local variables
-        -- or holes in them, so they can be a ClosedTerm) we can specialise
-        Just sargs <- getSpecArgs 0 specs stk
-            | Nothing => pure Nothing
-        defs <- get Ctxt
-        sargs <- for sargs $ traversePair $ traverseArgMode $ \ tm =>
-                   normalise defs Env.empty tm
-        let nhash = hash !(traverse toFullNames $ mapMaybe getStatic $ map snd sargs)
-                       `hashWithSalt` fnfull -- add function name to hash to avoid namespace clashes
-        let pename = NS partialEvalNS
-                     (UN $ Basic ("PE_" ++ nameRoot fnfull ++ "_" ++ asHex (cast nhash)))
-        defs <- get Ctxt
-        case lookup pename (peFailures defs) of
-             Nothing => Just <$> mkSpecDef fc gdef pename sargs fn stk
-             Just _ => pure Nothing
+specialise {vars} inCopy fc env gdef fn stk
+    = do (specs, isAuto) <- specArgsOf inCopy fc fn gdef
+         if NatSet.isEmpty specs then pure Nothing else specialiseBy specs isAuto
   where
     concrete : {vars : _} ->
                Term vars -> Maybe ClosedTerm
@@ -431,6 +635,39 @@ specialise {vars} fc env gdef fn stk
                         pure $ Just ((i, Static xok) :: xs')
                 else pure $ Just ((i, Dynamic) :: xs')
 
+    specialiseBy : NatSet -> Bool -> Core (Maybe (Term vars))
+    specialiseBy specs isAuto = do
+        fnfull <- toFullNames fn
+        -- If all the arguments are concrete (meaning, no local variables
+        -- or holes in them, so they can be a ClosedTerm) we can specialise
+        Just sargs <- getSpecArgs 0 specs stk
+            | Nothing => pure Nothing
+        defs <- get Ctxt
+        -- (The implementations of interfaces that --spec-interfaces
+        -- specialises by are kept as they are, references to them in
+        -- practice: the normal form of an implementation whose methods use
+        -- implementations of the same type can be infinite, see
+        -- autoReducible.)
+        sargs <- if isAuto then pure sargs
+                    else for sargs $ traversePair $ traverseArgMode $ \ tm =>
+                           normalise defs Env.empty tm
+        let nhash = hash !(traverse toFullNames $ mapMaybe getStatic $ map snd sargs)
+                       `hashWithSalt` fnfull -- add function name to hash to avoid namespace clashes
+        let pename = NS partialEvalNS
+                     (UN $ Basic ("PE_" ++ nameRoot fnfull ++ "_" ++ asHex (cast nhash)))
+        defs <- get Ctxt
+        case lookup pename (peFailures defs) of
+             Nothing =>
+               do -- (a new copy made because of --spec-interfaces counts
+                  -- towards the limit of the module)
+                  new <- isNothing <$> lookupCtxtExact pename (gamma defs)
+                  if isAuto && new && autoSpecCount defs >= autoSpecLimit
+                     then pure Nothing
+                     else do
+                       when (isAuto && new) $ update Ctxt { autoSpecCount $= S }
+                       Just <$> mkSpecDef fc gdef isAuto pename sargs fn stk
+             Just _ => pure Nothing
+
 findSpecs : {vars : _} ->
             {auto c : Ref Ctxt Defs} ->
             {auto m : Ref MD Metadata} ->
@@ -443,7 +680,7 @@ findSpecs env stk (Ref fc Func fn)
     = do defs <- get Ctxt
          Just gdef <- lookupCtxtExact fn (gamma defs)
               | Nothing => pure (applyStackWithFC (Ref fc Func fn) stk)
-         Just r <- specialise fc env gdef fn stk
+         Just r <- specialise False fc env gdef fn stk
               | Nothing => pure (applyStackWithFC (Ref fc Func fn) stk)
          pure r
 findSpecs env stk (Meta fc n i args)
@@ -619,9 +856,10 @@ mutual
                 | Nothing => do args' <- quoteArgsWithFC q defs bound env args
                                 pure $ applyStackWithFC (Ref fc Func fn) args'
            args' <- quoteArgsWithFC q defs bound env args
-           let False = NatSet.isEmpty (specArgs gdef)
+           (specs, _) <- specArgsOf True fc fn gdef
+           let False = NatSet.isEmpty specs
                | _ => pure $ applyStackWithFC (Ref fc Func fn) args'
-           Just r <- specialise fc (extendEnv bound env) gdef fn args'
+           Just r <- specialise True fc (extendEnv bound env) gdef fn args'
                 | Nothing =>
                      -- can't specialise, keep the arguments
                      -- unreduced
@@ -711,7 +949,18 @@ applySpecialise env (Just ls) tmin -- specialising, evaluate RHS while looking
                                  -- for names to specialise
     = do defs <- get Ctxt
          tm <- toResolvedNames tmin
-         nf <- nf defs env tm
+         -- In a copy made by --spec-interfaces, the names are only reduced
+         -- as many times as `ls` says along a path (see mkSpecDef), and the
+         -- names that it does not list are not reduced, so that recursive
+         -- definitions, and infinite structures under delays (which
+         -- quoteGenNF looks under), are not unfolded forever.  (The copies
+         -- of `%spec` functions reduce everything, as they always did: a
+         -- `%spec` function that builds an infinite structure does not
+         -- terminate.)
+         ls <- if fst autoLimits `elem` map fst ls
+                  then traverse (\(n, k) => pure (!(toResolvedNames n), k)) ls
+                  else pure []
+         nf <- nfOpts ({ reduceLimit := ls } defaultOpts) defs env tm
          tm' <- evalRHS env nf
          tmfull <- toFullNames tm'
          logTermNF "specialise" 5 ("New RHS") env tmfull

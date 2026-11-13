@@ -18,6 +18,7 @@ Overridable options are:
     --jobs <jobs>
     -Werror
     -Wwhere-recompute
+    --spec-interfaces
 
 Packages must have an '.ipkg' extension: "malformed-package-name".
 Error: File error in non-existent-package.ipkg : File Not Found

@@ -155,6 +155,7 @@ knownTopics = [
     ("resugar.sectionL", Just "Resugaring left sections"),
     ("specialise", Just "Generating a partially-evaluated specialised version of a function"),
     ("specialise.declare", Just "Declaring our intention to specialise a function"),
+    ("specialise.auto", Just "Which functions --spec-interfaces specialises, and by which arguments"),
     ("specialise.fail", Just "Generating the specialised function failed"),
     ("specialise.flags", Just "Listing the definition flags propagated to the specialised function"),
     ("totality", Nothing),

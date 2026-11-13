@@ -281,6 +281,24 @@ Specialise a function according to a list of arguments.
    identity [] = []
    identity (x :: xs) = x :: identity xs
 
+Where it is called with known values of these arguments, the function is
+replaced by a copy of it for these values, which is evaluated as far as
+possible (so a function that builds an infinite structure, a ``Stream`` with
+``iterate`` say, should not be specialised).
+
+With the command line option ``--spec-interfaces`` (experimental), the
+functions that take implementations of interfaces are specialised by them
+where they are known, as if they were declared ``%spec`` on them: in the copy
+of ``insert : Ord a => a -> Tree a -> Tree a`` for ``Integer``, a comparison is
+a direct comparison of integers instead of the application of a closure of the
+``Ord`` implementation.  Only small functions, or recursive ones of moderate
+size, are specialised that way, and at most a few hundred of them per module;
+the copies only reduce the implementations and the methods of interfaces
+(once), so that they are not evaluated forever.  The
+option applies to the modules that it is given for (the copies of library
+functions are made in the calling module), and ``--log specialise.auto:10``
+shows the decisions.
+
 
 ``%foreign``
 --------------------
