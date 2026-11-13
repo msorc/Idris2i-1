@@ -248,7 +248,7 @@ constantName = \case
 ||| What a cell that a constructor may take over is chosen by: its number of
 ||| fields, and whether the constructor is told apart by its name (which takes
 ||| a slot of its own, see idris2_newNamedConstructor), so that the cell has
-||| the right size; or, with the directive `refc-no-size-reuse`, the name of
+||| the right size, with the directive `refc-size-reuse`; otherwise the name of
 ||| the constructor, as before.
 ReuseKey : Type
 ReuseKey = Either Name (Nat, Bool)
@@ -1510,8 +1510,11 @@ intParams n params = do
     binders _ _ _ = []
 
 ||| The optimisations that a directive turns off, for measurements and to
-||| find the culprit of a bug: `--directive refc-no-size-reuse` (see
-||| `ReuseKey`).
+||| find the culprit of a bug.  `--directive refc-size-reuse` turns on the
+||| reuse of cells across constructors of the same size (see `ReuseKey`): it
+||| is off by default, as the code it gives makes GCC very slow on some big
+||| functions (more than an hour for a part of the C of the compiler, which
+||| takes two minutes without it), for little gain (at most 1.4%).
 record RefCOptions where
   constructor MkRefCOptions
   optSizeReuse : Bool
@@ -1520,7 +1523,7 @@ record RefCOptions where
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
 refcOptions = do
     ds <- getDirectives RefC
-    pure $ MkRefCOptions (not ("refc-no-size-reuse" `elem` ds))
+    pure $ MkRefCOptions ("refc-size-reuse" `elem` ds)
 
 ||| The variables of the function `n` (C name `cn`) that are C integers (see
 ||| Compiler.RefC.Unbox).

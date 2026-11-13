@@ -272,8 +272,9 @@ should target this file (`CHANGELOG_NEXT`).
 * A constructor can now take over the memory of a unique value of another
   constructor with as many fields (`Left x` to `Right x`, `Mul a b` to
   `Add a b`), not only of the same constructor, and the fields that keep
-  their place are not stored again.  `--directive refc-no-size-reuse` turns
-  this off.
+  their place are not stored again, with `--directive refc-size-reuse` (off
+  by default: GCC takes very long on the code that it gives for some big
+  functions).
 * Added `RefC` implementations of `Data.Double.epsilon`, `unitRoundoff`, `nan`
   and `inf`.
 * Fixed a memory leak when a uniquely referenced constructor is reused: the
