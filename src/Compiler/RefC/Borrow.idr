@@ -48,6 +48,7 @@
 module Compiler.RefC.Borrow
 
 import Compiler.ANF
+import Compiler.CompileExpr
 
 import Core.TT
 
@@ -148,8 +149,10 @@ positionsOf x = go 0
 export
 trmcDirect : (key : Name -> String) -> (self : String) -> (nargs : Nat) ->
              ANF -> Maybe Nat
-trmcDirect key self nargs (ALet _ r (AAppName _ Nothing f as) (ACon _ _ _ _ cargs))
+trmcDirect key self nargs (ALet _ r (AAppName _ Nothing f as) (ACon _ _ ci _ cargs))
+    -- (a constructor that RefC represents as NULL is never a cell)
     = if key f == self && length as == nargs
+         && not (ci == NIL || ci == NOTHING || ci == ZERO || ci == UNIT)
          then case positionsOf (ALocal r) cargs of
                    [k] => Just k
                    _ => Nothing
