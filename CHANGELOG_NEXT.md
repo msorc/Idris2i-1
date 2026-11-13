@@ -370,6 +370,24 @@ should target this file (`CHANGELOG_NEXT`).
   A finaliser (`onCollect`) of a value passed to such a function now runs
   once the caller is done with the value, rather than when the function is.
   `--directive refc-no-borrow` turns it off.
+* Empty pages of the allocator are used for values of any size, and beyond 16
+  of them per OS thread (`IDRIS2_REFC_KEEP_PAGES`) their memory goes back to
+  the system; an idle OS thread gives its empty pages to the others.  A
+  program that moves from values of one size to another no longer needs the
+  memory of both.
+* A value with more than 65534 references is freed once they are gone (it
+  became immortal).  A constant that needs itself while it is evaluated no
+  longer keeps an immortal copy.
+* Closures are applied with fewer calls, and an application in tail position
+  jumps to the function of the closure with GCC 15 or later.  The calls of
+  functions that always return a value skip the trampoline
+  (`--directive refc-no-direct-results`), and a closure that a function makes
+  and applies once is not made (`--directive refc-no-local-closures`).
+* `IDRIS2_REFC_MEMSTATS=1` and `IDRIS2_REFC_LEAKCHECK=1` report the memory of a
+  program, and the values that leaked, when it exits; with
+  `-DIDRIS2_REFC_STATS` they count the reference count operations, reuses and
+  closure applications.  `make install-support-refc-asan` installs a support
+  library built with AddressSanitizer.
 
 ### Library changes
 

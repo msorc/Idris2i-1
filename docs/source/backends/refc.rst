@@ -7,10 +7,13 @@ using a reference counting garbage collector. This is intended as a lightweight
 (i.e. minimal dependencies) code generator that can be ported to multiple
 platforms, especially those with memory constraints.
 
-Performance is not as good as the Scheme based code generators: programs that
-allocate many small values typically take two to four times as long as with
-the Chez backend, as every value is reference counted and freed as soon as it
-is no longer used.  On the other hand they usually need much less memory.  The
+Performance is often not as good as with the Scheme based code generators: on
+the programs of the ``benchmark`` directory, the time ranges from 0.8 to 2.5
+times that of the Chez backend.  Programs that allocate many short-lived
+values, or apply many closures, are the slowest, as every value is reference
+counted and freed as soon as it is no longer used.  On the other hand they
+usually need much less memory.  ``benchmark/refc-perf.sh`` measures them
+(instructions, cycles and peak memory).  The
 main goal is portability: the generated code should run on any platform that
 supports a C compiler.
 
@@ -102,6 +105,60 @@ function (so it may be a literal or a static buffer, like the result of
 (``Idris2_Value *``, an ``Idris2_String`` with its length ``len`` and its
 bytes ``str``), like ``Integer`` and foreign objects: the arguments are
 borrowed, a result is a new reference (``idris2_mkStringN`` makes one).
+
+Memory
+======
+
+A value is freed as soon as its last reference goes away.  There is no
+collector of cycles: values that refer to each other are never freed.  In
+Idris, a cycle can only be made through a mutable value: an ``IORef`` or an
+array that holds a value that refers to it, a closure stored in an ``IORef``
+that refers to that ``IORef``, or the finaliser of a ``GCPtr`` (see
+``onCollect``) that refers to the pointer itself.  ``IDRIS2_REFC_LEAKCHECK=1``
+(see above) finds such values in a test run.
+
+The definitions without arguments (constants, like ``primes : List Integer``)
+are evaluated once, the first time that they are needed, and kept until the
+program exits, with all the values that they refer to.
+
+The count of references of a value is 16 bits; the references beyond that are
+counted in a table on the side, so a value with very many references is still
+freed in the end.
+
+Ownership through the FFI
+-------------------------
+
+A plain ``Ptr`` is not managed: free what it points to, or use a ``GCPtr``
+(``onCollect``).  A C function that returns a string from ``malloc`` should go
+through a ``RefC`` wrapper that calls ``idris2_mkStringOwned``, which frees it.
+A foreign function is called without taking a reference to its arguments (they
+are *borrowed*): C code that keeps an argument beyond the call, in a data
+structure of its own say, takes a reference with ``idris2_newReference`` and
+releases it with ``idris2_removeReference``.  The same holds for the Idris
+functions that the compiler found to only look at some of their arguments
+(see below), which matters for C code that calls the generated functions
+directly.
+
+Optimisations
+-------------
+
+The code generator does the following, each of which a directive turns off
+(``--directive refc-no-...``), for measurements or to find the culprit of a bug:
+
+- ``refc-no-borrow``: the parameters that a function only looks at are
+  borrowed: the caller keeps its reference, and no reference is taken and
+  released around the call.
+- ``refc-no-direct-results``: the calls of the functions that always return a
+  value (rather than a call left to the trampoline of their caller) are not
+  trampolined.
+- ``refc-no-local-closures``: a closure that a function makes and applies only
+  once is not made: the application is a call.
+
+The cell of a value that is not used any more, and that nothing else refers
+to, is reused in place for a new value of the same constructor.
+``--directive refc-size-reuse`` reuses it for any constructor with as many
+fields; it is off by default, as the code that it gives makes GCC very slow
+on some big functions.
 
 Building Idris 2 with RefC
 ==========================
