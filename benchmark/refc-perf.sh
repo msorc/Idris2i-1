@@ -11,6 +11,7 @@
 #   -l LABEL    the label of this configuration in the CSV (default: refc)
 #   -d DIR      the work directory for the builds (default: ./refc-perf-work)
 #   -D DIRECT   pass `--directive DIRECT` to the compiler (repeatable)
+#   -X OPTION   pass OPTION to the compiler (repeatable), e.g. -X --spec-interfaces
 #   -n RUNS     runs of each benchmark (default: 1); every run is a new
 #               process with its own stdin (perf stat -r would reuse stdin)
 #   -f          the fast inputs (BENCHMARK_fast.in)
@@ -30,6 +31,7 @@ OUT=refc-perf.csv
 LABEL=refc
 WORK="$PWD/refc-perf-work"
 DIRECTIVES=()
+EXTRA=()
 RUNS=1
 FAST=false
 BUILD=true
@@ -40,13 +42,14 @@ usage() {
   exit "${1:-1}"
 }
 
-while getopts ":c:o:l:d:D:n:fBe:h" opt; do
+while getopts ":c:o:l:d:D:X:n:fBe:h" opt; do
   case "$opt" in
     c) IDRIS2="$OPTARG" ;;
     o) OUT="$OPTARG" ;;
     l) LABEL="$OPTARG" ;;
     d) WORK="$OPTARG" ;;
     D) DIRECTIVES+=(--directive "$OPTARG") ;;
+    X) EXTRA+=("$OPTARG") ;;
     n) RUNS="$OPTARG" ;;
     f) FAST=true ;;
     B) BUILD=false ;;
@@ -95,7 +98,7 @@ for b in "${BENCHES[@]}"; do
     echo "building $b ($LABEL)" >&2
     rm -f "$exe"
     (cd "$src" &&
-       "$IDRIS2" --cg refc "${DIRECTIVES[@]}" \
+       "$IDRIS2" --cg refc "${DIRECTIVES[@]}" "${EXTRA[@]}" \
          --build-dir "$WORK/$LABEL/$b/build" \
          --output-dir "$WORK/$LABEL/$b/exec" \
          -o "$b" "$b.idr") >&2
