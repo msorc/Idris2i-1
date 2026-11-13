@@ -223,6 +223,7 @@ data ArgCounter : Type where
 data EnvTracker : Type where
 data Foreigns : Type where
 data BorrowSigs : Type where
+data ValueFns : Type where
 data UnboxedVars : Type where
 data FunctionDefinitions : Type where
 data IndentLevel : Type where
@@ -295,6 +296,10 @@ record Env where
   ||| the borrowed values that a `case` looked at.  A borrowed variable is
   ||| never owned (a use that needs a reference takes one).
   borrowed : SortedSet AVar
+  ||| The functions (C name, arity) that always return a value, never a call
+  ||| left for the trampoline of the caller: their calls are not trampolined
+  ||| (see `returnsValue`).
+  valueFns : SortedMap String Nat
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -465,6 +470,15 @@ withSignature env n args
            Just sig => (True, zip args sig)
            Nothing => (False, map (\a => (a, False)) args)
 
+||| The result of a call (not in tail position) of the function `fn` with
+||| `nargs` arguments: through the trampoline, but for the functions that
+||| always return a value.
+trampolined : Env -> String -> Nat -> String -> String
+trampolined env fn nargs call
+    = if lookup fn env.valueFns == Just nargs
+         then call
+         else "idris2_trampoline(\{call})"
+
 ||| A call (not in tail position) of a function that borrows some of its
 ||| parameters (see Compiler.RefC.Borrow).  The variables that we own and pass
 ||| to borrowed parameters are released after the call: they are not given
@@ -479,7 +493,7 @@ borrowedCall fc env fn pairs = do
     let passedBorrowed = fromList (map fst (filter snd pairs))
     let released = intersection env.owned passedBorrowed
     (args, boxes) <- cArgs (difference env.owned passedBorrowed) pairs
-    let call = "idris2_trampoline(\{fn}(\{concat $ intersperse ", " args}))"
+    let call = trampolined env fn (length pairs) "\{fn}(\{concat $ intersperse ", " args})"
     let drops = map varName (Prelude.toList released) ++ boxes
     if null drops
        then pure call
@@ -963,7 +977,7 @@ mutual
                       (True, pairs) => borrowedCall fc env (cName n) pairs
                       _ => do
                         let args' = avarsToC env.unboxed env.owned args
-                        pure "idris2_trampoline(\{cName n}(\{concat $ intersperse ", " args'}))"
+                        pure $ trampolined env (cName n) nargs "\{cName n}(\{concat $ intersperse ", " args'})"
       where
         -- A full application of a foreign function calls the variant of
         -- its wrapper that borrows the arguments (see `createCFunctions`),
@@ -1523,8 +1537,36 @@ unboxedOf foreigns n cn args anf = do
        then unboxedVars calls loops args <$> intParams n args <*> pure anf
        else pure empty
 
+||| Does the function `cn` with the parameters `args` always return a value,
+||| never a pending tail call or a closure that its arguments complete (see
+||| runtime.h)?  So it is when no expression in tail position calls a
+||| function (but a foreign one, or itself in a loop, see `selfTailCall`) or
+||| applies a closure, whatever the C compiler (with or without musttail).  A
+||| constant always gives a value (see idris2_constantValue).
+returnsValue : (Name -> Nat -> Bool) -> String -> List Int -> ANF -> Bool
+returnsValue foreign cn args anf
+    = let nargs = length args
+          loops = nargs > 0 && nargs <= MaxExtractFunArgs
+                  && hasSelfTailCall cn nargs anf in
+          nargs == 0 || go loops nargs anf
+  where
+    go : Bool -> Nat -> ANF -> Bool
+    go loops nargs (AAppName _ _ n as)
+        = foreign n (length as) || (loops && cName n == cn && length as == nargs)
+    go _ _ (AApp _ _ _ _) = False
+    go _ _ (AUnderApp _ _ Z _) = False -- (a closure that has all its arguments)
+    go loops nargs (ALet _ _ _ body) = go loops nargs body
+    go loops nargs (AConCase _ _ alts def)
+        = all (\(MkAConAlt _ _ _ _ body) => go loops nargs body) alts
+          && maybe True (go loops nargs) def
+    go loops nargs (AConstCase _ _ alts def)
+        = all (\(MkAConstAlt _ body) => go loops nargs body) alts
+          && maybe True (go loops nargs) def
+    go _ _ _ = True
+
 createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto fo : Ref Foreigns (SortedMap String Nat)}
+                -> {auto vf : Ref ValueFns (SortedMap String Nat)}
                 -> {auto bs : Ref BorrowSigs Signatures}
                 -> {auto uv : Ref UnboxedVars (SortedMap String (SortedSet Int))}
                 -> {auto a : Ref ArgCounter Nat}
@@ -1593,7 +1635,8 @@ createCFunctions opts n (MkAFun args anf) = do
                               (if loops then Just (cn, args) else Nothing)
                               -- (many arguments are passed in an array)
                               (if nargs > MaxExtractFunArgs then 1 else nargs)
-                              foreigns unboxed opts.optSizeReuse sigs borrowedVars)
+                              foreigns unboxed opts.optSizeReuse sigs borrowedVars
+                              !(get ValueFns))
     emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
     decreaseIndentation
     emit EmptyFC  "}\n"
@@ -1786,6 +1829,11 @@ chunkDefs target = go 0 [<]
 
 ||| Do the functions borrow parameters (see Compiler.RefC.Borrow)?  Not with
 ||| `--directive refc-no-borrow`, a kill switch for comparisons.
+||| `--directive refc-no-direct-results` traverses the results of every call
+||| (see `returnsValue`).
+refcDirectResults : {auto c : Ref Ctxt Defs} -> Core Bool
+refcDirectResults = pure $ not ("refc-no-direct-results" `elem` !(getDirectives RefC))
+
 refcBorrowing : {auto c : Ref Ctxt Defs} -> Core Bool
 refcBorrowing = pure $ not ("refc-no-borrow" `elem` !(getDirectives RefC))
 
@@ -1810,6 +1858,17 @@ generateCSourceFileParts defs outn =
                        MkAFun args anf => pure (cn, !(unboxedOf foreigns n cn args anf))
                        _ => pure (cn, empty)) named
      _ <- newRef UnboxedVars unboxed
+     -- The functions whose calls need no trampoline (see `returnsValue`).
+     direct <- refcDirectResults
+     _ <- newRef ValueFns $
+            if direct
+               then fromList $ mapMaybe (\(cn, _, d) =>
+                      case d of
+                        MkAFun args anf =>
+                          if returnsValue (\m, k => lookup (cName m) foreigns == Just k) cn args anf
+                             then Just (cn, length args) else Nothing
+                        _ => Nothing) named
+               else empty
      borrowing <- refcBorrowing
      _ <- newRef BorrowSigs $
             if borrowing

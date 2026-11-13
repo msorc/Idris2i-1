@@ -59,7 +59,7 @@ Idris2_Value *Main_insert
         switch (idris2_extractUInt64(var_19)) {
         case UINT8_C(1): {
             idris2_removeReference(var_19);
-            Idris2_Value * var_17 = idris2_trampoline(Main_insert(var_0, var_1, var_5));
+            Idris2_Value * var_17 = Main_insert(var_0, var_1, var_5);
                                                              // Main:8:42--8:46
              // constructor Main.Node                        // Main:8:42--8:46
             if (! constructor_50) {                          // Main:8:42--8:46
@@ -74,7 +74,7 @@ Idris2_Value *Main_insert
         }
         case UINT8_C(0): {
             idris2_removeReference(var_19);
-            Idris2_Value * var_18 = idris2_trampoline(Main_insert(var_0, var_1, var_7));
+            Idris2_Value * var_18 = Main_insert(var_0, var_1, var_7);
                                                              // Main:9:42--9:46
              // constructor Main.Node                        // Main:9:42--9:46
             if (! constructor_50) {                          // Main:9:42--9:46

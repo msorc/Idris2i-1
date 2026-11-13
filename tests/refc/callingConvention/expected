@@ -146,7 +146,7 @@ Idris2_Value *Main_main
     Idris2_Value *closure_63 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_11, 1, 0);
                                                              // Main:15:21--15:22
     Idris2_Value * var_6 = closure_63;                       // Prelude.Types:605:11--605:20
-    Idris2_Value * var_2 = idris2_trampoline(csegen_45());   // Prelude.Types:1126:1--1143:48
+    Idris2_Value * var_2 = csegen_45();                      // Prelude.Types:1126:1--1143:48
     Idris2_Value * var_3 = (idris2_fitsSmallInteger(1) ? idris2_mkSmallInteger(1) : idris2_getPredefinedInteger(1));
                                                              // Prelude.Types:1126:1--1143:48
     Idris2_Value * var_4 = (idris2_fitsSmallInteger(5) ? idris2_mkSmallInteger(5) : idris2_getPredefinedInteger(5));
@@ -168,8 +168,7 @@ Idris2_Value *Main_main
     idris2_removeReference(var_1);                           // Prelude.IO:31:13--31:20
     Idris2_Value * var_14 = idris2_mkIntegerFromInt64(INT64_C(9999));
                                                              // Main:16:13--16:20
-    Idris2_Value *callVar_65 = idris2_trampoline(Main_dupargs(var_14));
-                                                             // Main:16:13--16:20
+    Idris2_Value *callVar_65 = Main_dupargs(var_14);         // Main:16:13--16:20
     idris2_removeReference(var_14);
     Idris2_Value * var_15 = callVar_65;                      // Prelude.Show:110:1--112:50
     Idris2_Value * var_16 = idris2_trampoline(Prelude_Show_show_Show_Integer(var_15));
@@ -189,7 +188,7 @@ Idris2_Value *Main_main_11
     Idris2_Value * var_0
 )
 {
-    Idris2_Value * var_1 = idris2_trampoline(csegen_45());   // Prelude.Types:1126:1--1143:48
+    Idris2_Value * var_1 = csegen_45();                      // Prelude.Types:1126:1--1143:48
     Idris2_Value * var_2 = (idris2_fitsSmallInteger(1) ? idris2_mkSmallInteger(1) : idris2_getPredefinedInteger(1));
                                                              // Prelude.Types:1126:1--1143:48
     Idris2_PendingTailCall *pending_69 = &idris2_pendingTailCall;
@@ -210,8 +209,7 @@ Idris2_Value *Main_main_10
 {
     Idris2_Value * var_2 = (idris2_fitsSmallInteger(0) ? idris2_mkSmallInteger(0) : idris2_getPredefinedInteger(0));
                                                              // Main:14:25--14:31
-    Idris2_Value * var_3 = idris2_trampoline(Main_last(var_1, var_2));
-                                                             // Prelude.Show:110:1--112:50
+    Idris2_Value * var_3 = Main_last(var_1, var_2);          // Prelude.Show:110:1--112:50
     Idris2_Value * var_4 = idris2_trampoline(Prelude_Show_show_Show_Integer(var_3));
     Idris2_Value * var_5 = ((Idris2_Value*)&idris2_constant_String_66);
     Idris2_Value *primVar_70 = strAppend(var_4, var_5);
