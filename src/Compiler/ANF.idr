@@ -325,3 +325,18 @@ usedConstructors (AConstCase _ sc alts mDef) =
                 Nothing => altsAnf in
     foldMap usedConstructors anfs
 usedConstructors _ = empty
+
+||| The constructors that an expression builds, with their information, tags
+||| and numbers of fields (a backend that reuses memory cells may key them on
+||| their sizes rather than on their names, see Compiler.RefC.RefC).
+export
+constructorsBuilt : ANF -> List (Name, ConInfo, Maybe Int, Nat)
+constructorsBuilt (ALet _ var value body) = constructorsBuilt value ++ constructorsBuilt body
+constructorsBuilt (ACon _ n ci tag args) = [(n, ci, tag, length args)]
+constructorsBuilt (AConCase _ sc alts mDef) =
+    concatMap (\(MkAConAlt _ _ _ _ caseBody) => constructorsBuilt caseBody) alts
+      ++ maybe [] constructorsBuilt mDef
+constructorsBuilt (AConstCase _ sc alts mDef) =
+    concatMap (\(MkAConstAlt _ caseBody) => constructorsBuilt caseBody) alts
+      ++ maybe [] constructorsBuilt mDef
+constructorsBuilt _ = []

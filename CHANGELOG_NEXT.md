@@ -269,6 +269,11 @@ should target this file (`CHANGELOG_NEXT`).
   out of range.  Casting to `Int8` no longer fails to compile.
 * `Integer` and the type of foreign objects (`CFForeignObj`) can now be passed
   to and returned from foreign functions; they are passed as `Idris2_Value *`.
+* A constructor can now take over the memory of a unique value of another
+  constructor with as many fields (`Left x` to `Right x`, `Mul a b` to
+  `Add a b`), not only of the same constructor, and the fields that keep
+  their place are not stored again.  `--directive refc-no-size-reuse` turns
+  this off.
 * Added `RefC` implementations of `Data.Double.epsilon`, `unitRoundoff`, `nan`
   and `inf`.
 * Fixed a memory leak when a uniquely referenced constructor is reused: the

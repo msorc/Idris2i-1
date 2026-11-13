@@ -241,7 +241,24 @@ constantName = \case
   where go : String -> String -> String
         go x y = "idris2_constant_\{x}_\{y}"
 
-ReuseMap = SortedMap Name String
+||| What a cell that a constructor may take over is chosen by: its number of
+||| fields, and whether the constructor is told apart by its name (which takes
+||| a slot of its own, see idris2_newNamedConstructor), so that the cell has
+||| the right size; or, with the directive `refc-no-size-reuse`, the name of
+||| the constructor, as before.
+ReuseKey : Type
+ReuseKey = Either Name (Nat, Bool)
+
+||| A cell that a constructor may take over (see `addReuseConstructor`): the
+||| C variable that holds it (NULL at run time when the scrutinee was not
+||| unique), the constructor that it was, and the variables of its fields.
+record ReuseCell where
+  constructor MkReuseCell
+  cellVar : String
+  cellCon : Name
+  cellFields : List Int
+
+ReuseMap = SortedMap ReuseKey ReuseCell
 Owned = SortedSet AVar
 
 ||| Environment for precise reference counting.
@@ -264,6 +281,9 @@ record Env where
   ||| The variables that are C integers, `int_N` instead of `var_N` (see
   ||| Compiler.RefC.Unbox).  They are never owned: they are not values.
   unboxed : SortedSet Int
+  ||| May a constructor take over a cell of another constructor of the same
+  ||| size (see `ReuseKey`)?
+  sizeReuse : Bool
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -599,14 +619,40 @@ tailApply fc call = do
     emit fc "IDRIS2_TAIL_APPLY return \{call};"
     pure "NULL /* unreachable */"
 
+||| The key of the cells that the constructor `n`, with the tag `tag` and
+||| `nargs` fields, may take over (see `ReuseKey`).
+reuseKey : Env -> Name -> Maybe Int -> Nat -> ReuseKey
+reuseKey env n tag nargs
+    = if env.sizeReuse then Right (nargs, isNothing (conTag tag)) else Left n
+
+||| Is the variable the one that was loaded from field `k` of a cell whose
+||| fields were loaded in the variables `fieldVars`?  (A variable is bound
+||| once.)
+sameField : List Int -> Nat -> AVar -> Bool
+sameField fieldVars k (ALocal i) = getAt k fieldVars == Just i
+sameField _ _ ANull = False
+
+||| Does the constructor allocate a cell?  (The others are NULL or immortal
+||| values of the runtime, see `ACon`.)
+allocates : ConInfo -> Nat -> Bool
+allocates ci nargs
+    = nargs > 0 && not (ci == NIL || ci == NOTHING || ci == ZERO || ci == UNIT)
+
+||| The keys of the cells that the constructors built by an expression may
+||| take over.
+usedReuseKeys : Env -> ANF -> SortedSet ReuseKey
+usedReuseKeys env anf
+    = fromList [ reuseKey env n tag k
+               | (n, ci, tag, k) <- constructorsBuilt anf, allocates ci k ]
+
 ||| The function takes as arguments the current ReuseMap and the constructors that will be used.
 ||| Returns constructor variables to remove and constructors to reuse.
-dropUnusedReuseCons : ReuseMap -> SortedSet Name -> (List String, ReuseMap)
+dropUnusedReuseCons : ReuseMap -> SortedSet ReuseKey -> (List String, ReuseMap)
 dropUnusedReuseCons reuseMap usedCons =
-    -- if there is no constructor named by that name, then the reuse constructor is deleted
+    -- if no constructor will take the cell over, then the cell is released
     let dropReuseMap = differenceMap reuseMap usedCons in
     let actualReuseMap = intersectionMap reuseMap usedCons in
-    (values dropReuseMap, actualReuseMap)
+    (map cellVar (values dropReuseMap), actualReuseMap)
 
 ||| The function takes as arguments the current owned vars and set vars that will be used.
 ||| Returns variables to remove and actual owned vars.
@@ -622,19 +668,21 @@ addReuseConstructor : {auto a : Ref ArgCounter Nat}
                     -> {auto il : Ref IndentLevel Nat}
                     -> ReuseMap
                     -> String
+                    -> ReuseKey
                     -> Name
+                    -> List Int
+                    -> SortedSet ReuseKey
                     -> List String
-                    -> SortedSet Name
-                    -> List String
-                    -> SortedMap Name String
-                    -> Core (List String, SortedMap Name String)
-addReuseConstructor reuseMap sc conName conArgs consts shouldDrop actualReuseConsts =
-    -- to avoid conflicts, we check that there is no constructor with the same name in reuse map
-    -- we also check that the constructor will be used later and that the variable will be deleted
+                    -> ReuseMap
+                    -> Core (List String, ReuseMap)
+addReuseConstructor reuseMap sc key conName fieldVars consts shouldDrop actualReuseConsts =
+    let conArgs = map (varName . ALocal) fieldVars in
+    -- to avoid conflicts, we check that there is no cell of the same key in reuse map
+    -- we also check that a constructor will take it over later and that the variable will be deleted
     -- (nullary constructors are not allocated, see `ACon`)
-    if (isNothing $ SortedMap.lookup conName reuseMap)
+    if (isNothing $ SortedMap.lookup key reuseMap)
        && not (null conArgs)
-       && contains conName consts
+       && contains key consts
        && (isJust $ find (== sc) shouldDrop) then do
         let constr = "constructor_" ++ !(getNextCounter)
         emit EmptyFC $ "Idris2_Constructor* " ++ constr ++ " = NULL;"
@@ -659,7 +707,7 @@ addReuseConstructor reuseMap sc conName conArgs consts shouldDrop actualReuseCon
         removeVars [sc]
         decreaseIndentation
         emit EmptyFC "}"
-        pure (shouldDrop \\ (sc :: conArgs), insert conName constr actualReuseConsts)
+        pure (shouldDrop \\ (sc :: conArgs), insert key (MkReuseCell constr conName fieldVars) actualReuseConsts)
     else if (isJust $ find (== sc) shouldDrop) && not (null conArgs) then do
         -- The constructor is not used any more (drop specialisation, as in
         -- Perceus): when it is unique, its fields are ours, and only its
@@ -717,7 +765,7 @@ mutual
         let usedVars = freeVariables body
         let borrowVal = intersection env.owned (delete (ALocal var) usedVars)
         let owned' = if contains (ALocal var) usedVars then insert (ALocal var) borrowVal else borrowVal
-        let usedCons = usedConstructors value
+        let usedCons = usedReuseKeys env value
         -- When translating value into C, we borrow variables that will be used in body
         let valueEnv = { reuseMap $= (`intersectionMap` usedCons) } (moveFromOwnedToBorrowed env borrowVal)
         put EnvTracker valueEnv
@@ -738,7 +786,7 @@ mutual
         env <- get EnvTracker
         let usedVars = freeVariables body
         let borrowVal = intersection env.owned (delete (ALocal var) usedVars)
-        let usedCons = usedConstructors value
+        let usedCons = usedReuseKeys env value
         let valueEnv = { reuseMap $= (`intersectionMap` usedCons) } (moveFromOwnedToBorrowed env borrowVal)
         put EnvTracker valueEnv
         emit fc $ "int64_t \{intVarName var} = \{!(cIntFromANF value)};"
@@ -786,7 +834,7 @@ mutual
             pure (S k) ) 0 args
 
         let (shouldDrop, actualOwned) = dropUnusedOwnedVars env.owned (freeVariables body)
-        let usedCons = usedConstructors body
+        let usedCons = usedReuseKeys env body
         let (dropReuseCons, actualReuseMap) = dropUnusedReuseCons env.reuseMap usedCons
         put EnvTracker ({owned := actualOwned, reuseMap := actualReuseMap} env)
         removeVars shouldDrop
@@ -901,20 +949,50 @@ mutual
                       Nothing => " = idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName n});"
 
                 emit fc " // constructor \{show n}"
-                constr <- case SortedMap.lookup n $ reuseMap env of
-                    Just constr => do
+                case SortedMap.lookup (reuseKey env n tag (length args)) $ reuseMap env of
+                    Just cell => do
+                        let constr = cellVar cell
+                        -- The values of the fields, in the order in which
+                        -- `fillArgs` would make them (a variable that is
+                        -- used twice is taken over the first time).
+                        let fields = zip3 [0 .. length args] args
+                                          (avarsToC env.unboxed env.owned args)
+                        -- A field that gets the variable loaded from the
+                        -- same field of the cell already holds it when the
+                        -- cell is taken over: only the reference that the
+                        -- variable does not give up (when it is used again)
+                        -- is taken.
+                        let inPlace : (Nat, AVar, String) -> Bool
+                              = \(k, v, _) => env.sizeReuse && not (isUnboxedIn env.unboxed v)
+                                                && sameField (cellFields cell) k v
+                        let (kept, stored) = partition inPlace fields
                         emit fc "if (! \{constr}) {"
                         increaseIndentation
                         emit fc $ constr ++ createNewConstructor
+                        for_ kept $ \(k, _, e) => emit EmptyFC "\{constr}->args[\{show k}] = \{e};"
                         decreaseIndentation
-                        emit fc "}"
-                        pure constr
+                        let dups = filter (\(_, v, e) => e /= varName v) kept
+                        let retag = cellCon cell /= n
+                        if null dups && not retag
+                           then emit fc "}"
+                           else do
+                             emit EmptyFC "} else {"
+                             increaseIndentation
+                             for_ dups $ \(_, _, e) => emit EmptyFC "\{e};"
+                             -- (a cell of another constructor of the same
+                             -- size: the number of fields is the same)
+                             when retag $ emit EmptyFC $ case conTag tag of
+                               Just t => "\{constr}->tag = \{show t};"
+                               Nothing => "\{constr}->args[\{show (length args)}] = (Idris2_Value *)idris2_constr_\{cName n};"
+                             decreaseIndentation
+                             emit fc "}"
+                        for_ stored $ \(k, _, e) => emit EmptyFC "\{constr}->args[\{show k}] = \{e};"
+                        pure "(Idris2_Value*)\{constr}"
                     Nothing => do
                         let constr = "constructor_\{!(getNextCounter)}"
                         emit fc $ "Idris2_Constructor* " ++ constr ++ createNewConstructor
-                        pure constr
-                fillArgs env "\{constr}->args" args 0
-                pure "(Idris2_Value*)\{constr}"
+                        fillArgs env "\{constr}->args" args 0
+                        pure "(Idris2_Value*)\{constr}"
 
     cStatementsFromANF (AOp fc _ op args) _ = do
         env <- get EnvTracker
@@ -969,7 +1047,7 @@ mutual
             let ownedWithArgs = union (fromList conArgs) $ if erased then delete sc env.owned else env.owned
             let usedVars = freeVariables body
             let (shouldDrop, actualOwned) = dropUnusedOwnedVars ownedWithArgs usedVars
-            let usedCons = usedConstructors body
+            let usedCons = usedReuseKeys env body
             let (dropReuseCons, actualReuseMap) = dropUnusedReuseCons env.reuseMap usedCons
             -- A field is read when the body uses it, or when the scrutinee is
             -- dropped (addReuseConstructor then releases the unused fields);
@@ -980,7 +1058,7 @@ mutual
                 when (scDropped || contains (ALocal arg) usedVars) $
                   emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
                 pure (S k) ) 0 args
-            (shouldDrop, actualReuseMap) <- addReuseConstructor env.reuseMap sc' name (varName <$> conArgs) usedCons shouldDrop actualReuseMap
+            (shouldDrop, actualReuseMap) <- addReuseConstructor env.reuseMap sc' (reuseKey env name tag (length args)) name args usedCons shouldDrop actualReuseMap
             removeVars shouldDrop
             removeReuseConstructors dropReuseCons
             put EnvTracker ({owned := actualOwned, reuseMap := actualReuseMap} env)
@@ -1308,6 +1386,19 @@ intParams n params = do
               if i `elem` es then rest else (isInt ty && rig /= erased) :: rest
     binders _ _ _ = []
 
+||| The optimisations that a directive turns off, for measurements and to
+||| find the culprit of a bug: `--directive refc-no-size-reuse` (see
+||| `ReuseKey`).
+record RefCOptions where
+  constructor MkRefCOptions
+  optSizeReuse : Bool
+
+||| The options of the directives (read once per program).
+refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
+refcOptions = do
+    ds <- getDirectives RefC
+    pure $ MkRefCOptions (not ("refc-no-size-reuse" `elem` ds))
+
 createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto fo : Ref Foreigns (SortedMap String Nat)}
                 -> {auto a : Ref ArgCounter Nat}
@@ -1317,10 +1408,11 @@ createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto il : Ref IndentLevel Nat}
                 -> {auto h : Ref HeaderFiles (SortedSet String)}
                 -> {default [] additionalFFILangs : List String}
+                -> RefCOptions
                 -> Name
                 -> ANFDef
                 -> Core ()
-createCFunctions n (MkAFun args anf) = do
+createCFunctions opts n (MkAFun args anf) = do
     cn <- cName <$> getFullName n
     let nargs = length args
     let params = if nargs == 0 then "(void)"
@@ -1369,7 +1461,7 @@ createCFunctions n (MkAFun args anf) = do
                               (if loops then Just (cn, args) else Nothing)
                               -- (many arguments are passed in an array)
                               (if nargs > MaxExtractFunArgs then 1 else nargs)
-                              foreigns unboxed)
+                              foreigns unboxed opts.optSizeReuse)
     emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
     decreaseIndentation
     emit EmptyFC  "}\n"
@@ -1385,7 +1477,7 @@ createCFunctions n (MkAFun args anf) = do
     pure ()
 
 
-createCFunctions n (MkACon tag arity nt) =
+createCFunctions _ n (MkACon tag arity nt) =
   case conTag tag of
     Nothing => do
       let n' = cName n
@@ -1397,7 +1489,7 @@ createCFunctions n (MkACon tag arity nt) =
       emit EmptyFC $ ( "// \{show n} Constructor tag " ++ show tag ++ " arity " ++ show arity) -- Nothing to compile here
 
 
-createCFunctions n (MkAForeign ccs fargs ret) = do
+createCFunctions _ n (MkAForeign ccs fargs ret) = do
   case parseCC (additionalFFILangs ++ ["RefC", "C"]) ccs of
       Just (lang, fctForeignName :: extLibOpts) => do
           let cLang = if lang == "RefC"
@@ -1461,7 +1553,7 @@ createCFunctions n (MkAForeign ccs fargs ret) = do
       _ => throw $ InternalError "[refc] FFI not found for \{cName n}"
           -- not really total but this way this internal error does not contaminate everything else
 
-createCFunctions n (MkAError exp) = throw $ InternalError "[refc] Error with expression: \{show exp}"
+createCFunctions _ n (MkAError exp) = throw $ InternalError "[refc] Error with expression: \{show exp}"
 -- not really total but this way this internal error does not contaminate everything else
 
 
@@ -1576,11 +1668,12 @@ generateCSourceFileParts defs outn =
      _ <- newRef OutfileText DList.Nil
      _ <- newRef HeaderFiles empty
      _ <- newRef IndentLevel 0
+     opts <- refcOptions
      -- Each definition separately, so that a chunk never splits one (a CAF
      -- is a static function and the function that calls it).
      bodies <- traverse (\(n, d) =>
                  do put OutfileText DList.Nil
-                    createCFunctions {additionalFFILangs} n d
+                    createCFunctions {additionalFFILangs} opts n d
                     ls <- reify <$> get OutfileText
                     pure (the Nat (foldl (\s, l => s + length l + 1) 0 ls), ls)) defs
      put OutfileText DList.Nil
