@@ -622,6 +622,8 @@ addReuseConstructor reuseMap sc conName conArgs consts shouldDrop actualReuseCon
         emit EmptyFC $ "if (idris2_isUnique(" ++ sc ++ ")) {"
         increaseIndentation
         emit EmptyFC $ constr ++ " = (Idris2_Constructor*)" ++ sc ++ ";"
+        -- (counted in a build with IDRIS2_REFC_STATS, see worker.h)
+        emit EmptyFC "IDRIS2_STAT(reuseHit);"
         -- The fields that are not used any more were owned by the constructor
         -- that we take over: release them (the other branch does so when it
         -- releases the constructor).
@@ -631,6 +633,7 @@ addReuseConstructor reuseMap sc conName conArgs consts shouldDrop actualReuseCon
         -- Otherwise, delete and duplicate constructor variables
         emit EmptyFC "else {"
         increaseIndentation
+        emit EmptyFC "IDRIS2_STAT(reuseMiss);"
         -- remove dup and remove if they are executed for the same argument
         dupVars (conArgs \\ shouldDrop)
         removeVars [sc]

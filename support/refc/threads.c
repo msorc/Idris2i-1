@@ -398,6 +398,12 @@ static void fatal(const char *message) {
   exit(1);
 }
 
+int idris2_workerCount(void) {
+  return __atomic_load_n(&n_workers, __ATOMIC_ACQUIRE);
+}
+
+Idris2_Worker *idris2_workerAt(int i) { return workers[i]->worker; }
+
 int idris2_threadsInParallel(void) {
   return __atomic_load_n(&n_workers, __ATOMIC_RELAXED) > 1;
 }
@@ -1502,8 +1508,15 @@ static int run_main_on_own_stack(Idris2_Value *(*mainAction)(void)) {
 
 #endif /* IDRIS2_GREEN_THREADS */
 
+// The reports of memoryManagement.c, when the program exits before the end
+// of its main expression (by `exitWith`, say).
+static void report_at_exit(void) {
+  idris2_reportAtExit(0, __atomic_load_n(&live_threads, __ATOMIC_RELAXED));
+}
+
 void idris2_threadSchedulerRun(Idris2_Value *(*mainAction)(void)) {
   main_sched.current = &main_thread;
+  atexit(report_at_exit);
 #if IDRIS2_GREEN_THREADS
   scheduler_init();
   if (!run_main_on_own_stack(mainAction))
@@ -1515,6 +1528,7 @@ void idris2_threadSchedulerRun(Idris2_Value *(*mainAction)(void)) {
   // Like in the Chez backend, the program is over once the main expression
   // is done: the other threads, if any, are abandoned.
   thread_finish(&main_thread);
+  idris2_reportAtExit(1, __atomic_load_n(&live_threads, __ATOMIC_RELAXED));
 }
 
 int idris2_threadRunsElsewhere(int worker, int64_t thread) {

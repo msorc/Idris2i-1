@@ -37,12 +37,12 @@ while getopts ${optstring} arg; do
     # whether to build
     b) BUILD=true ;;
     # set codegen (redundant unless -b passed)
-    c)  case $2 in
+    c)  case $OPTARG in
             chez|refc|racket|gambit)
-              BACKEND="$2"
+              BACKEND="$OPTARG"
               export IDRIS2_CG=$BACKEND ;;
             *)
-              echo "$BACKEND is not a recognised backend! You can check the available backends using $0 -h"
+              echo "$OPTARG is not a recognised backend! You can check the available backends using $0 -h"
               exit 1 ;;
         esac
         ;;
@@ -50,7 +50,7 @@ while getopts ${optstring} arg; do
     f) FAST=true ;;
     # custom output file name
     o)
-      [[ ! -z "$2" ]] && FILENAME="$2"
+      [[ ! -z "$OPTARG" ]] && FILENAME="$OPTARG"
 		  echo "-o option passed, with value $FILENAME"
 		  ;;
     # help message
@@ -69,8 +69,7 @@ done
 cwd=$(pwd)
 if [ $FILENAME != "bench-results" ];
 then
-   echo here
-   output_path="$FILENAME.csv";
+   output_path="$cwd/$FILENAME.csv";
 else
    output_path="$cwd/${FILENAME}_${BACKEND}"
    if [[ $FAST = true ]]; then output_path+="_fast"; fi

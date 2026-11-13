@@ -36,6 +36,7 @@ static inline Idris2_Value *idris2_newValue(size_t size) {
     retVal->header.reserved = (uint8_t)cls;
     retVal->header.refCounter = 1;
     retVal->header.tag = NO_TAG;
+    IDRIS2_STAT(allocs[cls]);
     return retVal;
   }
 #endif
@@ -123,10 +124,18 @@ static inline Idris2_header idris2_headerWord(Idris2_Value *v) {
 
 IDRIS2_INLINE Idris2_Value *idris2_newReference(Idris2_Value *source) {
   if (source && !idris2_vp_is_unboxed(source)) {
-    if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(source)), 1))
+    if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(source)), 1)) {
       ++source->header.refCounter;
-    else
+#ifdef IDRIS2_REFC_STATS
+      IDRIS2_STAT(dup[IDRIS2_RC_PLAIN]);
+      if (source->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
+        IDRIS2_STAT(immortalised);
+#endif
+    } else {
       idris2_newReferenceSlow(source);
+    }
+  } else {
+    IDRIS2_STAT(dup[IDRIS2_RC_IMMEDIATE]);
   }
   return source;
 }
@@ -143,9 +152,12 @@ static inline Idris2_Value *idris2_makeImmortal(Idris2_Value *v) {
 
 // Drop a reference, releasing the value when it was the last one.
 IDRIS2_INLINE void idris2_removeReference(Idris2_Value *elem) {
-  if (!elem || idris2_vp_is_unboxed(elem))
+  if (!elem || idris2_vp_is_unboxed(elem)) {
+    IDRIS2_STAT(drop[IDRIS2_RC_IMMEDIATE]);
     return;
+  }
   if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(elem)), 1)) {
+    IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
     uint16_t count = idris2_wordRefCounter(idris2_headerWord(elem));
     if (count != 1)
       elem->header.refCounter = count - 1;
@@ -160,9 +172,10 @@ IDRIS2_INLINE void idris2_removeReference(Idris2_Value *elem) {
 // immortal).  Another thread may drop the other references of a shared
 // value at the same time, so that one is released if need be.
 IDRIS2_INLINE void idris2_dropSharedReference(Idris2_Value *v) {
-  if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(v)), 1))
+  if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(v)), 1)) {
+    IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
     --v->header.refCounter;
-  else
+  } else
     idris2_removeReferenceSlow(v);
 }
 
@@ -314,5 +327,13 @@ extern Idris2_NullaryConstructor const
   ((Idris2_Value *)&idris2_predefined_nullary[tag])
 
 
-// You need uncomment a debugging code in memoryManagement.c to use this.
+// The reports at exit (see refc.rst): with IDRIS2_REFC_MEMSTATS=1 the pages
+// and, in a build with IDRIS2_REFC_STATS, the counters (see worker.h); with
+// IDRIS2_REFC_LEAKCHECK=1 (or 2, with examples) the values that are still
+// alive.  `finished` says that the main expression is done (otherwise the
+// program is exiting from somewhere else, and only the statistics make
+// sense); `threadsLeft` is the number of other threads that still run (the
+// leak check is skipped then).
+void idris2_reportAtExit(int finished, long long threadsLeft);
+// The statistics, now (to stderr).
 void idris2_dumpMemoryStats(void);

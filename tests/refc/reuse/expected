@@ -39,8 +39,10 @@ Idris2_Value *Main_insert
         Idris2_Constructor* constructor_46 = NULL;
         if (idris2_isUnique(var_2)) {
             constructor_46 = (Idris2_Constructor*)var_2;
+            IDRIS2_STAT(reuseHit);
         }
         else {
+            IDRIS2_STAT(reuseMiss);
             idris2_newReference(var_5);
             idris2_newReference(var_6);
             idris2_newReference(var_7);

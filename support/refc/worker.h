@@ -61,12 +61,55 @@ typedef struct Idris2_Page {
   int available;                     // in that list, or the current page
   struct Idris2_Worker *owner;       // the worker that allocates from it
   unsigned cls;                      // the size class of its values
+  struct Idris2_Page *nextPage;      // in the list of every page
 } Idris2_Page;
 
 typedef struct {
   Idris2_Page *current;   // the page that the class allocates from
   Idris2_Page *available; // pages with free values, besides the current one
 } Idris2_SizeClass;
+
+// ---------------------------------------------------------------------------
+// Statistics
+//
+// Compiled with -DIDRIS2_REFC_STATS (both the support library and the
+// generated code, see refc.rst), the runtime counts what the allocator and
+// the reference counting do; IDRIS2_REFC_MEMSTATS=1 prints the counts at
+// exit.  Without it, IDRIS2_STAT does nothing.  The counters are in the
+// worker either way, so that the layout of the worker does not depend on
+// the flag.  Only the worker that owns them writes them.
+// ---------------------------------------------------------------------------
+
+// What a reference count operation (idris2_newReference and
+// idris2_removeReference) found.
+#define IDRIS2_RC_IMMEDIATE 0 // NULL or an unboxed value: nothing to do
+#define IDRIS2_RC_PLAIN 1     // a count updated in place
+#define IDRIS2_RC_SHARED 2    // an atomic update (see memoryManagement.h)
+#define IDRIS2_RC_IMMORTAL 3  // a value that is never freed
+#define IDRIS2_RC_KINDS 4
+
+// How a closure was applied (see runtime.c).
+#define IDRIS2_APPLY_IN_PLACE 0     // argument stored in the closure
+#define IDRIS2_APPLY_SATURATED 1    // a unique closure called
+#define IDRIS2_APPLY_COPIED 2       // a closure with other references called
+#define IDRIS2_APPLY_UNDER_COPY 3   // partial application of a closure copy
+#define IDRIS2_APPLY_SHARED 4       // a shared closure called
+#define IDRIS2_APPLY_KINDS 5
+
+typedef struct {
+  uint64_t allocs[IDRIS2_ALLOC_CLASSES + 1];
+  uint64_t frees[IDRIS2_ALLOC_CLASSES + 1];
+  uint64_t largeAllocs, largeFrees;
+  uint64_t pagesCreated;
+  uint64_t remoteFreesReceived;
+  uint64_t immortalised; // counts that reached IDRIS2_VP_REFCOUNTER_MAX
+  uint64_t dup[IDRIS2_RC_KINDS];
+  uint64_t drop[IDRIS2_RC_KINDS];
+  uint64_t uniqueHit, uniqueMiss; // idris2_isUnique
+  uint64_t reuseHit, reuseMiss;   // a cell kept for a constructor, or not
+  uint64_t apply[IDRIS2_APPLY_KINDS];
+  uint32_t releaseDepth, maxReleaseDepth; // nesting of idris2_releaseValue
+} Idris2_Stats;
 
 // ---------------------------------------------------------------------------
 // Tail calls (see runtime.h)
@@ -91,6 +134,7 @@ typedef struct Idris2_Worker {
   int preempt;
   // The scheduler of the worker (see threads.c).
   void *sched;
+  Idris2_Stats stats;
   // The values of the pages of this worker that other workers freed: they
   // go back to their pages the next time this worker needs a page.  (On a
   // cache line of its own, as other workers write it.)
@@ -131,6 +175,16 @@ static inline Idris2_Worker *idris2_worker(void) {
 }
 #else
 #define idris2_worker() (&idris2_mainWorker)
+#endif
+
+// The workers, for the reports at exit (see memoryManagement.c).
+int idris2_workerCount(void);
+Idris2_Worker *idris2_workerAt(int i);
+
+#ifdef IDRIS2_REFC_STATS
+#define IDRIS2_STAT(field) ((void)(++idris2_worker()->stats.field))
+#else
+#define IDRIS2_STAT(field) ((void)0)
 #endif
 
 // Is a second worker running?  Until then, the values never need atomic

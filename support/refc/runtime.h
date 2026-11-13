@@ -9,9 +9,19 @@ void idris2_missing_ffi();
 // is ours alone: it stops being shared first.
 #define idris2_isUnique(x) (idris2_isUniqueValue((Idris2_Value *)(x)))
 static inline int idris2_isUniqueValue(Idris2_Value *v) {
+#ifdef IDRIS2_REFC_STATS
+  int unique = idris2_isShared(v) ? idris2_tryUnshare(v)
+                                  : v->header.refCounter == 1;
+  if (unique)
+    IDRIS2_STAT(uniqueHit);
+  else
+    IDRIS2_STAT(uniqueMiss);
+  return unique;
+#else
   if (__builtin_expect(idris2_isShared(v), 0))
     return idris2_tryUnshare(v);
   return v->header.refCounter == 1;
+#endif
 }
 void idris2_removeReuseConstructor(Idris2_Constructor *constr);
 

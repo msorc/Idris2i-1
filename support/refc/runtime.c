@@ -142,6 +142,7 @@ Idris2_Value const idris2_tailCallMarker = {IDRIS2_STOCKVAL(NO_TAG)};
 static Idris2_Value *idris2_call_shared_closure(Idris2_Closure *clos, int n,
                                                 Idris2_Value *arg1,
                                                 Idris2_Value *arg2) {
+  IDRIS2_STAT(apply[IDRIS2_APPLY_SHARED]);
   Idris2_Value *small[IDRIS2_MAX_TAILCALL_ARGS];
   Idris2_Value **xs = small;
   if (clos->arity > IDRIS2_MAX_TAILCALL_ARGS) {
@@ -189,6 +190,10 @@ Idris2_Value *idris2_trampolineSlow(Idris2_Value *it) {
     // The call consumes the arguments: when another reference to the closure
     // remains, it keeps its own (as in idris2_call_closure).
     int unique = idris2_isUnique(clos);
+    if (unique)
+      IDRIS2_STAT(apply[IDRIS2_APPLY_SATURATED]);
+    else
+      IDRIS2_STAT(apply[IDRIS2_APPLY_COPIED]);
     if (!unique)
       for (int i = 0; i < clos->filled; ++i)
         idris2_newReference(clos->args[i]);
@@ -219,6 +224,10 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
   // nobody else refers to it, the argument goes in place.
   if (idris2_isUnique(clos) && clos->filled < clos->arity) {
     clos->args[clos->filled++] = arg;
+#ifdef IDRIS2_REFC_STATS
+    if (clos->filled < clos->arity)
+      IDRIS2_STAT(apply[IDRIS2_APPLY_IN_PLACE]);
+#endif
     return (Idris2_Value *)clos;
   }
 
@@ -234,6 +243,7 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
       idris2_pendingTailCall.args[i] = idris2_newReference(clos->args[i]);
     idris2_pendingTailCall.args[clos->filled] = arg;
     idris2_dropSharedReference((Idris2_Value *)clos);
+    IDRIS2_STAT(apply[IDRIS2_APPLY_COPIED]);
     return IDRIS2_TAILCALL;
   }
 
@@ -246,6 +256,7 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
     newclos->args[i] = idris2_newReference(clos->args[i]);
   newclos->args[clos->filled] = arg; // add argument to new arglist
   idris2_dropSharedReference((Idris2_Value *)clos);
+  IDRIS2_STAT(apply[IDRIS2_APPLY_UNDER_COPY]);
 
   return (Idris2_Value *)newclos;
 }
@@ -262,6 +273,10 @@ static inline Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
     return idris2_trampoline(idris2_call_shared_closure(clos, n, arg1, arg2));
   uint8_t filled = clos->filled;
   int unique = idris2_isUnique(clos);
+  if (unique)
+    IDRIS2_STAT(apply[IDRIS2_APPLY_SATURATED]);
+  else
+    IDRIS2_STAT(apply[IDRIS2_APPLY_COPIED]);
   if (!unique)
     for (int i = 0; i < filled; ++i)
       idris2_newReference(clos->args[i]);
@@ -300,6 +315,10 @@ Idris2_Value *idris2_tailcall_apply_closure2(Idris2_Value *_clos,
   if (idris2_isUnique(clos)) {
     clos->args[clos->filled++] = arg1;
     clos->args[clos->filled++] = arg2;
+#ifdef IDRIS2_REFC_STATS
+    if (clos->filled < clos->arity)
+      IDRIS2_STAT(apply[IDRIS2_APPLY_IN_PLACE]);
+#endif
     return (Idris2_Value *)clos;
   }
   if (clos->filled + 2 == clos->arity &&
@@ -311,6 +330,7 @@ Idris2_Value *idris2_tailcall_apply_closure2(Idris2_Value *_clos,
     idris2_pendingTailCall.args[clos->filled] = arg1;
     idris2_pendingTailCall.args[clos->filled + 1] = arg2;
     idris2_dropSharedReference((Idris2_Value *)clos);
+    IDRIS2_STAT(apply[IDRIS2_APPLY_COPIED]);
     return IDRIS2_TAILCALL;
   }
   Idris2_Closure *newclos =
@@ -320,6 +340,7 @@ Idris2_Value *idris2_tailcall_apply_closure2(Idris2_Value *_clos,
   newclos->args[clos->filled] = arg1;
   newclos->args[clos->filled + 1] = arg2;
   idris2_dropSharedReference((Idris2_Value *)clos);
+  IDRIS2_STAT(apply[IDRIS2_APPLY_UNDER_COPY]);
   return (Idris2_Value *)newclos;
 }
 

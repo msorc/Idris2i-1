@@ -40,11 +40,39 @@ $(LIBTARGET): $(OBJS)
 .PHONY: clean
 clean:
 	$(RM) $(OBJS) $(LIBTARGET)
+	$(RM) -r asan
 
 .PHONY: cleandep
 cleandep: clean
 	$(RM) $(DEPS)
 
+
+# A build that looks for memory errors (a value used after it was freed, by
+# wrong reference counting, say): every value comes from malloc
+# (IDRIS2_REFC_NO_POOLS), checked by AddressSanitizer and UBSan.
+#   make install-support-refc-asan PREFIX=<prefix>
+# (at the top of the repository) installs it in place of the normal library
+# under a prefix that has the rest of an installation; compile the programs
+# with
+#   IDRIS2_PREFIX=<prefix> IDRIS2_CPPFLAGS=-DIDRIS2_REFC_NO_POOLS \
+#   IDRIS2_CFLAGS="$(ASAN_FLAGS)" IDRIS2_LDFLAGS="$(ASAN_FLAGS)"
+ASAN_FLAGS = -g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined
+ASAN_OBJS = $(addprefix asan/,$(OBJS))
+
+asan/%.o: %.c
+	@mkdir -p asan
+	$(CC) $(CPPFLAGS) -DIDRIS2_REFC_NO_POOLS $(ASAN_FLAGS) -c $< -o $@
+
+asan/$(LIBTARGET): $(ASAN_OBJS)
+	$(AR) rc $@ $^
+	$(RANLIB) $@
+
+.PHONY: asan install-asan
+asan: asan/$(LIBTARGET)
+
+install-asan: asan
+	mkdir -p ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/refc
+	install -m 644 asan/$(LIBTARGET) *.h ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/refc
 
 .PHONY: install
 install: build

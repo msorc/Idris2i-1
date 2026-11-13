@@ -19,7 +19,31 @@ with ``malloc``.  When the program runs under Valgrind, and the support library
 was built with the Valgrind headers available, every value comes from
 ``malloc``, so that Valgrind can check them.  For other memory checkers (such
 as AddressSanitizer), compile the support library and the program with
-``-DIDRIS2_REFC_NO_POOLS``.
+``-DIDRIS2_REFC_NO_POOLS``: ``make install-support-refc-asan PREFIX=<prefix>``
+installs such a support library, built with AddressSanitizer and UBSan, and the
+comment at the top of ``support/refc/Makefile`` gives the flags for the
+programs.
+
+Two environment variables make a program report on its memory when it exits
+(on the standard error):
+
+- ``IDRIS2_REFC_MEMSTATS=1`` prints the pages of the allocator and the values
+  that they hold, by size.
+- ``IDRIS2_REFC_LEAKCHECK=1`` looks for the values that are still alive once
+  the main expression is done, and that the constants of the program (the
+  definitions without arguments, which are kept until the program exits) do
+  not hold: those values leaked, from a cycle of references for example.
+  ``IDRIS2_REFC_LEAKCHECK=2`` also shows some of them.  The check is skipped
+  when other threads still run, or when the program exits early (with
+  ``exitWith``, say).  Large values (more than 256 bytes) are only counted.
+
+When the support library and the program are both compiled with
+``-DIDRIS2_REFC_STATS`` (``IDRIS2_CPPFLAGS=-DIDRIS2_REFC_STATS`` for the
+program), ``IDRIS2_REFC_MEMSTATS=1`` also prints counts of what the program
+did: allocations by size, reference count operations (on unboxed values, on
+values counted in place, on values shared between threads, on immortal values),
+uniqueness tests, constructors reused in place, and closure applications by
+kind.  Such a build is slower, and only meant to find out where the time goes.
 
 This code generator can be accessed via the REPL command:
 

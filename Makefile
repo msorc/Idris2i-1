@@ -230,6 +230,11 @@ endif
 install-support:
 	@${MAKE} -C support install
 
+# The RefC support library built to find memory errors (see
+# support/refc/Makefile), in place of the normal one under PREFIX.
+install-support-refc-asan:
+	@${MAKE} -C support/refc install-asan
+
 install-bootstrap-libs:
 	${JOBS_ENV} ${MAKE} -C libs/prelude install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PREFIX=${IDRIS2_PREFIX}
 	${JOBS_ENV} ${MAKE} -C libs/base install    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PREFIX=${IDRIS2_PREFIX}

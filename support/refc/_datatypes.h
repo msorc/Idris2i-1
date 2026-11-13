@@ -382,4 +382,3 @@ typedef struct {
   Idris2_WaitQueue writers;
 } Idris2_Channel;
 
-void idris2_dumpMemoryStats(void);

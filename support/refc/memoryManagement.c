@@ -12,46 +12,13 @@
 #include "refc_util.h"
 #include "runtime.h"
 
-#if 0
-// n_newReference, n_actualNewReference, n_immortalized, n_removeReference and
-// n_tried_to_kill_immortals are not counted any more: the reference counting
-// is inlined (see memoryManagement.h).
-struct {
-  unsigned int n_newValue;
-  unsigned int n_newReference;
-  unsigned int n_actualNewReference;
-  unsigned int n_immortalized;
-  unsigned int n_removeReference;
-  unsigned int n_tried_to_kill_immortals;
-  unsigned int n_freed;
-} idris2_memory_stat = {0, 0, 0, 0, 0, 00, 0};
-#define IDRIS2_INC_MEMSTAT(x)                                                  \
-  do {                                                                         \
-    ++(idris2_memory_stat.x);                                                  \
-  } while (0)
+// Every page, for the reports at exit (see idris2_reportAtExit).  Pages are
+// made rarely (one per 64KB), so a lock is fine.
+static Idris2_Page *allPages = NULL;
+static Idris2_SpinLock allPagesLock = 0;
 
-void idris2_dumpMemoryStats(void) {
-  fprintf(
-      stderr,
-      "n_newValue = %u\n"
-      "n_newReference = %u\n"
-      "n_actualNewReference = %u\n"
-      "n_immortalized = %u\n"
-      "n_removeReference = %u\n"
-      "n_tried_to_kill_immortals = %u\n"
-      "n_freed = %u\n",
-      idris2_memory_stat.n_newValue, idris2_memory_stat.n_newReference,
-      idris2_memory_stat.n_actualNewReference,
-      idris2_memory_stat.n_immortalized, idris2_memory_stat.n_removeReference,
-      idris2_memory_stat.n_tried_to_kill_immortals, idris2_memory_stat.n_freed);
-}
-
-#else
-#define IDRIS2_INC_MEMSTAT(x)
-// don't inline this, Because IDRIS2_MEMSTAT works only at compiling support
-// libraries to suppressing overhead.
-void idris2_dumpMemoryStats() {}
-#endif
+// The values from malloc that are not freed yet.
+static int64_t largeLive = 0;
 
 /*
  * Small values are allocated from pages of IDRIS2_PAGE_SIZE bytes, aligned
@@ -110,6 +77,11 @@ static Idris2_Page *newPage(Idris2_Worker *w, unsigned cls) {
   page->end = start + (((char *)page + IDRIS2_PAGE_SIZE - start) / size) * size;
   page->nextAvailable = NULL;
   page->available = 1;
+  idris2_spinLock(&allPagesLock);
+  page->nextPage = allPages;
+  allPages = page;
+  idris2_spinUnlock(&allPagesLock);
+  IDRIS2_STAT(pagesCreated);
   return page;
 }
 
@@ -151,6 +123,9 @@ static void collectRemoteFrees(Idris2_Worker *w) {
       __atomic_exchange_n(&w->remoteFree, NULL, __ATOMIC_ACQUIRE);
   while (v) {
     Idris2_FreeValue *next = v->next;
+#ifdef IDRIS2_REFC_STATS
+    ++w->stats.remoteFreesReceived;
+#endif
     freeLocal(w,
               (Idris2_Page *)((uintptr_t)v &
                               ~(uintptr_t)(IDRIS2_PAGE_SIZE - 1)),
@@ -189,11 +164,14 @@ Idris2_Value *idris2_allocSlow(unsigned cls) {
   retVal->header.reserved = (uint8_t)cls;
   retVal->header.refCounter = 1;
   retVal->header.tag = NO_TAG;
+  IDRIS2_STAT(allocs[cls]);
   return retVal;
 }
 
 Idris2_Value *idris2_allocLarge(size_t size) {
   Idris2_Value *retVal = (Idris2_Value *)allocAligned(sizeof(void *), size);
+  __atomic_fetch_add(&largeLive, 1, __ATOMIC_RELAXED);
+  IDRIS2_STAT(largeAllocs);
   retVal->header.reserved = 0;
   retVal->header.refCounter = 1;
   retVal->header.tag = NO_TAG;
@@ -203,9 +181,12 @@ Idris2_Value *idris2_allocLarge(size_t size) {
 void idris2_freeValue(Idris2_Value *value) {
   unsigned cls = value->header.reserved & IDRIS2_CLASS_MASK;
   if (cls == 0) {
+    __atomic_fetch_sub(&largeLive, 1, __ATOMIC_RELAXED);
+    IDRIS2_STAT(largeFrees);
     free(value);
     return;
   }
+  IDRIS2_STAT(frees[cls]);
   Idris2_Page *page =
       (Idris2_Page *)((uintptr_t)value & ~(uintptr_t)(IDRIS2_PAGE_SIZE - 1));
   Idris2_FreeValue *v = (Idris2_FreeValue *)value;
@@ -228,8 +209,11 @@ void idris2_freeValue(Idris2_Value *value) {
 // ---------------------------------------------------------------------------
 
 void idris2_newReferenceSlow(Idris2_Value *v) {
-  if (!idris2_isShared(v))
-    return; // immortal
+  if (!idris2_isShared(v)) {
+    IDRIS2_STAT(dup[IDRIS2_RC_IMMORTAL]);
+    return;
+  }
+  IDRIS2_STAT(dup[IDRIS2_RC_SHARED]);
   uint16_t c = __atomic_load_n(&v->header.refCounter, __ATOMIC_RELAXED);
   while (c != IDRIS2_VP_REFCOUNTER_MAX &&
          !__atomic_compare_exchange_n(&v->header.refCounter, &c, c + 1, 1,
@@ -253,6 +237,12 @@ static int sharedDropReference(Idris2_Value *v) {
 }
 
 void idris2_removeReferenceSlow(Idris2_Value *v) {
+#ifdef IDRIS2_REFC_STATS
+  if (idris2_isShared(v))
+    IDRIS2_STAT(drop[IDRIS2_RC_SHARED]);
+  else
+    IDRIS2_STAT(drop[IDRIS2_RC_IMMORTAL]);
+#endif
   if (idris2_isShared(v) && sharedDropReference(v))
     idris2_releaseValue(v);
 }
@@ -474,13 +464,28 @@ Idris2_Array *idris2_makeArray(int length) {
 // The last reference to `elem` is gone: release what it refers to, and free
 // it.  The common cases of idris2_removeReference are inlined (see
 // memoryManagement.h).
+#ifdef IDRIS2_REFC_STATS
+// The nesting of the releases is counted around the function.
+static void releaseValue(Idris2_Value *elem);
+
 void idris2_releaseValue(Idris2_Value *elem) {
+  Idris2_Stats *st = &idris2_worker()->stats;
+  if (++st->releaseDepth > st->maxReleaseDepth)
+    st->maxReleaseDepth = st->releaseDepth;
+  releaseValue(elem);
+  // (the finaliser of a GC pointer may have switched workers)
+  --idris2_worker()->stats.releaseDepth;
+}
+
+static void releaseValue(Idris2_Value *elem) {
+#else
+void idris2_releaseValue(Idris2_Value *elem) {
+#endif
   // The last field of a constructor or a closure is released by looping
   // rather than by a recursive call: freeing a long list (the tail is the
   // last field) does not need a deep stack.
   for (;;) {
     Idris2_Value *last = NULL;
-    IDRIS2_INC_MEMSTAT(n_freed);
     switch (elem->header.tag) {
     case BITS32_TAG:
     case BITS64_TAG:
@@ -690,4 +695,457 @@ Idris2_Value *idris2_getPredefinedInteger(int n) {
     }
   }
   return (Idris2_Value *)&idris2_predefined_Integer[n];
+}
+
+// ---------------------------------------------------------------------------
+// Reports at exit (see idris2_reportAtExit in memoryManagement.h)
+// ---------------------------------------------------------------------------
+
+static const char *kindName(uint8_t tag) {
+  switch (tag) {
+  case NO_TAG:
+    return "untagged";
+  case BITS32_TAG:
+    return "Bits32";
+  case BITS64_TAG:
+    return "Bits64";
+  case INT32_TAG:
+    return "Int32";
+  case INT64_TAG:
+    return "Int64";
+  case INTEGER_TAG:
+    return "Integer";
+  case DOUBLE_TAG:
+    return "Double";
+  case STRING_TAG:
+    return "String";
+  case CLOSURE_TAG:
+    return "closure";
+  case CONSTRUCTOR_TAG:
+    return "constructor";
+  case IOREF_TAG:
+    return "IORef";
+  case ARRAY_TAG:
+    return "array";
+  case POINTER_TAG:
+    return "Ptr";
+  case GC_POINTER_TAG:
+    return "GCPtr";
+  case BUFFER_TAG:
+    return "Buffer";
+  case MUTEX_TAG:
+    return "mutex";
+  case CONDITION_TAG:
+    return "condition";
+  case SEMAPHORE_TAG:
+    return "semaphore";
+  case BARRIER_TAG:
+    return "barrier";
+  case CHANNEL_TAG:
+    return "channel";
+  case THREAD_ID_TAG:
+    return "ThreadID";
+  default:
+    return "?";
+  }
+}
+
+static int envLevel(const char *var) {
+  const char *v = getenv(var);
+  if (!v || !*v)
+    return 0;
+  return atoi(v) > 0 ? atoi(v) : (strcmp(v, "0") != 0);
+}
+
+// The live values of the pages, by class (index 0: all of them), and the
+// pages by class.  Calls `visit` on every live value of the pages when it is
+// not NULL.
+typedef struct {
+  uint64_t pages[IDRIS2_ALLOC_CLASSES + 1];
+  uint64_t live[IDRIS2_ALLOC_CLASSES + 1];
+  uint64_t nPages;
+} PageCensus;
+
+static void pageCensus(PageCensus *census, void (*visit)(Idris2_Value *, void *),
+                       void *data) {
+  memset(census, 0, sizeof(*census));
+  idris2_spinLock(&allPagesLock);
+  Idris2_Page *pages = allPages;
+  idris2_spinUnlock(&allPagesLock);
+  for (Idris2_Page *page = pages; page; page = page->nextPage) {
+    unsigned cls = page->cls;
+    size_t size = (size_t)cls * IDRIS2_ALLOC_UNIT;
+    char *start = (char *)page + ((sizeof(Idris2_Page) + 15) & ~(size_t)15);
+    size_t used = (size_t)(page->bump - start) / size;
+    // A bit per value of the page: 1 when it is free.
+    uint8_t freeSlots[IDRIS2_PAGE_SIZE / IDRIS2_ALLOC_UNIT / 8];
+    memset(freeSlots, 0, (used + 7) / 8);
+    size_t nFree = 0;
+    for (Idris2_FreeValue *v = page->free; v; v = v->next) {
+      size_t i = (size_t)((char *)v - start) / size;
+      if ((char *)v < start || i >= used ||
+          (char *)v != start + i * size || (freeSlots[i / 8] >> (i % 8)) & 1) {
+        fprintf(stderr, "RefC: the free list of the page %p is broken\n",
+                (void *)page);
+        break;
+      }
+      freeSlots[i / 8] |= (uint8_t)(1u << (i % 8));
+      nFree++;
+    }
+    census->nPages++;
+    census->pages[cls]++;
+    census->live[cls] += used - nFree;
+    census->live[0] += used - nFree;
+    if (visit)
+      for (size_t i = 0; i < used; i++)
+        if (!((freeSlots[i / 8] >> (i % 8)) & 1))
+          visit((Idris2_Value *)(start + i * size), data);
+  }
+}
+
+// Put back the values that other workers freed, so that they do not count
+// as live.  Only when no other thread runs.
+static void collectAllRemoteFrees(void) {
+  int n = idris2_workerCount();
+  for (int i = 0; i < n; i++)
+    collectRemoteFrees(idris2_workerAt(i));
+}
+
+void idris2_dumpMemoryStats(void) {
+  int nWorkers = idris2_workerCount();
+  PageCensus census;
+  pageCensus(&census, NULL, NULL);
+  fprintf(stderr, "RefC memory statistics (%d worker%s)\n", nWorkers,
+          nWorkers == 1 ? "" : "s");
+  fprintf(stderr, "  pages: %llu (%.1f MiB)\n",
+          (unsigned long long)census.nPages,
+          (double)census.nPages * IDRIS2_PAGE_SIZE / (1024.0 * 1024.0));
+  Idris2_Stats sum;
+  memset(&sum, 0, sizeof(sum));
+  for (int i = 0; i < nWorkers; i++) {
+    Idris2_Stats *st = &idris2_workerAt(i)->stats;
+    for (int c = 0; c <= IDRIS2_ALLOC_CLASSES; c++) {
+      sum.allocs[c] += st->allocs[c];
+      sum.frees[c] += st->frees[c];
+    }
+    sum.largeAllocs += st->largeAllocs;
+    sum.largeFrees += st->largeFrees;
+    sum.pagesCreated += st->pagesCreated;
+    sum.remoteFreesReceived += st->remoteFreesReceived;
+    sum.immortalised += st->immortalised;
+    for (int k = 0; k < IDRIS2_RC_KINDS; k++) {
+      sum.dup[k] += st->dup[k];
+      sum.drop[k] += st->drop[k];
+    }
+    sum.uniqueHit += st->uniqueHit;
+    sum.uniqueMiss += st->uniqueMiss;
+    sum.reuseHit += st->reuseHit;
+    sum.reuseMiss += st->reuseMiss;
+    for (int k = 0; k < IDRIS2_APPLY_KINDS; k++)
+      sum.apply[k] += st->apply[k];
+    if (st->maxReleaseDepth > sum.maxReleaseDepth)
+      sum.maxReleaseDepth = st->maxReleaseDepth;
+  }
+#ifdef IDRIS2_REFC_STATS
+  int stats = 1;
+#else
+  int stats = 0;
+#endif
+  fprintf(stderr, "  %5s %6s %7s %12s%s\n", "class", "bytes", "pages", "live",
+          stats ? "       allocated        freed" : "");
+  for (int c = 1; c <= IDRIS2_ALLOC_CLASSES; c++) {
+    if (!census.pages[c] && !sum.allocs[c])
+      continue;
+    fprintf(stderr, "  %5d %6d %7llu %12llu", c, c * IDRIS2_ALLOC_UNIT,
+            (unsigned long long)census.pages[c],
+            (unsigned long long)census.live[c]);
+    if (stats)
+      fprintf(stderr, " %15llu %12llu", (unsigned long long)sum.allocs[c],
+              (unsigned long long)sum.frees[c]);
+    fprintf(stderr, "\n");
+  }
+  fprintf(stderr, "  large values (malloc): %lld live\n",
+          (long long)__atomic_load_n(&largeLive, __ATOMIC_RELAXED));
+  if (!stats) {
+    fprintf(stderr, "  (build with -DIDRIS2_REFC_STATS for the counters)\n");
+    return;
+  }
+  uint64_t allocs = sum.largeAllocs;
+  for (int c = 1; c <= IDRIS2_ALLOC_CLASSES; c++)
+    allocs += sum.allocs[c];
+  uint64_t dups = 0, drops = 0;
+  for (int k = 0; k < IDRIS2_RC_KINDS; k++) {
+    dups += sum.dup[k];
+    drops += sum.drop[k];
+  }
+  fprintf(stderr, "  allocations: %llu (%llu large, %llu freed)\n",
+          (unsigned long long)allocs, (unsigned long long)sum.largeAllocs,
+          (unsigned long long)sum.largeFrees);
+  fprintf(stderr, "  pages created: %llu, remote frees received: %llu\n",
+          (unsigned long long)sum.pagesCreated,
+          (unsigned long long)sum.remoteFreesReceived);
+  static const char *const rcKinds[IDRIS2_RC_KINDS] = {"immediate", "plain",
+                                                        "shared", "immortal"};
+  fprintf(stderr, "  %-8s %15s", "", "total");
+  for (int k = 0; k < IDRIS2_RC_KINDS; k++)
+    fprintf(stderr, " %15s", rcKinds[k]);
+  fprintf(stderr, "\n  %-8s %15llu", "dup", (unsigned long long)dups);
+  for (int k = 0; k < IDRIS2_RC_KINDS; k++)
+    fprintf(stderr, " %15llu", (unsigned long long)sum.dup[k]);
+  fprintf(stderr, "\n  %-8s %15llu", "drop", (unsigned long long)drops);
+  for (int k = 0; k < IDRIS2_RC_KINDS; k++)
+    fprintf(stderr, " %15llu", (unsigned long long)sum.drop[k]);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "  count operations per allocation: %.2f\n",
+          allocs ? (double)(dups + drops) / (double)allocs : 0.0);
+  fprintf(stderr, "  counts that became immortal: %llu\n",
+          (unsigned long long)sum.immortalised);
+  fprintf(stderr, "  uniqueness tests: %llu unique, %llu not\n",
+          (unsigned long long)sum.uniqueHit,
+          (unsigned long long)sum.uniqueMiss);
+  fprintf(stderr, "  reuse: %llu cells reused, %llu not unique\n",
+          (unsigned long long)sum.reuseHit, (unsigned long long)sum.reuseMiss);
+  fprintf(stderr,
+          "  closure applications: %llu in place, %llu saturated unique, "
+          "%llu saturated copied, %llu under-saturated copies, %llu shared\n",
+          (unsigned long long)sum.apply[IDRIS2_APPLY_IN_PLACE],
+          (unsigned long long)sum.apply[IDRIS2_APPLY_SATURATED],
+          (unsigned long long)sum.apply[IDRIS2_APPLY_COPIED],
+          (unsigned long long)sum.apply[IDRIS2_APPLY_UNDER_COPY],
+          (unsigned long long)sum.apply[IDRIS2_APPLY_SHARED]);
+  fprintf(stderr, "  deepest release nesting: %u\n", sum.maxReleaseDepth);
+}
+
+// The live values of the leak check.
+#define LEAK_SAMPLES 20
+typedef struct {
+  Idris2_Value **values;
+  size_t n, capacity;
+} ValueList;
+
+static void collectValue(Idris2_Value *v, void *data) {
+  ValueList *list = data;
+  if (list->n == list->capacity) {
+    size_t capacity = list->capacity ? 2 * list->capacity : 4096;
+    Idris2_Value **bigger =
+        realloc(list->values, capacity * sizeof(Idris2_Value *));
+    if (!bigger)
+      return; // (the counts will be a bit off)
+    list->values = bigger;
+    list->capacity = capacity;
+  }
+  list->values[list->n++] = v;
+}
+
+static int compareAddresses(const void *a, const void *b) {
+  uintptr_t x = (uintptr_t)*(Idris2_Value *const *)a;
+  uintptr_t y = (uintptr_t)*(Idris2_Value *const *)b;
+  return x < y ? -1 : x > y;
+}
+
+// The index of `v` in the sorted list, or -1 when it is not a live value of
+// the pages (a static value, or one from malloc, say).
+static ptrdiff_t findValue(ValueList *list, Idris2_Value *v) {
+  size_t lo = 0, hi = list->n;
+  while (lo < hi) {
+    size_t mid = lo + (hi - lo) / 2;
+    if ((uintptr_t)list->values[mid] < (uintptr_t)v)
+      lo = mid + 1;
+    else
+      hi = mid;
+  }
+  return lo < list->n && list->values[lo] == v ? (ptrdiff_t)lo : -1;
+}
+
+static void describeValue(Idris2_Value *v) {
+  fprintf(stderr, "    %p %s", (void *)v, kindName(v->header.tag));
+  if (v->header.tag == CONSTRUCTOR_TAG) {
+    Idris2_Constructor *c = (Idris2_Constructor *)v;
+    if (c->tag >= 0)
+      fprintf(stderr, " tag %d", c->tag);
+    else
+      fprintf(stderr, " %s", (const char *)c->args[c->total]);
+    fprintf(stderr, " (%d field%s)", c->total, c->total == 1 ? "" : "s");
+  } else if (v->header.tag == STRING_TAG) {
+    Idris2_String *s = (Idris2_String *)v;
+    fprintf(stderr, " \"%.40s\"%s", s->str, s->len > 40 ? "..." : "");
+  } else if (v->header.tag == CLOSURE_TAG) {
+    Idris2_Closure *c = (Idris2_Closure *)v;
+    fprintf(stderr, " %d of %d arguments", c->filled, c->arity);
+  }
+  if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
+    fprintf(stderr, ", immortal\n");
+  else
+    fprintf(stderr, ", %u reference%s\n", v->header.refCounter,
+            v->header.refCounter == 1 ? "" : "s");
+}
+
+static void printKinds(const char *what, uint64_t *byTag) {
+  fprintf(stderr, "  %s:", what);
+  for (int t = 0; t < 256; t++)
+    if (byTag[t])
+      fprintf(stderr, " %s %llu", kindName((uint8_t)t),
+              (unsigned long long)byTag[t]);
+  fprintf(stderr, "\n");
+}
+
+// Mark what the immortal values (the constants) refer to: only the root of
+// a constant is made immortal, its fields keep their counts.
+static void markFromConstants(ValueList *list, uint8_t *reached) {
+  size_t n = 0, capacity = 1024;
+  Idris2_Value **stack = malloc(capacity * sizeof(Idris2_Value *));
+  if (!stack)
+    return;
+#define LEAK_PUSH(x)                                                           \
+  do {                                                                         \
+    Idris2_Value *x_ = (Idris2_Value *)(x);                                    \
+    if (!x_ || idris2_vp_is_unboxed(x_))                                       \
+      break;                                                                   \
+    ptrdiff_t i_ = findValue(list, x_);                                        \
+    if (i_ < 0 || reached[i_])                                                 \
+      break;                                                                   \
+    reached[i_] = 1;                                                           \
+    if (n == capacity) {                                                       \
+      Idris2_Value **bigger =                                                  \
+          realloc(stack, 2 * capacity * sizeof(Idris2_Value *));               \
+      if (!bigger)                                                             \
+        goto out;                                                              \
+      stack = bigger;                                                          \
+      capacity *= 2;                                                           \
+    }                                                                          \
+    stack[n++] = x_;                                                           \
+  } while (0)
+  for (size_t i = 0; i < list->n; i++)
+    if (list->values[i]->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
+      LEAK_PUSH(list->values[i]);
+  while (n > 0) {
+    Idris2_Value *v = stack[--n];
+    switch (v->header.tag) {
+    case CONSTRUCTOR_TAG: {
+      Idris2_Constructor *c = (Idris2_Constructor *)v;
+      for (int i = 0; i < c->total; i++)
+        LEAK_PUSH(c->args[i]);
+      break;
+    }
+    case CLOSURE_TAG: {
+      Idris2_Closure *c = (Idris2_Closure *)v;
+      for (int i = 0; i < c->filled; i++)
+        LEAK_PUSH(c->args[i]);
+      break;
+    }
+    case IOREF_TAG:
+      LEAK_PUSH(((Idris2_IORef *)v)->v);
+      break;
+    case ARRAY_TAG: {
+      Idris2_Array *a = (Idris2_Array *)v;
+      for (int i = 0; i < a->capacity; i++)
+        LEAK_PUSH(a->arr[i]);
+      break;
+    }
+    case GC_POINTER_TAG:
+      LEAK_PUSH(((Idris2_GCPointer *)v)->p);
+      LEAK_PUSH(((Idris2_GCPointer *)v)->onCollectFct);
+      break;
+    case CHANNEL_TAG:
+      if (((Idris2_Channel *)v)->full)
+        LEAK_PUSH(((Idris2_Channel *)v)->value);
+      break;
+    default:
+      break;
+    }
+  }
+#undef LEAK_PUSH
+out:
+  free(stack);
+}
+
+static void leakCheck(int level, long long threadsLeft) {
+  if (threadsLeft > 0) {
+    fprintf(stderr,
+            "RefC leak check: skipped, %lld thread%s still running (their "
+            "values would be counted as leaks)\n",
+            threadsLeft, threadsLeft == 1 ? " is" : "s are");
+    return;
+  }
+  ValueList list = {NULL, 0, 0};
+  PageCensus pages;
+  pageCensus(&pages, collectValue, &list);
+  qsort(list.values, list.n, sizeof(Idris2_Value *), compareAddresses);
+  uint8_t *reached = calloc(list.n + 1, 1);
+  uint64_t *byTag = calloc(3 * 256, sizeof(uint64_t));
+  if (!reached || !byTag) {
+    free(list.values);
+    free(reached);
+    free(byTag);
+    return;
+  }
+  markFromConstants(&list, reached);
+  uint64_t *leaked = byTag, *held = byTag + 256, *immortal = byTag + 512;
+  uint64_t nLeaked = 0, nHeld = 0, nImmortal = 0;
+  for (size_t i = 0; i < list.n; i++) {
+    Idris2_Value *v = list.values[i];
+    if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX) {
+      immortal[v->header.tag]++;
+      nImmortal++;
+    } else if (reached[i]) {
+      held[v->header.tag]++;
+      nHeld++;
+    } else {
+      leaked[v->header.tag]++;
+      nLeaked++;
+    }
+  }
+  long long large = (long long)__atomic_load_n(&largeLive, __ATOMIC_RELAXED);
+  fprintf(stderr,
+          "RefC leak check: %llu leaked values, %llu constants and %llu "
+          "values that they hold; %lld large values (from malloc, not looked "
+          "at)\n",
+          (unsigned long long)nLeaked, (unsigned long long)nImmortal,
+          (unsigned long long)nHeld, large);
+  if (nLeaked)
+    printKinds("leaked values", leaked);
+  if (level >= 2) {
+    if (nImmortal)
+      printKinds("constants", immortal);
+    if (nHeld)
+      printKinds("held by constants", held);
+    int samples = 0;
+    for (size_t i = 0; i < list.n && samples < LEAK_SAMPLES; i++) {
+      Idris2_Value *v = list.values[i];
+      if (reached[i] || v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
+        continue;
+      if (samples++ == 0)
+        fprintf(stderr, "  some leaked values:\n");
+      describeValue(v);
+    }
+  } else if (nLeaked) {
+    fprintf(stderr, "  (IDRIS2_REFC_LEAKCHECK=2 shows some of them)\n");
+  }
+  free(list.values);
+  free(reached);
+  free(byTag);
+}
+
+void idris2_reportAtExit(int finished, long long threadsLeft) {
+  static int done = 0;
+  if (done)
+    return;
+  done = 1;
+  int memstats = envLevel("IDRIS2_REFC_MEMSTATS");
+  int leaks = envLevel("IDRIS2_REFC_LEAKCHECK");
+  if (!memstats && !leaks)
+    return;
+  // The values freed by other workers are put back first, when nothing else
+  // can touch the pages.
+  if (finished && threadsLeft == 0)
+    collectAllRemoteFrees();
+  if (memstats)
+    idris2_dumpMemoryStats();
+  if (leaks) {
+    if (finished)
+      leakCheck(leaks, threadsLeft);
+    else
+      fprintf(stderr, "RefC leak check: skipped, the program exits before "
+                      "its main expression is done\n");
+  }
 }
