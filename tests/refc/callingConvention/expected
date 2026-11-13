@@ -7,9 +7,9 @@ Idris2_Value *Main_dupargs
     Idris2_Value * var_0
 )
 {
-    Idris2_Value *primVar_83 = idris2_add_Integer(var_0, var_0);
+    Idris2_Value *primVar_92 = idris2_add_Integer(var_0, var_0);
     idris2_removeReference(var_0);
-    return primVar_83;
+    return primVar_92;
 }
 Idris2_Value *Main_last
 (
@@ -23,9 +23,9 @@ Idris2_Value *Main_last
 )
 {
     idris2_self_entry: ;
-    Idris2_Value * tmp_80 = NULL;                            // Main:8:8--8:14
+    Idris2_Value * tmp_89 = NULL;                            // Main:8:8--8:14
     if (NULL == var_0 /* _builtin.NIL [nil] */) {
-        tmp_80 = var_1;
+        tmp_89 = var_1;
     } else if (NULL != var_0 /* _builtin.CONS [cons] */) {
         Idris2_Value *var_2 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[1];
@@ -37,15 +37,15 @@ Idris2_Value *Main_last
             idris2_dropSharedReference(var_0);
         }
         idris2_removeReference(var_1);
-        Idris2_Value *tmp_81 = var_3;                        // Main:10:20--10:24
-        Idris2_Value *tmp_82 = var_2;                        // Main:10:20--10:24
-        var_0 = tmp_81;                                      // Main:10:20--10:24
-        var_1 = tmp_82;                                      // Main:10:20--10:24
+        Idris2_Value *tmp_90 = var_3;                        // Main:10:20--10:24
+        Idris2_Value *tmp_91 = var_2;                        // Main:10:20--10:24
+        var_0 = tmp_90;                                      // Main:10:20--10:24
+        var_1 = tmp_91;                                      // Main:10:20--10:24
         IDRIS2_SAFEPOINT();                                  // Main:10:20--10:24
         goto idris2_self_entry;                              // Main:10:20--10:24
-        tmp_80 = NULL /* unreachable */;
+        tmp_89 = NULL /* unreachable */;
     }
-    return tmp_80;
+    return tmp_89;
 }
 Idris2_Value *Main_main_0
 (
@@ -136,17 +136,17 @@ Idris2_Value *Main_main
     Idris2_Value * var_0
 )
 {
-    Idris2_Value *closure_59 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_9, 2, 0);
+    Idris2_Value *closure_61 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_9, 2, 0);
                                                              // Main:14:8--14:12
-    Idris2_Value * var_10 = closure_59;                      // Main:14:3--14:7
-    Idris2_Value *closure_60 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_10, 2, 0);
+    Idris2_Value * var_10 = closure_61;                      // Main:14:3--14:7
+    Idris2_Value *closure_62 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_10, 2, 0);
                                                              // Main:14:22--14:23
-    Idris2_Value * var_11 = closure_60;                      // Main:14:3--14:7
+    Idris2_Value * var_11 = closure_62;                      // Main:14:3--14:7
     Idris2_Value * var_8 = (NULL /* _builtin.NIL */);        // Main:15:11--15:13
     Idris2_Value * var_5 = (NULL /* _builtin.NIL */);        // Prelude.Types:605:11--605:20
-    Idris2_Value *closure_61 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_11, 1, 0);
+    Idris2_Value *closure_63 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_11, 1, 0);
                                                              // Main:15:21--15:22
-    Idris2_Value * var_6 = closure_61;                       // Prelude.Types:605:11--605:20
+    Idris2_Value * var_6 = closure_63;                       // Prelude.Types:605:11--605:20
     Idris2_Value * var_2 = idris2_trampoline(csegen_45());   // Prelude.Types:1126:1--1143:48
     Idris2_Value * var_3 = (idris2_fitsSmallInteger(1) ? idris2_mkSmallInteger(1) : idris2_getPredefinedInteger(1));
                                                              // Prelude.Types:1126:1--1143:48
@@ -157,11 +157,11 @@ Idris2_Value *Main_main
     Idris2_Value * var_9 = idris2_trampoline(Prelude_Types_List_mapAppend(var_5, var_6, var_7));
                                                              // Main:15:11--15:13
      // constructor _builtin.CONS                            // Main:15:11--15:13
-    Idris2_Constructor* constructor_62 = idris2_newConstructor(2, 1);
+    Idris2_Constructor* constructor_64 = idris2_newConstructor(2, 1);
                                                              // Main:15:11--15:13
-    constructor_62->args[0] = var_8;
-    constructor_62->args[1] = var_9;
-    Idris2_Value * var_12 = (Idris2_Value*)constructor_62;   // Main:14:3--14:7
+    constructor_64->args[0] = var_8;
+    constructor_64->args[1] = var_9;
+    Idris2_Value * var_12 = (Idris2_Value*)constructor_64;   // Main:14:3--14:7
     Idris2_Value * var_13 = idris2_trampoline(Prelude_Basics_flip(var_10, var_11, var_12));
                                                              // Main:14:3--14:7
     Idris2_Value * var_1 = idris2_apply_closure(var_13, idris2_newReference(var_0));
@@ -172,16 +172,16 @@ Idris2_Value *Main_main
     Idris2_Value * var_15 = idris2_trampoline(Main_dupargs(var_14));
                                                              // Prelude.Show:110:1--112:50
     Idris2_Value * var_16 = idris2_trampoline(Prelude_Show_show_Show_Integer(var_15));
-    Idris2_Value * var_17 = ((Idris2_Value*)&idris2_constant_String_63);
-    Idris2_Value *primVar_64 = strAppend(var_16, var_17);
+    Idris2_Value * var_17 = ((Idris2_Value*)&idris2_constant_String_65);
+    Idris2_Value *primVar_66 = strAppend(var_16, var_17);
     idris2_removeReference(var_16);
     idris2_removeReference(var_17);
-    Idris2_Value * var_18 = primVar_64;                      // Prelude.IO:100:22--100:34
-    Idris2_Value *ffiVar_65 = Prelude_IO_prim__putStr_borrow(var_18, var_0);
+    Idris2_Value * var_18 = primVar_66;                      // Prelude.IO:100:22--100:34
+    Idris2_Value *ffiVar_67 = Prelude_IO_prim__putStr_borrow(var_18, var_0);
                                                              // Prelude.IO:100:22--100:34
     idris2_removeReference(var_0);
     idris2_removeReference(var_18);
-    return ffiVar_65;
+    return ffiVar_67;
 }
 Idris2_Value *Main_main_11
 (
@@ -191,12 +191,14 @@ Idris2_Value *Main_main_11
     Idris2_Value * var_1 = idris2_trampoline(csegen_45());   // Prelude.Types:1126:1--1143:48
     Idris2_Value * var_2 = (idris2_fitsSmallInteger(1) ? idris2_mkSmallInteger(1) : idris2_getPredefinedInteger(1));
                                                              // Prelude.Types:1126:1--1143:48
-    idris2_pendingTailCall.f = (void *)Prelude_Types_rangeFromTo_Range__dollara;
+    Idris2_PendingTailCall *pending_68 = &idris2_pendingTailCall;
                                                              // Prelude.Types:1126:1--1143:48
-    idris2_pendingTailCall.arity = 3;                        // Prelude.Types:1126:1--1143:48
-    idris2_pendingTailCall.args[0] = var_1;
-    idris2_pendingTailCall.args[1] = var_2;
-    idris2_pendingTailCall.args[2] = var_0;
+    pending_68->f = (void *)Prelude_Types_rangeFromTo_Range__dollara;
+                                                             // Prelude.Types:1126:1--1143:48
+    pending_68->arity = 3;                                   // Prelude.Types:1126:1--1143:48
+    pending_68->args[0] = var_1;
+    pending_68->args[1] = var_2;
+    pending_68->args[2] = var_0;
     return IDRIS2_TAILCALL;
 }
 Idris2_Value *Main_main_10
@@ -210,16 +212,16 @@ Idris2_Value *Main_main_10
     Idris2_Value * var_3 = idris2_trampoline(Main_last(var_1, var_2));
                                                              // Prelude.Show:110:1--112:50
     Idris2_Value * var_4 = idris2_trampoline(Prelude_Show_show_Show_Integer(var_3));
-    Idris2_Value * var_5 = ((Idris2_Value*)&idris2_constant_String_63);
-    Idris2_Value *primVar_66 = strAppend(var_4, var_5);
+    Idris2_Value * var_5 = ((Idris2_Value*)&idris2_constant_String_65);
+    Idris2_Value *primVar_69 = strAppend(var_4, var_5);
     idris2_removeReference(var_4);
     idris2_removeReference(var_5);
-    Idris2_Value * var_6 = primVar_66;                       // Prelude.IO:100:22--100:34
-    Idris2_Value *ffiVar_67 = Prelude_IO_prim__putStr_borrow(var_6, var_0);
+    Idris2_Value * var_6 = primVar_69;                       // Prelude.IO:100:22--100:34
+    Idris2_Value *ffiVar_70 = Prelude_IO_prim__putStr_borrow(var_6, var_0);
                                                              // Prelude.IO:100:22--100:34
     idris2_removeReference(var_0);
     idris2_removeReference(var_6);
-    return ffiVar_67;
+    return ffiVar_70;
 }
 Idris2_Value *Main_main_9
 (
@@ -227,48 +229,49 @@ Idris2_Value *Main_main_9
 ,   Idris2_Value * var_0
 )
 {
-    Idris2_Value *closure_68 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_0, 5, 0);
-    Idris2_Value * var_2 = closure_68;                       // Prelude.IO:19:1--26:30
-    Idris2_Value *closure_69 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_1, 3, 0);
-    Idris2_Value * var_3 = closure_69;                       // Prelude.IO:19:1--26:30
-    Idris2_Value *closure_70 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_2, 5, 0);
-    Idris2_Value * var_4 = closure_70;                       // Prelude.IO:19:1--26:30
+    Idris2_Value *closure_71 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_0, 5, 0);
+    Idris2_Value * var_2 = closure_71;                       // Prelude.IO:19:1--26:30
+    Idris2_Value *closure_72 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_1, 3, 0);
+    Idris2_Value * var_3 = closure_72;                       // Prelude.IO:19:1--26:30
+    Idris2_Value *closure_73 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_2, 5, 0);
+    Idris2_Value * var_4 = closure_73;                       // Prelude.IO:19:1--26:30
      // constructor Prelude.Interfaces.MkApplicative         // Prelude.IO:19:1--26:30
-    Idris2_Constructor* constructor_71 = idris2_newConstructor(3, 0);
+    Idris2_Constructor* constructor_74 = idris2_newConstructor(3, 0);
                                                              // Prelude.IO:19:1--26:30
-    constructor_71->args[0] = var_2;
-    constructor_71->args[1] = var_3;
-    constructor_71->args[2] = var_4;
-    Idris2_Value * var_11 = (Idris2_Value*)constructor_71;   // Main:14:8--14:12
-    Idris2_Value *closure_72 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_3, 5, 0);
-    Idris2_Value * var_5 = closure_72;                       // Prelude.Types:656:1--669:59
-    Idris2_Value *closure_73 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_4, 5, 0);
-    Idris2_Value * var_6 = closure_73;                       // Prelude.Types:656:1--669:59
-    Idris2_Value *closure_74 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_5, 2, 0);
-    Idris2_Value * var_7 = closure_74;                       // Prelude.Types:656:1--669:59
-    Idris2_Value *closure_75 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_6, 7, 0);
-    Idris2_Value * var_8 = closure_75;                       // Prelude.Types:656:1--669:59
-    Idris2_Value *closure_76 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_7, 2, 0);
-    Idris2_Value * var_9 = closure_76;                       // Prelude.Types:656:1--669:59
-    Idris2_Value *closure_77 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_8, 5, 0);
-    Idris2_Value * var_10 = closure_77;                      // Prelude.Types:656:1--669:59
+    constructor_74->args[0] = var_2;
+    constructor_74->args[1] = var_3;
+    constructor_74->args[2] = var_4;
+    Idris2_Value * var_11 = (Idris2_Value*)constructor_74;   // Main:14:8--14:12
+    Idris2_Value *closure_75 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_3, 5, 0);
+    Idris2_Value * var_5 = closure_75;                       // Prelude.Types:656:1--669:59
+    Idris2_Value *closure_76 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_4, 5, 0);
+    Idris2_Value * var_6 = closure_76;                       // Prelude.Types:656:1--669:59
+    Idris2_Value *closure_77 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_5, 2, 0);
+    Idris2_Value * var_7 = closure_77;                       // Prelude.Types:656:1--669:59
+    Idris2_Value *closure_78 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_6, 7, 0);
+    Idris2_Value * var_8 = closure_78;                       // Prelude.Types:656:1--669:59
+    Idris2_Value *closure_79 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_7, 2, 0);
+    Idris2_Value * var_9 = closure_79;                       // Prelude.Types:656:1--669:59
+    Idris2_Value *closure_80 = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())Main_main_8, 5, 0);
+    Idris2_Value * var_10 = closure_80;                      // Prelude.Types:656:1--669:59
      // constructor Prelude.Interfaces.MkFoldable            // Prelude.Types:656:1--669:59
-    Idris2_Constructor* constructor_78 = idris2_newConstructor(6, 0);
+    Idris2_Constructor* constructor_81 = idris2_newConstructor(6, 0);
                                                              // Prelude.Types:656:1--669:59
-    constructor_78->args[0] = var_5;
-    constructor_78->args[1] = var_6;
-    constructor_78->args[2] = var_7;
-    constructor_78->args[3] = var_8;
-    constructor_78->args[4] = var_9;
-    constructor_78->args[5] = var_10;
-    Idris2_Value * var_12 = (Idris2_Value*)constructor_78;   // Main:14:8--14:12
-    idris2_pendingTailCall.f = (void *)Prelude_Interfaces_for_;
+    constructor_81->args[0] = var_5;
+    constructor_81->args[1] = var_6;
+    constructor_81->args[2] = var_7;
+    constructor_81->args[3] = var_8;
+    constructor_81->args[4] = var_9;
+    constructor_81->args[5] = var_10;
+    Idris2_Value * var_12 = (Idris2_Value*)constructor_81;   // Main:14:8--14:12
+    Idris2_PendingTailCall *pending_82 = &idris2_pendingTailCall;
                                                              // Main:14:8--14:12
-    idris2_pendingTailCall.arity = 4;                        // Main:14:8--14:12
-    idris2_pendingTailCall.args[0] = var_11;
-    idris2_pendingTailCall.args[1] = var_12;
-    idris2_pendingTailCall.args[2] = var_1;
-    idris2_pendingTailCall.args[3] = var_0;
+    pending_82->f = (void *)Prelude_Interfaces_for_;         // Main:14:8--14:12
+    pending_82->arity = 4;                                   // Main:14:8--14:12
+    pending_82->args[0] = var_11;
+    pending_82->args[1] = var_12;
+    pending_82->args[2] = var_1;
+    pending_82->args[3] = var_0;
     return IDRIS2_TAILCALL;
 }
 Idris2_Value *Main_main_8
@@ -286,12 +289,14 @@ Idris2_Value *Main_main_8
     IDRIS2_MUSTTAIL return Prelude_Types_foldMap_Foldable_List(var_2, var_1, var_0);
                                                              // Prelude.Types:656:1--669:59
     #else                                                    // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.f = (void *)Prelude_Types_foldMap_Foldable_List;
+    Idris2_PendingTailCall *pending_83 = &idris2_pendingTailCall;
                                                              // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.arity = 3;                        // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[0] = var_2;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[1] = var_1;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[2] = var_0;                  // Prelude.Types:656:1--669:59
+    pending_83->f = (void *)Prelude_Types_foldMap_Foldable_List;
+                                                             // Prelude.Types:656:1--669:59
+    pending_83->arity = 3;                                   // Prelude.Types:656:1--669:59
+    pending_83->args[0] = var_2;                             // Prelude.Types:656:1--669:59
+    pending_83->args[1] = var_1;                             // Prelude.Types:656:1--669:59
+    pending_83->args[2] = var_0;                             // Prelude.Types:656:1--669:59
     return IDRIS2_TAILCALL;                                  // Prelude.Types:656:1--669:59
     #endif                                                   // Prelude.Types:656:1--669:59
     return NULL /* unreachable */;
@@ -323,13 +328,15 @@ Idris2_Value *Main_main_6
     IDRIS2_MUSTTAIL return Prelude_Types_foldlM_Foldable_List(var_3, var_2, var_1, var_0);
                                                              // Prelude.Types:656:1--669:59
     #else                                                    // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.f = (void *)Prelude_Types_foldlM_Foldable_List;
+    Idris2_PendingTailCall *pending_84 = &idris2_pendingTailCall;
                                                              // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.arity = 4;                        // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[0] = var_3;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[1] = var_2;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[2] = var_1;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[3] = var_0;                  // Prelude.Types:656:1--669:59
+    pending_84->f = (void *)Prelude_Types_foldlM_Foldable_List;
+                                                             // Prelude.Types:656:1--669:59
+    pending_84->arity = 4;                                   // Prelude.Types:656:1--669:59
+    pending_84->args[0] = var_3;                             // Prelude.Types:656:1--669:59
+    pending_84->args[1] = var_2;                             // Prelude.Types:656:1--669:59
+    pending_84->args[2] = var_1;                             // Prelude.Types:656:1--669:59
+    pending_84->args[3] = var_0;                             // Prelude.Types:656:1--669:59
     return IDRIS2_TAILCALL;                                  // Prelude.Types:656:1--669:59
     #endif                                                   // Prelude.Types:656:1--669:59
     return NULL /* unreachable */;
@@ -341,9 +348,9 @@ Idris2_Value *Main_main_5
 )
 {
     idris2_removeReference(var_1);
-    Idris2_Value * tmp_79 = NULL;                            // Prelude.Interfaces:293:10--293:16
+    Idris2_Value * tmp_85 = NULL;                            // Prelude.Interfaces:293:10--293:16
     if (NULL == var_0 /* _builtin.NIL [nil] */) {
-        tmp_79 = idris2_mkBits8(UINT8_C(1));
+        tmp_85 = idris2_mkBits8(UINT8_C(1));
     } else if (NULL != var_0 /* _builtin.CONS [cons] */) {
         Idris2_Value *var_2 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[1];
@@ -354,9 +361,9 @@ Idris2_Value *Main_main_5
         } else {
             idris2_dropSharedReference(var_0);
         }
-        tmp_79 = idris2_mkBits8(UINT8_C(0));
+        tmp_85 = idris2_mkBits8(UINT8_C(0));
     }
-    return tmp_79;
+    return tmp_85;
 }
 Idris2_Value *Main_main_4
 (
@@ -373,12 +380,14 @@ Idris2_Value *Main_main_4
     IDRIS2_MUSTTAIL return Prelude_Types_foldl_Foldable_List(var_2, var_1, var_0);
                                                              // Prelude.Types:656:1--669:59
     #else                                                    // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.f = (void *)Prelude_Types_foldl_Foldable_List;
+    Idris2_PendingTailCall *pending_86 = &idris2_pendingTailCall;
                                                              // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.arity = 3;                        // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[0] = var_2;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[1] = var_1;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[2] = var_0;                  // Prelude.Types:656:1--669:59
+    pending_86->f = (void *)Prelude_Types_foldl_Foldable_List;
+                                                             // Prelude.Types:656:1--669:59
+    pending_86->arity = 3;                                   // Prelude.Types:656:1--669:59
+    pending_86->args[0] = var_2;                             // Prelude.Types:656:1--669:59
+    pending_86->args[1] = var_1;                             // Prelude.Types:656:1--669:59
+    pending_86->args[2] = var_0;                             // Prelude.Types:656:1--669:59
     return IDRIS2_TAILCALL;                                  // Prelude.Types:656:1--669:59
     #endif                                                   // Prelude.Types:656:1--669:59
     return NULL /* unreachable */;
@@ -398,12 +407,14 @@ Idris2_Value *Main_main_3
     IDRIS2_MUSTTAIL return Prelude_Types_foldr_Foldable_List(var_2, var_1, var_0);
                                                              // Prelude.Types:656:1--669:59
     #else                                                    // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.f = (void *)Prelude_Types_foldr_Foldable_List;
+    Idris2_PendingTailCall *pending_87 = &idris2_pendingTailCall;
                                                              // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.arity = 3;                        // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[0] = var_2;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[1] = var_1;                  // Prelude.Types:656:1--669:59
-    idris2_pendingTailCall.args[2] = var_0;                  // Prelude.Types:656:1--669:59
+    pending_87->f = (void *)Prelude_Types_foldr_Foldable_List;
+                                                             // Prelude.Types:656:1--669:59
+    pending_87->arity = 3;                                   // Prelude.Types:656:1--669:59
+    pending_87->args[0] = var_2;                             // Prelude.Types:656:1--669:59
+    pending_87->args[1] = var_1;                             // Prelude.Types:656:1--669:59
+    pending_87->args[2] = var_0;                             // Prelude.Types:656:1--669:59
     return IDRIS2_TAILCALL;                                  // Prelude.Types:656:1--669:59
     #endif                                                   // Prelude.Types:656:1--669:59
     return NULL /* unreachable */;
@@ -423,7 +434,9 @@ Idris2_Value *Main_main_2
                                                              // Prelude.IO:24:9--24:16
     Idris2_Value * var_6 = idris2_apply_closure(var_1, var_0);
                                                              // Prelude.IO:25:11--25:18
-    return idris2_tailcall_apply_closure(var_5, var_6);
+    IDRIS2_TAIL_APPLY return idris2_tailcall_apply_closure(var_5, var_6);
+                                                             // Prelude.IO:24:9--24:16
+    return NULL /* unreachable */;
 }
 Idris2_Value *Main_main_1
 (
@@ -451,12 +464,13 @@ Idris2_Value *Main_main_0
     IDRIS2_MUSTTAIL return Prelude_IO_map_Functor_IO(var_2, var_1, var_0);
                                                              // Prelude.IO:15:1--17:38
     #else                                                    // Prelude.IO:15:1--17:38
-    idris2_pendingTailCall.f = (void *)Prelude_IO_map_Functor_IO;
+    Idris2_PendingTailCall *pending_88 = &idris2_pendingTailCall;
                                                              // Prelude.IO:15:1--17:38
-    idris2_pendingTailCall.arity = 3;                        // Prelude.IO:15:1--17:38
-    idris2_pendingTailCall.args[0] = var_2;                  // Prelude.IO:15:1--17:38
-    idris2_pendingTailCall.args[1] = var_1;                  // Prelude.IO:15:1--17:38
-    idris2_pendingTailCall.args[2] = var_0;                  // Prelude.IO:15:1--17:38
+    pending_88->f = (void *)Prelude_IO_map_Functor_IO;       // Prelude.IO:15:1--17:38
+    pending_88->arity = 3;                                   // Prelude.IO:15:1--17:38
+    pending_88->args[0] = var_2;                             // Prelude.IO:15:1--17:38
+    pending_88->args[1] = var_1;                             // Prelude.IO:15:1--17:38
+    pending_88->args[2] = var_0;                             // Prelude.IO:15:1--17:38
     return IDRIS2_TAILCALL;                                  // Prelude.IO:15:1--17:38
     #endif                                                   // Prelude.IO:15:1--17:38
     return NULL /* unreachable */;

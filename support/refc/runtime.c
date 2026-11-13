@@ -78,7 +78,8 @@ typedef Idris2_Value *(*const FUN16)(
 typedef Idris2_Value *(*const FUNStar)(Idris2_Value **);
 
 // Call the function `f` of the given arity with the arguments in xs.
-static inline Idris2_Value *idris2_dispatch(void *f, uint8_t arity,
+// (Inlined into its callers, which saves a call per closure application.)
+IDRIS2_INLINE Idris2_Value *idris2_dispatch(void *f, uint8_t arity,
                                             Idris2_Value **const xs) {
   switch (arity) {
   default:
@@ -170,9 +171,8 @@ Idris2_Value *idris2_trampolineSlow(Idris2_Value *it) {
     if (it == IDRIS2_TAILCALL) {
       // The arguments are read before the call, which may store another
       // tail call.
-      it = idris2_dispatch(idris2_pendingTailCall.f,
-                           idris2_pendingTailCall.arity,
-                           idris2_pendingTailCall.args);
+      Idris2_PendingTailCall *pending = &idris2_pendingTailCall;
+      it = idris2_dispatch(pending->f, pending->arity, pending->args);
       continue;
     }
     if (!it || idris2_vp_is_unboxed(it) || it->header.tag != CLOSURE_TAG)
@@ -217,17 +217,78 @@ Idris2_Value *idris2_run_primio(Idris2_Closure *action) {
       idris2_tailcall_apply_closure((Idris2_Value *)action, NULL));
 }
 
+// A closure that `n` more arguments (arg1, then arg2) complete, in tail
+// position, when calls in tail position can be jumps (IDRIS2_MUSTTAIL, see
+// runtime.h): the function is called directly, its frame replacing this one,
+// rather than through the trampoline of the caller.  Only for functions that
+// take their arguments in registers (6 on x86-64, 8 on AArch64): a jump to a
+// function that takes more arguments than its caller is not possible.  The
+// generated code calls idris2_tailcall_apply_closure in tail position with a
+// jump too, so a loop through closures runs in constant stack.
+//
+// The arguments are read and the reference to the closure dropped first:
+// the closure is gone once the call starts.
+#if defined(IDRIS2_MUSTTAIL)
+#define IDRIS2_JUMP_MAX_ARGS 6
+#define IDRIS2_JUMP_TO_CLOSURE(clos, n, arg1, arg2)                           \
+  do {                                                                         \
+    uint8_t arity_ = (clos)->arity;                                            \
+    if (arity_ <= IDRIS2_JUMP_MAX_ARGS && !idris2_isShared(clos)) {            \
+      IDRIS2_SAFEPOINT();                                                      \
+      uint8_t filled_ = (clos)->filled;                                        \
+      Idris2_Value *a_[IDRIS2_JUMP_MAX_ARGS + 2];                              \
+      int unique_ = (clos)->header.refCounter == 1;                            \
+      for (int i_ = 0; i_ < filled_; ++i_)                                     \
+        a_[i_] = unique_ ? (clos)->args[i_]                                    \
+                         : idris2_newReference((clos)->args[i_]);              \
+      a_[filled_] = (arg1);                                                    \
+      a_[filled_ + 1] = (arg2);                                                \
+      void *f_ = (clos)->f;                                                    \
+      if (unique_) {                                                           \
+        IDRIS2_STAT(apply[IDRIS2_APPLY_SATURATED]);                            \
+        idris2_freeValue((Idris2_Value *)(clos));                              \
+      } else {                                                                 \
+        IDRIS2_STAT(apply[IDRIS2_APPLY_COPIED]);                               \
+        idris2_dropSharedReference((Idris2_Value *)(clos));                    \
+      }                                                                        \
+      Idris2_Value *x0_ = a_[0], *x1_ = a_[1], *x2_ = a_[2], *x3_ = a_[3],     \
+                   *x4_ = a_[4], *x5_ = a_[5];                                 \
+      switch (arity_) {                                                        \
+      case 1:                                                                  \
+        IDRIS2_MUSTTAIL return (*(FUN1)f_)(x0_);                               \
+      case 2:                                                                  \
+        IDRIS2_MUSTTAIL return (*(FUN2)f_)(x0_, x1_);                          \
+      case 3:                                                                  \
+        IDRIS2_MUSTTAIL return (*(FUN3)f_)(x0_, x1_, x2_);                     \
+      case 4:                                                                  \
+        IDRIS2_MUSTTAIL return (*(FUN4)f_)(x0_, x1_, x2_, x3_);                \
+      case 5:                                                                  \
+        IDRIS2_MUSTTAIL return (*(FUN5)f_)(x0_, x1_, x2_, x3_, x4_);           \
+      default:                                                                 \
+        IDRIS2_MUSTTAIL return (*(FUN6)f_)(x0_, x1_, x2_, x3_, x4_, x5_);      \
+      }                                                                        \
+    }                                                                          \
+  } while (0)
+#endif
+
 Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
                                             Idris2_Value *arg) {
   Idris2_Closure *clos = (Idris2_Closure *)_clos;
-  // A closure has room for all its arguments (see idris2_mkClosure): when
-  // nobody else refers to it, the argument goes in place.
-  if (idris2_isUnique(clos) && clos->filled < clos->arity) {
-    clos->args[clos->filled++] = arg;
-#ifdef IDRIS2_REFC_STATS
-    if (clos->filled < clos->arity)
-      IDRIS2_STAT(apply[IDRIS2_APPLY_IN_PLACE]);
+  uint8_t filled = clos->filled;
+  if (filled + 1 == clos->arity) {
+#if defined(IDRIS2_MUSTTAIL)
+    IDRIS2_JUMP_TO_CLOSURE(clos, 1, arg, NULL);
 #endif
+  } else if (filled < clos->arity && idris2_isUnique(clos)) {
+    // A closure has room for all its arguments (see idris2_mkClosure): when
+    // nobody else refers to it, the argument goes in place.
+    clos->args[clos->filled++] = arg;
+    IDRIS2_STAT(apply[IDRIS2_APPLY_IN_PLACE]);
+    return (Idris2_Value *)clos;
+  }
+  if (filled + 1 == clos->arity && idris2_isUnique(clos)) {
+    // Complete it in place: the trampoline of the caller makes the call.
+    clos->args[clos->filled++] = arg;
     return (Idris2_Value *)clos;
   }
 
@@ -235,13 +296,13 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
   // tail call (see runtime.h) rather than a copy of the closure that would be
   // called and freed right away.  The result goes through a trampoline, as
   // for any call in tail position.
-  if (clos->filled + 1 == clos->arity &&
-      clos->arity <= IDRIS2_MAX_TAILCALL_ARGS) {
-    idris2_pendingTailCall.f = clos->f;
-    idris2_pendingTailCall.arity = clos->arity;
-    for (int i = 0; i < clos->filled; ++i)
-      idris2_pendingTailCall.args[i] = idris2_newReference(clos->args[i]);
-    idris2_pendingTailCall.args[clos->filled] = arg;
+  if (filled + 1 == clos->arity && clos->arity <= IDRIS2_MAX_TAILCALL_ARGS) {
+    Idris2_PendingTailCall *pending = &idris2_pendingTailCall;
+    pending->f = clos->f;
+    pending->arity = clos->arity;
+    for (int i = 0; i < filled; ++i)
+      pending->args[i] = idris2_newReference(clos->args[i]);
+    pending->args[filled] = arg;
     idris2_dropSharedReference((Idris2_Value *)clos);
     IDRIS2_STAT(apply[IDRIS2_APPLY_COPIED]);
     return IDRIS2_TAILCALL;
@@ -249,12 +310,12 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
 
   // Otherwise create a new closure and copy args.
   Idris2_Closure *newclos = idris2_mkClosure(
-      clos->f, clos->arity, clos->filled + 1 /* expanding a payload */);
+      clos->f, clos->arity, filled + 1 /* expanding a payload */);
 
   // (a unique closure was completed in place above, so this one is shared)
-  for (int i = 0; i < clos->filled; ++i)
+  for (int i = 0; i < filled; ++i)
     newclos->args[i] = idris2_newReference(clos->args[i]);
-  newclos->args[clos->filled] = arg; // add argument to new arglist
+  newclos->args[filled] = arg; // add argument to new arglist
   idris2_dropSharedReference((Idris2_Value *)clos);
   IDRIS2_STAT(apply[IDRIS2_APPLY_UNDER_COPY]);
 
@@ -265,21 +326,27 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
 // directly, rather than through a pending tail call and the trampoline.  The
 // arguments go in the room of the closure (see idris2_mkClosure), which the
 // call reads at once; no copy is made, so that this frame, which stays on the
-// stack during the call, is small.
-static inline Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
+// stack during the call, is small.  (Inlined: with the dispatch, this saves
+// two calls per application.)
+IDRIS2_INLINE Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
                                                 Idris2_Value *arg1,
                                                 Idris2_Value *arg2, int n) {
-  if (idris2_isShared(clos) && !idris2_tryUnshare((Idris2_Value *)clos))
-    return idris2_trampoline(idris2_call_shared_closure(clos, n, arg1, arg2));
   uint8_t filled = clos->filled;
-  int unique = idris2_isUnique(clos);
-  if (unique)
+  int unique;
+  if (__builtin_expect(idris2_isShared(clos), 0)) {
+    if (!idris2_tryUnshare((Idris2_Value *)clos))
+      return idris2_trampoline(idris2_call_shared_closure(clos, n, arg1, arg2));
+    unique = 1;
+  } else {
+    unique = clos->header.refCounter == 1;
+  }
+  if (unique) {
     IDRIS2_STAT(apply[IDRIS2_APPLY_SATURATED]);
-  else
+  } else {
     IDRIS2_STAT(apply[IDRIS2_APPLY_COPIED]);
-  if (!unique)
     for (int i = 0; i < filled; ++i)
       idris2_newReference(clos->args[i]);
+  }
   clos->args[filled] = arg1;
   if (n == 2)
     clos->args[filled + 1] = arg2;
@@ -294,7 +361,7 @@ static inline Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
 
 Idris2_Value *idris2_apply_closure(Idris2_Value *_clos, Idris2_Value *arg) {
   Idris2_Closure *clos = (Idris2_Closure *)_clos;
-  if (clos->filled + 1 == clos->arity &&
+  if (__builtin_expect(clos->filled + 1 == clos->arity, 1) &&
       clos->arity <= IDRIS2_MAX_TAILCALL_ARGS)
     return idris2_call_closure(clos, arg, NULL, 1);
   return idris2_trampoline(idris2_tailcall_apply_closure(_clos, arg));
@@ -312,6 +379,10 @@ Idris2_Value *idris2_tailcall_apply_closure2(Idris2_Value *_clos,
     return idris2_tailcall_apply_closure(idris2_apply_closure(_clos, arg1),
                                          arg2);
   }
+#if defined(IDRIS2_MUSTTAIL)
+  if (clos->filled + 2 == clos->arity)
+    IDRIS2_JUMP_TO_CLOSURE(clos, 2, arg1, arg2);
+#endif
   if (idris2_isUnique(clos)) {
     clos->args[clos->filled++] = arg1;
     clos->args[clos->filled++] = arg2;
@@ -323,12 +394,13 @@ Idris2_Value *idris2_tailcall_apply_closure2(Idris2_Value *_clos,
   }
   if (clos->filled + 2 == clos->arity &&
       clos->arity <= IDRIS2_MAX_TAILCALL_ARGS) {
-    idris2_pendingTailCall.f = clos->f;
-    idris2_pendingTailCall.arity = clos->arity;
+    Idris2_PendingTailCall *pending = &idris2_pendingTailCall;
+    pending->f = clos->f;
+    pending->arity = clos->arity;
     for (int i = 0; i < clos->filled; ++i)
-      idris2_pendingTailCall.args[i] = idris2_newReference(clos->args[i]);
-    idris2_pendingTailCall.args[clos->filled] = arg1;
-    idris2_pendingTailCall.args[clos->filled + 1] = arg2;
+      pending->args[i] = idris2_newReference(clos->args[i]);
+    pending->args[clos->filled] = arg1;
+    pending->args[clos->filled + 1] = arg2;
     idris2_dropSharedReference((Idris2_Value *)clos);
     IDRIS2_STAT(apply[IDRIS2_APPLY_COPIED]);
     return IDRIS2_TAILCALL;
@@ -347,7 +419,7 @@ Idris2_Value *idris2_tailcall_apply_closure2(Idris2_Value *_clos,
 Idris2_Value *idris2_apply_closure2(Idris2_Value *_clos, Idris2_Value *arg1,
                                     Idris2_Value *arg2) {
   Idris2_Closure *clos = (Idris2_Closure *)_clos;
-  if (clos->filled + 2 == clos->arity &&
+  if (__builtin_expect(clos->filled + 2 == clos->arity, 1) &&
       clos->arity <= IDRIS2_MAX_TAILCALL_ARGS)
     return idris2_call_closure(clos, arg1, arg2, 2);
   return idris2_trampoline(idris2_tailcall_apply_closure2(_clos, arg1, arg2));

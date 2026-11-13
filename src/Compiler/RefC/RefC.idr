@@ -443,11 +443,20 @@ makeTailCall fc n args = do
            else otherCall env
       Nothing => otherCall env
   where
+    pendingCallVar : Core String
+    pendingCallVar = do
+      let pc = "pending_\{!(getNextCounter)}"
+      emit fc "Idris2_PendingTailCall *\{pc} = &idris2_pendingTailCall;"
+      pure pc
+
+    -- (the worker, which holds the pending call, is found once: nothing in
+    -- between can switch threads)
     pendingCall : Core String
     pendingCall = do
-      emit fc "idris2_pendingTailCall.f = (void *)\{cName n};"
-      emit fc "idris2_pendingTailCall.arity = \{show $ length args};"
-      fillArgs !(get EnvTracker) "idris2_pendingTailCall.args" args 0
+      pc <- pendingCallVar
+      emit fc "\{pc}->f = (void *)\{cName n};"
+      emit fc "\{pc}->arity = \{show $ length args};"
+      fillArgs !(get EnvTracker) "\{pc}->args" args 0
       pure "IDRIS2_TAILCALL"
 
     -- With GCC 15 or later, a call in tail position is a jump (musttail),
@@ -463,10 +472,11 @@ makeTailCall fc n args = do
            emit fc "#ifdef IDRIS2_MUSTTAIL"
            emit fc "IDRIS2_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
            emit fc "#else"
-           emit fc "idris2_pendingTailCall.f = (void *)\{cName n};"
-           emit fc "idris2_pendingTailCall.arity = \{show $ length args};"
+           pc <- pendingCallVar
+           emit fc "\{pc}->f = (void *)\{cName n};"
+           emit fc "\{pc}->arity = \{show $ length args};"
            for_ (zip [0 .. length args] args') $ \(k, a) =>
-             emit fc "idris2_pendingTailCall.args[\{show k}] = \{a};"
+             emit fc "\{pc}->args[\{show k}] = \{a};"
            emit fc "return IDRIS2_TAILCALL;"
            emit fc "#endif"
            pure "NULL /* unreachable */"
@@ -578,6 +588,16 @@ conTag (Just t) = if t >= 0 && t < 32768 then Just t else Nothing
 conTag Nothing = Nothing
 
 data TailPositionStatus = InTailPosition | NotInTailPosition
+
+||| The application of a closure in tail position: returned at once, by a
+||| jump where the C compiler can make one (IDRIS2_TAIL_APPLY, see runtime.h),
+||| so that the runtime can jump to the function of the closure in turn.
+tailApply : {auto oft : Ref OutfileText Output}
+         -> {auto il : Ref IndentLevel Nat}
+         -> FC -> String -> Core String
+tailApply fc call = do
+    emit fc "IDRIS2_TAIL_APPLY return \{call};"
+    pure "NULL /* unreachable */"
 
 ||| The function takes as arguments the current ReuseMap and the constructors that will be used.
 ||| Returns constructor variables to remove and constructors to reuse.
@@ -823,9 +843,11 @@ mutual
     cStatementsFromANF (AUnderApp fc n missing args) _ = makeClosure fc n args missing
     cStatementsFromANF (AApp fc _ closure arg) tailPosition = do
        env <- get EnvTracker
-       pure $ (case tailPosition of
-           NotInTailPosition =>          "idris2_apply_closure"
-           InTailPosition    => "idris2_tailcall_apply_closure") ++ "(\{avarToC env closure}, \{avarToC env arg})"
+       case tailPosition of
+           NotInTailPosition =>
+             pure "idris2_apply_closure(\{avarToC env closure}, \{avarToC env arg})"
+           InTailPosition =>
+             tailApply fc "idris2_tailcall_apply_closure(\{avarToC env closure}, \{avarToC env arg})"
 
     -- `let v = f a in let w = v b in body`, where `v` is not used anywhere
     -- else, applies `f` to both arguments at once (and likewise when the
@@ -850,9 +872,9 @@ mutual
              env <- get EnvTracker
              let (fStr, aStr, env1) = applyFirst env var (AApp fc2 l2 (ALocal v) b) f a
              put EnvTracker env1
-             pure $ (case tailPosition of
-                 NotInTailPosition => "idris2_apply_closure2"
-                 InTailPosition    => "idris2_tailcall_apply_closure2") ++ "(\{fStr}, \{aStr}, \{avarToC env1 b})"
+             case tailPosition of
+                 NotInTailPosition => pure "idris2_apply_closure2(\{fStr}, \{aStr}, \{avarToC env1 b})"
+                 InTailPosition => tailApply fc "idris2_tailcall_apply_closure2(\{fStr}, \{aStr}, \{avarToC env1 b})"
            else letGeneric fc var (AApp fc1 l1 f a) (AApp fc2 l2 (ALocal v) b) (AValue tailPosition)
     cStatementsFromANF (ALet fc var value body) tailPosition = do
         env <- get EnvTracker

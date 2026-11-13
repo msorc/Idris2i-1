@@ -53,13 +53,24 @@ extern Idris2_Value const idris2_tailCallMarker;
 #define IDRIS2_MUSTTAIL __attribute__((musttail))
 #endif
 
+// The application of a closure in tail position (see cStatementsFromANF in
+// RefC.idr): a jump when the C compiler can make one, so that
+// idris2_tailcall_apply_closure can itself jump to the function of the
+// closure (see runtime.c) without the stack growing.
+#if defined(IDRIS2_MUSTTAIL)
+#define IDRIS2_TAIL_APPLY IDRIS2_MUSTTAIL
+#else
+#define IDRIS2_TAIL_APPLY
+#endif
+
 // Make the pending calls that `it` stands for: a pending tail call, or a
-// closure that has all its arguments.  Most calls return a plain value, so
-// that case is inlined.
+// closure that has all its arguments.  Most calls return a plain value or a
+// partial application, so these cases are inlined.
 Idris2_Value *idris2_trampolineSlow(Idris2_Value *it);
 static inline Idris2_Value *idris2_trampoline(Idris2_Value *it) {
   if (it != IDRIS2_TAILCALL &&
-      (!it || idris2_vp_is_unboxed(it) || it->header.tag != CLOSURE_TAG))
+      (!it || idris2_vp_is_unboxed(it) || it->header.tag != CLOSURE_TAG ||
+       ((Idris2_Closure *)it)->filled < ((Idris2_Closure *)it)->arity))
     return it;
   return idris2_trampolineSlow(it);
 }
