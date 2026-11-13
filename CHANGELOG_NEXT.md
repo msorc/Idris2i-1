@@ -361,6 +361,14 @@ should target this file (`CHANGELOG_NEXT`).
   in chunks guarded by `#if`, and `-DIDRIS2_PARTS=p -DIDRIS2_PART=i` selects
   the `i`th of `p` parts; without these flags it compiles whole.  Add
   `-flto` (or `-flto=auto`) to the C flags to keep the inlining across parts.
+* Functions borrow the parameters that they only look at: a whole program
+  analysis (`Compiler.RefC.Borrow`, after Lean's) finds them, and the callers
+  pass them without taking a reference, and release them after the call if
+  they were theirs.  The fields of a borrowed value are borrowed too, so a
+  function that walks a list or a tree it borrows takes no reference at all.
+  A finaliser (`onCollect`) of a value passed to such a function now runs
+  once the caller is done with the value, rather than when the function is.
+  `--directive refc-no-borrow` turns it off.
 
 ### Library changes
 

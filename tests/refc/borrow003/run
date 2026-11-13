@@ -1,0 +1,5 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+IDRIS2_WORKERS=1 $VALGRIND ./build/exec/main
+./build/exec/main | sort

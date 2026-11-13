@@ -1,0 +1,5 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+# (not under valgrind: the loops are long)
+./build/exec/main

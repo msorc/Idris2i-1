@@ -1,5 +1,6 @@
 module Compiler.RefC.RefC
 
+import Compiler.RefC.Borrow
 import Compiler.RefC.CC
 import Compiler.RefC.Unbox
 
@@ -221,6 +222,8 @@ varName (ANull)    = "NULL"
 data ArgCounter : Type where
 data EnvTracker : Type where
 data Foreigns : Type where
+data BorrowSigs : Type where
+data UnboxedVars : Type where
 data FunctionDefinitions : Type where
 data IndentLevel : Type where
 data HeaderFiles : Type where
@@ -284,6 +287,14 @@ record Env where
   ||| May a constructor take over a cell of another constructor of the same
   ||| size (see `ReuseKey`)?
   sizeReuse : Bool
+  ||| The parameters that the functions borrow (see Compiler.RefC.Borrow), by
+  ||| C name.
+  sigs : Signatures
+  ||| The variables that are alive during the whole call of the function
+  ||| without being owned by it: its borrowed parameters, and the fields of
+  ||| the borrowed values that a `case` looked at.  A borrowed variable is
+  ||| never owned (a use that needs a reference takes one).
+  borrowed : SortedSet AVar
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -427,6 +438,76 @@ fillArgs env arglist (v :: vars) k = do
     emit EmptyFC $ "\{arglist}[\{show k}] = \{avarToC env v};"
     fillArgs (moveFromOwnedToBorrowed env ownedVars) arglist vars (S k)
 
+||| The C arguments of a call of a function with the signature `sig` (see
+||| Compiler.RefC.Borrow): the arguments of the borrowed parameters are passed
+||| as they are, the others as `avarsToC` passes them.  The variables passed
+||| borrowed must be neither owned nor C integers (see `borrowedCall`).
+sigArgsToC : SortedSet Int -> Owned -> List (AVar, Bool) -> List String
+sigArgsToC _ _ [] = []
+sigArgsToC u owned ((v, True) :: rest) = varName v :: sigArgsToC u owned rest
+sigArgsToC u owned ((v, False) :: rest)
+    = if isUnboxedIn u v then boxInt v :: sigArgsToC u owned rest
+      else if contains v owned then varName v :: sigArgsToC u (delete v owned) rest
+      else "idris2_newReference(\{varName v})" :: sigArgsToC u owned rest
+
+||| Can the call be made in tail position, i.e. are no variables that we own
+||| (or C integers, which are passed as new values) passed to borrowed
+||| parameters?  They would have to be released after the call.  The borrow
+||| analysis makes such parameters owned.
+tailBorrowsOK : Env -> List (AVar, Bool) -> Bool
+tailBorrowsOK env
+    = all (\(v, b) => not b || not (contains v env.owned || isUnboxedIn env.unboxed v))
+
+||| The arguments of a call, paired with whether the parameters are borrowed.
+withSignature : Env -> Name -> List AVar -> (Bool, List (AVar, Bool))
+withSignature env n args
+    = case signatureOf env.sigs (cName n) (length args) of
+           Just sig => (True, zip args sig)
+           Nothing => (False, map (\a => (a, False)) args)
+
+||| A call (not in tail position) of a function that borrows some of its
+||| parameters (see Compiler.RefC.Borrow).  The variables that we own and pass
+||| to borrowed parameters are released after the call: they are not given
+||| to the owned parameters too (the function could release them before it
+||| is done with the borrowed ones), these get new references.  A C integer
+||| passed borrowed is made a value for the call.
+borrowedCall : {auto a : Ref ArgCounter Nat}
+            -> {auto oft : Ref OutfileText Output}
+            -> {auto il : Ref IndentLevel Nat}
+            -> FC -> Env -> String -> List (AVar, Bool) -> Core String
+borrowedCall fc env fn pairs = do
+    let passedBorrowed = fromList (map fst (filter snd pairs))
+    let released = intersection env.owned passedBorrowed
+    (args, boxes) <- cArgs (difference env.owned passedBorrowed) pairs
+    let call = "idris2_trampoline(\{fn}(\{concat $ intersperse ", " args}))"
+    let drops = map varName (Prelude.toList released) ++ boxes
+    if null drops
+       then pure call
+       else do
+         r <- ("callVar_" ++) <$> getNextCounter
+         emit fc "Idris2_Value *\{r} = \{call};"
+         removeVars drops
+         pure r
+  where
+    cArgs : Owned -> List (AVar, Bool) -> Core (List String, List String)
+    cArgs _ [] = pure ([], [])
+    cArgs owned ((v, True) :: rest)
+        = if isUnboxedIn env.unboxed v
+             then do
+               t <- ("boxVar_" ++) <$> getNextCounter
+               emit fc "Idris2_Value *\{t} = \{boxInt v};"
+               (as, bs) <- cArgs owned rest
+               pure (t :: as, t :: bs)
+             else do
+               (as, bs) <- cArgs owned rest
+               pure (varName v :: as, bs)
+    cArgs owned ((v, False) :: rest)
+        = if isUnboxedIn env.unboxed v
+             then mapFst (boxInt v ::) <$> cArgs owned rest
+             else if contains v owned
+                then mapFst (varName v ::) <$> cArgs (delete v owned) rest
+                else mapFst ("idris2_newReference(\{varName v})" ::) <$> cArgs owned rest
+
 makeClosure : {auto a : Ref ArgCounter Nat}
             -> {auto oft : Ref OutfileText Output}
             -> {auto il : Ref IndentLevel Nat}
@@ -456,12 +537,18 @@ makeTailCall : {auto a : Ref ArgCounter Nat}
             -> Core String
 makeTailCall fc n args = do
     env <- get EnvTracker
-    case env.self of
-      Just (self, params) =>
-        if self == cName n && length params == length args
-           then selfTailCall env params
-           else otherCall env
-      Nothing => otherCall env
+    let (borrows, pairs) = withSignature env n args
+    if borrows && not (tailBorrowsOK env pairs)
+       then do
+         -- (the borrow analysis does not let this happen)
+         emit fc "/* the call of \{cName n} below is not a tail call */"
+         borrowedCall fc env (cName n) pairs
+       else case env.self of
+         Just (self, params) =>
+           if self == cName n && length params == length args
+              then selfTailCall env params (map snd pairs)
+              else otherCall env pairs
+         Nothing => otherCall env pairs
   where
     pendingCallVar : Core String
     pendingCallVar = do
@@ -471,12 +558,14 @@ makeTailCall fc n args = do
 
     -- (the worker, which holds the pending call, is found once: nothing in
     -- between can switch threads)
-    pendingCall : Core String
-    pendingCall = do
+    pendingCall : List (AVar, Bool) -> Core String
+    pendingCall pairs = do
+      env <- get EnvTracker
       pc <- pendingCallVar
       emit fc "\{pc}->f = (void *)\{cName n};"
       emit fc "\{pc}->arity = \{show $ length args};"
-      fillArgs !(get EnvTracker) "\{pc}->args" args 0
+      for_ (zip [0 .. length args] (sigArgsToC env.unboxed env.owned pairs)) $ \(k, a) =>
+        emit EmptyFC "\{pc}->args[\{show k}] = \{a};"
       pure "IDRIS2_TAILCALL"
 
     -- With GCC 15 or later, a call in tail position is a jump (musttail),
@@ -484,11 +573,11 @@ makeTailCall fc n args = do
     -- callee does not take more arguments than the caller (they would not fit
     -- in the space of the arguments of the caller on the stack, depending on
     -- the ABI).  Other compilers use a pending tail call.
-    otherCall : Env -> Core String
-    otherCall env =
+    otherCall : Env -> List (AVar, Bool) -> Core String
+    otherCall env pairs =
       if length args <= env.selfArity
          then do
-           let args' = avarsToC env.unboxed env.owned args
+           let args' = sigArgsToC env.unboxed env.owned pairs
            emit fc "#ifdef IDRIS2_MUSTTAIL"
            emit fc "IDRIS2_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
            emit fc "#else"
@@ -500,7 +589,7 @@ makeTailCall fc n args = do
            emit fc "return IDRIS2_TAILCALL;"
            emit fc "#endif"
            pure "NULL /* unreachable */"
-         else pendingCall
+         else pendingCall pairs
 
     -- A call of the function to itself: the arguments become the new values
     -- of the parameters, and the function starts again.  They are computed
@@ -508,12 +597,16 @@ makeTailCall fc n args = do
     -- integers get the integers of their arguments (see
     -- Compiler.RefC.Unbox): the arguments that we own, and that are not
     -- passed as values too, are released.
-    selfTailCall : Env -> List Int -> Core String
-    selfTailCall env params = do
+    -- (`borrowed` says which parameters are borrowed: their new values are
+    -- borrowed too)
+    selfTailCall : Env -> List Int -> List Bool -> Core String
+    selfTailCall env params borrowed = do
       let pairs = zip params args
+      let bparams = fromList (map fst (filter snd (zip params borrowed)))
       let ints = filter (\(p, _) => contains p env.unboxed) pairs
       let values = filter (\(p, _) => not (contains p env.unboxed)) pairs
-      let vals = avarsToC env.unboxed env.owned (map snd values)
+      let vals = sigArgsToC env.unboxed env.owned
+                   (map (\(p, a) => (a, contains p bparams)) values)
       tmps <- traverse (\_ => getNewVarThatWillNotBeFreedAtEndOfBlock) vals
       for_ (zip tmps vals) $ \(t, v) => emit fc "Idris2_Value *\{t} = \{v};"
       itmps <- traverse (\(_, a) => do
@@ -866,8 +959,11 @@ mutual
                 then pure "idris2_trampoline(\{!(makeClosure fc n args 0)})"
                 else do
                     env <- get EnvTracker
-                    let args' = avarsToC env.unboxed env.owned args
-                    pure "idris2_trampoline(\{cName n}(\{concat $ intersperse ", " args'}))"
+                    case withSignature env n args of
+                      (True, pairs) => borrowedCall fc env (cName n) pairs
+                      _ => do
+                        let args' = avarsToC env.unboxed env.owned args
+                        pure "idris2_trampoline(\{cName n}(\{concat $ intersperse ", " args'}))"
       where
         -- A full application of a foreign function calls the variant of
         -- its wrapper that borrows the arguments (see `createCFunctions`),
@@ -1044,7 +1140,14 @@ mutual
                         Just tag' => emit emptyFC "\{els}if (((Idris2_Constructor *)\{sc'})->tag == \{show tag'} /* \{show name} */) {"
 
             let conArgs = ALocal <$> args
-            let ownedWithArgs = union (fromList conArgs) $ if erased then delete sc env.owned else env.owned
+            -- The fields of a borrowed value are borrowed (see
+            -- Compiler.RefC.Borrow): it keeps them alive.  Those of a value
+            -- that we hold are ours (we take references to them, or take
+            -- them over when it is not used any more).
+            let scBorrowed = contains sc env.borrowed
+            let ownedWithArgs : Owned
+                  = if scBorrowed then env.owned
+                       else union (fromList conArgs) $ if erased then delete sc env.owned else env.owned
             let usedVars = freeVariables body
             let (shouldDrop, actualOwned) = dropUnusedOwnedVars ownedWithArgs usedVars
             let usedCons = usedReuseKeys env body
@@ -1058,10 +1161,16 @@ mutual
                 when (scDropped || contains (ALocal arg) usedVars) $
                   emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
                 pure (S k) ) 0 args
-            (shouldDrop, actualReuseMap) <- addReuseConstructor env.reuseMap sc' (reuseKey env name tag (length args)) name args usedCons shouldDrop actualReuseMap
+            (shouldDrop, actualReuseMap) <-
+                the (Core (List String, ReuseMap)) $
+                  if scBorrowed
+                     then pure (shouldDrop, actualReuseMap)
+                     else addReuseConstructor env.reuseMap sc' (reuseKey env name tag (length args)) name args usedCons shouldDrop actualReuseMap
             removeVars shouldDrop
             removeReuseConstructors dropReuseCons
-            put EnvTracker ({owned := actualOwned, reuseMap := actualReuseMap} env)
+            put EnvTracker ({ owned := actualOwned, reuseMap := actualReuseMap
+                            , borrowed := if scBorrowed then SortedSet.union (fromList conArgs) env.borrowed
+                                                         else env.borrowed } env)
             emit emptyFC "\{switchReturnVar} = \{!(cStatementsFromANF body tailPosition)};"
             decreaseIndentation
             pure "} else ") "" alts
@@ -1399,8 +1508,25 @@ refcOptions = do
     ds <- getDirectives RefC
     pure $ MkRefCOptions (not ("refc-no-size-reuse" `elem` ds))
 
+||| The variables of the function `n` (C name `cn`) that are C integers (see
+||| Compiler.RefC.Unbox).
+unboxedOf : {auto c : Ref Ctxt Defs}
+         -> SortedMap String Nat -> Name -> String -> List Int -> ANF
+         -> Core (SortedSet Int)
+unboxedOf foreigns n cn args anf = do
+    let nargs = length args
+    let loops = nargs > 0 && nargs <= MaxExtractFunArgs
+                && hasSelfTailCall cn nargs anf
+    let calls = MkCalls (\m, as => loops && cName m == cn && length as == nargs)
+                        (\m, as => lookup (cName m) foreigns == Just (length as))
+    if hasIntOp anf
+       then unboxedVars calls loops args <$> intParams n args <*> pure anf
+       else pure empty
+
 createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto fo : Ref Foreigns (SortedMap String Nat)}
+                -> {auto bs : Ref BorrowSigs Signatures}
+                -> {auto uv : Ref UnboxedVars (SortedMap String (SortedSet Int))}
                 -> {auto a : Ref ArgCounter Nat}
                 -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
                 -> {auto f : Ref FunctionDefinitions (List String)}
@@ -1428,9 +1554,15 @@ createCFunctions opts n (MkAFun args anf) = do
                   then "static Idris2_Value *\{cn}_constant" ++ params
                   else fn
 
+    -- The parameters that the function borrows (see Compiler.RefC.Borrow):
+    -- the caller keeps them alive, so they are neither owned nor released.
+    sigs <- get BorrowSigs
+    let borrowedParams = maybe [] (\sig => map fst (filter snd (zip args sig)))
+                               (signatureOf sigs cn nargs)
+    let borrowedVars = fromList $ ALocal <$> borrowedParams
     let argsVars = fromList $ ALocal <$> args
     let bodyFreeVars = freeVariables anf
-    let shouldDrop = difference argsVars bodyFreeVars
+    let shouldDrop = difference argsVars (union bodyFreeVars borrowedVars)
     let argsNrs = getArgsNrList args Z
     emit EmptyFC body
     emit EmptyFC "{"
@@ -1445,23 +1577,23 @@ createCFunctions opts n (MkAFun args anf) = do
     -- The variables that are C integers (see Compiler.RefC.Unbox): the
     -- parameters among them are unboxed once, before the loop starts.
     foreigns <- get Foreigns
-    let calls = MkCalls (\m, as => loops && cName m == cn && length as == nargs)
-                        (\m, as => lookup (cName m) foreigns == Just (length as))
-    unboxed <- if hasIntOp anf
-                  then unboxedVars calls loops args <$> intParams n args <*> pure anf
-                  else pure empty
+    unboxed <- case lookup cn !(get UnboxedVars) of
+                 Just u => pure u
+                 Nothing => unboxedOf foreigns n cn args anf
     let unboxedParams = filter (`contains` unboxed) args
     for_ unboxedParams $ \p => do
       emit EmptyFC "int64_t \{intVarName p} = idris2_vp_to_Int64(var_\{show p});"
-      emit EmptyFC "idris2_removeReference(var_\{show p});"
+      unless (p `elem` borrowedParams) $
+        emit EmptyFC "idris2_removeReference(var_\{show p});"
     when loops $ emit EmptyFC "idris2_self_entry: ;"
     removeVars (varName <$> Prelude.toList shouldDrop)
-    _ <- newRef EnvTracker (MkEnv (bodyFreeVars `difference` fromList (ALocal <$> unboxedParams))
+    _ <- newRef EnvTracker (MkEnv ((bodyFreeVars `difference` fromList (ALocal <$> unboxedParams))
+                                     `difference` borrowedVars)
                               empty
                               (if loops then Just (cn, args) else Nothing)
                               -- (many arguments are passed in an array)
                               (if nargs > MaxExtractFunArgs then 1 else nargs)
-                              foreigns unboxed opts.optSizeReuse)
+                              foreigns unboxed opts.optSizeReuse sigs borrowedVars)
     emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
     decreaseIndentation
     emit EmptyFC  "}\n"
@@ -1652,6 +1784,11 @@ chunkDefs target = go 0 [<]
            then concat (acc' <>> []) :: go 0 [<] rest
            else go n' acc' rest
 
+||| Do the functions borrow parameters (see Compiler.RefC.Borrow)?  Not with
+||| `--directive refc-no-borrow`, a kill switch for comparisons.
+refcBorrowing : {auto c : Ref Ctxt Defs} -> Core Bool
+refcBorrowing = pure $ not ("refc-no-borrow" `elem` !(getDirectives RefC))
+
 export
 generateCSourceFileParts : {auto c : Ref Ctxt Defs}
                         -> {default [] additionalFFILangs : List String}
@@ -1663,6 +1800,25 @@ generateCSourceFileParts defs outn =
      _ <- newRef Foreigns $ fromList $ mapMaybe
             (\case (n, MkAForeign _ fargs _) => Just (cName n, length fargs)
                    _ => Nothing) defs
+     -- The variables that are C integers, and the parameters that are
+     -- borrowed, of every function (see Compiler.RefC.Unbox and
+     -- Compiler.RefC.Borrow).
+     foreigns <- get Foreigns
+     named <- traverse (\(n, d) => pure (cName !(getFullName n), n, d)) defs
+     unboxed <- fromList <$> traverse (\(cn, n, d) =>
+                  case d of
+                       MkAFun args anf => pure (cn, !(unboxedOf foreigns n cn args anf))
+                       _ => pure (cn, empty)) named
+     _ <- newRef UnboxedVars unboxed
+     borrowing <- refcBorrowing
+     _ <- newRef BorrowSigs $
+            if borrowing
+               then inferBorrowing cName
+                      (\f, k => lookup f foreigns == Just k)
+                      (\f => fromMaybe empty (lookup f unboxed))
+                      MaxExtractFunArgs
+                      (map (\(cn, _, d) => (cn, d)) named)
+               else empty
      _ <- newRef FunctionDefinitions []
      _ <- newRef ConstDef Data.SortedMap.empty
      _ <- newRef OutfileText DList.Nil

@@ -38,6 +38,7 @@ modules =
     Compiler.Interpreter.VMCode,
 
     Compiler.RefC,
+    Compiler.RefC.Borrow,
     Compiler.RefC.CC,
     Compiler.RefC.RefC,
     Compiler.RefC.Unbox,
