@@ -94,6 +94,110 @@ conSizes (AConstCase _ _ alts def) s
           maybe s (\d => conSizes d s) def
 conSizes _ s = s
 
+-- ---------------------------------------------------------------------------
+-- Tail recursion modulo cons (see trmcFunction in Compiler.RefC.RefC): the
+-- shape of the code, which the borrowing must know too (the call of the
+-- function to itself there is a tail call).
+-- ---------------------------------------------------------------------------
+
+||| May the value be computed before a call that does not need it (`r` is
+||| the variable of the call)?  Only values that do nothing but allocate.
+safeBefore : Int -> ANF -> Bool
+safeBefore r (AV _ v) = v /= ALocal r
+safeBefore _ (APrimVal _ _) = True
+safeBefore _ (AErased _) = True
+safeBefore r (ACon _ _ _ _ as) = not (ALocal r `elem` as)
+safeBefore r (AUnderApp _ _ _ as) = not (ALocal r `elem` as)
+safeBefore _ _ = False
+
+isCall : ANF -> Bool
+isCall (AAppName _ Nothing _ _) = True
+isCall _ = False
+
+||| A chain of `let`s, with the `let`s in the values of `let`s first (`let v =
+||| (let w = e in b) in body` is `let w = e in let v = b in body`: variables
+||| are bound once, so `w` is not in `body`), and the `let`s of values that
+||| only allocate (see `safeBefore`) right after a call moved before it, so
+||| that a call made into a cell (`Node (f l) x Leaf`) comes right before the
+||| constructor.
+export
+trmcNormalise : ANF -> ANF
+trmcNormalise (ALet fc v (ALet fc' w e b) body)
+    = trmcNormalise (ALet fc' w e (ALet fc v b body))
+trmcNormalise (ALet fc v val body)
+    = let body' = trmcNormalise body in
+          if isCall val then sink (ALet fc v val body') else ALet fc v val body'
+  where
+    sink : ANF -> ANF
+    sink (ALet fc r call (ALet fc' w e rest))
+        = if safeBefore r e then ALet fc' w e (sink (ALet fc r call rest))
+             else ALet fc r call (ALet fc' w e rest)
+    sink a = a
+trmcNormalise anf = anf
+
+positionsOf : Eq a => a -> List a -> List Nat
+positionsOf x = go 0
+  where
+    go : Nat -> List a -> List Nat
+    go _ [] = []
+    go k (y :: ys) = if x == y then k :: go (S k) ys else go (S k) ys
+
+||| `let r = self as in Con .. r ..`, a cell made of a call of the function to
+||| itself (C name `self`, `nargs` parameters), where `r` is one field and
+||| nothing else: the field.
+export
+trmcDirect : (key : Name -> String) -> (self : String) -> (nargs : Nat) ->
+             ANF -> Maybe Nat
+trmcDirect key self nargs (ALet _ r (AAppName _ Nothing f as) (ACon _ _ _ _ cargs))
+    = if key f == self && length as == nargs
+         then case positionsOf (ALocal r) cargs of
+                   [k] => Just k
+                   _ => Nothing
+         else Nothing
+trmcDirect _ _ _ _ = Nothing
+
+||| Does a normalised chain of `let`s (see `trmcNormalise`) end with such a
+||| cell?
+export
+trmcChain : (key : Name -> String) -> (self : String) -> (nargs : Nat) ->
+            ANF -> Bool
+trmcChain key self nargs a@(ALet _ _ _ body)
+    = isJust (trmcDirect key self nargs a) || trmcChain key self nargs body
+trmcChain _ _ _ _ = False
+
+||| The end of a chain of `let`s.
+export
+chainEnd : ANF -> ANF
+chainEnd (ALet _ _ _ body) = chainEnd body
+chainEnd anf = anf
+
+public export
+data TrmcPlan = TrmcSite Nat | TrmcReorder ANF | TrmcNone
+
+||| What the code generator does with a `let` in tail position, in a
+||| function with tail recursion modulo cons: the cell (`TrmcSite`), the
+||| chain normalised first when that gives a cell at its end and changes its
+||| first `let` (`TrmcReorder`), or nothing special.
+export
+trmcPlan : (key : Name -> String) -> (self : String) -> (nargs : Nat) ->
+           ANF -> TrmcPlan
+trmcPlan key self nargs anf@(ALet _ v val _)
+    = case trmcDirect key self nargs anf of
+           Just k => TrmcSite k
+           Nothing =>
+             let n = trmcNormalise anf in
+                 if trmcChain key self nargs n && changed n
+                    then TrmcReorder n else TrmcNone
+  where
+    changed : ANF -> Bool
+    changed (ALet _ v' _ _) = v' /= v || isLet val
+      where
+        isLet : ANF -> Bool
+        isLet (ALet _ _ _ _) = True
+        isLet _ = False
+    changed _ = True
+trmcPlan _ _ _ _ = TrmcNone
+
 ||| What the analysis of a function found.
 record Found where
   constructor MkFound
@@ -115,6 +219,9 @@ record Ctx where
   maxArgs : Nat
   ||| the borrowed parameters of the function
   params : SortedSet Int
+  ||| the C name and the number of parameters of the function, when it has
+  ||| tail recursion modulo cons
+  trmc : Maybe (String, Nat)
 
 ||| A use of `v` that needs it owned.  When `v` is a borrowed parameter, it
 ||| must be owned.  When it is a field of a borrowed value (see `par`), that
@@ -165,8 +272,18 @@ analyse c t bor par (AAppName _ _ n args) f
                              else f
 analyse c t bor par (AUnderApp _ _ _ args) f = markParams c par args f
 analyse c t bor par (AApp _ _ cl a) f = markParam c par cl (markParam c par a f)
-analyse c t bor par (ALet _ _ val body) f
-    = analyse c t bor par body (analyse c False bor par val f)
+analyse c t bor par anf@(ALet _ _ val body) f
+    = case (t, c.trmc) of
+           -- (the call made into a cell is a tail call)
+           (True, Just (self, nargs)) => chain self nargs (trmcNormalise anf) f
+           _ => analyse c t bor par body (analyse c False bor par val f)
+  where
+    chain : String -> Nat -> ANF -> Found -> Found
+    chain self nargs a@(ALet _ _ v b) f'
+        = if isJust (trmcDirect c.key self nargs a)
+             then analyse c True bor par b (analyse c True bor par v f')
+             else chain self nargs b (analyse c False bor par v f')
+    chain _ _ a f' = analyse c True bor par a f'
 analyse c t bor par (ACon _ _ _ _ args) f = markParams c par args f
 analyse c t bor par (AOp _ _ op args) f
     = if isBelieveMe op then markParams c par (toList args) f else f
@@ -201,11 +318,11 @@ record Fun where
 ||| The fixpoint of the analysis, over the functions `funs` (by C name),
 ||| starting from the signatures `sigs`.
 fixpoint : (key : Name -> String) -> (foreign : String -> Nat -> Bool) ->
-           (maxArgs : Nat) ->
+           (maxArgs : Nat) -> (trmc : String -> Bool) ->
            SortedMap String Fun -> (callers : SortedMap String (List String)) ->
            Signatures -> List String -> Signatures
-fixpoint key foreign maxArgs funs callers sigs [] = sigs
-fixpoint key foreign maxArgs funs callers sigs (g :: todo)
+fixpoint key foreign maxArgs trmc funs callers sigs [] = sigs
+fixpoint key foreign maxArgs trmc funs callers sigs (g :: todo)
     -- (every function is analysed, also those that own all their
     -- parameters: their calls in tail position may make other functions
     -- own theirs)
@@ -214,6 +331,7 @@ fixpoint key foreign maxArgs funs callers sigs (g :: todo)
              let s = fromMaybe (map (const False) fn.params) (lookup g sigs)
                  bps = fromList (map fst (filter snd (zip fn.params s)))
                  c = MkCtx sigs key foreign maxArgs bps
+                       (if trmc g then Just (g, length fn.params) else Nothing)
                  found = analyse c True bps empty fn.body (MkFound empty [])
                  -- this function
                  s' = zipWith (\p, b => b && not (contains p found.owned)) fn.params s
@@ -232,8 +350,8 @@ fixpoint key foreign maxArgs funs callers sigs (g :: todo)
                  -- a function whose signature changed is analysed again,
                  -- with its callers
                  again = concatMap (\h => h :: fromMaybe [] (lookup h callers)) changed in
-                 fixpoint key foreign maxArgs funs callers sigs (again ++ todo)
-           Nothing => fixpoint key foreign maxArgs funs callers sigs todo
+                 fixpoint key foreign maxArgs trmc funs callers sigs (again ++ todo)
+           Nothing => fixpoint key foreign maxArgs trmc funs callers sigs todo
   where
     index' : Nat -> List Bool -> Bool
     index' _ [] = False
@@ -254,13 +372,16 @@ fixpoint key foreign maxArgs funs callers sigs (g :: todo)
 ||| `key` gives the C name of a function from its name in the code (as the
 ||| code generator calls it), `foreign` tells the foreign functions (by C name
 ||| and number of arguments), `unboxed` the variables that are C integers.
+||| `trmc` the functions with tail recursion modulo cons, whose calls to
+||| themselves made into cells are tail calls (see `trmcPlan`).
 export
 inferBorrowing : (key : Name -> String) ->
                  (foreign : String -> Nat -> Bool) ->
                  (unboxed : String -> SortedSet Int) ->
                  (maxArgs : Nat) ->
+                 (trmc : String -> Bool) ->
                  List (String, ANFDef) -> Signatures
-inferBorrowing key foreign unboxed maxArgs defs
+inferBorrowing key foreign unboxed maxArgs trmc defs
     = let funs = mapMaybe (\case
                              (n, MkAFun args body) => Just (n, MkFun args body)
                              _ => Nothing) defs
@@ -279,7 +400,7 @@ inferBorrowing key foreign unboxed maxArgs defs
                              foldl (\m', g => insert g (n :: fromMaybe [] (lookup g m')) m')
                                    m (Prelude.toList (calleesOf fn.body)))
                           empty funs in
-          fixpoint key foreign maxArgs (fromList funs) callers start (map fst funs)
+          fixpoint key foreign maxArgs trmc (fromList funs) callers start (map fst funs)
   where
     calleesOf : ANF -> SortedSet String
     calleesOf body = fromList (map key (namesIn body []))

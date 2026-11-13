@@ -383,6 +383,10 @@ should target this file (`CHANGELOG_NEXT`).
   functions that always return a value skip the trampoline
   (`--directive refc-no-direct-results`), and a closure that a function makes
   and applies once is not made (`--directive refc-no-local-closures`).
+* A function that makes a cell of a call to itself (`map`, `++`, `filter`,
+  `take`, an `insert` down one path of a tree) loops instead of recursing
+  (tail recursion modulo cons): it does not need a stack as deep as the list.
+  `--directive refc-no-trmc` turns it off.
 * `IDRIS2_REFC_MEMSTATS=1` and `IDRIS2_REFC_LEAKCHECK=1` report the memory of a
   program, and the values that leaked, when it exits; with
   `-DIDRIS2_REFC_STATS` they count the reference count operations, reuses and

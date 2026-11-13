@@ -153,6 +153,10 @@ The code generator does the following, each of which a directive turns off
   trampolined.
 - ``refc-no-local-closures``: a closure that a function makes and applies only
   once is not made: the application is a call.
+- ``refc-no-trmc``: a function that makes a cell of a call to itself
+  (``map f (x :: xs) = f x :: map f xs``) loops instead of recursing: it makes
+  the cell first, with a hole for the result of the call, so that it needs no
+  stack for a long list (tail recursion modulo cons).
 
 The cell of a value that is not used any more, and that nothing else refers
 to, is reused in place for a new value of the same constructor.

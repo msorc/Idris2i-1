@@ -301,6 +301,10 @@ record Env where
   ||| left for the trampoline of the caller: their calls are not trampolined
   ||| (see `returnsValue`).
   valueFns : SortedMap String Nat
+  ||| Is the function compiled with tail recursion modulo cons (see
+  ||| `trmcFunction`): a value that it returns goes in the hole of the last
+  ||| cell that it made, and the first cell is returned.
+  trmc : Bool
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -1035,6 +1039,52 @@ mutual
                  NotInTailPosition => pure "idris2_apply_closure2(\{fStr}, \{aStr}, \{avarToC env1 b})"
                  InTailPosition => tailApply fc "idris2_tailcall_apply_closure2(\{fStr}, \{aStr}, \{avarToC env1 b})"
            else letGeneric fc var (AApp fc1 l1 f a) (AApp fc2 l2 (ALocal v) b) (AValue tailPosition)
+    -- A cell made of a call of the function to itself, in a function
+    -- compiled with tail recursion modulo cons (see `trmcFunction`).
+    cStatementsFromANF anf@(ALet fc var value body) InTailPosition = do
+        env <- get EnvTracker
+        case (env.trmc, env.self) of
+          (True, Just (self, params)) =>
+            case (trmcPlan cName self (length params) anf, value) of
+              (TrmcSite k, AAppName fc1 _ f as) =>
+                let (borrows, pairs) = withSignature env f as in
+                    if not borrows || tailBorrowsOK env pairs
+                       then trmcSite env k fc1 f as
+                       else plainLet env
+              -- (the lets that compute the arguments, and those of values
+              -- that only allocate, come first)
+              (TrmcReorder anf', _) => cStatementsFromANF anf' InTailPosition
+              _ => plainLet env
+          _ => plainLet env
+      where
+        plainLet : Env -> Core String
+        plainLet env = if contains var env.unboxed
+                          then letInt fc var value body (AValue InTailPosition)
+                          else letGeneric fc var value body (AValue InTailPosition)
+
+        -- The cell is made first, with NULL in the field of the call, and
+        -- goes in the hole of the previous cell; its field is the next hole.
+        -- Then the call is a jump back to the start of the function, as for
+        -- a call to itself in tail position (see `selfTailCall`).  The
+        -- variables that the call takes are borrowed while the cell is
+        -- made (the cell takes references to those that it holds too).
+        trmcSite : Env -> Nat -> FC -> Name -> List AVar -> Core String
+        trmcSite env k fc1 f as = do
+            let keep = intersection env.owned (fromList as)
+            put EnvTracker (moveFromOwnedToBorrowed env keep)
+            let (fc2, cell') = case body of
+                    ACon fc2 n ci tag cargs =>
+                      (fc2, ACon fc2 n ci tag (map (\a => if a == ALocal var then ANull else a) cargs))
+                    _ => (fc, body) -- (not a cell: see trmcDirect)
+            cell <- cStatementsFromANF cell' NotInTailPosition
+            c <- ("trmc_cell_" ++) <$> getNextCounter
+            emit fc2 "Idris2_Value *\{c} = \{cell};"
+            emit fc2 "*trmc_hole = \{c};"
+            emit fc2 "trmc_hole = &((Idris2_Constructor *)\{c})->args[\{show k}];"
+            env' <- get EnvTracker
+            put EnvTracker ({ owned := keep } env')
+            makeTailCall fc1 f as
+
     cStatementsFromANF (ALet fc var value body) tailPosition = do
         env <- get EnvTracker
         if contains var env.unboxed
@@ -1519,12 +1569,15 @@ intParams n params = do
 record RefCOptions where
   constructor MkRefCOptions
   optSizeReuse : Bool
+  ||| `--directive refc-no-trmc` (see `trmcFunction`)
+  optTrmc : Bool
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
 refcOptions = do
     ds <- getDirectives RefC
     pure $ MkRefCOptions ("refc-size-reuse" `elem` ds)
+                         (not ("refc-no-trmc" `elem` ds))
 
 ||| The variables of the function `n` (C name `cn`) that are C integers (see
 ||| Compiler.RefC.Unbox).
@@ -1547,6 +1600,43 @@ unboxedOf foreigns n cn args anf = do
 ||| function (but a foreign one, or itself in a loop, see `selfTailCall`) or
 ||| applies a closure, whatever the C compiler (with or without musttail).  A
 ||| constant always gives a value (see idris2_constantValue).
+||| Is the function with the C name `cn` and `nargs` parameters compiled with
+||| tail recursion modulo cons?  So it is when it makes a cell of a call to
+||| itself in tail position (`map f (x :: xs) = f x :: map f xs`, see
+||| `trmcSiteShape`): rather than calling itself and then making the cell, it
+||| makes the cell with a hole for the result of the call, and loops (the
+||| cells are its own until it returns the first one, so they may be filled
+||| in later); the stack does not grow with the list.  The other expressions
+||| in tail position must give values (or be calls of the function to itself,
+||| which are jumps): a call of another function there would not be a tail
+||| call any more, as its result goes in the hole.
+trmcFunction : (Name -> Nat -> Bool) -> String -> Nat -> ANF -> Bool
+trmcFunction foreign cn nargs anf
+    = nargs > 0 && nargs <= MaxExtractFunArgs && sites anf && ok anf
+  where
+    -- (a chain of lets is normalised once, see trmcNormalise)
+    sites : ANF -> Bool
+    sites a@(ALet _ _ _ _)
+        = let n = trmcNormalise a in trmcChain cName cn nargs n || sites (chainEnd n)
+    sites (AConCase _ _ alts def)
+        = any (\(MkAConAlt _ _ _ _ b) => sites b) alts || maybe False sites def
+    sites (AConstCase _ _ alts def)
+        = any (\(MkAConstAlt _ b) => sites b) alts || maybe False sites def
+    sites _ = False
+
+    ok : ANF -> Bool
+    ok a@(ALet _ _ _ _)
+        = let n = trmcNormalise a in trmcChain cName cn nargs n || ok (chainEnd n)
+    ok (AAppName _ _ f as)
+        = foreign f (length as) || (cName f == cn && length as == nargs)
+    ok (AApp _ _ _ _) = False
+    ok (AUnderApp _ _ Z _) = False
+    ok (AConCase _ _ alts def)
+        = all (\(MkAConAlt _ _ _ _ b) => ok b) alts && maybe True ok def
+    ok (AConstCase _ _ alts def)
+        = all (\(MkAConstAlt _ b) => ok b) alts && maybe True ok def
+    ok _ = True
+
 returnsValue : (Name -> Nat -> Bool) -> String -> List Int -> ANF -> Bool
 returnsValue foreign cn args anf
     = let nargs = length args
@@ -1618,11 +1708,18 @@ createCFunctions opts n (MkAFun args anf) = do
          emit EmptyFC "Idris2_Value *var_\{show j} = var_arglist[\{show i}];"
          pure $ i + 1) 0 args
       pure ()
+    foreigns <- get Foreigns
+    let trmc = opts.optTrmc
+               && trmcFunction (\m, k => lookup (cName m) foreigns == Just k) cn nargs anf
+    -- (a function compiled with tail recursion modulo cons loops too)
     let loops = nargs > 0 && nargs <= MaxExtractFunArgs
-                && hasSelfTailCall cn nargs anf
+                && (trmc || hasSelfTailCall cn nargs anf)
+    -- The first cell that it makes, and where the next value goes.
+    when trmc $ do
+      emit EmptyFC "Idris2_Value *trmc_result = NULL;"
+      emit EmptyFC "Idris2_Value **trmc_hole = &trmc_result;"
     -- The variables that are C integers (see Compiler.RefC.Unbox): the
     -- parameters among them are unboxed once, before the loop starts.
-    foreigns <- get Foreigns
     unboxed <- case lookup cn !(get UnboxedVars) of
                  Just u => pure u
                  Nothing => unboxedOf foreigns n cn args anf
@@ -1640,8 +1737,12 @@ createCFunctions opts n (MkAFun args anf) = do
                               -- (many arguments are passed in an array)
                               (if nargs > MaxExtractFunArgs then 1 else nargs)
                               foreigns unboxed opts.optSizeReuse sigs borrowedVars
-                              !(get ValueFns))
-    emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
+                              !(get ValueFns) trmc)
+    if trmc
+       then do
+         emit EmptyFC $ "*trmc_hole = \{!(cStatementsFromANF anf InTailPosition)};"
+         emit EmptyFC "return trmc_result;"
+       else emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
     decreaseIndentation
     emit EmptyFC  "}\n"
     -- (idris2_constantValue makes it once, even with threads running in
@@ -1880,6 +1981,19 @@ generateCSourceFileParts defs0 outn =
                              then Just (cn, length args) else Nothing
                         _ => Nothing) named
                else empty
+     -- The functions with tail recursion modulo cons (see `trmcFunction`),
+     -- which the borrowing must know.
+     opts <- refcOptions
+     let trmcFns : SortedSet String
+           = if opts.optTrmc
+                then fromList $ mapMaybe (\(cn, _, d) =>
+                       case d of
+                         MkAFun args anf =>
+                           if trmcFunction (\m, k => SortedMap.lookup (cName m) foreigns == Just k)
+                                           cn (length args) anf
+                              then Just cn else Nothing
+                         _ => Nothing) named
+                else empty
      borrowing <- refcBorrowing
      _ <- newRef BorrowSigs $
             if borrowing
@@ -1887,6 +2001,7 @@ generateCSourceFileParts defs0 outn =
                       (\f, k => SortedMap.lookup f foreigns == Just k)
                       (\f => fromMaybe empty (SortedMap.lookup f unboxed))
                       MaxExtractFunArgs
+                      (`contains` trmcFns)
                       (map (\(cn, _, d) => (cn, d)) named)
                else empty
      _ <- newRef FunctionDefinitions []
@@ -1894,7 +2009,6 @@ generateCSourceFileParts defs0 outn =
      _ <- newRef OutfileText DList.Nil
      _ <- newRef HeaderFiles empty
      _ <- newRef IndentLevel 0
-     opts <- refcOptions
      -- Each definition separately, so that a chunk never splits one (a CAF
      -- is a static function and the function that calls it).
      bodies <- traverse (\(n, d) =>

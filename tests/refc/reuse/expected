@@ -17,6 +17,9 @@ Idris2_Value *Main_insert
 ,   Idris2_Value * var_2
 )
 {
+    Idris2_Value *trmc_result = NULL;
+    Idris2_Value **trmc_hole = &trmc_result;
+    idris2_self_entry: ;
     Idris2_Value * tmp_48 = NULL;                            // Main:6:24--6:31
     if (((Idris2_Constructor *)var_2)->tag == 0 /* Main.Leaf */) {
         idris2_removeReference(var_0);
@@ -59,23 +62,32 @@ Idris2_Value *Main_insert
         switch (idris2_extractUInt64(var_19)) {
         case UINT8_C(1): {
             idris2_removeReference(var_19);
-            Idris2_Value * var_17 = Main_insert(var_0, var_1, var_5);
-                                                             // Main:8:42--8:46
              // constructor Main.Node                        // Main:8:42--8:46
             if (! constructor_50) {                          // Main:8:42--8:46
                 constructor_50 = idris2_newConstructor(3, 1);
                                                              // Main:8:42--8:46
             }                                                // Main:8:42--8:46
-            constructor_50->args[0] = var_17;
+            constructor_50->args[0] = idris2_newReference(NULL);
             constructor_50->args[1] = var_6;
             constructor_50->args[2] = var_7;
-            tmp_52 = (Idris2_Value*)constructor_50;
+            Idris2_Value *trmc_cell_53 = (Idris2_Value*)constructor_50;
+                                                             // Main:8:42--8:46
+            *trmc_hole = trmc_cell_53;                       // Main:8:42--8:46
+            trmc_hole = &((Idris2_Constructor *)trmc_cell_53)->args[0];
+                                                             // Main:8:42--8:46
+            Idris2_Value *tmp_54 = var_0;                    // Main:8:48--8:54
+            Idris2_Value *tmp_55 = var_1;                    // Main:8:48--8:54
+            Idris2_Value *tmp_56 = var_5;                    // Main:8:48--8:54
+            var_0 = tmp_54;                                  // Main:8:48--8:54
+            var_1 = tmp_55;                                  // Main:8:48--8:54
+            var_2 = tmp_56;                                  // Main:8:48--8:54
+            IDRIS2_SAFEPOINT();                              // Main:8:48--8:54
+            goto idris2_self_entry;                          // Main:8:48--8:54
+            tmp_52 = NULL /* unreachable */;
           break;
         }
         case UINT8_C(0): {
             idris2_removeReference(var_19);
-            Idris2_Value * var_18 = Main_insert(var_0, var_1, var_7);
-                                                             // Main:9:42--9:46
              // constructor Main.Node                        // Main:9:42--9:46
             if (! constructor_50) {                          // Main:9:42--9:46
                 constructor_50 = idris2_newConstructor(3, 1);
@@ -83,8 +95,21 @@ Idris2_Value *Main_insert
             }                                                // Main:9:42--9:46
             constructor_50->args[0] = var_5;
             constructor_50->args[1] = var_6;
-            constructor_50->args[2] = var_18;
-            tmp_52 = (Idris2_Value*)constructor_50;
+            constructor_50->args[2] = idris2_newReference(NULL);
+            Idris2_Value *trmc_cell_57 = (Idris2_Value*)constructor_50;
+                                                             // Main:9:42--9:46
+            *trmc_hole = trmc_cell_57;                       // Main:9:42--9:46
+            trmc_hole = &((Idris2_Constructor *)trmc_cell_57)->args[2];
+                                                             // Main:9:42--9:46
+            Idris2_Value *tmp_58 = var_0;                    // Main:9:52--9:58
+            Idris2_Value *tmp_59 = var_1;                    // Main:9:52--9:58
+            Idris2_Value *tmp_60 = var_7;                    // Main:9:52--9:58
+            var_0 = tmp_58;                                  // Main:9:52--9:58
+            var_1 = tmp_59;                                  // Main:9:52--9:58
+            var_2 = tmp_60;                                  // Main:9:52--9:58
+            IDRIS2_SAFEPOINT();                              // Main:9:52--9:58
+            goto idris2_self_entry;                          // Main:9:52--9:58
+            tmp_52 = NULL /* unreachable */;
           break;
         }
         default: {
@@ -92,5 +117,6 @@ Idris2_Value *Main_insert
         }
         tmp_48 = tmp_52;
     }
-    return tmp_48;
+    *trmc_hole = tmp_48;
+    return trmc_result;
 }
