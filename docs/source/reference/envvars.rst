@@ -55,6 +55,10 @@ Both
 * ``NODE`` - NodeJS backend: ``node`` executable.
 * ``PATH`` - PATH variable is used to search for executables in certain
   codegens.
+* ``IDRIS2_LINE_EDITING`` - Set to ``0`` to turn off the REPL's line editing
+  (key bindings, history and highlighting).
+* ``IDRIS2_HISTORY_FILE`` - File where the REPL keeps its history (default:
+  ``~/.idris2_history``). If empty, the history is not saved.
 * ``NO_COLOR`` - Instruct Idris not to print colour to stdout. Passing the
   --colour/--color option will supersede this environment variable.
 * ``GAMBIT_GSI`` - Gambit backend: location of the ``gsi`` executable.

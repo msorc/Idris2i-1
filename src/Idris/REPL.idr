@@ -39,6 +39,7 @@ import Idris.Version
 
 import public Idris.REPL.Common
 import Idris.REPL.FuzzySearch
+import Idris.REPL.LineEditor
 
 import TTImp.TTImp.Functor
 import TTImp.Elab
@@ -46,6 +47,7 @@ import TTImp.Elab.Check
 import TTImp.Elab.Local
 import TTImp.Interactive.CaseSplit
 import TTImp.Interactive.ExprSearch
+import TTImp.Interactive.Completion
 import TTImp.Interactive.GenerateDef
 import TTImp.Interactive.Intro
 import TTImp.Interactive.MakeLemma
@@ -1144,6 +1146,30 @@ parseRepl inp
         Left err => Left err
         Right (_, _, result) => Right result
 
+-- The arguments of these commands are not names
+notNameCommands : List String
+notNameCommands = ["l", "load", "cd", "c", "compile", "e", "edit", "sh", "shell"]
+
+||| Completions for the part of a line before the cursor: the skipped part of
+||| it, and what the rest could be completed to. As `completion`, but also for
+||| the names in the arguments of a command.
+export
+replCompletion : {auto c : Ref Ctxt Defs} ->
+                 String -> Core (Maybe (String, List String))
+replCompletion line =
+  let (blanks, rest) = span isSpace (unpack line)
+  in case rest of
+       ':' :: more =>
+         let (cmd, args) = break isSpace more
+         in if null args || pack cmd == "logging"
+               then completion line
+               else if pack cmd `elem` notNameCommands
+                  then pure Nothing
+                  else do Just (skipped, candidates) <- completion (pack args)
+                            | Nothing => pure Nothing
+                          pure (Just (pack (blanks ++ ':' :: cmd) ++ skipped, candidates))
+       _ => completion line
+
 export
 interpret : {auto c : Ref Ctxt Defs} ->
             {auto u : Ref UST UState} ->
@@ -1181,24 +1207,64 @@ mutual
   repl
       = do ns <- getNS
            opts <- get ROpts
-           coreLift_ (putStr (prompt (evalMode opts) ++ show ns ++ "> "))
-           coreLift_ (fflush stdout)
-           inp <- coreLift getLine
-           end <- coreLift $ fEOF stdin
-           if end
-             then do
+           let promptText = prompt (evalMode opts) ++ show ns ++ "> "
+           input <- readInput promptText opts.color opts.history
+           case input of
+             Nothing => do
                -- start a new line in REPL mode (not relevant in IDE mode)
                coreLift_ $ putStrLn ""
                iputStrLn "Bye for now!"
-              else do res <- interpret inp
-                      handleResult res
+             Just inp => do res <- interpret inp
+                            handleResult res
 
     where
+      plainInput : String -> Core (Maybe String)
+      plainInput promptText
+          = do coreLift_ (putStr promptText)
+               coreLift_ (fflush stdout)
+               inp <- coreLift getLine
+               end <- coreLift $ fEOF stdin
+               pure (if end then Nothing else Just inp)
+
+      remember : String -> Core ()
+      remember inp
+          = do history <- getHistory
+               when (trim inp /= "" && head' history /= Just inp) $
+                 do setHistory (inp :: history)
+                    coreLift_ (saveHistoryLine inp)
+
+      handleInput : String -> LineResult -> Core (Maybe String)
+      handleInput promptText EndOfFile = pure Nothing
+      handleInput promptText Unavailable = plainInput promptText
+      handleInput promptText (Line inp) = do remember inp
+                                             pure (Just inp)
+      handleInput promptText (Complete session)
+          = do -- a failure to complete must not leave the terminal in raw mode
+               candidates <- catch (replCompletion (beforeCursor session.editor))
+                                   (\_ => pure Nothing)
+               handleInput promptText !(coreLift (resumeEdit session candidates))
+
+      -- Nothing at the end of the input
+      readInput : String -> Bool -> List String -> Core (Maybe String)
+      readInput promptText colour history
+          = do edit <- coreLift lineEditingEnabled
+               result <- if edit
+                            then coreLift (editLine promptText colour history)
+                            else pure Unavailable
+               handleInput promptText result
+
       prompt : REPLEval -> String
       prompt EvalTC = "[tc] "
       prompt NormaliseAll = ""
       prompt Execute = "[exec] "
       prompt Scheme = "[scheme] "
+
+  ||| Load the history of earlier sessions, if lines can be edited at the prompt
+  export
+  loadReplHistory : {auto o : Ref ROpts REPLOpts} -> Core ()
+  loadReplHistory
+      = do edit <- coreLift lineEditingEnabled
+           when edit $ setHistory !(coreLift loadHistory)
 
   export
   handleMissing' : MissedResult -> String

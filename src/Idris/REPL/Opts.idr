@@ -53,6 +53,7 @@ record REPLOpts where
   consoleWidth : Maybe Nat -- Nothing is auto
   color : Bool
   synHighlightOn : Bool
+  history : List String -- lines typed at the prompt, most recent first
 
 litStyle : Maybe String -> Maybe LiterateStyle
 litStyle = join . map isLitFile
@@ -79,6 +80,7 @@ defaultOpts fname outmode cgs
         , consoleWidth = Nothing
         , color = True
         , synHighlightOn = True
+        , history = []
         }
   where
     litStyle : Maybe String -> Maybe LiterateStyle
@@ -169,6 +171,14 @@ getColor = color <$> get ROpts
 export
 setColor : {auto o : Ref ROpts REPLOpts} -> Bool -> Core ()
 setColor b = update ROpts { color := b }
+
+export
+getHistory : {auto o : Ref ROpts REPLOpts} -> Core (List String)
+getHistory = history <$> get ROpts
+
+export
+setHistory : {auto o : Ref ROpts REPLOpts} -> List String -> Core ()
+setHistory h = update ROpts { history := h }
 
 export
 getSynHighlightOn : {auto o : Ref ROpts REPLOpts} -> Core Bool

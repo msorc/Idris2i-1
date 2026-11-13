@@ -168,6 +168,7 @@ modules =
     Idris.REPL.Common,
     Idris.REPL.Opts,
     Idris.REPL.FuzzySearch,
+    Idris.REPL.LineEditor,
 
     Libraries.Control.ANSI,
     Libraries.Control.ANSI.CSI,

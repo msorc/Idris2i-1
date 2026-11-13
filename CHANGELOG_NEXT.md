@@ -132,6 +132,18 @@ should target this file (`CHANGELOG_NEXT`).
   repeatedly. Such definitions are lifted to functions of those variables, so
   they are recomputed at each use rather than shared like a `let` binding.
   The warning is off by default.
+* The REPL has a built-in line editor when it runs in a terminal: readline
+  key bindings (cursor movement by character and word, kill and yank, history
+  search with the arrow keys), a history kept between sessions in
+  `~/.idris2_history` (see `IDRIS2_HISTORY_FILE`), and syntax highlighting of
+  the line as it is typed (`:command`s, keywords, literals, comments, holes and
+  capitalised names), which follows the `--color` setting.  It is written for
+  the Idris2 compiler itself (no `readline` library needed), works with all
+  back ends, and is not used when the input or output is not a terminal; set
+  `IDRIS2_LINE_EDITING=0` to turn it off (for instance under `rlwrap`).
+  `Tab` completes the names of commands, pragmas and names in scope (also in
+  the arguments of commands such as `:t`), listing the candidates when the
+  word can't be completed further.
 
 ### Building/Packaging changes
 

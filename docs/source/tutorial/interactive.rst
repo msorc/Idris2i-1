@@ -26,13 +26,35 @@ available, updated for Idris 2 compatibility as of 23 February 2021.
 Editing at the REPL
 ===================
 
-.. note::
-  The Idris2 repl does not support readline in the interest of
-  keeping dependencies minimal. Unfortunately this precludes some
-  niceties such as line editing, persistent history and completion.
-  A useful work around is to install `rlwrap <https://linux.die.net/man/1/rlwrap>`_,
-  this utility provides all the aforementioned features simply by
-  invoking the Idris2 repl as an argument to the utility ``rlwrap idris2``
+When the REPL runs in a terminal, it has a built-in line editor with
+the usual readline key bindings, a history that is kept between sessions,
+and syntax highlighting of what is typed (unless colours are turned off).
+It does not depend on ``readline`` or any other library. The bindings are:
+
+* ``Left``, ``Right``, ``Ctrl-B``, ``Ctrl-F``: move by a character.
+  ``Ctrl-Left``, ``Ctrl-Right``, ``Alt-B``, ``Alt-F``: move by a word.
+  ``Home``, ``Ctrl-A``, ``End``, ``Ctrl-E``: go to the start or the end of
+  the line.
+* ``Up``, ``Down``, ``Ctrl-P``, ``Ctrl-N``: previous and next history entry.
+* ``Backspace``, ``Delete``, ``Ctrl-D`` (which ends the REPL on an empty
+  line): delete a character.
+* ``Ctrl-K``, ``Ctrl-U``, ``Ctrl-W``, ``Alt-D``: delete to the end of the
+  line, to the start of the line, the previous word, the next word.
+  ``Ctrl-Y`` inserts what was deleted last.
+* ``Tab``: complete the word before the cursor: the name of a command
+  (after ``:``), a pragma (after ``%``), or a name that is in scope, also in
+  the arguments of a command such as ``:t``. The word is completed as far
+  as it is certain; if that is not further than it is, the candidates are
+  listed. Module names and file names are not completed.
+* ``Ctrl-T``: swap two characters. ``Ctrl-L``: clear the screen.
+  ``Ctrl-C``: discard the line.
+
+The history is saved in ``~/.idris2_history`` (or in the file named by the
+environment variable ``IDRIS2_HISTORY_FILE``; if that is empty, it is not
+saved). Setting ``IDRIS2_LINE_EDITING=0`` turns the line editor off, which is
+useful with a wrapper such as `rlwrap <https://linux.die.net/man/1/rlwrap>`_.
+The line editor is not used when the input or the output is not a terminal,
+and not on Windows.
 
 The REPL provides a number of commands, which we will describe
 shortly, which generate new program fragments based on the currently

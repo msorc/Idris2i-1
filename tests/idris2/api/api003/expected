@@ -1,0 +1,80 @@
+type: abc|
+left, insert: abX|c
+backspace: a|c
+delete: |bc
+end: abc|
+word left: foo |bar_baz  qux
+word right: foo bar_baz|  qux
+kill to end: f|
+kill to start, yank: rfoo ba|
+kill word back: foo |
+kill word back, yank: bar|foo 
+kill word forward: | bar
+transpose in the middle: acb|d
+transpose at the end: abdc|
+ctrl-d in text: |b
+ctrl-d on an empty line: end of input
+enter: submitted x
+ctrl-c: aborted
+history up: second|
+history up twice: first|
+history up too far: first|
+history down: second|
+history keeps the draft: draft|
+history, then edit: second!|
+decode: z|second
+decode ctrl-c: aborted
+decode end of input: end of input
+decode ctrl-a: |ab
+decode ctrl-d: end of input
+decode unknown: completion
+decode non-ASCII: λ😀|
+tab: completion
+ma => list ["map", "mapM", "maybe"] ma|
+ma => replace maybe |
+x + ma => replace x + maybe |
+:t ma => list ["map", "maybe"] :t ma|
+ma => replace map|
+ma => replace map|
+m => replace ma|
+ma => list ["map", "mat"] ma|
+ma => no match
+ma => no match
+ma => no match
+ma => no match
+λma => replace λmap |
+alpha    beta     gamma
+delta    epsilon
+a  b
+averylongcandidate
+b
+1    2    3    4    5    6    7    8    9    10   11   12   13   14   15   16
+17   18   19   20   21   22   23   24   25   26   27   28   29   30   31   32
+33   34   35   36   37   38   39   40   41   42   43   44   45   46   47   48
+49   50   51   52   53   54   55   56   57   58   59   60   61   62   63   64
+65   66   67   68   69   70   71   72   73   74   75   76   77   78   79   80
+81   82   83   84   85   86   87   88   89   90   91   92   93   94   95   96
+97   98   99   100
+(3 more)
+plus <E>[0;32m1<E>[0m <E>[0;32m2<E>[0m
+<E>[0;94mJust<E>[0m (x + <E>[0;32m1<E>[0m)
+<E>[0;1;35mlet<E>[0m x = <E>[0;32m"hi"<E>[0m <E>[0;1;35min<E>[0m x
+\x => <E>[0;33m?hole<E>[0m x <E>[0;90m-- comment<E>[0m
+<E>[0;32m'a'<E>[0m + <E>[0;32m0x10<E>[0m + <E>[0;32m1.5<E>[0m
+Data.List.length xs
+  <E>[0;95m:t<E>[0m <E>[0;94mNat<E>[0m -> <E>[0;94mType<E>[0m
+<E>[0;95m:doc<E>[0m <E>[0;94mMaybe<E>[0m
+<E>[0;95m:l<E>[0m My/File.idr
+<E>[0;95m:cd<E>[0m ../some where
+"unfinished
+<E>[0;32m1<E>[0m + "unfinished
+λx => Ünï <E>[0;32m1<E>[0m
+
+"\r<E>[JMain> abc\r<E>[9C" row 0
+"\r<E>[JMain> abc\r<E>[7C" row 0
+"\r<E>[JMain> abcdefghijklmnop\r<E>[2C" row 2
+"<E>[2A\r<E>[JMain> abcdefghijklmnop<E>[1A\r" row 1
+"\r<E>[JMain> abcd\r\n\r" row 1
+"<E>[1A\r<E>[JMain> abcd\r\n<E>[1A\r<E>[8C" row 0
+"\r<E>[JMain> \r\n\r" row 1
+"\r<E>[JMain> abc\r<E>[9C" row 0

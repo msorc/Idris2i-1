@@ -48,6 +48,8 @@ envs = [
     MkEnvDesc "LDLIBS"               "RefC backend: C linker library names or flags (IDRIS2_LDLIBS takes precedence).",
     MkEnvDesc "NODE"                 "NodeJS backend: NodeJS executable.",
     MkEnvDesc "PATH"                 "PATH variable is used to search for executables in certain codegens.",
+    MkEnvDesc "IDRIS2_LINE_EDITING"  "Set to 0 to turn off line editing (history, key bindings and highlighting) in the REPL.",
+    MkEnvDesc "IDRIS2_HISTORY_FILE"  "File where the REPL keeps its history (default: ~/.idris2_history). If empty, the history is not saved.",
     MkEnvDesc "NO_COLOR"             "Instruct Idris not to print color to stdout. Passing the --color/--colour option will supersede this env var."]
 
 --- `public export` only for `auto` to work in `idrisGetEnv`

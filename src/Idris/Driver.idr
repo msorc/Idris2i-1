@@ -243,6 +243,7 @@ stMain cgs opts
                          setOutput (IDEMode 0 file file)
                          replIDE {c} {u} {m}
                  else do
+                     loadReplHistory
                      repl {c} {u} {m}
                      showTimeRecord
 
