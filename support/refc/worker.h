@@ -57,11 +57,19 @@ typedef struct Idris2_Page {
   Idris2_FreeValue *free; // freed values of this page
   char *bump;             // the values after this one were never allocated
   char *end;
-  struct Idris2_Page *nextAvailable; // in the available list of the class
-  int available;                     // in that list, or the current page
-  struct Idris2_Worker *owner;       // the worker that allocates from it
-  unsigned cls;                      // the size class of its values
-  struct Idris2_Page *nextPage;      // in the list of every page
+  // The values of the page that are allocated, freed values that another
+  // worker has not handed back yet included.  Only right once the page is
+  // not the current one of its class any more (see memoryManagement.c).
+  uint32_t live;
+  int available; // in the available list of the class, or the current page
+  // In the available list of the class, or in a list of empty pages of the
+  // worker (nextAvailable only).
+  struct Idris2_Page *nextAvailable;
+  struct Idris2_Page *prevAvailable;
+  struct Idris2_Worker *owner; // the worker that allocates from it
+  unsigned cls;                // the size class of its values (0: empty)
+  int decommitted;             // its memory was given back to the system
+  struct Idris2_Page *nextPage; // in the list of every page
 } Idris2_Page;
 
 typedef struct {
@@ -101,6 +109,9 @@ typedef struct {
   uint64_t frees[IDRIS2_ALLOC_CLASSES + 1];
   uint64_t largeAllocs, largeFrees;
   uint64_t pagesCreated;
+  uint64_t pagesEmptied;     // pages that had no value left
+  uint64_t pagesReused;      // empty pages taken again (for any class)
+  uint64_t pagesDecommitted; // empty pages that gave their memory back
   uint64_t remoteFreesReceived;
   uint64_t immortalised; // counts that reached IDRIS2_VP_REFCOUNTER_MAX
   uint64_t dup[IDRIS2_RC_KINDS];
@@ -128,6 +139,11 @@ typedef struct {
 
 typedef struct Idris2_Worker {
   Idris2_SizeClass classes[IDRIS2_ALLOC_CLASSES + 1];
+  // The pages of the worker that hold no value, for any class: those that
+  // keep their memory (at most idris2_keepPages), and those that gave it back.
+  Idris2_Page *emptyPages;
+  Idris2_Page *decommittedPages;
+  int nEmpty;
   Idris2_PendingTailCall tailcall;
   // Set when the thread that runs has run for long while others wait for
   // the worker: it yields at its next safepoint (see IDRIS2_SAFEPOINT).

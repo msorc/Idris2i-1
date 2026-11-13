@@ -1514,8 +1514,27 @@ static void report_at_exit(void) {
   idris2_reportAtExit(0, __atomic_load_n(&live_threads, __ATOMIC_RELAXED));
 }
 
+// IDRIS2_REFC_KEEP_PAGES: the number of empty pages that a worker keeps
+// (see memoryManagement.c).
+static void configure_keep_pages(void) {
+  const char *env = getenv("IDRIS2_REFC_KEEP_PAGES");
+  if (env && *env) {
+    char *end = NULL;
+    long n = strtol(env, &end, 10);
+    if (*end == '\0' && n >= 0 && n <= 1000000) {
+      idris2_keepPages = (int)n;
+      return;
+    }
+    fprintf(stderr,
+            "RefC: ignoring IDRIS2_REFC_KEEP_PAGES=%s (expected a number of "
+            "pages from 0 to 1000000)\n",
+            env);
+  }
+}
+
 void idris2_threadSchedulerRun(Idris2_Value *(*mainAction)(void)) {
   main_sched.current = &main_thread;
+  configure_keep_pages();
   atexit(report_at_exit);
 #if IDRIS2_GREEN_THREADS
   scheduler_init();

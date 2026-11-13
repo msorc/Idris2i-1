@@ -1,6 +1,11 @@
 #include <limits.h>
 #include <stdbool.h>
 
+#if defined(__unix__) || defined(__APPLE__)
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
 #if defined(__has_include)
 #if __has_include(<valgrind/valgrind.h>)
 #include <valgrind/valgrind.h>
@@ -33,8 +38,10 @@ static int64_t largeLive = 0;
  * The class of a value is kept in the `reserved` byte of its header; 0 means
  * that the value comes from malloc (a large value, or a value allocated when
  * the pools are disabled).  A freed value goes back to the free list of its
- * page, found by masking its address.  The pages are never given back to
- * the system, they are reused for new values.
+ * page, found by masking its address.  A page that holds no value any more
+ * goes to the empty pages of its worker, from which any class can take it;
+ * beyond idris2_keepPages of them, the memory of the page goes back to the
+ * system (madvise), and the page is kept to be used again (see freeLocal).
  *
  * Every worker (see worker.h) has pages of its own, and only allocates from
  * them, so allocating takes no lock.  A value may be freed by another worker
@@ -65,23 +72,127 @@ static void *allocAligned(size_t alignment, size_t size) {
   return retVal;
 }
 
-static Idris2_Page *newPage(Idris2_Worker *w, unsigned cls) {
-  Idris2_Page *page = allocAligned(IDRIS2_PAGE_SIZE, IDRIS2_PAGE_SIZE);
+// The values of a page start after its header, aligned on 16 bytes.
+static inline char *pageStart(Idris2_Page *page) {
+  return (char *)page + ((sizeof(Idris2_Page) + 15) & ~(size_t)15);
+}
+
+int idris2_keepPages = 16;
+
+// The pages that hold values (peak: the most at any time), over all workers.
+// Pages are taken and emptied rarely (64KB at a time), so this is atomic.
+static int64_t pagesInUse = 0, peakPagesInUse = 0;
+
+static void pageTaken(void) {
+  int64_t n = __atomic_add_fetch(&pagesInUse, 1, __ATOMIC_RELAXED);
+  int64_t peak = __atomic_load_n(&peakPagesInUse, __ATOMIC_RELAXED);
+  while (n > peak &&
+         !__atomic_compare_exchange_n(&peakPagesInUse, &peak, n, 1,
+                                      __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+  }
+}
+
+// Make an empty page hold values of the class `cls`, for the worker `w`.
+static void initPage(Idris2_Page *page, Idris2_Worker *w, unsigned cls) {
   size_t size = (size_t)cls * IDRIS2_ALLOC_UNIT;
+  char *start = pageStart(page);
   page->owner = w;
   page->cls = cls;
-  // The values start after the header of the page, aligned on 16 bytes.
-  char *start = (char *)page + ((sizeof(Idris2_Page) + 15) & ~(size_t)15);
   page->free = NULL;
   page->bump = start;
   page->end = start + (((char *)page + IDRIS2_PAGE_SIZE - start) / size) * size;
-  page->nextAvailable = NULL;
+  page->live = 0;
+  page->nextAvailable = page->prevAvailable = NULL;
   page->available = 1;
+  // (the system gives back zeroed memory on the first touch: nothing reads
+  // the values that the bump allocator has not handed out)
+  page->decommitted = 0;
+  pageTaken();
+}
+
+static Idris2_Page *newPage(Idris2_Worker *w, unsigned cls) {
+  Idris2_Page *page = allocAligned(IDRIS2_PAGE_SIZE, IDRIS2_PAGE_SIZE);
+  initPage(page, w, cls);
   idris2_spinLock(&allPagesLock);
   page->nextPage = allPages;
   allPages = page;
   idris2_spinUnlock(&allPagesLock);
   IDRIS2_STAT(pagesCreated);
+  return page;
+}
+
+// Give the memory of an empty page back to the system, but its header.
+// Returns 0 when this is not possible.
+static int decommitPage(Idris2_Page *page) {
+#if (defined(__unix__) || defined(__APPLE__)) && !defined(IDRIS2_REFC_NO_POOLS)
+  static size_t osPage = 0;
+  if (!osPage) {
+    long n = sysconf(_SC_PAGESIZE);
+    osPage = n > 0 ? (size_t)n : IDRIS2_PAGE_SIZE;
+  }
+  size_t header = (sizeof(Idris2_Page) + osPage - 1) / osPage * osPage;
+  if (header >= IDRIS2_PAGE_SIZE)
+    return 0;
+  if (madvise((char *)page + header, IDRIS2_PAGE_SIZE - header,
+              MADV_DONTNEED) != 0)
+    return 0;
+  page->decommitted = 1;
+  return 1;
+#else
+  (void)page;
+  return 0;
+#endif
+}
+
+// A page of `w` that holds no value any more, and is not the current page
+// of its class: it goes to the empty pages of the worker, from which any
+// class can take it.  Beyond idris2_keepPages of them, its memory goes back
+// to the system.
+#if defined(__GNUC__)
+__attribute__((noinline, cold))
+#endif
+static void pageEmptied(Idris2_Worker *w, Idris2_Page *page) {
+  Idris2_SizeClass *c = &w->classes[page->cls];
+  if (page->available) {
+    // (in the available list of its class: it is not the current page)
+    if (page->prevAvailable)
+      page->prevAvailable->nextAvailable = page->nextAvailable;
+    else
+      c->available = page->nextAvailable;
+    if (page->nextAvailable)
+      page->nextAvailable->prevAvailable = page->prevAvailable;
+  }
+  page->available = 0;
+  page->cls = 0;
+  page->free = NULL;
+  page->bump = page->end = pageStart(page);
+  page->prevAvailable = NULL;
+  __atomic_sub_fetch(&pagesInUse, 1, __ATOMIC_RELAXED);
+  IDRIS2_STAT(pagesEmptied);
+  if (w->nEmpty >= idris2_keepPages && decommitPage(page)) {
+    IDRIS2_STAT(pagesDecommitted);
+    page->nextAvailable = w->decommittedPages;
+    w->decommittedPages = page;
+    return;
+  }
+  page->nextAvailable = w->emptyPages;
+  w->emptyPages = page;
+  w->nEmpty++;
+}
+
+// An empty page of `w` for the class `cls`, if it has one.
+static Idris2_Page *takeEmptyPage(Idris2_Worker *w, unsigned cls) {
+  Idris2_Page *page = w->emptyPages;
+  if (page) {
+    w->emptyPages = page->nextAvailable;
+    w->nEmpty--;
+  } else if ((page = w->decommittedPages) != NULL) {
+    w->decommittedPages = page->nextAvailable;
+  } else {
+    return NULL;
+  }
+  IDRIS2_STAT(pagesReused);
+  initPage(page, w, cls);
   return page;
 }
 
@@ -102,19 +213,36 @@ static int runningOnValgrind(void) {
 }
 
 // Put a value of a page of `w` back in its page.
-static void freeLocal(Idris2_Worker *w, Idris2_Page *page,
+//
+// The pages count the values that they hold (`live`) so that a page that
+// holds none can go to another class, or give its memory back.  To keep
+// allocation fast, only the frees are counted: the current page of a class
+// (the only one that values are allocated from) counts its frees, but its
+// count means nothing; when it stops being the current page, it is full,
+// and its count becomes the number of its values (see idris2_allocSlow).  A
+// page is only emptied when it is not the current one.  A value that another
+// worker frees counts until its owner puts it back (collectRemoteFrees), so
+// a page that holds no value is not waiting for any free either.
+IDRIS2_INLINE void freeLocal(Idris2_Worker *w, Idris2_Page *page,
                       Idris2_FreeValue *v) {
+  if (__builtin_expect(--page->live == 0, 0) &&
+      page != w->classes[page->cls].current) {
+    pageEmptied(w, page);
+    return;
+  }
   v->next = page->free;
   page->free = v;
-  if (!page->available) {
-    // The page was full and had been left: make it available again.
+  if (__builtin_expect(!page->available, 0)) {
     Idris2_SizeClass *c = &w->classes[page->cls];
+    // The page was full and had been left: make it available again.
     page->available = 1;
+    page->prevAvailable = NULL;
     page->nextAvailable = c->available;
+    if (c->available)
+      c->available->prevAvailable = page;
     c->available = page;
   }
 }
-
 // Put the values that other workers freed back in their pages.
 static void collectRemoteFrees(Idris2_Worker *w) {
   if (!__atomic_load_n(&w->remoteFree, __ATOMIC_RELAXED))
@@ -142,16 +270,30 @@ Idris2_Value *idris2_allocSlow(unsigned cls) {
   Idris2_Worker *w = idris2_worker();
   collectRemoteFrees(w);
   Idris2_SizeClass *c = &w->classes[cls];
-  if (c->current)
-    c->current->available = 0;
-  Idris2_Page *page = c->available;
-  if (page) {
-    c->available = page->nextAvailable;
-  } else {
-    page = newPage(w, cls);
+  Idris2_Page *page = c->current;
+  // (the values that other workers freed may have gone back to the current
+  // page)
+  if (!page || (!page->free && page->bump >= page->end)) {
+    if (page) {
+      page->available = 0; // full: a free makes it available again
+      // Every value of the page is allocated now, so this is the number of
+      // values that it holds (the allocations do not count them, see
+      // freeLocal).
+      page->live = (uint32_t)((size_t)(page->end - pageStart(page)) /
+                              ((size_t)cls * IDRIS2_ALLOC_UNIT));
+    }
+    page = c->available;
+    if (page) {
+      c->available = page->nextAvailable;
+      if (c->available)
+        c->available->prevAvailable = NULL;
+      page->nextAvailable = NULL;
+    } else if (!(page = takeEmptyPage(w, cls))) {
+      page = newPage(w, cls);
+    }
+    c->current = page;
+    page->available = 1;
   }
-  c->current = page;
-  page->available = 1;
   Idris2_Value *retVal;
   Idris2_FreeValue *v = page->free;
   if (v) {
@@ -763,7 +905,7 @@ static int envLevel(const char *var) {
 typedef struct {
   uint64_t pages[IDRIS2_ALLOC_CLASSES + 1];
   uint64_t live[IDRIS2_ALLOC_CLASSES + 1];
-  uint64_t nPages;
+  uint64_t nPages, empty, decommitted;
 } PageCensus;
 
 static void pageCensus(PageCensus *census, void (*visit)(Idris2_Value *, void *),
@@ -774,6 +916,15 @@ static void pageCensus(PageCensus *census, void (*visit)(Idris2_Value *, void *)
   idris2_spinUnlock(&allPagesLock);
   for (Idris2_Page *page = pages; page; page = page->nextPage) {
     unsigned cls = page->cls;
+    census->nPages++;
+    if (cls == 0) {
+      // empty
+      if (page->decommitted)
+        census->decommitted++;
+      else
+        census->empty++;
+      continue;
+    }
     size_t size = (size_t)cls * IDRIS2_ALLOC_UNIT;
     char *start = (char *)page + ((sizeof(Idris2_Page) + 15) & ~(size_t)15);
     size_t used = (size_t)(page->bump - start) / size;
@@ -792,7 +943,6 @@ static void pageCensus(PageCensus *census, void (*visit)(Idris2_Value *, void *)
       freeSlots[i / 8] |= (uint8_t)(1u << (i % 8));
       nFree++;
     }
-    census->nPages++;
     census->pages[cls]++;
     census->live[cls] += used - nFree;
     census->live[0] += used - nFree;
@@ -817,9 +967,14 @@ void idris2_dumpMemoryStats(void) {
   pageCensus(&census, NULL, NULL);
   fprintf(stderr, "RefC memory statistics (%d worker%s)\n", nWorkers,
           nWorkers == 1 ? "" : "s");
-  fprintf(stderr, "  pages: %llu (%.1f MiB)\n",
+  fprintf(stderr,
+          "  pages: %llu (%.1f MiB), %llu empty, %llu gave their memory back; "
+          "%lld pages in use at the peak\n",
           (unsigned long long)census.nPages,
-          (double)census.nPages * IDRIS2_PAGE_SIZE / (1024.0 * 1024.0));
+          (double)census.nPages * IDRIS2_PAGE_SIZE / (1024.0 * 1024.0),
+          (unsigned long long)census.empty,
+          (unsigned long long)census.decommitted,
+          (long long)__atomic_load_n(&peakPagesInUse, __ATOMIC_RELAXED));
   Idris2_Stats sum;
   memset(&sum, 0, sizeof(sum));
   for (int i = 0; i < nWorkers; i++) {
@@ -831,6 +986,9 @@ void idris2_dumpMemoryStats(void) {
     sum.largeAllocs += st->largeAllocs;
     sum.largeFrees += st->largeFrees;
     sum.pagesCreated += st->pagesCreated;
+    sum.pagesEmptied += st->pagesEmptied;
+    sum.pagesReused += st->pagesReused;
+    sum.pagesDecommitted += st->pagesDecommitted;
     sum.remoteFreesReceived += st->remoteFreesReceived;
     sum.immortalised += st->immortalised;
     for (int k = 0; k < IDRIS2_RC_KINDS; k++) {
@@ -881,8 +1039,13 @@ void idris2_dumpMemoryStats(void) {
   fprintf(stderr, "  allocations: %llu (%llu large, %llu freed)\n",
           (unsigned long long)allocs, (unsigned long long)sum.largeAllocs,
           (unsigned long long)sum.largeFrees);
-  fprintf(stderr, "  pages created: %llu, remote frees received: %llu\n",
+  fprintf(stderr,
+          "  pages: %llu created, %llu emptied, %llu reused, %llu gave their "
+          "memory back; remote frees received: %llu\n",
           (unsigned long long)sum.pagesCreated,
+          (unsigned long long)sum.pagesEmptied,
+          (unsigned long long)sum.pagesReused,
+          (unsigned long long)sum.pagesDecommitted,
           (unsigned long long)sum.remoteFreesReceived);
   static const char *const rcKinds[IDRIS2_RC_KINDS] = {"immediate", "plain",
                                                         "shared", "immortal"};

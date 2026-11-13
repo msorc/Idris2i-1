@@ -1,0 +1,9 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+# (not under Valgrind: the pages are only used without it)
+IDRIS2_REFC_MEMSTATS=1 ./build/exec/main 2> stats
+# Each phase needs about 750 pages of 64KB: both at once would be 1500.
+awk '/pages in use at the peak/ { for (i = 1; i <= NF; i++) if ($(i+1) == "pages" && $(i+2) == "in") peak = $i }
+     END { if (peak > 0 && peak < 1000) print "peak below 1000 pages"; else print "peak: " peak " pages" }' stats
+rm -f stats

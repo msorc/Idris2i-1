@@ -45,6 +45,10 @@ static inline Idris2_Value *idris2_newValue(size_t size) {
 // Give back the memory of a value (only: what it refers to is not released).
 void idris2_freeValue(Idris2_Value *value);
 
+// How many empty pages a worker keeps before it gives their memory back to
+// the system: IDRIS2_REFC_KEEP_PAGES, 16 (1MB) by default (see threads.c).
+extern int idris2_keepPages;
+
 // The memory returned by idris2_newValue is not initialised.  Use this to
 // create a value whose payload is zeroed, without disturbing its header.
 Idris2_Value *idris2_newZeroedValue(size_t size);

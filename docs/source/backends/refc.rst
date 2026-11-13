@@ -15,7 +15,10 @@ main goal is portability: the generated code should run on any platform that
 supports a C compiler.
 
 Small values are allocated from pages of values of the same size rather than
-with ``malloc``.  When the program runs under Valgrind, and the support library
+with ``malloc``.  A page that holds no value any more can be used for values of
+another size; every OS thread of the program keeps up to 16 such pages (1MB),
+and gives the memory of the others back to the system.  The environment
+variable ``IDRIS2_REFC_KEEP_PAGES`` sets that number.  When the program runs under Valgrind, and the support library
 was built with the Valgrind headers available, every value comes from
 ``malloc``, so that Valgrind can check them.  For other memory checkers (such
 as AddressSanitizer), compile the support library and the program with
