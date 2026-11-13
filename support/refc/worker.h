@@ -112,6 +112,7 @@ typedef struct {
   uint64_t pagesEmptied;     // pages that had no value left
   uint64_t pagesReused;      // empty pages taken again (for any class)
   uint64_t pagesDecommitted; // empty pages that gave their memory back
+  uint64_t pagesToPool;      // times an idle worker gave its pages to others
   uint64_t remoteFreesReceived;
   uint64_t overflows; // counts that went into the side table (see
                       // IDRIS2_VP_REFCOUNTER_OVERFLOW)
@@ -140,10 +141,10 @@ typedef struct {
 
 typedef struct Idris2_Worker {
   Idris2_SizeClass classes[IDRIS2_ALLOC_CLASSES + 1];
-  // The pages of the worker that hold no value, for any class: those that
-  // keep their memory (at most idris2_keepPages), and those that gave it back.
+  // The pages of the worker that hold no value, for any class (at most
+  // idris2_keepPages; the others go to a pool of the workers, see
+  // memoryManagement.c).
   Idris2_Page *emptyPages;
-  Idris2_Page *decommittedPages;
   int nEmpty;
   Idris2_PendingTailCall tailcall;
   // Set when the thread that runs has run for long while others wait for

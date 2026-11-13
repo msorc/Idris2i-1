@@ -831,6 +831,8 @@ static void deadlock(void) {
 // Wait until there may be something to do: a thread to run, or a deadline.
 static void park(Sched *s) {
 #if IDRIS2_MULTICORE
+  // (an idle worker does not need its empty pages)
+  idris2_releaseWorkerPages(s->worker);
   pthread_mutex_lock(&idle_lock);
   if (s->spinning) {
     s->spinning = 0;

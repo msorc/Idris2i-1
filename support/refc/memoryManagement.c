@@ -144,10 +144,63 @@ static int decommitPage(Idris2_Page *page) {
 #endif
 }
 
+// The empty pages that any worker can take, beyond those that the workers
+// keep (see pageEmptied): those that keep their memory, up to
+// idris2_keepPages per worker, and those that gave it back.  A page that
+// holds no value has no free in flight either (see freeLocal), so it can
+// change its owner.
+static Idris2_SpinLock poolLock = 0;
+static Idris2_Page *poolPages = NULL, *poolDecommitted = NULL;
+static int64_t poolCount = 0;
+// Set when the program exits, under releaseLock: the workers stop touching
+// their pages then (see idris2_releaseWorkerPages), so that the reports at
+// exit can look at them.
+static Idris2_SpinLock releaseLock = 0;
+static int exiting = 0;
+
+// Put the empty pages first .. last (linked by nextAvailable) in the pool.
+static void poolPut(Idris2_Page *first, Idris2_Page *last) {
+  int64_t keep = (int64_t)idris2_keepPages * idris2_workerCount();
+  idris2_spinLock(&poolLock);
+  for (Idris2_Page *page = first;;) {
+    Idris2_Page *next = page->nextAvailable;
+    if (poolCount >= keep && decommitPage(page)) {
+      IDRIS2_STAT(pagesDecommitted);
+      page->nextAvailable = poolDecommitted;
+      poolDecommitted = page;
+    } else {
+      page->nextAvailable = poolPages;
+      poolPages = page;
+      poolCount++;
+    }
+    if (page == last)
+      break;
+    page = next;
+  }
+  idris2_spinUnlock(&poolLock);
+}
+
+static Idris2_Page *poolTake(void) {
+  if (!__atomic_load_n(&poolPages, __ATOMIC_RELAXED) &&
+      !__atomic_load_n(&poolDecommitted, __ATOMIC_RELAXED))
+    return NULL;
+  idris2_spinLock(&poolLock);
+  Idris2_Page *page = poolPages;
+  if (page) {
+    poolPages = page->nextAvailable;
+    poolCount--;
+  } else if ((page = poolDecommitted) != NULL) {
+    poolDecommitted = page->nextAvailable;
+  }
+  idris2_spinUnlock(&poolLock);
+  return page;
+}
+
 // A page of `w` that holds no value any more, and is not the current page
 // of its class: it goes to the empty pages of the worker, from which any
-// class can take it.  Beyond idris2_keepPages of them, its memory goes back
-// to the system.
+// class can take it.  Beyond idris2_keepPages of them, it goes to the pool
+// of the workers; beyond idris2_keepPages per worker there, its memory goes
+// back to the system.
 #if defined(__GNUC__)
 __attribute__((noinline, cold))
 #endif
@@ -169,10 +222,9 @@ static void pageEmptied(Idris2_Worker *w, Idris2_Page *page) {
   page->prevAvailable = NULL;
   __atomic_sub_fetch(&pagesInUse, 1, __ATOMIC_RELAXED);
   IDRIS2_STAT(pagesEmptied);
-  if (w->nEmpty >= idris2_keepPages && decommitPage(page)) {
-    IDRIS2_STAT(pagesDecommitted);
-    page->nextAvailable = w->decommittedPages;
-    w->decommittedPages = page;
+  if (w->nEmpty >= idris2_keepPages) {
+    // (to the pool, for the other workers)
+    poolPut(page, page);
     return;
   }
   page->nextAvailable = w->emptyPages;
@@ -186,9 +238,7 @@ static Idris2_Page *takeEmptyPage(Idris2_Worker *w, unsigned cls) {
   if (page) {
     w->emptyPages = page->nextAvailable;
     w->nEmpty--;
-  } else if ((page = w->decommittedPages) != NULL) {
-    w->decommittedPages = page->nextAvailable;
-  } else {
+  } else if (!(page = poolTake())) {
     return NULL;
   }
   IDRIS2_STAT(pagesReused);
@@ -243,6 +293,27 @@ IDRIS2_INLINE void freeLocal(Idris2_Worker *w, Idris2_Page *page,
     c->available = page;
   }
 }
+static void collectRemoteFrees(Idris2_Worker *w);
+
+void idris2_releaseWorkerPages(Idris2_Worker *w) {
+  idris2_spinLock(&releaseLock);
+  if (!exiting) {
+    // (the values freed by other workers may empty some pages)
+    collectRemoteFrees(w);
+    Idris2_Page *first = w->emptyPages;
+    if (first) {
+      Idris2_Page *last = first;
+      while (last->nextAvailable)
+        last = last->nextAvailable;
+      w->emptyPages = NULL;
+      w->nEmpty = 0;
+      IDRIS2_STAT(pagesToPool);
+      poolPut(first, last);
+    }
+  }
+  idris2_spinUnlock(&releaseLock);
+}
+
 // Put the values that other workers freed back in their pages.
 static void collectRemoteFrees(Idris2_Worker *w) {
   if (!__atomic_load_n(&w->remoteFree, __ATOMIC_RELAXED))
@@ -1156,6 +1227,7 @@ void idris2_dumpMemoryStats(void) {
     sum.pagesEmptied += st->pagesEmptied;
     sum.pagesReused += st->pagesReused;
     sum.pagesDecommitted += st->pagesDecommitted;
+    sum.pagesToPool += st->pagesToPool;
     sum.remoteFreesReceived += st->remoteFreesReceived;
     sum.overflows += st->overflows;
     for (int k = 0; k < IDRIS2_RC_KINDS; k++) {
@@ -1208,11 +1280,13 @@ void idris2_dumpMemoryStats(void) {
           (unsigned long long)sum.largeFrees);
   fprintf(stderr,
           "  pages: %llu created, %llu emptied, %llu reused, %llu gave their "
-          "memory back; remote frees received: %llu\n",
+          "memory back, %llu times given to the pool by idle workers; remote frees "
+          "received: %llu\n",
           (unsigned long long)sum.pagesCreated,
           (unsigned long long)sum.pagesEmptied,
           (unsigned long long)sum.pagesReused,
           (unsigned long long)sum.pagesDecommitted,
+          (unsigned long long)sum.pagesToPool,
           (unsigned long long)sum.remoteFreesReceived);
   static const char *const rcKinds[IDRIS2_RC_KINDS] = {"immediate", "plain",
                                                         "shared", "immortal"};
@@ -1467,7 +1541,11 @@ void idris2_reportAtExit(int finished, long long threadsLeft) {
   if (!memstats && !leaks)
     return;
   // The values freed by other workers are put back first, when nothing else
-  // can touch the pages.
+  // can touch the pages: no thread runs, and the idle workers stop giving
+  // their pages to the pool.
+  idris2_spinLock(&releaseLock);
+  exiting = 1;
+  idris2_spinUnlock(&releaseLock);
   if (finished && threadsLeft == 0)
     collectAllRemoteFrees();
   if (memstats)

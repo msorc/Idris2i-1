@@ -49,6 +49,10 @@ void idris2_freeValue(Idris2_Value *value);
 // the system: IDRIS2_REFC_KEEP_PAGES, 16 (1MB) by default (see threads.c).
 extern int idris2_keepPages;
 
+// The worker `w` goes idle: its empty pages go to the other workers (see
+// park in threads.c).  Called on the OS thread of the worker.
+void idris2_releaseWorkerPages(Idris2_Worker *w);
+
 // The memory returned by idris2_newValue is not initialised.  Use this to
 // create a value whose payload is zeroed, without disturbing its header.
 Idris2_Value *idris2_newZeroedValue(size_t size);
