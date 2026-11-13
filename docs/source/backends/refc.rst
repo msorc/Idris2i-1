@@ -164,6 +164,16 @@ to, is reused in place for a new value of the same constructor.
 fields; it is off by default, as the code that it gives makes GCC very slow
 on some big functions.
 
+Code that is generic in an interface (``Ord a => ...``) applies the closures of
+a dictionary for every method call.  The (experimental) compiler option
+``--spec-interfaces`` makes copies of the small or recursive functions that
+take implementations, for the implementations that are known where they are
+called, as if they were declared ``%spec`` on them (see
+:doc:`../reference/pragmas`): the copies call the methods directly.  It costs
+compile time (the compiler builds 2.6 times slower with it), and makes a big
+difference for code that uses ``compare`` or ``(<)`` of a known type a lot (a
+tree sort of ``Integer``\ s runs with 38% fewer instructions).
+
 Building Idris 2 with RefC
 ==========================
 
