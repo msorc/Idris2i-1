@@ -87,12 +87,13 @@ static inline int idris2_tryUnshare(Idris2_Value *v) {
   return 1;
 }
 
-// The reference counting of shared and immortal values, out of line.
+// The reference counting of shared, immortal and overflowed values (see
+// IDRIS2_VP_REFCOUNTER_OVERFLOW), out of line.
 void idris2_newReferenceSlow(Idris2_Value *v);
 void idris2_removeReferenceSlow(Idris2_Value *v);
 
-// Is the value neither shared nor immortal, i.e. is its reference count
-// updated in place?  This is the common case, tested with one comparison
+// Is the value neither shared nor immortal, and is its count below the
+// overflow, i.e. is its reference count updated in place?  This is the common case, tested with one comparison
 // where the layout of the header allows it.
 #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 static inline uint32_t idris2_headerWord(Idris2_Value *v) {
@@ -103,7 +104,7 @@ static inline uint32_t idris2_headerWord(Idris2_Value *v) {
 // The reference count is in the low 16 bits, the shared flag in the top one.
 #define idris2_isPlainCounted(word)                                           \
   (((word) & (0x80000000u | IDRIS2_VP_REFCOUNTER_MAX)) <                       \
-   IDRIS2_VP_REFCOUNTER_MAX)
+   IDRIS2_VP_REFCOUNTER_OVERFLOW)
 #define idris2_wordRefCounter(word) ((uint16_t)(word))
 #else
 static inline Idris2_header idris2_headerWord(Idris2_Value *v) {
@@ -111,13 +112,12 @@ static inline Idris2_header idris2_headerWord(Idris2_Value *v) {
 }
 #define idris2_isPlainCounted(h)                                               \
   (!((h).reserved & IDRIS2_SHARED_FLAG) &&                                     \
-   (h).refCounter != IDRIS2_VP_REFCOUNTER_MAX)
+   (h).refCounter < IDRIS2_VP_REFCOUNTER_OVERFLOW)
 #define idris2_wordRefCounter(h) ((h).refCounter)
 #endif
 
 // Take a reference.  NULL (an erased value), unboxed values and immortal
-// values (the reference count of which reached its maximum, or statically
-// allocated values) are left alone.
+// values (statically allocated values and constants) are left alone.
 // (Forced inline: GCC otherwise calls an out of line copy in big functions,
 // which costs much more than the few instructions of the common case.)
 #if defined(__GNUC__)
@@ -132,8 +132,6 @@ IDRIS2_INLINE Idris2_Value *idris2_newReference(Idris2_Value *source) {
       ++source->header.refCounter;
 #ifdef IDRIS2_REFC_STATS
       IDRIS2_STAT(dup[IDRIS2_RC_PLAIN]);
-      if (source->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
-        IDRIS2_STAT(immortalised);
 #endif
     } else {
       idris2_newReferenceSlow(source);
@@ -144,13 +142,19 @@ IDRIS2_INLINE Idris2_Value *idris2_newReference(Idris2_Value *source) {
   return source;
 }
 
+// Forget the references of an overflowed value that the side table counts.
+void idris2_forgetOverflow(Idris2_Value *v);
+
 // Make a value immortal (it is never released), and give it back.
 static inline Idris2_Value *idris2_makeImmortal(Idris2_Value *v) {
   // (static values are immortal already, and may be read only)
   if (v && !idris2_vp_is_unboxed(v) &&
-      v->header.refCounter != IDRIS2_VP_REFCOUNTER_MAX)
+      v->header.refCounter != IDRIS2_VP_REFCOUNTER_MAX) {
+    if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_OVERFLOW)
+      idris2_forgetOverflow(v);
     __atomic_store_n(&v->header.refCounter, IDRIS2_VP_REFCOUNTER_MAX,
                      __ATOMIC_RELAXED);
+  }
   return v;
 }
 
@@ -173,7 +177,7 @@ IDRIS2_INLINE void idris2_removeReference(Idris2_Value *elem) {
 }
 
 // Drop a reference to a value that has other references (but may be
-// immortal).  Another thread may drop the other references of a shared
+// immortal, or overflowed).  Another thread may drop the other references of a shared
 // value at the same time, so that one is released if need be.
 IDRIS2_INLINE void idris2_dropSharedReference(Idris2_Value *v) {
   if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(v)), 1)) {

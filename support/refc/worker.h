@@ -113,7 +113,8 @@ typedef struct {
   uint64_t pagesReused;      // empty pages taken again (for any class)
   uint64_t pagesDecommitted; // empty pages that gave their memory back
   uint64_t remoteFreesReceived;
-  uint64_t immortalised; // counts that reached IDRIS2_VP_REFCOUNTER_MAX
+  uint64_t overflows; // counts that went into the side table (see
+                      // IDRIS2_VP_REFCOUNTER_OVERFLOW)
   uint64_t dup[IDRIS2_RC_KINDS];
   uint64_t drop[IDRIS2_RC_KINDS];
   uint64_t uniqueHit, uniqueMiss; // idris2_isUnique

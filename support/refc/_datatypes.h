@@ -34,10 +34,12 @@
 #define THREAD_ID_TAG 35
 
 typedef struct {
-  // Objects that reach the maximum reference count will be immortalized.
-  // This 'immortalization' feature is also utilized to prevent statically
-  // allocated objects from being destroyed.
+  // The values with the maximum count are immortal: statically allocated
+  // values, and the constants of the program.  A count that would go beyond
+  // IDRIS2_VP_REFCOUNTER_OVERFLOW stays there, the other references being
+  // counted in a side table (see memoryManagement.c).
 #define IDRIS2_VP_REFCOUNTER_MAX UINT16_MAX
+#define IDRIS2_VP_REFCOUNTER_OVERFLOW (UINT16_MAX - 1)
   uint16_t refCounter;
   uint8_t tag;
   // The size class of the value (see memoryManagement.c), and two flags.

@@ -347,19 +347,157 @@ void idris2_freeValue(Idris2_Value *value) {
 }
 
 // ---------------------------------------------------------------------------
+// Overflowed reference counts
+//
+// A count is 16 bits.  A value that has IDRIS2_VP_REFCOUNTER_OVERFLOW
+// references, and gets more, keeps that count; the others are counted in a
+// table, by address: its count is the one of the header plus the one of the
+// table.  The fast paths of the reference counting only see counts below the
+// overflow (see idris2_isPlainCounted), so the table is only reached from
+// here.  A value that loses its extra references gets back on the fast path,
+// and is released as any other.
+//
+// The table is shared by the workers, under a lock.  The count of a shared
+// value only moves from or to the overflow under the lock, so that a value
+// that the table counts always has the overflow count.
+// ---------------------------------------------------------------------------
+
+typedef struct {
+  uintptr_t key; // 0: free
+  uint64_t extra;
+} OverflowEntry;
+
+static OverflowEntry *overflowTable = NULL;
+static size_t overflowCapacity = 0, overflowUsed = 0;
+static Idris2_SpinLock overflowLock = 0;
+
+static size_t overflowHash(uintptr_t key) {
+  key ^= key >> 33;
+  key *= 0xff51afd7ed558ccdULL;
+  key ^= key >> 33;
+  return (size_t)key;
+}
+
+static OverflowEntry *overflowFind(uintptr_t key) {
+  if (!overflowCapacity)
+    return NULL;
+  for (size_t i = overflowHash(key) & (overflowCapacity - 1);;
+       i = (i + 1) & (overflowCapacity - 1)) {
+    if (overflowTable[i].key == key)
+      return &overflowTable[i];
+    if (overflowTable[i].key == 0)
+      return NULL;
+  }
+}
+
+static void overflowInsert(uintptr_t key, uint64_t extra) {
+  if (2 * (overflowUsed + 1) > overflowCapacity) {
+    size_t capacity = overflowCapacity ? 2 * overflowCapacity : 64;
+    OverflowEntry *old = overflowTable;
+    size_t oldCapacity = overflowCapacity;
+    overflowTable = calloc(capacity, sizeof(OverflowEntry));
+    IDRIS2_REFC_VERIFY(overflowTable, "malloc failed");
+    overflowCapacity = capacity;
+    overflowUsed = 0;
+    for (size_t i = 0; i < oldCapacity; i++)
+      if (old[i].key)
+        overflowInsert(old[i].key, old[i].extra);
+    free(old);
+  }
+  size_t i = overflowHash(key) & (overflowCapacity - 1);
+  while (overflowTable[i].key)
+    i = (i + 1) & (overflowCapacity - 1);
+  overflowTable[i].key = key;
+  overflowTable[i].extra = extra;
+  overflowUsed++;
+}
+
+// Remove an entry, moving back the ones after it that it displaced (linear
+// probing without tombstones).
+static void overflowDelete(OverflowEntry *e) {
+  size_t mask = overflowCapacity - 1;
+  size_t i = (size_t)(e - overflowTable);
+  for (size_t j = (i + 1) & mask; overflowTable[j].key; j = (j + 1) & mask) {
+    size_t home = overflowHash(overflowTable[j].key) & mask;
+    // Can the entry at j move to i?  Yes when its home is not in (i, j].
+    if (i <= j ? (home <= i || home > j) : (home <= i && home > j)) {
+      overflowTable[i] = overflowTable[j];
+      i = j;
+    }
+  }
+  overflowTable[i].key = 0;
+  overflowUsed--;
+}
+
+// One more reference to a value at the overflow count (under the lock).
+static void overflowAdd(Idris2_Value *v) {
+  OverflowEntry *e = overflowFind((uintptr_t)v);
+  if (e) {
+    e->extra++;
+  } else {
+    overflowInsert((uintptr_t)v, 1);
+    IDRIS2_STAT(overflows);
+  }
+}
+
+// One reference less to a value at the overflow count (under the lock):
+// returns 0 when the table counted none, and the count of the header has to
+// go down.
+static int overflowRemove(Idris2_Value *v) {
+  OverflowEntry *e = overflowFind((uintptr_t)v);
+  if (!e)
+    return 0;
+  if (--e->extra == 0)
+    overflowDelete(e);
+  return 1;
+}
+
+void idris2_forgetOverflow(Idris2_Value *v) {
+  idris2_spinLock(&overflowLock);
+  OverflowEntry *e = overflowFind((uintptr_t)v);
+  if (e)
+    overflowDelete(e);
+  idris2_spinUnlock(&overflowLock);
+}
+
+// ---------------------------------------------------------------------------
 // Shared values (see memoryManagement.h)
 // ---------------------------------------------------------------------------
 
 void idris2_newReferenceSlow(Idris2_Value *v) {
-  if (!idris2_isShared(v)) {
+  // (immortal values, shared or not, are the common case here: the count of
+  // an immortal value never changes, so a plain read will do)
+  if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX) {
     IDRIS2_STAT(dup[IDRIS2_RC_IMMORTAL]);
+    return;
+  }
+  if (!idris2_isShared(v)) {
+    // at the overflow
+    IDRIS2_STAT(dup[IDRIS2_RC_PLAIN]);
+    idris2_spinLock(&overflowLock);
+    overflowAdd(v);
+    idris2_spinUnlock(&overflowLock);
     return;
   }
   IDRIS2_STAT(dup[IDRIS2_RC_SHARED]);
   uint16_t c = __atomic_load_n(&v->header.refCounter, __ATOMIC_RELAXED);
-  while (c != IDRIS2_VP_REFCOUNTER_MAX &&
-         !__atomic_compare_exchange_n(&v->header.refCounter, &c, c + 1, 1,
-                                      __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+  for (;;) {
+    if (c == IDRIS2_VP_REFCOUNTER_MAX)
+      return;
+    if (c == IDRIS2_VP_REFCOUNTER_OVERFLOW) {
+      idris2_spinLock(&overflowLock);
+      c = __atomic_load_n(&v->header.refCounter, __ATOMIC_RELAXED);
+      if (c == IDRIS2_VP_REFCOUNTER_OVERFLOW) {
+        overflowAdd(v);
+        idris2_spinUnlock(&overflowLock);
+        return;
+      }
+      idris2_spinUnlock(&overflowLock);
+      continue;
+    }
+    if (__atomic_compare_exchange_n(&v->header.refCounter, &c, c + 1, 1,
+                                    __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+      return;
   }
 }
 
@@ -372,21 +510,46 @@ static int sharedDropReference(Idris2_Value *v) {
   for (;;) {
     if (c == IDRIS2_VP_REFCOUNTER_MAX)
       return 0;
+    if (c == IDRIS2_VP_REFCOUNTER_OVERFLOW) {
+      // (while the count is at the overflow, it only changes under the lock)
+      idris2_spinLock(&overflowLock);
+      c = __atomic_load_n(&v->header.refCounter, __ATOMIC_ACQUIRE);
+      if (c == IDRIS2_VP_REFCOUNTER_OVERFLOW) {
+        if (!overflowRemove(v))
+          __atomic_store_n(&v->header.refCounter, c - 1, __ATOMIC_RELEASE);
+        idris2_spinUnlock(&overflowLock);
+        return 0;
+      }
+      idris2_spinUnlock(&overflowLock);
+      continue;
+    }
     if (__atomic_compare_exchange_n(&v->header.refCounter, &c, c - 1, 1,
                                     __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))
       return c == 1;
   }
 }
 
+// A value at the overflow count, not shared, loses a reference.
+static void plainOverflowDrop(Idris2_Value *v) {
+  idris2_spinLock(&overflowLock);
+  if (!overflowRemove(v))
+    v->header.refCounter = IDRIS2_VP_REFCOUNTER_OVERFLOW - 1;
+  idris2_spinUnlock(&overflowLock);
+}
+
 void idris2_removeReferenceSlow(Idris2_Value *v) {
-#ifdef IDRIS2_REFC_STATS
-  if (idris2_isShared(v))
-    IDRIS2_STAT(drop[IDRIS2_RC_SHARED]);
-  else
+  if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX) {
     IDRIS2_STAT(drop[IDRIS2_RC_IMMORTAL]);
-#endif
-  if (idris2_isShared(v) && sharedDropReference(v))
-    idris2_releaseValue(v);
+    return;
+  }
+  if (idris2_isShared(v)) {
+    IDRIS2_STAT(drop[IDRIS2_RC_SHARED]);
+    if (sharedDropReference(v))
+      idris2_releaseValue(v);
+    return;
+  }
+  IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
+  plainOverflowDrop(v);
 }
 
 void idris2_markShared(Idris2_Value *root) {
@@ -730,10 +893,14 @@ void idris2_releaseValue(Idris2_Value *elem) {
       if (!sharedDropReference(last))
         return;
     } else {
-      if (last->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX)
+      uint16_t count = last->header.refCounter;
+      if (count >= IDRIS2_VP_REFCOUNTER_OVERFLOW) {
+        // immortal, or overflowed (and so not the last reference)
+        idris2_removeReferenceSlow(last);
         return;
-      if (last->header.refCounter != 1) {
-        --last->header.refCounter;
+      }
+      if (count != 1) {
+        last->header.refCounter = count - 1;
         return;
       }
     }
@@ -990,7 +1157,7 @@ void idris2_dumpMemoryStats(void) {
     sum.pagesReused += st->pagesReused;
     sum.pagesDecommitted += st->pagesDecommitted;
     sum.remoteFreesReceived += st->remoteFreesReceived;
-    sum.immortalised += st->immortalised;
+    sum.overflows += st->overflows;
     for (int k = 0; k < IDRIS2_RC_KINDS; k++) {
       sum.dup[k] += st->dup[k];
       sum.drop[k] += st->drop[k];
@@ -1061,8 +1228,8 @@ void idris2_dumpMemoryStats(void) {
   fprintf(stderr, "\n");
   fprintf(stderr, "  count operations per allocation: %.2f\n",
           allocs ? (double)(dups + drops) / (double)allocs : 0.0);
-  fprintf(stderr, "  counts that became immortal: %llu\n",
-          (unsigned long long)sum.immortalised);
+  fprintf(stderr, "  counts that overflowed into the side table: %llu\n",
+          (unsigned long long)sum.overflows);
   fprintf(stderr, "  uniqueness tests: %llu unique, %llu not\n",
           (unsigned long long)sum.uniqueHit,
           (unsigned long long)sum.uniqueMiss);
@@ -1233,7 +1400,8 @@ static void leakCheck(int level, long long threadsLeft) {
   ValueList list = {NULL, 0, 0};
   PageCensus pages;
   pageCensus(&pages, collectValue, &list);
-  qsort(list.values, list.n, sizeof(Idris2_Value *), compareAddresses);
+  if (list.n > 0)
+    qsort(list.values, list.n, sizeof(Idris2_Value *), compareAddresses);
   uint8_t *reached = calloc(list.n + 1, 1);
   uint64_t *byTag = calloc(3 * 256, sizeof(uint64_t));
   if (!reached || !byTag) {
