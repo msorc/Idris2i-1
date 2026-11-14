@@ -202,11 +202,11 @@ getSpecPats fc pename fn stk fnty args sargs pats
 
     unelabPat : Name -> (vs ** (Env Term vs, Term vs, Term vs)) ->
                 Core ImpClause
-    unelabPat pename (_ ** (env, lhs, rhs))
+    unelabPat pename (vs ** (env, lhs, rhs))
         = do logTerm "specialise" 20 "Unelaborating LHS:" lhs
              lhsapp <- unelabNoSugar env lhs
              log "specialise" 20 $ "Unelaborating LHS to: \{show lhsapp}"
-             let lhs' = dropArgs pename (map rawName lhsapp)
+             let lhs' = bindMachineNames $ dropArgs pename (map rawName lhsapp)
              defs <- get Ctxt
              rhs <- normaliseArgHoles defs env rhs
              rhs <- unelabNoSugar env rhs
@@ -214,6 +214,14 @@ getSpecPats fc pename fn stk fnty args sargs pats
                       IHole fc _ => Implicit fc False
                       tm => tm
              pure (PatClause fc lhs' (map rawName rhs))
+      where
+        -- Only user names are bound as pattern variables when the LHS is
+        -- elaborated again, so a pattern variable with a machine name (the
+        -- one of a `_` in a case block, say) is bound explicitly.
+        bindMachineNames : RawImp -> RawImp
+        bindMachineNames = mapTTImp $ \case
+          IVar vfc n@(MN {}) => if n `elem` vs then IBindVar vfc n else IVar vfc n
+          tm => tm
 
     unelabLHS : Name -> (vs ** (Env Term vs, Term vs, Term vs)) ->
                 Core RawImp

@@ -1,3 +1,4 @@
 . ../../../testutils.sh
 
+idris2 --log specialise.fail:1 --exec main Merge.idr
 idris2 --log specialise.fail:1 --exec main Blocks.idr
