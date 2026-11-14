@@ -119,6 +119,10 @@ Hashable Name where
   hashWithSalt h (DN _ n) = hashWithSalt h n
   hashWithSalt h (NS ns n) = hashWithSalt (hashWithSalt h ns) n
   hashWithSalt h (Resolved i) = hashWithSalt h i
+  -- (`show` leaves out the index, which tells apart the blocks of a
+  -- function: the specialised copies of two of them had the same name)
+  hashWithSalt h (CaseBlock s i) = h `hashWithSalt` "case block in " `hashWithSalt` s `hashWithSalt` i
+  hashWithSalt h (WithBlock s i) = h `hashWithSalt` "with block in " `hashWithSalt` s `hashWithSalt` i
   hashWithSalt h n = hashWithSalt h (show n)
 
 export

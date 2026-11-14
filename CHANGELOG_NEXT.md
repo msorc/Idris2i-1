@@ -52,6 +52,9 @@ should target this file (`CHANGELOG_NEXT`).
   generic block, which still took the arguments at run time.  A specialised
   copy cannot refer to the names of modules that are not imported where it
   is made, though; it then calls the generic code.
+* Two blocks of a function no longer get the same specialised copy when they
+  are specialised by the same arguments: their names hashed the same (the
+  hash left out their index), so the copy of one block ran for the other.
 * New option `--spec-interfaces` (experimental): the small or recursive
   functions that take implementations of interfaces are specialised by them
   where they are known, as if declared `%spec` on them, so that their copies
