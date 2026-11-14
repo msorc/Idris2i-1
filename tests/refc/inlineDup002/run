@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+idris2 --dumpcases Main.cases -o main Main.idr > /dev/null
+$VALGRIND ./build/exec/main
+# the arguments of the inlined binds that are let-bound (none)
+grep '^Main.getTag' Main.cases | grep -o 'inlv:[0-9]*' | wc -l
+rm -f Main.cases
