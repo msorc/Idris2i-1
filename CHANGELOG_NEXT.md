@@ -235,6 +235,10 @@ should target this file (`CHANGELOG_NEXT`).
   saves two atomic operations per argument that threads share (a mutex 8
   threads contend for is taken and released twice as fast), and a call
   through the trampoline in tail position.
+* Fixed a memory leak of string iterators (`Data.String.Iterator` in
+  `contrib`, and the lexer of the compiler): the finaliser of an iterator
+  freed it but not the pointer that held it, one cell per iterator.  The
+  compiler leaked 260935 of them type-checking `libs/base`.
 * Fixed memory leaks of the arguments passed to the external primitives
   (`writeIORef`, `newIORef`, `newArray`, `arraySet`, `onCollect`, ...): the
   primitives take a reference to what they keep, but the caller did not
