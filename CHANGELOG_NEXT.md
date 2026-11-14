@@ -59,6 +59,9 @@ should target this file (`CHANGELOG_NEXT`).
 * Two blocks of a function no longer get the same specialised copy when they
   are specialised by the same arguments: their names hashed the same (the
   hash left out their index), so the copy of one block ran for the other.
+* `%spec` on a name that is not the name of an argument of the function is an
+  error: it was ignored (in `f : (a -> a -> Ordering) -> ...`, the argument
+  has no name).
 * New option `--spec-interfaces` (experimental): the small or recursive
   functions that take implementations of interfaces are specialised by them
   where they are known, as if declared `%spec` on them, so that their copies

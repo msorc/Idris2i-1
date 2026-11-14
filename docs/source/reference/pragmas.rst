@@ -284,7 +284,10 @@ Specialise a function according to a list of arguments.
 Where it is called with known values of these arguments, the function is
 replaced by a copy of it for these values, which is evaluated as far as
 possible (so a function that builds an infinite structure, a ``Stream`` with
-``iterate`` say, should not be specialised).
+``iterate`` say, should not be specialised).  The arguments are the names that
+they have in the type of the function: in ``f : (a -> a -> Ordering) -> ...``,
+the argument has no name, and must be given one, ``(order : a -> a ->
+Ordering)``, to be specialised by.
 
 With the command line option ``--spec-interfaces`` (experimental), the
 functions that take implementations of interfaces are specialised by them

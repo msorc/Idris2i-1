@@ -86,8 +86,18 @@ processFnOpt fc _ ndef (SpecArgs ns)
     = do defs <- get Ctxt
          Just gdef <- lookupCtxtExact ndef (gamma defs)
               | Nothing => undefinedName fc ndef
+         -- (a name that is not an argument would be ignored: in
+         -- `f : (a -> a) -> ...`, the argument has no name)
+         let args = argNames (type gdef)
+         for_ ns $ \n =>
+           unless (n `elem` args) $
+             throw (GenericMsg fc "%spec: \{show n} is not the name of an argument of \{show !(toFullNames ndef)}")
          specs <- specPositions fc gdef ns
          ignore $ addDef ndef ({ specArgs := specs } gdef)
+  where
+    argNames : Term vs -> List Name
+    argNames (Bind _ x (Pi {}) sc) = x :: argNames sc
+    argNames _ = []
 
 specPositions fc gdef ns
     = do defs <- get Ctxt
