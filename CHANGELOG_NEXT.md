@@ -426,6 +426,11 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Base
 
+* `sort`, `sortBy` and `mergeBy` of `Data.List` are specialised (`%spec`) on
+  their comparison (`sort` on its `Ord` implementation), and `sortBy` splits
+  its list without making a closure for every element: sorting a list of
+  `Integer`s runs with 29% fewer instructions with the RefC backend (34%
+  with `--spec-interfaces`), 22% fewer with Chez.
 * `readFilePage`, and so `readFile`, no longer use stack space for every line
   that they read: the recursion went through the bind of the composition of
   `io` and `Either`, which is not a tail call.

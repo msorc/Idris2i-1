@@ -724,8 +724,9 @@ sorted _ = True
 ||| Merge two sorted lists using an arbitrary comparison
 ||| predicate. Note that the lists must have been sorted using this
 ||| predicate already.
+%spec order
 export
-mergeBy : (a -> a -> Ordering) -> List a -> List a -> List a
+mergeBy : (order : a -> a -> Ordering) -> List a -> List a -> List a
 mergeBy order []      right   = right
 mergeBy order left    []      = left
 mergeBy order (x::xs) (y::ys) =
@@ -744,6 +745,7 @@ merge left right = mergeBy compare left right
 |||
 ||| @ cmp how to compare elements
 ||| @ xs the list to sort
+%spec cmp
 export
 sortBy : (cmp : a -> a -> Ordering) -> (xs : List a) -> List a
 sortBy cmp []  = []
@@ -753,20 +755,23 @@ sortBy cmp xs  = let (x, y) = split xs in
           (sortBy cmp (assert_smaller xs x))
           (sortBy cmp (assert_smaller xs y)) -- not structurally smaller, hence assert
   where
-    splitRec : List b -> List a -> (List a -> List a) -> (List a, List a)
-    splitRec (_::_::xs) (y::ys) zs = splitRec xs ys (zs . ((::) y))
-    splitRec _          ys      zs = (ys, zs [])
+    -- (`zs` is the first half, reversed: accumulating it with a function,
+    -- `zs . (y ::)`, makes a closure for every element)
+    splitRec : List b -> List a -> List a -> (List a, List a)
+    splitRec (_::_::xs) (y::ys) zs = splitRec xs ys (y :: zs)
+    splitRec _          ys      zs = (ys, reverse zs)
     -- In the above base-case clause, we put `ys` on the LHS to get a stable sort.
     -- This is because `mergeBy` prefers taking elements from its RHS operand
-    -- if both heads are equal, and all elements in `zs []` precede all elements of `ys`
+    -- if both heads are equal, and all elements in `reverse zs` precede all elements of `ys`
     -- in the original list.
 
     split : List a -> (List a, List a)
-    split xs = splitRec xs xs id
+    split xs = splitRec xs xs []
 
 ||| Sort a list using the default ordering for the type of its elements.
+%spec ord
 export
-sort : Ord a => List a -> List a
+sort : {auto ord : Ord a} -> List a -> List a
 sort = sortBy compare
 
 ||| Check whether the `left` list is a prefix of the `right` one, according to
