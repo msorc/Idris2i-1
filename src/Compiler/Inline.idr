@@ -73,40 +73,50 @@ largest x (y :: ys)
          else largest x ys
 
 mutual
-  used : {free : _} ->
-         {idx : Nat} -> (0 p : IsVar n idx free) -> CExp free -> Int
-  used {idx} n (CLocal _ {idx=pidx} prf) = if idx == pidx then 1 else 0
-  used n (CLam _ _ sc) = used (Later n) sc
-  used n (CLet _ _ NotInline val sc)
-      = let usedl = used n val + used (Later n) sc in
-            if usedl > 0
+  -- How many times the variable is used: the sum over the parts of a term,
+  -- the largest over the alternatives of a case.  With `guarded`, a use
+  -- under a non-inlinable let counts as many (1000), so that the name is not
+  -- inlined there.
+  countUses : {free : _} -> (guarded : Bool) ->
+              {idx : Nat} -> (0 p : IsVar n idx free) -> CExp free -> Int
+  countUses g {idx} n (CLocal _ {idx=pidx} prf) = if idx == pidx then 1 else 0
+  countUses g n (CLam _ _ sc) = countUses g (Later n) sc
+  countUses g n (CLet _ _ NotInline val sc)
+      = let usedl = countUses g n val + countUses g (Later n) sc in
+            if g && usedl > 0
                then 1000 -- Don't do any inlining of the name, because if it's
                          -- used under a non-inlinable let things might go wrong
                else usedl
-  used n (CLet _ _ YesInline val sc) = used n val + used (Later n) sc
-  used n (CApp _ x args) = foldr (+) (used n x) (map (used n) args)
-  used n (CCon _ _ _ _ args) = foldr (+) 0 (map (used n) args)
-  used n (COp _ _ args) = foldr (+) 0 (map (used n) args)
-  used n (CExtPrim _ _ args) = foldr (+) 0 (map (used n) args)
-  used n (CForce _ _ x) = used n x
-  used n (CDelay _ _ x) = used n x
-  used n (CConCase fc sc alts def)
-     = used n sc +
-          largest (maybe 0 (used n) def) (map (usedCon n) alts)
-  used n (CConstCase fc sc alts def)
-     = used n sc +
-          largest (maybe 0 (used n) def) (map (usedConst n) alts)
-  used _ tm = 0
+  countUses g n (CLet _ _ YesInline val sc)
+      = countUses g n val + countUses g (Later n) sc
+  countUses g n (CApp _ x args)
+      = foldr (+) (countUses g n x) (map (countUses g n) args)
+  countUses g n (CCon _ _ _ _ args) = foldr (+) 0 (map (countUses g n) args)
+  countUses g n (COp _ _ args) = foldr (+) 0 (map (countUses g n) args)
+  countUses g n (CExtPrim _ _ args) = foldr (+) 0 (map (countUses g n) args)
+  countUses g n (CForce _ _ x) = countUses g n x
+  countUses g n (CDelay _ _ x) = countUses g n x
+  countUses g n (CConCase fc sc alts def)
+     = countUses g n sc +
+          largest (maybe 0 (countUses g n) def) (map (usedCon g n) alts)
+  countUses g n (CConstCase fc sc alts def)
+     = countUses g n sc +
+          largest (maybe 0 (countUses g n) def) (map (usedConst g n) alts)
+  countUses _ _ tm = 0
 
-  usedCon : {free : _} ->
+  usedCon : {free : _} -> (guarded : Bool) ->
             {idx : Nat} -> (0 p : IsVar n idx free) -> CConAlt free -> Int
-  usedCon n (MkConAlt _ _ _ args sc)
+  usedCon g n (MkConAlt _ _ _ args sc)
       = let MkVar n' = weakenNs (mkSizeOf args) (MkVar n) in
-            used n' sc
+            countUses g n' sc
 
-  usedConst : {free : _} ->
+  usedConst : {free : _} -> (guarded : Bool) ->
               {idx : Nat} -> (0 p : IsVar n idx free) -> CConstAlt free -> Int
-  usedConst n (MkConstAlt _ sc) = used n sc
+  usedConst g n (MkConstAlt _ sc) = countUses g n sc
+
+used : {free : _} ->
+       {idx : Nat} -> (0 p : IsVar n idx free) -> CExp free -> Int
+used = countUses True
 
 mutual
   evalLocal : {vars, free : _} ->
@@ -134,8 +144,11 @@ mutual
       = do let Just (env', stk') = takeFromStack env stk args
                | Nothing => pure Nothing
            -- The arguments are substituted in the body, so those that it uses
-           -- more than once are let-bound, not to duplicate their work.
-           let uses = map (\(MkVar p) => used p exp) (allVars args)
+           -- more than once are let-bound, not to duplicate their work.  (Not
+           -- `used`, which counts a use under a non-inlinable let, such as
+           -- the `let MkIORes x' w' = fn w` of io_bind, as many: an action
+           -- of IO given to a bind would be let-bound, a closure.)
+           let uses = map (\(MkVar p) => countUses False p exp) (allVars args)
            (env', shared) <- shareArgs uses env'
            res <- eval rec env' stk'
                      (rewrite sym (appendAssociative args vars free) in
