@@ -286,10 +286,13 @@ Idris2_Value *stringIteratorNew(Idris2_Value *str) {
               (Idris2_Value * (*)()) onCollectStringIterator, 2, 0));
 }
 
+// The finaliser of the GC pointer of an iterator: it is handed the reference
+// to the pointer that the GC pointer held (see idris2_releaseValue).
 Idris2_Value *onCollectStringIterator(Idris2_Pointer *ptr, void *null) {
   String_Iterator *it = (String_Iterator *)ptr->p;
   free(it->str);
   free(it);
+  idris2_removeReference((Idris2_Value *)ptr);
   return NULL;
 }
 
