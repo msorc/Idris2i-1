@@ -182,6 +182,14 @@ it with only a C compiler: ``make bootstrap-c`` (see ``INSTALL.md``).  A
 compiler built this way has no Chez Scheme evaluator, so ``:set eval scheme``
 reports an error.
 
+The C code of the compiler is big, and compiling it takes most of the time of
+a build.  A plain ``make`` compiles it with ``-O1``, which is quick.
+``make LTO=1`` compiles it with ``-O2`` and link time optimisation (when the C
+compiler has it), which makes the compiler about 4% faster and the C build
+about twice as long; ``make bootstrap-c`` does that for the compiler that it
+leaves for installing (``make bootstrap-c LTO=0`` does not).  ``IDRIS2_CFLAGS``
+or ``CFLAGS`` replace these flags.
+
 Extending RefC
 ==============
 

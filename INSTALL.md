@@ -140,7 +140,13 @@ C is compiled in parts by C compilers running in parallel, one per processor;
 set `BOOT_JOBS` to run fewer of them (each needs a few hundred MB of memory),
 and `BOOT_CFLAGS` to change the flags of this first compiler (`-O1`, without
 link time optimisation: it is quick to build, and it only builds the
-libraries and the compiler that is installed). When the RefC backend
+libraries and the compiler that is installed). That compiler is built with
+`-O2` and link time optimisation (`-flto=auto`, when the C compiler supports
+it), which makes it about 4% faster but takes about twice as long to build:
+`make bootstrap-c LTO=0` builds it with `-O1` and without link time
+optimisation instead. The same variable applies to a plain `make` that builds
+the compiler with RefC, with `LTO=0` as the default there (`make LTO=1` for
+the optimised build). When the RefC backend
 compiles the compiler (or any big program) it does the same, with
 `IDRIS2_CC_JOBS` in place of `BOOT_JOBS`. The modules of the compiler and of
 the libraries are checked by up to `IDRIS2_JOBS` processes in parallel (with

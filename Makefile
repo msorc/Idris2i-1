@@ -82,10 +82,17 @@ ${TARGET}: support src/IdrisPaths.idr
 ifeq ($(IDRIS2_CG), refc)
 	# Optimise the generated C unless told otherwise (older compilers, like the
 	# one of bootstrap-c, do not do it by default).  The compiler is compiled
-	# in parts in parallel: link time optimisation, when the C compiler has it,
-	# gives back the inlining across parts.
-	LTO=$$(sh bootstrap/cc-has-lto.sh "$${IDRIS2_CC:-$${CC:-cc}}" && echo " -flto=auto"); \
-	IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:--O2$$LTO}}" ${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
+	# in parts in parallel.  A plain make is quick: -O1, no link time
+	# optimisation.  With LTO=1 it is -O2, and -flto=auto when the C compiler
+	# has it: that gives back the inlining across the parts (the compiler runs
+	# about 4% faster) but doubles the time of the C build.  An IDRIS2_CFLAGS
+	# or CFLAGS from the user takes precedence.
+	DEFAULT_CFLAGS=-O1; \
+	if [ "${LTO}" = 1 ]; then \
+		DEFAULT_CFLAGS=-O2; \
+		if sh bootstrap/cc-has-lto.sh "$${IDRIS2_CC:-$${CC:-cc}}"; then DEFAULT_CFLAGS="-O2 -flto=auto"; fi; \
+	fi; \
+	IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:-$$DEFAULT_CFLAGS}}" ${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 else
 	${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 endif

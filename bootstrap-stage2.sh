@@ -22,6 +22,8 @@ $MAKE bootstrap-install IDRIS2_CG="$IDRIS2_CG" \
 
 # Now rebuild everything properly
 $MAKE clean-libs IDRIS2_BOOT="$BOOTSTRAP_PREFIX/bin/idris2"
+# This compiler is the one that is installed: build its C with link time
+# optimisation (RefC), unless LTO is set (to 0 for a quick build).
 $MAKE all IDRIS2_BOOT="$BOOTSTRAP_PREFIX/bin/idris2" IDRIS2_CG="$IDRIS2_CG" \
-    SCHEME="$SCHEME"
+    SCHEME="$SCHEME" LTO="${LTO:-1}"
 echo 'bootstrap stage 2 complete'

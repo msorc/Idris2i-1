@@ -179,6 +179,15 @@ should target this file (`CHANGELOG_NEXT`).
 * `make` rebuilds the support libraries (`support/c`, `support/refc`) whenever
   their sources or headers changed, including the RefC runtime library, and
   `make test` reinstalls them in `build/env`.  They could be left stale before.
+* With the RefC backend, a plain `make` now compiles the C of the compiler with
+  `-O1` and without link time optimisation, which is quick to build.
+  `make LTO=1` (see `config.mk`) uses `-O2 -flto=auto` when the C compiler has
+  it: the compiler is about 4% faster, and its C takes about twice as long to
+  build.  `make bootstrap-c` still builds the compiler that it leaves for
+  installing with `LTO=1`, unless it is run as `make bootstrap-c LTO=0`; the
+  first compiler of that bootstrap, which only builds the libraries and the
+  second one, is compiled with `-O1` and without LTO (`BOOT_CFLAGS` changes
+  this).  An `IDRIS2_CFLAGS` or `CFLAGS` from the user still takes precedence.
 * A module of a package is now built as if it were built alone: the
   `%language` extensions, `%foreign_impl`s and builtin names (`%pair`,
   `%rewrite`, literal names) that the modules built before it in the same
