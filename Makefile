@@ -71,6 +71,7 @@ export IDRIS2_BOOT_PATH := "$(IDRIS2_BOOT_PATH)"
 export SCHEME
 
 .PHONY: all idris2-exec libdocs testenv testenv-clean support clean-support clean FORCE
+.PHONY: libs libs-core libs-rest prelude base linear contrib network test-lib papers
 
 all:
 	${MAKE} ${TARGET}
@@ -122,29 +123,72 @@ src/IdrisPaths.idr: FORCE
 
 FORCE:
 
+# The libraries, with the libraries they import (the depends of their ipkg,
+# and what their modules import from the others):
+#   prelude
+#   base:    prelude
+#   linear:  base
+#   contrib: base
+#   network: base linear
+#   test:    base contrib
+#   papers:  base linear contrib
+#
+# The libraries that do not depend on each other are built at the same time,
+# LIBS_PARALLEL of them at most (1 builds them one after the other).  This is
+# only done with the RefC backend: the incremental builds of the Scheme
+# backends write shared files, and fail when run in parallel.  Each of the
+# libraries that run together checks its modules with half of IDRIS2_JOBS
+# processes, so that the machine is not oversubscribed, and make keeps the
+# output of a library together when it can (GNU make 4 and later).  When make
+# runs in parallel already (make -jN), that is left to it.
+LIBS_PARALLEL ?= $(if $(filter refc,${IDRIS2_CG}),3,1)
+ifeq (${LIBS_PARALLEL},1)
+LIBS_JOBS_ENV = ${JOBS_ENV}
+LIBS_MAKEFLAGS =
+else
+LIBS_JOBS_ENV = IDRIS2_BUILD_JOBS=$(shell echo $$(( (${IDRIS2_JOBS} + 1) / 2 )))
+LIBS_MAKEFLAGS = $(if $(filter -j%,${MAKEFLAGS}),,-j${LIBS_PARALLEL} $(if $(filter output-sync,${.FEATURES}),--output-sync=target))
+endif
+
+# The libraries that all the others import (see libs below: they are already
+# built when the others are, and are not checked again then).
+ifdef LIBS_CORE_DONE
+LIBS_CORE =
+else
+LIBS_CORE = prelude base
+endif
+
 prelude:
 	${JOBS_ENV} ${MAKE} -C libs/prelude IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 base: prelude
 	${JOBS_ENV} ${MAKE} -C libs/base IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
-network: prelude linear
-	${JOBS_ENV} ${MAKE} -C libs/network IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+linear: ${LIBS_CORE}
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/linear IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
-contrib: base
-	${JOBS_ENV} ${MAKE} -C libs/contrib IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+contrib: ${LIBS_CORE}
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/contrib IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
-test-lib: contrib
-	${JOBS_ENV} ${MAKE} -C libs/test IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+network: ${LIBS_CORE} linear
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/network IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
-linear: prelude base
-	${JOBS_ENV} ${MAKE} -C libs/linear IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+test-lib: ${LIBS_CORE} contrib
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/test IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
-papers: contrib linear
-	${JOBS_ENV} ${MAKE} -C libs/papers IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+papers: ${LIBS_CORE} linear contrib
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/papers IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
-bootstrap-libs : prelude base linear network
-libs : prelude base contrib network test-lib linear papers
+bootstrap-libs: prelude base linear network
+
+# prelude and base first, one after the other, as everything depends on them;
+# then the others, in this order when they are built one after the other.
+libs-core: prelude base
+libs-rest: contrib linear network test-lib papers
+
+libs:
+	${MAKE} libs-core
+	${MAKE} ${LIBS_MAKEFLAGS} LIBS_CORE_DONE=1 libs-rest
 
 libdocs:
 	${JOBS_ENV} ${MAKE} -C libs/prelude docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}

@@ -151,7 +151,11 @@ compiles the compiler (or any big program) it does the same, with
 `IDRIS2_CC_JOBS` in place of `BOOT_JOBS`. The modules of the compiler and of
 the libraries are checked by up to `IDRIS2_JOBS` processes in parallel (with
 every way of building Idris 2: `make IDRIS2_JOBS=1` checks them one after the
-other). Once Chez Scheme is available, you can
+other). With the RefC backend, the libraries that do not depend on each other
+(for instance `contrib` and `linear`) are also built at the same time, each
+of them using half of `IDRIS2_JOBS`; `make LIBS_PARALLEL=1` builds them one
+after the other, as the Scheme backends always do. Once Chez Scheme is
+available, you can
 rebuild Idris 2 with it as described in [step 5](#5-optional-self-hosting-step).
 
 When built with RefC, the compiler has no Chez Scheme evaluator, so the REPL

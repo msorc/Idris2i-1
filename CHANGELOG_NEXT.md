@@ -188,6 +188,12 @@ should target this file (`CHANGELOG_NEXT`).
   first compiler of that bootstrap, which only builds the libraries and the
   second one, is compiled with `-O1` and without LTO (`BOOT_CFLAGS` changes
   this).  An `IDRIS2_CFLAGS` or `CFLAGS` from the user still takes precedence.
+* With the RefC backend, `make` builds the libraries that do not depend on each
+  other at the same time (`contrib` and `linear`, then `test`, `papers` and
+  `network`), dividing `IDRIS2_JOBS` between them; `LIBS_PARALLEL=1` builds them
+  one after the other, which is always the case with the Scheme backends.  The
+  dependencies between the libraries in the `Makefile` now follow what they
+  import (`network`, `test` and `papers` were missing `base`).
 * `make` no longer rewrites `src/IdrisPaths.idr` when its content is the same,
   so a second `make` does not rebuild the modules that import it.
 * A module of a package is now built as if it were built alone: the
