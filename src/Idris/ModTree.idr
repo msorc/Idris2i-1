@@ -13,6 +13,7 @@ import Idris.Syntax
 import Idris.Pretty
 
 import Data.Either
+import Data.List
 import Data.String
 
 import System.Directory
@@ -394,8 +395,73 @@ buildAllParallel jobs childCmd allFiles
          let logDir = if isAbsolute bdir then bdir else wd </> bdir
          Right () <- coreLift $ mkdirAll logDir
            | Left err => throw (FileErr logDir err)
-         loop inBuild len logDir (zip [1 .. len] mods) [] [] False
+         -- When a process ends, the first module of the pending list that can
+         -- be started is started, so put first the modules that the longest
+         -- chain of other modules waits for: the build can not end before the
+         -- longest chain does, however many processes there are.
+         sizes <- traverse (\m => sourceSize m.buildFile) mods
+         let chains = chainWeights (zip mods sizes)
+         loop inBuild len logDir
+              (sortBy (longestFirst chains) (zip [1 .. len] mods)) [] [] False
   where
+    -- the longest chain first, then in the order of the list
+    longestFirst : StringMap Nat -> (Nat, BuildMod) -> (Nat, BuildMod) -> Ordering
+    longestFirst chains (i, a) (j, b)
+        = compare (chainOf b) (chainOf a) <+> compare i j
+      where
+        chainOf : BuildMod -> Nat
+        chainOf m = fromMaybe 0 (StringMap.lookup (show m.buildNS) chains)
+
+    -- The size of a source file, which stands for the time to build it
+    sourceSize : String -> Core Nat
+    sourceSize file
+        = do Right h <- coreLift $ openFile file Read
+               | Left _ => pure 0 -- the process that builds it reports it
+             Right size <- coreLift $ fileSize h
+               | Left _ => do coreLift $ closeFile h
+                              pure 0
+             coreLift $ closeFile h
+             pure (integerToNat (cast size))
+
+    -- For each module, the weight of the longest chain of modules of this
+    -- build that starts with it and goes through the modules that import it
+    -- (the module itself included)
+    chainWeights : List (BuildMod, Nat) -> StringMap Nat
+    chainWeights ws = passes (length ws) weights
+      where
+        weights : StringMap Nat
+        weights = StringMap.fromList (map (\(m, w) => (show m.buildNS, w)) ws)
+
+        -- The modules, with the imports that are in the build; the modules
+        -- that import the others come first, which is the order in which
+        -- the chains are known, as the list has the imports before them
+        entries : List (String, List (String, Nat))
+        entries = reverse $ map (\(m, _) => (show m.buildNS, importsInBuild m)) ws
+          where
+            importsInBuild : BuildMod -> List (String, Nat)
+            importsInBuild m = mapMaybe (\i => let k = show i in
+                                                 map (k,) (StringMap.lookup k weights))
+                                        m.imports
+
+        -- what is below a module makes the chains of its imports longer
+        relax : (StringMap Nat, Bool) -> (String, List (String, Nat)) -> (StringMap Nat, Bool)
+        relax (cur, changed) (k, imported)
+            = let below = fromMaybe 0 (StringMap.lookup k cur) in
+                  foldl (\(acc, ch), (i, w) =>
+                           if w + below > fromMaybe 0 (StringMap.lookup i acc)
+                              then (StringMap.insert i (w + below) acc, True)
+                              else (acc, ch))
+                        (cur, changed) imported
+
+        -- until nothing changes, which takes as many passes as there are
+        -- modules at the most (two, when the imports come before the modules)
+        passes : Nat -> StringMap Nat -> StringMap Nat
+        passes Z cur = cur
+        passes (S k) cur
+            = case foldl relax (cur, False) entries of
+                   (next, True) => passes k next
+                   (_, False) => cur
+
     -- An import of a module of this build that is not built yet
     blocked : List ModuleIdent -> List ModuleIdent -> BuildMod -> Bool
     blocked inBuild done mod
