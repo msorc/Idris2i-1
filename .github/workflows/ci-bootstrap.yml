@@ -1,7 +1,14 @@
 ######################################################################
-# Unlike the main yml file this uses the LTS version of chezscheme,
-# not the hirsute one. The main purpose is to make sure that
-# `make bootstrap` does not rely on `__collect_safe`.
+# Unlike the main yml file this uses the LTS version of the tools
+# (chezscheme, racket, gcc) of an older LTS runner, not the newest one.
+# The main purpose is to make sure that the bootstraps do not rely on
+# something that only newer tools have: `make bootstrap` must not rely
+# on `__collect_safe` (Chez Scheme), and `make bootstrap-c` must work
+# with the C compiler of a long term support distribution.
+#
+# It runs when one of the inputs of the bootstraps changes: the
+# generated code (bootstrap/idris2_app/idris2.ss, idris2.rkt and
+# idris2.c.xz), the scripts that build from it and the rest of bootstrap/.
 #
 # Note that we are *not* running on ubuntu-latest so this needs manual
 # upgrades if we want to jump on a newer github actions environment.
@@ -12,18 +19,24 @@ name: Bootstrap
 on:
   push:
     paths:
-      - 'bootstrap/idris2_app/idris2.ss'
+      - 'bootstrap/**'
+      - 'bootstrap*.sh'
       - '.github/workflows/ci-bootstrap.yml'
   pull_request:
     paths:
-      - 'bootstrap/idris2_app/idris2.ss'
+      - 'bootstrap/**'
+      - 'bootstrap*.sh'
       - '.github/workflows/ci-bootstrap.yml'
   workflow_dispatch:
+
+concurrency:
+  group: bootstrap-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
 
   initialise:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout Project
         uses: actions/checkout@v4
@@ -44,9 +57,11 @@ jobs:
       commit_message:
         echo "${{ steps.get_commit_message.outputs.commit_message }}"
 
-  bootstrap:
+  # Chez Scheme: bootstrap/idris2_app/idris2.ss
+
+  bootstrap-chez:
     needs: initialise
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     if: |
       !contains(needs.initialise.outputs.commit_message, '[ci: skip]')
     env:
@@ -62,3 +77,46 @@ jobs:
           echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
       - name: Build bootstrap
         run: make bootstrap
+
+  # Racket: bootstrap/idris2_app/idris2.rkt
+
+  bootstrap-racket:
+    needs: initialise
+    runs-on: ubuntu-22.04
+    if: |
+      !contains(needs.initialise.outputs.commit_message, '[ci: skip]')
+    env:
+      IDRIS2_CG: racket
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install build dependencies (LTS versions)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y racket
+          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+      - name: Build bootstrap
+        run: make bootstrap-racket
+
+  # C (RefC): bootstrap/idris2_app/idris2.c.xz.  The main yml file also
+  # tests the compiler that this builds, here it is only built.
+
+  bootstrap-c:
+    needs: initialise
+    runs-on: ubuntu-22.04
+    if: |
+      !contains(needs.initialise.outputs.commit_message, '[ci: skip]')
+    env:
+      IDRIS2_CG: refc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install build dependencies (LTS versions)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgmp-dev xz-utils
+          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+      - name: Check that no Scheme is available
+        run: "! command -v chez && ! command -v scheme && ! command -v racket"
+      - name: Build bootstrap
+        run: make bootstrap-c
