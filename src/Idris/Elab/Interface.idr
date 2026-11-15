@@ -9,7 +9,6 @@ import Idris.REPL.Opts
 import Idris.Syntax
 
 import TTImp.BindImplicits
-import TTImp.ProcessDecls
 import TTImp.Elab.Check
 import TTImp.TTImp
 import TTImp.Utils
@@ -345,7 +344,7 @@ elabInterface {vars} ifc def_vis env nest constraints iname params dets mcon bod
                                   dets meths
              log "elab.interface" 10 $ "Methods: " ++ show meths
              log "elab.interface" 5 $ "Making interface data type " ++ show dt
-             ignore $ processDecls nest env [dt]
+             processDecl [] nest env dt
 
     elabMethods : (conName : Name) -> List Name -> List Signature -> Core ()
     elabMethods conName methNames methSigs

@@ -10,7 +10,6 @@ import Idris.Syntax
 import TTImp.BindImplicits
 import TTImp.Elab.Check
 import TTImp.Elab
-import TTImp.ProcessDecls
 import TTImp.TTImp
 import TTImp.TTImp.Functor
 import TTImp.Unelab

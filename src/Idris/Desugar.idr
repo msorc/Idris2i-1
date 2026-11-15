@@ -24,6 +24,7 @@ import Parser.Support.Escaping
 
 import TTImp.BindImplicits
 import TTImp.Parser
+import TTImp.ProcessDecls -- implements processDecl, used by the elaboration of interfaces and implementations
 import TTImp.ProcessType
 import TTImp.TTImp
 import TTImp.Utils
