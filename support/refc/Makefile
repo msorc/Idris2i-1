@@ -31,10 +31,14 @@ $(LIBTARGET): $(OBJS)
 	$(AR) rc $@ $^
 	$(RANLIB) $@
 
+# Which headers each object file depends on.  The dependency file depends on
+# them too, so that it is made again when a header starts to include another.
+ifeq (,$(filter clean cleandep,$(MAKECMDGOALS)))
 -include $(DEPS)
+endif
 
 %.d: %.c
-	@$(CPP) $(CPPFLAGS) $< -MM -MT $(@:.d=.o) >$@
+	@$(CPP) $(CPPFLAGS) $< -MM -MT "$(@:.d=.o) $@" >$@.tmp && mv -f $@.tmp $@ || { $(RM) $@.tmp; false; }
 
 
 .PHONY: clean
@@ -59,7 +63,7 @@ cleandep: clean
 ASAN_FLAGS = -g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined
 ASAN_OBJS = $(addprefix asan/,$(OBJS))
 
-asan/%.o: %.c
+asan/%.o: %.c $(wildcard *.h)
 	@mkdir -p asan
 	$(CC) $(CPPFLAGS) -DIDRIS2_REFC_NO_POOLS $(ASAN_FLAGS) -c $< -o $@
 

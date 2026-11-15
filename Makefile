@@ -149,10 +149,11 @@ ${TEST_PREFIX}/${NAME_VERSION} :
 
 .PHONY: ${TEST_PREFIX}/${NAME_VERSION}
 
-${TEST_IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT}:
+# The support libraries that the tests use, installed under TEST_PREFIX.  This
+# always goes through support (which rebuilds what changed) and reinstalls: a
+# check on the installed files would not see a change of the sources.
+test-support:
 	${MAKE} install-support PREFIX=${TEST_PREFIX}
-
-test-support: ${TEST_IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT}
 
 testenv: test-support
 	mkdir -p ${TEST_PREFIX}/${NAME_VERSION}
@@ -186,10 +187,20 @@ test-installed:
 	@${MAKE} -C tests testbin      IDRIS2=$(IDRIS2_PREFIX)/bin/idris2 IDRIS2_PREFIX=${IDRIS2_PREFIX}
 	@${MAKE} -C tests only=$(only) IDRIS2=$(IDRIS2_PREFIX)/bin/idris2 IDRIS2_PREFIX=${IDRIS2_PREFIX}
 
-${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT}:
+# Build the support libraries (in support/, where the Makefiles rebuild what
+# changed since the last time, so this does not use the file as a target).
+# When IDRIS2_SUPPORT_DIR points elsewhere, to support libraries that were
+# built beforehand (see bootstrap), they are only checked for.
+ifeq (${IDRIS2_SUPPORT_DIR},${IDRIS2_CURDIR}/support/c)
+support:
 	@${MAKE} -C support
-
-support: ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT}
+else
+support:
+	@if [ ! -f "${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT}" ]; then \
+		echo "ERROR: IDRIS2_SUPPORT_DIR is set but ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} is missing"; \
+		exit 1; \
+	fi
+endif
 
 clean-support:
 	@${MAKE} -C support clean

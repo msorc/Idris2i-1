@@ -34,10 +34,14 @@ $(LIBTARGET): $(OBJS)
 $(DYLIBTARGET): $(OBJS)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -shared -o $@ $^ $(LDFLAGS)
 
+# Which headers each object file depends on.  The dependency file depends on
+# them too, so that it is made again when a header starts to include another.
+ifeq (,$(filter clean cleandep,$(MAKECMDGOALS)))
 -include $(DEPS)
+endif
 
 %.d: %.c
-	@$(CPP) $(CPPFLAGS) $< -MM -MT $(@:.d=.o) >$@
+	@$(CPP) $(CPPFLAGS) $< -MM -MT "$(@:.d=.o) $@" >$@.tmp && mv -f $@.tmp $@ || { $(RM) $@.tmp; false; }
 
 
 .PHONY: clean
