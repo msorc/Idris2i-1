@@ -180,6 +180,8 @@ should target this file (`CHANGELOG_NEXT`).
   `idris2.rkt` and `idris2.c.xz`) is no longer kept in the repository: the
   directory is ignored by git, and `make bootstrap`, `bootstrap-racket` and
   `bootstrap-c` say so when their file is missing (see `INSTALL.md`).
+* `make help` lists the targets of the top-level `Makefile` and the variables
+  that change the build, with their current values.
 * `make` rebuilds the support libraries (`support/c`, `support/refc`) whenever
   their sources or headers changed, including the RefC runtime library, and
   `make test` reinstalls them in `build/env`.  They could be left stale before.

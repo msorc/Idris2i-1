@@ -410,3 +410,63 @@ distclean: clean bootstrap-clean
 	@find . -type f -name '*.ttc' -exec rm -f {} \;
 	@find . -type f -name '*.ttm' -exec rm -f {} \;
 	@find . -type f -name '*.ibc' -exec rm -f {} \;
+
+
+.PHONY: help
+
+define HELP_TEXT
+Usage: make [TARGET...] [VARIABLE=value...]
+
+Build
+  all                    The compiler, then the libraries (the default)
+  idris2-exec            The compiler only, as build/exec/${NAME}
+  libs                   The libraries, with the compiler in build/exec
+  support                The C support libraries
+  libdocs                The documentation of the libraries
+
+Bootstrap, without an existing Idris 2 (see 'Bootstrap code' in INSTALL.md)
+  bootstrap-c            With a C compiler only, from bootstrap/idris2_app/idris2.c.xz
+  bootstrap              With Chez Scheme (SCHEME=chez), from idris2.ss
+  bootstrap-racket       With Racket, from idris2.rkt
+  bootstrap-test         Run the tests with the bootstrapped compiler
+
+Test
+  test                   Run the tests (does not rebuild the compiler or the libraries)
+  retest                 Run the tests that failed the last time
+  test-installed         Run the tests with the installed compiler
+
+Install, under PREFIX
+  install                The compiler, the support libraries and the libraries
+  install-api            The compiler as a library (idris2api)
+  install-with-src-api   The same, with its sources
+  install-with-src-libs  The libraries with their sources
+  install-libdocs        The documentation of the libraries
+
+Clean
+  clean                  What the build made: compiler, libraries, support, test environment
+  clean-libs             The libraries only
+  clean-support          The support libraries only
+  bootstrap-clean        bootstrap-build/
+  distclean              All of the above and every .ttc, .ttm and .ibc file
+
+Variables (current value)
+  PREFIX=${PREFIX}
+                         Where to install
+  IDRIS2_BOOT=${IDRIS2_BOOT}
+                         The Idris 2 that builds the compiler
+  IDRIS2_CG=${IDRIS2_CG}
+                         The code generator the compiler is built with (refc, chez, racket)
+  IDRIS2_JOBS=${IDRIS2_JOBS}
+                         Modules to build in parallel, 1 for one after the other
+  LIBS_PARALLEL=${LIBS_PARALLEL}
+                         Libraries to build in parallel, 1 for one after the other
+  LTO=${LTO}
+                         1 builds the compiler's C with -O2 and link-time optimisation:
+                         slower to build, faster to run (bootstrap-c defaults to 1)
+  CFLAGS, IDRIS2_CFLAGS  C flags for the compiler's own C code, in place of the default
+  BOOT_CFLAGS            C flags for the first stage of bootstrap-c (environment, default -O1)
+  only=, except=         Limit the tests, e.g. make test only=refc except=refc/doubles
+endef
+
+help:
+	@: $(info ${HELP_TEXT})
