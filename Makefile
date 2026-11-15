@@ -93,7 +93,7 @@ ifeq ($(IDRIS2_CG), refc)
 		DEFAULT_CFLAGS=-O2; \
 		if sh bootstrap/cc-has-lto.sh "$${IDRIS2_CC:-$${CC:-cc}}"; then DEFAULT_CFLAGS="-O2 -flto=auto"; fi; \
 	fi; \
-	IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:-$$DEFAULT_CFLAGS}}" ${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
+	IDRIS2_CG="${IDRIS2_CG}" IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:-$$DEFAULT_CFLAGS}}" ${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 else
 	${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 endif
