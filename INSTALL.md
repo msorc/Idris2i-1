@@ -138,8 +138,9 @@ a compiler built with Chez Scheme, and it needs a large stack, so it is run
 by a launcher script that raises the stack limit (`ulimit -s`). The generated
 C is compiled in parts by C compilers running in parallel, one per processor;
 set `BOOT_JOBS` to run fewer of them (each needs a few hundred MB of memory),
-and `BOOT_CFLAGS` to change the optimisation flags (`-O2`, with
-`-flto=auto` when the C compiler supports it). When the RefC backend
+and `BOOT_CFLAGS` to change the flags of this first compiler (`-O1`, without
+link time optimisation: it is quick to build, and it only builds the
+libraries and the compiler that is installed). When the RefC backend
 compiles the compiler (or any big program) it does the same, with
 `IDRIS2_CC_JOBS` in place of `BOOT_JOBS`. The modules of the compiler and of
 the libraries are checked by up to `IDRIS2_JOBS` processes in parallel (with

@@ -19,15 +19,13 @@ if ! grep -q '^#if !defined(IDRIS2_PARTS)' bootstrap-build/idris2_app/idris2-boo
     BOOT_JOBS=1
 fi
 
-# Link time optimisation gives back the inlining across parts (about 5% of
-# the speed of the compiler) when the C compiler supports it.  -Werror is not
-# used, warnings in generated code depend on the C compiler.
-if [ -z "${BOOT_CFLAGS+set}" ]; then
-    BOOT_CFLAGS=-O2
-    if [ "$BOOT_JOBS" -gt 1 ] && sh "$PWD/bootstrap/cc-has-lto.sh" "$CC"; then
-        BOOT_CFLAGS="-O2 -flto=auto"
-    fi
-fi
+# The stage 1 compiler only builds the four bootstrap libraries and the stage 2
+# compiler, which is the one that is installed (see bootstrap-stage2.sh).  So
+# its C is compiled quickly: -O1, and no link time optimisation, which would
+# buy a few percent of speed for about twice the build time.  Set BOOT_CFLAGS
+# (possibly empty) to change that, for instance to "-O2 -flto=auto".  -Werror
+# is not used, warnings in generated code depend on the C compiler.
+BOOT_CFLAGS="${BOOT_CFLAGS-"-O1"}"
 
 echo "Bootstrapping CC=$CC IDRIS2_VERSION=$IDRIS2_VERSION"
 
