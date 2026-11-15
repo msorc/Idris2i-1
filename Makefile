@@ -105,12 +105,20 @@ ifeq ($(IDRIS2_CG), refc)
 endif
 	cp ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} ${TARGETDIR}/${NAME}_app/${IDRIS2_SUPPORT}
 
-# We use FORCE to always rebuild IdrisPath so that the git SHA1 info is always up to date
+# We use FORCE to always regenerate IdrisPaths so that the git SHA1 info is
+# always up to date.  The file is only replaced when its content changes: the
+# compiler rebuilds the modules that import it when its modification time does.
 src/IdrisPaths.idr: FORCE
-	echo "-- @""generated" > src/IdrisPaths.idr
-	echo 'module IdrisPaths' >> src/IdrisPaths.idr
-	echo 'export idrisVersion : ((Nat,Nat,Nat), String); idrisVersion = ((${MAJOR},${MINOR},${PATCH}), "${VERSION_TAG}")' >> src/IdrisPaths.idr
-	echo 'export yprefix : String; yprefix="${IDRIS2_PREFIX}"' >> src/IdrisPaths.idr
+	{ echo "-- @""generated"; \
+	  echo 'module IdrisPaths'; \
+	  echo 'export idrisVersion : ((Nat,Nat,Nat), String); idrisVersion = ((${MAJOR},${MINOR},${PATCH}), "${VERSION_TAG}")'; \
+	  echo 'export yprefix : String; yprefix="${IDRIS2_PREFIX}"'; \
+	} > src/IdrisPaths.idr.tmp
+	if cmp -s src/IdrisPaths.idr.tmp src/IdrisPaths.idr; then \
+		$(RM) src/IdrisPaths.idr.tmp; \
+	else \
+		mv -f src/IdrisPaths.idr.tmp src/IdrisPaths.idr; \
+	fi
 
 FORCE:
 

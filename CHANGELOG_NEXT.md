@@ -188,6 +188,8 @@ should target this file (`CHANGELOG_NEXT`).
   first compiler of that bootstrap, which only builds the libraries and the
   second one, is compiled with `-O1` and without LTO (`BOOT_CFLAGS` changes
   this).  An `IDRIS2_CFLAGS` or `CFLAGS` from the user still takes precedence.
+* `make` no longer rewrites `src/IdrisPaths.idr` when its content is the same,
+  so a second `make` does not rebuild the modules that import it.
 * A module of a package is now built as if it were built alone: the
   `%language` extensions, `%foreign_impl`s and builtin names (`%pair`,
   `%rewrite`, literal names) that the modules built before it in the same
