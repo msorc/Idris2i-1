@@ -130,6 +130,7 @@ modules =
     Idris.Doc.String,
     Idris.Driver,
     Idris.Error,
+    Idris.ExecStamp,
     Idris.ModTree,
 
     Idris.Package,

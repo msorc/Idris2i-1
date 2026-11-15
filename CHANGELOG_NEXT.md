@@ -196,6 +196,25 @@ should target this file (`CHANGELOG_NEXT`).
   import (`network`, `test` and `papers` were missing `base`).
 * `make` no longer rewrites `src/IdrisPaths.idr` when its content is the same,
   so a second `make` does not rebuild the modules that import it.
+* `idris2 --build` no longer compiles the executable of a package again when
+  it is certainly up to date: it prints `The executable ... is up to date, not
+  compiling it again` instead of `Now compiling the executable`.  Compiling an
+  executable is a whole-program compilation, as slow when nothing changed
+  (about 90s for the compiler itself) as after a change.  After it succeeds,
+  a stamp file (`build/exec/<executable>.stamp`) records the settings of the
+  compilation (code generator and directives, options, directories, the
+  `IDRIS2_CC`/`CFLAGS`/... variables of RefC) and the state (modification time
+  and size) of what the executable is made from: the TTC files of the program,
+  of its dependencies too, the compiler, the runtime support files and
+  libraries, the C compiler or Scheme, and the executable itself.  The
+  executable is compiled again unless all of that is as the stamp says (a
+  module that was built has a new TTC file).  This is done for the RefC and Chez backends, for builds
+  that are not incremental, and where the compiler can tell what it is
+  (Linux, or an absolute path of the compiler on the command line).
+  `--clean` removes the stamp, `--log package.stamp:5` tells why a build did
+  not skip the compilation.  When RefC's executable is moved to
+  `idris2_app/idris2` and a launcher put in its place (as `make` does for the
+  compiler), it is the moved binary that is checked.
 * A module of a package is now built as if it were built alone: the
   `%language` extensions, `%foreign_impl`s and builtin names (`%pair`,
   `%rewrite`, literal names) that the modules built before it in the same

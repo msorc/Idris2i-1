@@ -1,0 +1,6 @@
+package exe
+sourcedir = "src"
+modules = Main
+depends = stampdep
+main = Main
+executable = exe

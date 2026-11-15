@@ -1,0 +1,3 @@
+package stampdep
+sourcedir = "dep"
+modules = Dep

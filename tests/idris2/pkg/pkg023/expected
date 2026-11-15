@@ -1,0 +1,25 @@
+--- first build
+Now compiling the executable: exe
+hello from the executable
+--- nothing changed
+The executable exe is up to date, not compiling it again
+hello from the executable
+--- the main module changed
+Now compiling the executable: exe
+hello from the executable again
+--- nothing changed again
+The executable exe is up to date, not compiling it again
+--- a dependency changed, but not its interface
+Now compiling the executable: exe
+goodbye from the executable again
+--- the executable is gone
+Now compiling the executable: exe
+goodbye from the executable again
+--- another directive
+Now compiling the executable: exe
+The executable exe is up to date, not compiling it again
+--- no directive again
+Now compiling the executable: exe
+--- clean
+there is a stamp
+no stamp

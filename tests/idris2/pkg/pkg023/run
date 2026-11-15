@@ -1,0 +1,69 @@
+. ../../../testutils.sh
+
+# The executable of a package is not compiled again if it is up to date.
+# (A stamp is not written when files were written within the last second, on
+# file systems that keep seconds only: wait, so that there is one.)
+
+# (modules may be reported as built when they are only checked: leave out
+# what depends on that)
+build() {
+  idris2 --build exe.ipkg "$@" | grep -v "Building"
+}
+
+# the package that exe depends on
+idris2 --install dep.ipkg > /dev/null
+
+echo "--- first build"
+build
+build/exec/exe
+
+sleep 2
+build > /dev/null
+
+echo "--- nothing changed"
+build
+build/exec/exe
+
+echo "--- the main module changed"
+sed -i.bak 's/the executable/the executable again/' src/Main.idr
+build
+build/exec/exe
+
+sleep 2
+build > /dev/null
+
+echo "--- nothing changed again"
+build
+
+echo "--- a dependency changed, but not its interface"
+sed -i.bak 's/hello/goodbye/' dep/Dep.idr
+idris2 --install dep.ipkg > /dev/null
+build
+build/exec/exe
+
+sleep 2
+build > /dev/null
+
+echo "--- the executable is gone"
+rm build/exec/exe
+build
+build/exec/exe
+
+sleep 2
+build > /dev/null
+
+echo "--- another directive"
+build --directive stamptest
+build --directive stamptest > /dev/null
+build --directive stamptest
+
+echo "--- no directive again"
+build
+
+echo "--- clean"
+test -e build/exec/exe.stamp && echo "there is a stamp"
+idris2 --clean exe.ipkg > /dev/null
+test -e build/exec/exe.stamp || echo "no stamp"
+
+mv src/Main.idr.bak src/Main.idr
+mv dep/Dep.idr.bak dep/Dep.idr

@@ -99,9 +99,13 @@ else
 endif
 ifeq ($(IDRIS2_CG), refc)
 	# RefC builds a single binary: give it the layout of the Scheme backends,
-	# a launcher next to an idris2_app directory.
+	# a launcher next to an idris2_app directory.  The compiler skips
+	# compiling an executable that is up to date: then ${TARGET} is the
+	# launcher already (a script), and the binary is where it was moved to.
 	mkdir -p ${TARGETDIR}/${NAME}_app
-	mv -f ${TARGET} ${TARGETDIR}/${NAME}_app/${NAME}
+	if [ "$$(head -c 2 ${TARGET})" != '#!' ]; then \
+		mv -f ${TARGET} ${TARGETDIR}/${NAME}_app/${NAME}; \
+	fi
 	install bootstrap/idris2-refc.sh ${TARGET}
 endif
 	cp ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} ${TARGETDIR}/${NAME}_app/${IDRIS2_SUPPORT}

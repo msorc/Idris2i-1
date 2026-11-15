@@ -31,6 +31,7 @@ import Idris.Env
 import Idris.Doc.HTML
 import Idris.Doc.String
 import Idris.Error
+import Idris.ExecStamp
 import Idris.ModTree
 import Idris.Pretty
 import Idris.ProcessIdr
@@ -467,13 +468,16 @@ processOptions (Just (fc, opts))
 compileMain : {auto c : Ref Ctxt Defs} ->
               {auto s : Ref Syn SyntaxInfo} ->
               {auto o : Ref ROpts REPLOpts} ->
-              Name -> String -> String -> Core ()
+              Name -> String -> String -> Core Bool
 compileMain mainn mfilename exec
     = do modIdent <- ctxtPathToNS mfilename
          m <- newRef MD (initMetadata (PhysicalIdrSrc modIdent))
          u <- newRef UST initUState
          ignore $ loadMainFile mfilename
-         ignore $ compileExp (PRef replFC mainn) exec
+         result <- compileExp (PRef replFC mainn) exec
+         pure $ case result of
+                     Compiled _ => True
+                     _ => False
 
 ||| Emit captured warnings from inner scope and clear them
 ||| afterwards (to avoid emitting them in some unrelated
@@ -586,8 +590,19 @@ build {jobsFrom} pkg opts
            do let Just (mainNS, mainFile) = mainmod pkg
                  | Nothing => throw (GenericMsg emptyFC "No main module given")
               let mainName = NS (miAsNamespace mainNS) (UN $ Basic "main")
-              coreLift $ putStrLn "Now compiling the executable: \{exec}"
-              compileMain mainName mainFile exec
+              -- Compiling the executable takes as long as the first time,
+              -- whether or not something changed: skip it when the
+              -- executable is certainly what it would make (see ExecStamp)
+              skip <- upToDate exec
+              if skip
+                 then coreLift $ putStrLn "The executable \{exec} is up to date, not compiling it again"
+                 else do
+                   coreLift $ putStrLn "Now compiling the executable: \{exec}"
+                   -- no stamp stays, if it fails half way
+                   removeStamp exec
+                   started <- compilationStart
+                   compiled <- compileMain mainName mainFile exec
+                   when compiled $ writeStamp exec mainFile started
 
          runScript (postbuild pkg)
          pure []
@@ -931,7 +946,8 @@ clean pkg opts -- `opts` is not used but might be in the future
                        (\ks => map concat . traverse (deleteBin builddir ks))
                        pkgTrie
          deleteFolder builddir []
-         maybe (pure ()) (\e => delete (outputdir </> e))
+         maybe (pure ()) (\e => traverse_ (delete . (outputdir </>))
+                                          [e, e ++ ".stamp"])
                (executable pkg)
          -- clean out the generated docs
          let build = build_dir (dirs (options defs))

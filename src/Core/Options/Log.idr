@@ -146,6 +146,7 @@ knownTopics = [
     ("module", Nothing),
     ("module.hash", Nothing),
     ("package.depends", Just "Log which packages are being added"),
+    ("package.stamp", Just "Log whether the executable of a package is up to date, and if not why"),
     ("quantity", Nothing),
     ("quantity.hole", Nothing),
     ("quantity.hole.update", Nothing),
