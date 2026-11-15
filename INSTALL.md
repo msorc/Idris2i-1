@@ -96,6 +96,21 @@ export CPATH=/opt/homebrew/include:/opt/homebrew/lib
 
 ### 2: Installing without an existing Idris 2
 
+#### Bootstrap code
+
+The generated code that these bootstraps start from is not kept in this
+repository: git ignores `bootstrap/idris2_app/`, and the `bootstrap` targets
+stop with an error when their file is missing there. Put the file there
+before running one of them:
+
+- `idris2.c.xz` for `make bootstrap-c`: the C that the RefC backend generated
+  for the compiler, made from a compiler built with RefC by
+  `bootstrap/update-c-bootstrap.sh build/exec/idris2.c`;
+- `idris2.ss` for `make bootstrap` and `idris2.rkt` for `make
+  bootstrap-racket`: the last ones that the upstream repository has
+  (`git show origin/main:bootstrap/idris2_app/idris2.ss`), which may be too
+  old to build this branch.
+
 You can build from pre-built Chez Scheme source, as long as you have Chez Scheme
 installed (or, alternatively, Racket). To do this, enter one of the following:
 

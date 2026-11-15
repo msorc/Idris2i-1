@@ -29,6 +29,8 @@ idris2docs_venv
 /benchmark/*.csv
 
 /bootstrap-build
+# the generated code of the bootstraps is not kept in the repository
+/bootstrap/idris2_app/
 
 /src/IdrisPaths.idr
 /src/IdrisPaths.idr.tmp

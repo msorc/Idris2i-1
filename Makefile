@@ -345,12 +345,18 @@ install-libdocs: libdocs
 
 .PHONY: bootstrap bootstrap-build bootstrap-c bootstrap-racket bootstrap-racket-build bootstrap-test bootstrap-clean
 
+# The generated code that the bootstraps start from is not kept in this
+# repository (see INSTALL.md): each target needs its file in
+# bootstrap/idris2_app/, which git ignores.
+BOOTSTRAP_MISSING = echo "ERROR: $$f is missing: the bootstrap code is not kept in the repository, see 'Bootstrap code' in INSTALL.md"; exit 1
+
 # Bootstrapping using SCHEME
 #
 # If you are bootstrapping using SCHEME _without building support_, support must have been explicitly
 # built previously and you must set the IDRIS2_SUPPORT_DIR and IDRIS2_DATA environment variables to the
 # locations of the lib and support folders (i.e. "/some/location/lib" and "/some/location/support").
 bootstrap: support
+	@f=bootstrap/idris2_app/idris2.ss; [ -f $$f ] || { ${BOOTSTRAP_MISSING}; }
 	@if [ "$$(echo '(threaded?)' | $(SCHEME) --quiet)" = "#f" ] ; then \
 		echo "ERROR: Chez is missing threading support" ; exit 1 ; fi
 	mkdir -p bootstrap-build/idris2_app
@@ -363,6 +369,7 @@ bootstrap: support
 
 # Bootstrapping using racket
 bootstrap-racket: support
+	@f=bootstrap/idris2_app/idris2.rkt; [ -f $$f ] || { ${BOOTSTRAP_MISSING}; }
 	mkdir -p bootstrap-build/idris2_app
 	cp ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} bootstrap-build/idris2_app/
 	sed 's|__PREFIX__|${IDRIS2_BOOT_PREFIX}|g' \
@@ -374,6 +381,7 @@ bootstrap-racket: support
 # Bootstrapping using only a C compiler, from the C code that the RefC backend
 # generated for the compiler.  The final compiler is built with RefC too.
 bootstrap-c: support
+	@f=bootstrap/idris2_app/idris2.c.xz; [ -f $$f ] || [ -f bootstrap/idris2_app/idris2.c ] || { ${BOOTSTRAP_MISSING}; }
 	mkdir -p bootstrap-build/idris2_app
 	cp ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} bootstrap-build/idris2_app/
 	if [ -f bootstrap/idris2_app/idris2.c.xz ] ; then \
