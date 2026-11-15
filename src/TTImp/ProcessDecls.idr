@@ -14,6 +14,11 @@ import Parser.Source
 
 import TTImp.BindImplicits
 import TTImp.Elab.Check
+-- Implements TTImp.Elab.Check.check and checkImp, which are used by everything
+-- that elaborates a term: it is imported here, like the implementation of
+-- processDecl below, and not by TTImp.Elab, so that processing the definitions
+-- does not wait for all the elaborators
+import TTImp.Elab.Term
 import TTImp.Parser
 import TTImp.ProcessBuiltin
 import TTImp.ProcessData
