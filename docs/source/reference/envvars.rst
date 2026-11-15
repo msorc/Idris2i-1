@@ -44,6 +44,7 @@ Both
 * ``IDRIS2_CC`` - RefC backend: location of the C compiler executable.
 * ``IDRIS2_CFLAGS`` - RefC backend: C compiler flags.
 * ``IDRIS2_CC_JOBS`` - RefC backend: how many C compilers compile a big program in parallel (default: the number of processors).
+* ``IDRIS2_REFC_SPLIT_SIZE`` - RefC backend: the size in bytes of C from which a program is compiled in units (default: 4000000); to try the units on small programs.
 * ``IDRIS2_CPPFLAGS`` - RefC backend: C preprocessor flags.
 * ``IDRIS2_LDFLAGS`` - RefC backend: C linker flags.
 * ``IDRIS2_LDLIBS`` - RefC backend: C linker library names or flags.

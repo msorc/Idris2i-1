@@ -19,10 +19,12 @@ import Libraries.Data.NatSet
 import Data.SortedSet
 import Data.SortedMap
 import Data.Bits
+import Data.String
 import Data.Vect
 
 import System
 import System.File
+import System.Info
 
 import Protocol.Hex
 import Libraries.Utils.Path
@@ -246,6 +248,71 @@ constantName = \case
   where go : String -> String -> String
         go x y = "idris2_constant_\{x}_\{y}"
 
+||| The constants of a program, by value, for the definitions of the generated
+||| code to share.  The name of a constant is made of its value (see
+||| `stableName`), not of a counter, so that adding a constant does not
+||| rename the others: that would change the text of every definition that
+||| uses them, and with it the object files of the program that could be
+||| reused (see Compiler.RefC.CC).
+record ConstTable where
+  constructor MkConstTable
+  ||| The constants and their definitions.
+  constByValue : SortedMap Constant ConstDef
+  ||| The names in use, to tell apart constants that have the same name.
+  constNames : SortedSet String
+  ||| The names of the constants that the definition being compiled uses.
+  constUses : SortedSet String
+
+emptyConsts : ConstTable
+emptyConsts = MkConstTable empty empty empty
+
+-- A 64 bit hash of a string (FNV-1a over its characters, then mixed so that
+-- every bit is good to use).
+hashString : String -> Bits64
+hashString s = mix (foldl (\h, c => (h `xor` cast (ord c)) * 1099511628211)
+                          14695981039346656037 (unpack s))
+  where
+    mix : Bits64 -> Bits64
+    mix h0 = let h1 = (h0 `xor` (h0 `shiftR` 33)) * 18397679294719823053
+                 h2 = (h1 `xor` (h1 `shiftR` 29)) * 14181476777654086739 in
+                 h2 `xor` (h2 `shiftR` 32)
+
+-- The hash as a name: 16 hexadecimal digits.
+hashName : String -> String
+hashName s = pack (go 16 (hashString s) [])
+  where
+    digit : Bits64 -> Char
+    digit d = if d < 10 then chr (cast d + ord '0') else chr (cast d - 10 + ord 'a')
+    go : Nat -> Bits64 -> List Char -> List Char
+    go Z _ acc = acc
+    go (S k) h acc = go k (h `shiftR` 4) (digit (h `mod` 16) :: acc)
+
+-- A string as a part of the name of a constant, when it is short.
+stableName : String -> String
+stableName s = if length s <= 40 then cCleanString s else hashName s
+
+||| A constant that is not yet in the table, with a name that depends on its
+||| value only (unless another constant has the name, which `names` tells).
+||| The name is added to the uses of the definition.
+bookConstant : {auto _ : Ref ConstDef ConstTable}
+            -> Constant -> (String -> ConstDef) -> (stable : String) -> Core ConstDef
+bookConstant c mk stable
+    = do tbl <- get ConstDef
+         let cdef = fresh tbl.constNames 0
+         put ConstDef ({ constByValue $= insert c cdef
+                       , constNames $= insert (constantName cdef)
+                       , constUses $= insert (constantName cdef) } tbl)
+         pure cdef
+  where
+    fresh : SortedSet String -> Nat -> ConstDef
+    fresh names k
+        = let cdef = mk (if k == 0 then stable else stable ++ "_" ++ show k) in
+              if contains (constantName cdef) names then fresh names (S k) else cdef
+
+||| The constant is used by the definition being compiled.
+useConstant : {auto _ : Ref ConstDef ConstTable} -> ConstDef -> Core ()
+useConstant cdef = update ConstDef { constUses $= insert (constantName cdef) }
+
 ||| What a cell that a constructor may take over is chosen by: its number of
 ||| fields, and whether the constructor is told apart by its name (which takes
 ||| a slot of its own, see idris2_newNamedConstructor), so that the cell has
@@ -351,6 +418,19 @@ indentation = do
     iLevel <- get IndentLevel
     pure $ pack $ replicate (4 * iLevel) ' '
 
+-- The position of the code that a line comes from is a comment after the
+-- line, in an element of the output of its own, that begins with a character
+-- that tells where it goes: after the line (`sameLine`), or in a line after
+-- it (`ownLine`).  It is a part of the single file, but not of the units that
+-- a C compiler compiles (see `withComments` and `withoutComments`): the
+-- positions change when the program is changed above the code, and the object
+-- file does not.
+sameLine : Char
+sameLine = '\x01'
+
+ownLine : Char
+ownLine = '\x02'
+
 emit
   : {auto oft : Ref OutfileText Output} ->
     {auto il : Ref IndentLevel Nat} ->
@@ -363,8 +443,32 @@ emit fc line = do
     indent <- indentation
     let indentedLine = indent ++ line
     update OutfileText $ case isLTE (length indentedLine) maxLineLengthForComment of
-        (Yes _) => flip snoc (lJust indentedLine maxLineLengthForComment ' ' ++ " " ++ comment)
-        (No _)  => flip appendR [indentedLine, (lJust ""   maxLineLengthForComment ' ' ++ " " ++ comment)]
+        (Yes _) => flip appendR [indentedLine, strCons sameLine comment]
+        (No _)  => flip appendR [indentedLine, strCons ownLine comment]
+
+commentTag : String -> Maybe Char
+commentTag s = if s /= "" && (first == sameLine || first == ownLine)
+                  then Just first
+                  else Nothing
+  where
+    first : Char
+    first = assert_total (strIndex s 0)
+
+||| The lines that `emit` made, with the comments about their code.
+withComments : List String -> List String
+withComments (l :: c :: rest)
+    = case commentTag c of
+           Just t => if t == sameLine
+                        then (lJust l maxLineLengthForComment ' ' ++ " " ++ assert_total (strTail c))
+                               :: withComments rest
+                        else l :: (lJust "" maxLineLengthForComment ' ' ++ " " ++ assert_total (strTail c))
+                               :: withComments rest
+           Nothing => l :: withComments (c :: rest)
+withComments ls = ls
+
+||| The lines that `emit` made, without the comments about their code.
+withoutComments : List String -> List String
+withoutComments = filter (isNothing . commentTag)
 
 applyFunctionToVars : {auto oft : Ref OutfileText Output}
                     -> {auto il : Ref IndentLevel Nat}
@@ -861,7 +965,7 @@ mutual
            -> {auto oft : Ref OutfileText Output}
            -> {auto il : Ref IndentLevel Nat}
            -> {auto e : Ref EnvTracker Env}
-           -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
+           -> {auto _ : Ref ConstDef ConstTable}
            -> ANF -> Result -> Core String
     cResult anf (AValue tailPosition) = cStatementsFromANF anf tailPosition
     cResult anf AnInt = cIntFromANF anf
@@ -870,7 +974,7 @@ mutual
               -> {auto oft : Ref OutfileText Output}
               -> {auto il : Ref IndentLevel Nat}
               -> {auto e : Ref EnvTracker Env}
-              -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
+              -> {auto _ : Ref ConstDef ConstTable}
               -> FC -> Int -> ANF -> ANF -> Result -> Core String
     letGeneric fc var value body r = do
         env <- get EnvTracker
@@ -892,7 +996,7 @@ mutual
           -> {auto oft : Ref OutfileText Output}
           -> {auto il : Ref IndentLevel Nat}
           -> {auto e : Ref EnvTracker Env}
-          -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
+          -> {auto _ : Ref ConstDef ConstTable}
           -> FC -> Int -> ANF -> ANF -> Result -> Core String
     letInt fc var value body r = do
         env <- get EnvTracker
@@ -911,7 +1015,7 @@ mutual
                -> {auto oft : Ref OutfileText Output}
                -> {auto il : Ref IndentLevel Nat}
                -> {auto e : Ref EnvTracker Env}
-               -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
+               -> {auto _ : Ref ConstDef ConstTable}
                -> ANF -> Core String
     cIntFromANF (AV fc v) = pure $ intOperand !(get EnvTracker) v
     cIntFromANF (APrimVal fc (I x)) = pure $ showIntMin x
@@ -935,7 +1039,7 @@ mutual
                  -> {auto e : Ref EnvTracker Env}
                  -> {auto oft : Ref OutfileText Output}
                  -> {auto il : Ref IndentLevel Nat}
-                 -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
+                 -> {auto _ : Ref ConstDef ConstTable}
                  -> Env
                  -> String -> String -> List Int -> ANF -> Result
                  -> Core ()
@@ -958,7 +1062,7 @@ mutual
                       -> {auto oft : Ref OutfileText Output}
                       -> {auto il : Ref IndentLevel Nat}
                       -> {auto e : Ref EnvTracker Env}
-                      -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
+                      -> {auto _ : Ref ConstDef ConstTable}
                       -> ANF
                       -> TailPositionStatus
                       -> Core String
@@ -1265,35 +1369,33 @@ mutual
              -- A large Integer literal is made once, the first time that it
              -- is needed, instead of being parsed every time.
              constdefs <- get ConstDef
-             cdef <- case lookup c constdefs of
-                          Just cdef => pure cdef
-                          Nothing => do
-                            let cdef = CDBI !(getNextCounter)
-                            put ConstDef $ insert c cdef constdefs
-                            pure cdef
+             cdef <- case lookup c constdefs.constByValue of
+                          Just cdef => do useConstant cdef
+                                          pure cdef
+                          Nothing => bookConstant c CDBI (stableName $ show x)
              pure "idris2_integerConstant(&\{constantName cdef}, \"\{show x}\")"
     cStatementsFromANF (APrimVal fc c) _ = do
       constdefs <- get ConstDef
-      case lookup c constdefs of
-           Just cdef => pure "((Idris2_Value*)&\{constantName cdef})" -- the constant already booked.
+      case lookup c constdefs.constByValue of
+           Just cdef => do useConstant cdef
+                           pure "((Idris2_Value*)&\{constantName cdef})" -- the constant already booked.
            Nothing => dyngen
      where
-        orStagen : ConstDef -> Core String
-        orStagen cdef = do -- booking the constant to generate later
-            constdefs <- get ConstDef
-            put ConstDef $ insert c cdef constdefs
-            pure "((Idris2_Value*)&\{constantName cdef})" -- the constant already booked.
+        orStagen : (String -> ConstDef) -> (stable : String) -> Core String
+        orStagen mk stable = do -- booking the constant to generate later
+            cdef <- bookConstant c mk stable
+            pure "((Idris2_Value*)&\{constantName cdef})"
         dyngen : Core String
         dyngen = case c of
             I x => if x >= -2147483648 && x <= 2147483647
                 then pure "idris2_mkInt64(INT64_C(\{show x}))" -- unboxed on 64 bit platforms
-                else orStagen $ CDI64 $ cCleanString $ show x
+                else orStagen CDI64 $ cCleanString $ show x
             I8 x  => pure "idris2_mkInt8(INT8_C(\{show x}))"
             I16 x => pure "idris2_mkInt16(INT16_C(\{show x}))"
             I32 x => pure "idris2_mkInt32(INT32_C(\{show x}))"
             I64 x => if x >= -2147483648 && x <= 2147483647
                 then pure "idris2_mkInt64(INT64_C(\{show x}))"
-                else orStagen $ CDI64 $ cCleanString $ show x
+                else orStagen CDI64 $ cCleanString $ show x
             BI x => if x >= 0 && x < 100
                 then pure "idris2_getPredefinedInteger(\{show x})"
                 else pure "idris2_mkIntegerLiteral(\"\{show x}\")"
@@ -1302,10 +1404,10 @@ mutual
             B32 x => pure "idris2_mkBits32(UINT32_C(\{show x}))"
             B64 x => if x >= 0 && x <= 4294967295
                then pure "idris2_mkBits64(UINT64_C(\{show x}))"
-               else orStagen $ CDB64 $ show x
-            Db x => orStagen $ CDDb $ cCleanString $ show x
+               else orStagen CDB64 $ show x
+            Db x => orStagen CDDb $ cCleanString $ show x
             Ch x  => pure "idris2_mkChar(\{escapeChar x})"
-            Str _ => orStagen $ CDStr !(getNextCounter)
+            Str s => orStagen CDStr $ hashName s
             PrT t => pure $ cPrimType t
             WorldVal => pure "(NULL /* World */)"
 
@@ -1318,7 +1420,7 @@ mutual
              -> {auto oft : Ref OutfileText Output}
              -> {auto il : Ref IndentLevel Nat}
              -> {auto e : Ref EnvTracker Env}
-             -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
+             -> {auto _ : Ref ConstDef ConstTable}
              -> FC -> AVar -> List AConstAlt -> Maybe ANF -> Result
              -> Core String
     constCase fc sc alts def r = do
@@ -1658,30 +1760,39 @@ returnsValue foreign cn args anf
           && maybe True (go loops nargs) def
     go _ _ _ = True
 
+||| The prototypes that the definition of `key` (its C name) needs the other
+||| definitions to see: they go in the header of the single file, and in the
+||| units that refer to `key`.
+addProtos : {auto f : Ref FunctionDefinitions (SortedMap String (List String))}
+         -> (key : String) -> List String -> Core ()
+addProtos key ps = update FunctionDefinitions $ \m =>
+                     insert key (ps ++ fromMaybe [] (lookup key m)) m
+
 createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto fo : Ref Foreigns (SortedMap String Nat)}
                 -> {auto vf : Ref ValueFns (SortedMap String Nat)}
                 -> {auto bs : Ref BorrowSigs Signatures}
                 -> {auto uv : Ref UnboxedVars (SortedMap String (SortedSet Int))}
                 -> {auto a : Ref ArgCounter Nat}
-                -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
-                -> {auto f : Ref FunctionDefinitions (List String)}
+                -> {auto _ : Ref ConstDef ConstTable}
+                -> {auto f : Ref FunctionDefinitions (SortedMap String (List String))}
                 -> {auto oft : Ref OutfileText Output}
                 -> {auto il : Ref IndentLevel Nat}
                 -> {auto h : Ref HeaderFiles (SortedSet String)}
                 -> {default [] additionalFFILangs : List String}
                 -> RefCOptions
-                -> Name
+                -> (n : Name)
+                -> (canonN : Name) -- the same, with stable numbers (see `canonName`)
                 -> ANFDef
                 -> Core ()
-createCFunctions opts n (MkAFun args anf) = do
-    cn <- cName <$> getFullName n
+createCFunctions opts n canonN (MkAFun args anf) = do
+    let cn = cName canonN
     let nargs = length args
     let params = if nargs == 0 then "(void)"
                else if nargs > MaxExtractFunArgs then "(Idris2_Value *var_arglist[\{show nargs}])"
                else ("\n(\n" ++ (showSep "\n" $ addCommaToList (map (\i =>  "  Idris2_Value * var_" ++ (show i)) args))) ++ "\n)"
     let fn = "Idris2_Value *\{cn}" ++ params
-    update FunctionDefinitions $ \otherDefs => (fn ++ ";\n") :: otherDefs
+    addProtos cn [fn ++ ";\n"]
     -- A definition without arguments (a constant) is evaluated once, the
     -- first time that it is needed, like the top level constants of the
     -- Scheme backends: its body is in a function of its own, and its value is
@@ -1757,19 +1868,19 @@ createCFunctions opts n (MkAFun args anf) = do
     pure ()
 
 
-createCFunctions _ n (MkACon tag arity nt) =
+createCFunctions _ n canonN (MkACon tag arity nt) =
   case conTag tag of
     Nothing => do
-      let n' = cName n
+      let n' = cName canonN
       -- extern: in a generated file compiled in parts (see
       -- generateCSourceFile) the definition is in one part only.
-      update FunctionDefinitions $ \otherDefs => "extern char const idris2_constr_\{n'}[];" :: otherDefs
+      addProtos n' ["extern char const idris2_constr_\{n'}[];"]
       emit EmptyFC "char const idris2_constr_\{n'}[] = \{cStringQuoted $ show n};"
     Just _ =>
       emit EmptyFC $ ( "// \{show n} Constructor tag " ++ show tag ++ " arity " ++ show arity) -- Nothing to compile here
 
 
-createCFunctions _ n (MkAForeign ccs fargs ret) = do
+createCFunctions _ n canonN (MkAForeign ccs fargs ret) = do
   case parseCC (additionalFFILangs ++ ["RefC", "C"]) ccs of
       Just (lang, fctForeignName :: extLibOpts) => do
           let cLang = if lang == "RefC"
@@ -1778,25 +1889,25 @@ createCFunctions _ n (MkAForeign ccs fargs ret) = do
           let isStandardFFI = elem lang $ the (List String) ["RefC", "C"]
           let fctName = if isStandardFFI
                            then UN $ Basic $ fctForeignName
-                           else NS (mkNamespace lang) n
+                           else NS (mkNamespace lang) canonN
           if isStandardFFI
              then case extLibOpts of
                       [lib, header] => update HeaderFiles $ insert header
                       _ => pure ()
              else emit EmptyFC $ additionalFFIStub fctName fargs ret
           let params = "(" ++ showSep ", " (replicate (length fargs) "Idris2_Value *") ++ ");"
-          let fnDef = "Idris2_Value *" ++ cName n ++ params
-          let borrowDef = "Idris2_Value *" ++ cName n ++ "_borrow" ++ params
-          update FunctionDefinitions $ \otherDefs => (fnDef ++ "\n") :: (borrowDef ++ "\n") :: otherDefs
+          let fnDef = "Idris2_Value *" ++ cName canonN ++ params
+          let borrowDef = "Idris2_Value *" ++ cName canonN ++ "_borrow" ++ params
+          addProtos (cName canonN) [fnDef ++ "\n", borrowDef ++ "\n"]
           typeVarNameArgList <- createFFIArgList fargs
           let argNames = (\(_, varName, _) => varName) <$> typeVarNameArgList
 
           -- The wrapper, which takes the arguments over (as the other
           -- functions do), for closures and partial applications
-          emitFDef (cName n) typeVarNameArgList
+          emitFDef (cName canonN) typeVarNameArgList
           emit EmptyFC "{"
           increaseIndentation
-          emit EmptyFC $ "Idris2_Value *retVal = " ++ cName n ++ "_borrow(" ++ showSep ", " argNames ++ ");"
+          emit EmptyFC $ "Idris2_Value *retVal = " ++ cName canonN ++ "_borrow(" ++ showSep ", " argNames ++ ");"
           removeVars argNames
           emit EmptyFC "return retVal;"
           decreaseIndentation
@@ -1804,7 +1915,7 @@ createCFunctions _ n (MkAForeign ccs fargs ret) = do
 
           -- The variant that borrows the arguments, for full applications
           -- (see `foreignCall`)
-          emitFDef (cName n ++ "_borrow") typeVarNameArgList
+          emitFDef (cName canonN ++ "_borrow") typeVarNameArgList
           emit EmptyFC "{"
           increaseIndentation
           emit EmptyFC $ " // ffi call to " ++ cName fctName
@@ -1830,52 +1941,46 @@ createCFunctions _ n (MkAForeign ccs fargs ret) = do
 
           decreaseIndentation
           emit EmptyFC "}"
-      _ => throw $ InternalError "[refc] FFI not found for \{cName n}"
+      _ => throw $ InternalError "[refc] FFI not found for \{cName canonN}"
           -- not really total but this way this internal error does not contaminate everything else
 
-createCFunctions _ n (MkAError exp) = throw $ InternalError "[refc] Error with expression: \{show exp}"
+createCFunctions _ n canonN (MkAError exp) = throw $ InternalError "[refc] Error with expression: \{show exp}"
 -- not really total but this way this internal error does not contaminate everything else
 
 
-header : {auto f : Ref FunctionDefinitions (List String)}
-      -> {auto o : Ref OutfileText Output}
-      -> {auto il : Ref IndentLevel Nat}
-      -> {auto h : Ref HeaderFiles (SortedSet String)}
-      -> {auto _ : Ref ConstDef (SortedMap Constant ConstDef)}
-      -> Core ()
-header = do
-    let initLines = """
-      #include <runtime.h>
-      /* \{ generatedString "RefC" } */
-
-      """
-    let headerFiles = Prelude.toList !(get HeaderFiles)
-    fns <- get FunctionDefinitions
-    update OutfileText $ appendL $
-        [initLines] ++
-        map (\h => "#include <\{h}>\n") headerFiles ++
-        ["\n// function definitions"] ++
-        fns ++
-        ["\n// constant value definitions"] ++
-        map (uncurry genConstant) (SortedMap.toList !(get ConstDef))
+||| The definition of a constant.
+genConstant : Constant -> ConstDef -> String
+genConstant c cdef = case c of
+    I x   => go "Int64" "INT64" (showIntMin x)
+    I64 x => go "Int64" "INT64" (showInt64Min x)
+    B64 x => go "Bits64" "BITS64" "UINT64_C(\{show x})"
+    Db x  => go "Double" "DOUBLE" (cDouble x)
+    Str x => "IDRIS2_STRING_CONSTANT(\{constantName cdef}, \{cStringQuoted x});"
+    BI _  => "IDRIS2_UNUSED static Idris2_Value *\{constantName cdef} = NULL;"
+    _ => "/* bad constant */"
   where
-    go : ConstDef -> String -> String -> String -> String
-    go cdef ty tag v =
+    go : String -> String -> String -> String
+    go ty tag v =
       "IDRIS2_UNUSED static Idris2_\{ty} const \{constantName cdef}"
         ++ " = { IDRIS2_STOCKVAL(\{tag}_TAG), \{v} };"
-    genConstant : Constant -> ConstDef -> String
-    genConstant c cdef = case c of
-      I x   => go cdef "Int64" "INT64" (showIntMin x)
-      I64 x => go cdef "Int64" "INT64" (showInt64Min x)
-      B64 x => go cdef "Bits64" "BITS64" "UINT64_C(\{show x})"
-      Db x  => go cdef "Double" "DOUBLE" (cDouble x)
-      Str x => "IDRIS2_STRING_CONSTANT(\{constantName cdef}, \{cStringQuoted x});"
-      BI _  => "IDRIS2_UNUSED static Idris2_Value *\{constantName cdef} = NULL;"
-      _ => "/* bad constant */"
 
+||| The definitions of the constants, by name.
+constantTexts : ConstTable -> SortedMap String String
+constantTexts tbl = fromList $ map (\(c, cdef) => (constantName cdef, genConstant c cdef))
+                                   (SortedMap.toList tbl.constByValue)
 
+||| The beginning of every C file: the runtime and the headers of the foreign
+||| functions.
+preamble : (headerFiles : List String) -> List String
+preamble headerFiles
+    = ["#include <runtime.h>\n/* \{ generatedString "RefC" } */\n"]
+      ++ map (\h => "#include <\{h}>\n") headerFiles
 
-
+||| The prototypes of the definitions and the constants that a file uses.
+declarations : (protos : List String) -> (constants : List String) -> List String
+declarations protos constants
+    = ["\n// function definitions\n"] ++ protos
+      ++ ["\n// constant value definitions\n"] ++ constants
 
 footer : {auto il : Ref IndentLevel Nat}
       -> {auto f : Ref OutfileText Output}
@@ -1898,17 +2003,40 @@ footer = do
       }
       """
 
--- Big programs are split in parts that a C compiler can compile in parallel
--- (one compile of the whole compiler takes minutes).  The file stays a single
--- file: the definitions are grouped in chunks of at least `minChunkSize`
--- bytes, and at most about `maxChunks` of them, each guarded by
+-- Big programs are split in units that a C compiler can compile in parallel
+-- (one compile of the whole compiler takes minutes), and whose object files
+-- can be reused when the program is compiled again after a small change.
 --
---   #if !defined(IDRIS2_PARTS) || k * IDRIS2_PARTS / chunks == IDRIS2_PART
+-- The program is written twice:
 --
--- so compiling with -DIDRIS2_PARTS=p -DIDRIS2_PART=i (for i < p) builds the
--- i-th of p parts, and compiling without them builds the whole program.  The
--- prototypes and constants before the chunks are in every part.  Programs of
--- less than `minSplitSize` bytes are not split.
+-- * as a single file, which is what the bootstrap compiles (see
+--   bootstrap-stage1-refc.sh) and what compiles by itself, without any
+--   `-D`: the prototypes and constants of the whole program, then the
+--   definitions of each unit `k` (of `n`, in order) guarded by
+--
+--     #if !defined(IDRIS2_PARTS) || k * IDRIS2_PARTS / n == IDRIS2_PART
+--
+--   so that compiling with -DIDRIS2_PARTS=p -DIDRIS2_PART=i (for i < p)
+--   builds the i-th of p parts of it;
+--
+-- * as the unit files that `compileExpr` compiles (see Compiler.RefC.CC):
+--   each has the definitions of its unit with only the prototypes and
+--   constants that they use.  What the C compiler gets is thus the unit and
+--   what it refers to, and the object file of a unit is made again only when
+--   that changes.
+--
+-- What changes the text of a unit is meant to be only what is changed in the
+-- program, and what it refers to: for that, the definitions are put in units
+-- by the module they are in (and by a hash of their name, for big modules),
+-- not by how big the definitions before them are; the number of units
+-- depends only on the size of the program (and is a power of two, so that it
+-- changes rarely); the names of the constants are made of their values; the
+-- names of the local variables of a function (`tmp_17`) are numbered from 0
+-- in each function; the numbers in the names that the elaborator makes (case
+-- blocks, nested functions) are made stable (see `canonName`); and the
+-- positions in the source of the code, which are comments, are not in the
+-- units (see `emit`).  Programs of less than `minSplitSize` bytes are not
+-- split.
 minSplitSize : Nat
 minSplitSize = 4000000
 
@@ -1916,21 +2044,239 @@ minChunkSize : Nat
 minChunkSize = 256000
 
 maxChunks : Nat
-maxChunks = 256
+maxChunks = maxUnits
 
--- Group sized definitions in chunks of at least `target` bytes.
-chunkDefs : (target : Nat) -> List (Nat, List String) -> List (List String)
-chunkDefs target = go 0 [<]
+||| A compiled definition, with what is needed to put it in a unit.
+record DefOut where
+  constructor MkDefOut
+  defSize : Nat
+  defLines : List String
+  ||| The module of the definition (its namespace), to put the definitions of
+  ||| a module together.
+  defModule : String
+  ||| The C name of the definition.
+  defName : String
+  ||| The C names of the definitions that it refers to, and itself, whose
+  ||| prototypes it needs.
+  defRefs : List String
+  ||| The names of the constants that it uses.
+  defConsts : List String
+
+moduleOf : Name -> String
+moduleOf (NS ns _) = showNSWithSep "." ns
+moduleOf (DN _ n) = moduleOf n
+moduleOf (PV n _) = moduleOf n
+moduleOf (Nested _ n) = moduleOf n
+moduleOf _ = ""
+
+||| The C names of the definitions that an expression refers to (that is, whose
+||| prototypes the code of the expression needs), added to `acc`.
+anfRefs : ANF -> SortedSet String -> SortedSet String
+anfRefs (AAppName _ _ n _) acc = insert (cName n) acc
+anfRefs (AUnderApp _ n _ _) acc = insert (cName n) acc
+anfRefs (ALet _ _ v b) acc = anfRefs v (anfRefs b acc)
+anfRefs (ACon _ n _ _ _) acc = insert (cName n) acc
+anfRefs (AExtPrim _ _ p _) acc = insert (cName p) acc
+anfRefs (AConCase _ _ alts def) acc
+    = foldl (\a, (MkAConAlt n _ _ _ b) => anfRefs b (insert (cName n) a))
+            (maybe acc (\d => anfRefs d acc) def) alts
+anfRefs (AConstCase _ _ alts def) acc
+    = foldl (\a, (MkAConstAlt _ b) => anfRefs b a)
+            (maybe acc (\d => anfRefs d acc) def) alts
+anfRefs _ acc = acc
+
+------------------------------------------------------------------------
+-- Names with numbers that do not change
+--
+-- The elaborator gives the functions that it makes inside another one (nested
+-- functions, case blocks, with blocks, and the machine names made from them)
+-- numbers: `Nested (outer, i)` has the index `outer` of the function in the
+-- context (which means nothing in another module, and changes when a
+-- definition is added before it) and a counter `i` of the module, which
+-- changes when something is added above it in its module.  C names that have
+-- them change when unrelated parts of the program do, and with them the
+-- units that refer to them.  So these names are made again before the code
+-- is generated: `outer` is left out, and `i` is replaced by its rank among
+-- the numbers of the names of the same module that are alike (the nested
+-- functions that have the same name, the case blocks of the same function):
+-- they are still different, and change only when one of them is added or
+-- removed.
+
+||| A group of numbers: the kind of name, its module, and what makes names
+||| alike (the name of a nested function, the root of a case block).
+NumKey : Type
+NumKey = (String, String, String)
+
+||| "outer:index:name", what a machine name made from a nested name begins with.
+splitNested : String -> Maybe (Int, String)
+splitNested s
+    = case break (== ':') (unpack s) of
+           (a@(_ :: _), ':' :: r1) =>
+              if all isDigit a
+                 then case break (== ':') r1 of
+                           (b@(_ :: _), ':' :: r2) =>
+                              if all isDigit b
+                                 then Just (cast (pack b), pack r2)
+                                 else Nothing
+                           _ => Nothing
+                 else Nothing
+           _ => Nothing
+
+||| "case block in outer (index)" (or "with block"), what lambda lifting makes
+||| of the name of a case block (or with block): the kind ("C" or "W"), the
+||| outer function and the index.
+splitBlock : String -> Maybe (String, String, Int)
+splitBlock s
+    = let cs = unpack s in
+          if isPrefixOf (unpack "case block in ") cs then parts "C" (List.drop 14 cs)
+          else if isPrefixOf (unpack "with block in ") cs then parts "W" (List.drop 14 cs)
+          else Nothing
   where
-    go : Nat -> SnocList (List String) -> List (Nat, List String) -> List (List String)
-    go _ [<] [] = []
-    go _ acc [] = [concat (acc <>> [])]
-    go n acc ((s, ls) :: rest)
-      = let n' = n + s
-            acc' = acc :< ls in
-        if n' >= target
-           then concat (acc' <>> []) :: go 0 [<] rest
-           else go n' acc' rest
+    parts : String -> List Char -> Maybe (String, String, Int)
+    parts k body
+        = case reverse body of
+               (')' :: r1) => case span isDigit r1 of
+                                   (ds@(_ :: _), '(' :: ' ' :: r2) =>
+                                      Just (k, pack (reverse r2), cast (pack (reverse ds)))
+                                   _ => Nothing
+               _ => Nothing
+
+||| The numbers that a name has: their group, and the number.
+nameNumbers : Namespace -> Name -> List (NumKey, Int)
+nameNumbers ns (NS m n) = nameNumbers m n
+nameNumbers ns (Nested (_, i) n) = (("N", showNSWithSep "." ns, show n), i) :: nameNumbers ns n
+nameNumbers ns (CaseBlock s i) = [(("C", showNSWithSep "." ns, s), i)]
+nameNumbers ns (WithBlock s i) = [(("W", showNSWithSep "." ns, s), i)]
+nameNumbers ns (MN s _) = case splitNested s of
+                               Just (i, rest) => [(("N", showNSWithSep "." ns, rest), i)]
+                               Nothing => case splitBlock s of
+                                               Just (k, outer, i) => [((k, showNSWithSep "." ns, outer), i)]
+                                               Nothing => []
+nameNumbers ns (DN _ n) = nameNumbers ns n
+nameNumbers ns (PV n _) = nameNumbers ns n
+nameNumbers _ _ = []
+
+||| The names in an expression, added to `acc`.
+anfNames : ANF -> (Name -> a -> a) -> a -> a
+anfNames (AAppName _ _ n _) f acc = f n acc
+anfNames (AUnderApp _ n _ _) f acc = f n acc
+anfNames (ALet _ _ v b) f acc = anfNames v f (anfNames b f acc)
+anfNames (ACon _ n _ _ _) f acc = f n acc
+anfNames (AExtPrim _ _ p _) f acc = f p acc
+anfNames (AConCase _ _ alts def) f acc
+    = foldl (\a, (MkAConAlt n _ _ _ b) => anfNames b f (f n a))
+            (maybe acc (\d => anfNames d f acc) def) alts
+anfNames (AConstCase _ _ alts def) f acc
+    = foldl (\a, (MkAConstAlt _ b) => anfNames b f a)
+            (maybe acc (\d => anfNames d f acc) def) alts
+anfNames _ f acc = acc
+
+||| The expression with the names changed.
+mapANFNames : (Name -> Name) -> ANF -> ANF
+mapANFNames f (AAppName fc l n args) = AAppName fc l (f n) args
+mapANFNames f (AUnderApp fc n m args) = AUnderApp fc (f n) m args
+mapANFNames f (ALet fc v a b) = ALet fc v (mapANFNames f a) (mapANFNames f b)
+mapANFNames f (ACon fc n ci t args) = ACon fc (f n) ci t args
+mapANFNames f (AExtPrim fc l p args) = AExtPrim fc l (f p) args
+mapANFNames f (AConCase fc sc alts def)
+    = AConCase fc sc (map (\(MkAConAlt n ci t as b) => MkAConAlt (f n) ci t as (mapANFNames f b)) alts)
+                     (map (mapANFNames f) def)
+mapANFNames f (AConstCase fc sc alts def)
+    = AConstCase fc sc (map (\(MkAConstAlt c b) => MkAConstAlt c (mapANFNames f b)) alts)
+                       (map (mapANFNames f) def)
+mapANFNames _ a = a
+
+||| The ranks of the numbers of every group.
+Numbering : Type
+Numbering = SortedMap NumKey (SortedMap Int Nat)
+
+-- The ranks of the numbers, from the smallest.
+numbered : List Int -> SortedMap Int Nat
+numbered xs = snd (foldl (\(k, m), x => (S k, insert x k m)) (Z, empty) xs)
+
+||| The numbers of the names of the definitions, by group.
+numbering : List (Name, ANFDef) -> Numbering
+numbering defs = map (\s => numbered (Prelude.toList s)) (foldl one empty defs)
+  where
+    add : Name -> SortedMap NumKey (SortedSet Int) -> SortedMap NumKey (SortedSet Int)
+    add n acc = foldl (\m, (k, i) => insert k (insert i (fromMaybe empty (lookup k m))) m)
+                      acc (nameNumbers emptyNS n)
+
+    one : SortedMap NumKey (SortedSet Int) -> (Name, ANFDef) -> SortedMap NumKey (SortedSet Int)
+    one acc (n, MkAFun _ anf) = anfNames anf add (add n acc)
+    one acc (n, _) = add n acc
+
+-- The rank of a number in its group (the number itself if it is not known).
+rank : Numbering -> NumKey -> Int -> Int
+rank nb k i = maybe i cast (lookup k nb >>= lookup i)
+
+||| The name with its numbers made stable (see above).
+canonName : Numbering -> Namespace -> Name -> Name
+canonName nb ns (NS m n) = NS m (canonName nb m n)
+canonName nb ns (Nested (_, i) n)
+    = Nested (0, rank nb ("N", showNSWithSep "." ns, show n) i) (canonName nb ns n)
+canonName nb ns (CaseBlock s i) = CaseBlock s (rank nb ("C", showNSWithSep "." ns, s) i)
+canonName nb ns (WithBlock s i) = WithBlock s (rank nb ("W", showNSWithSep "." ns, s) i)
+canonName nb ns (MN s k)
+    = case splitNested s of
+           Just (i, rest) => MN ("0:" ++ show (rank nb ("N", showNSWithSep "." ns, rest) i) ++ ":" ++ rest) k
+           Nothing => case splitBlock s of
+                           Just (kind, outer, i) =>
+                              MN ((if kind == "C" then "case block in " else "with block in ") ++ outer
+                                    ++ " (" ++ show (rank nb (kind, showNSWithSep "." ns, outer) i) ++ ")") k
+                           Nothing => MN s k
+canonName nb ns (DN s n) = DN s (canonName nb ns n)
+canonName nb ns (PV n k) = PV (canonName nb ns n) k
+canonName _ _ n = n
+
+||| The definitions, with the names in their expressions made stable.
+canonDefs : Numbering -> List (Name, ANFDef) -> List (Name, ANFDef)
+canonDefs nb = map (\(n, d) => (n, case d of
+                                        MkAFun as anf => MkAFun as (mapANFNames (canonName nb emptyNS) anf)
+                                        MkAError anf => MkAError (mapANFNames (canonName nb emptyNS) anf)
+                                        _ => d))
+
+-- The smallest power of two that is at least `k`.
+pow2AtLeast : Nat -> Nat
+pow2AtLeast k = go 1
+  where
+    go : Nat -> Nat
+    go p = if p >= k then p else go (p * 2)
+
+||| The number of units of a program of `bytes` bytes: a power of two, which
+||| a program has to grow a lot to change, of at most `maxChunks`.
+unitCount : (chunkSize : Nat) -> (bytes : Nat) -> Nat
+unitCount chunkSize bytes = min maxChunks (pow2AtLeast (max 1 (bytes `div` chunkSize)))
+
+||| The unit of every definition (of `n` units).  The definitions of a module
+||| are in the same unit, a module that is bigger than a quarter of a unit
+||| is cut in as many (a power of two) pieces by the hashes of the names of its
+||| definitions, and a unit is chosen for the pieces by the hash of the
+||| module.  (A bigger module gets more pieces only when it has grown
+||| twice, and then half of its definitions stay where they were.)
+groupUnits : (n : Nat) -> List DefOut -> SortedMap Nat (List DefOut)
+groupUnits n defs
+    -- (not in a `where`: it would be computed at every use)
+    -- (nor with a type: a definition with a type is a function that is
+    -- called at every use, even if it has no parameters)
+    = let atom = max 1 (foldl (\s, d => s + d.defSize) 0 defs `div` n `div` 4)
+
+          sizes = foldl (\m, d => insert d.defModule (d.defSize + fromMaybe 0 (lookup d.defModule m)) m)
+                        (the (SortedMap String Nat) empty) defs
+
+          pieces = map (\s => if s <= atom then the Nat 1 else pow2AtLeast (minus (s + atom) 1 `div` atom)) sizes
+
+          unitOf : DefOut -> Nat
+          unitOf d
+              = let b = fromMaybe 1 (lookup d.defModule pieces)
+                    piece = if b <= 1 then 0 else cast (hashString d.defName `mod` cast b)
+                    h = hashString (d.defModule ++ "#" ++ show piece) in
+                    cast (h `mod` cast n)
+
+          place : SortedMap Nat (List DefOut) -> DefOut -> SortedMap Nat (List DefOut)
+          place m d = let k = unitOf d in
+                          insert k (d :: fromMaybe [] (lookup k m)) m in
+          map reverse (foldl place empty defs)
 
 ||| Do the functions borrow parameters (see Compiler.RefC.Borrow)?  Not with
 ||| `--directive refc-no-borrow`, a kill switch for comparisons.
@@ -1939,32 +2285,55 @@ chunkDefs target = go 0 [<]
 refcDirectResults : {auto c : Ref Ctxt Defs} -> Core Bool
 refcDirectResults = pure $ not ("refc-no-direct-results" `elem` !(getDirectives RefC))
 
+||| The size in bytes from which a program is split in units, instead of
+||| `minSplitSize`: `--directive refc-split-size=N`, or the environment variable
+||| `IDRIS2_REFC_SPLIT_SIZE` (to test the units with small programs).
+refcSplitSize : {auto c : Ref Ctxt Defs} -> Core (Maybe Nat)
+refcSplitSize
+    = do ds <- getDirectives RefC
+         env <- coreLift $ getEnv "IDRIS2_REFC_SPLIT_SIZE"
+         pure $ case mapMaybe (\d => if Data.String.isPrefixOf "refc-split-size=" d
+                                        then parsePositive {a = Nat} (substr 16 (length d) d)
+                                        else Nothing) ds of
+                     (n :: _) => Just n
+                     [] => env >>= parsePositive {a = Nat}
+
 refcBorrowing : {auto c : Ref Ctxt Defs} -> Core Bool
 refcBorrowing = pure $ not ("refc-no-borrow" `elem` !(getDirectives RefC))
 
+||| Write the C code of a program to `outn`.  A program that is big enough is
+||| also written in units (see above), whose files are made ready to compile:
+||| returns what `compileUnits` needs (in Compiler.RefC.CC), the units that
+||| need the C compiler and their sizes.  Nothing otherwise.
 export
 generateCSourceFileParts : {auto c : Ref Ctxt Defs}
                         -> {default [] additionalFFILangs : List String}
                         -> List (Name, ANFDef)
                         -> (outn : String)
-                        -> Core Nat -- the number of chunks, 0 when not split
+                        -> Core (Maybe (Units, List Nat, List (Nat, Nat)))
 generateCSourceFileParts defs0 outn =
   do -- The closures that are only applied once are made there (see
      -- Compiler.RefC.LocalClosures), unless
      -- `--directive refc-no-local-closures`.
      local <- pure $ not ("refc-no-local-closures" `elem` !(getDirectives RefC))
-     let defs : List (Name, ANFDef)
-              = if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
-                         else defs0
+     let defs1 : List (Name, ANFDef)
+               = if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
+                          else defs0
+     -- The numbers in the names that the elaborator made are made stable
+     -- (see `canonName`): `canons` are the names of the definitions.
+     let nb = numbering defs1
+     let defs = canonDefs nb defs1
+     canons <- traverse (\(n, _) => pure (canonName nb emptyNS !(getFullName n))) defs
      _ <- newRef ArgCounter 0
      _ <- newRef Foreigns $ fromList $ mapMaybe
-            (\case (n, MkAForeign _ fargs _) => Just (cName n, length fargs)
-                   _ => Nothing) defs
+            (\(cn, (_, d)) => case d of
+                                   MkAForeign _ fargs _ => Just (cName cn, length fargs)
+                                   _ => Nothing) (zip canons defs)
      -- The variables that are C integers, and the parameters that are
      -- borrowed, of every function (see Compiler.RefC.Unbox and
      -- Compiler.RefC.Borrow).
      foreigns <- get Foreigns
-     named <- traverse (\(n, d) => pure (cName !(getFullName n), n, d)) defs
+     let named = map (\(cn, (n, d)) => (cName cn, n, d)) (zip canons defs)
      unboxed <- fromList <$> traverse (\(cn, n, d) =>
                   case d of
                        MkAFun args anf => pure (cn, !(unboxedOf foreigns n cn args anf))
@@ -2004,42 +2373,109 @@ generateCSourceFileParts defs0 outn =
                       (`contains` trmcFns)
                       (map (\(cn, _, d) => (cn, d)) named)
                else empty
-     _ <- newRef FunctionDefinitions []
-     _ <- newRef ConstDef Data.SortedMap.empty
+     _ <- newRef FunctionDefinitions Data.SortedMap.empty
+     _ <- newRef ConstDef emptyConsts
      _ <- newRef OutfileText DList.Nil
      _ <- newRef HeaderFiles empty
      _ <- newRef IndentLevel 0
-     -- Each definition separately, so that a chunk never splits one (a CAF
-     -- is a static function and the function that calls it).
-     bodies <- traverse (\(n, d) =>
+     -- Each definition separately, so that a unit never splits one (a CAF
+     -- is a static function and the function that calls it).  The local
+     -- variables are numbered in each definition, so that the code of a
+     -- definition does not change with the definitions before it.
+     bodies <- traverse (\((cn, n, d), canonN) =>
                  do put OutfileText DList.Nil
-                    createCFunctions {additionalFFILangs} opts n d
+                    put ArgCounter 0
+                    update ConstDef { constUses := empty }
+                    createCFunctions {additionalFFILangs} opts n canonN d
                     ls <- reify <$> get OutfileText
-                    pure (the Nat (foldl (\s, l => s + length l + 1) 0 ls), ls)) defs
+                    tbl <- get ConstDef
+                    let refs = case d of
+                                 MkAFun _ anf => anfRefs anf (SortedSet.singleton cn)
+                                 _ => SortedSet.singleton cn
+                    pure (MkDefOut (the Nat (foldl (\s, l => s + length l + 1) 0 ls)) ls
+                                   (moduleOf canonN) cn (Prelude.toList refs)
+                                   (Prelude.toList tbl.constUses))) (zip named canons)
      put OutfileText DList.Nil
      footer
      footerLines <- reify <$> get OutfileText
-     put OutfileText DList.Nil
-     header -- added after the definition traversal in order to add all encountered function defintions
-     headerLines <- reify <$> get OutfileText
+     protos <- get FunctionDefinitions
+     consts <- constantTexts <$> get ConstDef
+     headerFiles <- Prelude.toList <$> get HeaderFiles
+     let pre = preamble headerFiles
+     -- added after the definition traversal in order to add all encountered
+     -- function defintions and constants
+     let headerLines = pre ++ declarations (concat (values protos)) (values consts)
 
-     let totalSize = the Nat (foldl (\s, b => s + fst b) 0 bodies)
-     let chunks = if totalSize < minSplitSize
-                     then []
-                     else chunkDefs (max minChunkSize (totalSize `div` maxChunks + 1)) bodies
-     let nchunks = length chunks
-     let guarded = concat $ zipWith
-           (\k, ls => "#if !defined(IDRIS2_PARTS) || \{show k} * IDRIS2_PARTS / \{show nchunks} == IDRIS2_PART"
-                      :: ls ++ (if k + 1 == nchunks then footerLines else []) ++ ["#endif"])
-           [0 .. pred nchunks] chunks
-     let allLines = if nchunks == 0
-                       then headerLines ++ concatMap snd bodies ++ footerLines
-                       else headerLines ++ guarded
-     let code = fastConcat (map (++ "\n") allLines)
-
-     coreLift_ $ writeFile outn code
-     log "compiler.refc" 10 $ "Generated C file " ++ outn ++ " in " ++ show nchunks ++ " chunks"
-     pure nchunks
+     let totalSize = the Nat (foldl (\s, d => s + d.defSize) 0 bodies)
+     split <- refcSplitSize
+     let nunits = the Nat $ if totalSize < fromMaybe minSplitSize split || isWindows
+                     then 0
+                     else unitCount (maybe minChunkSize (\n => max 1 (n `div` 16)) split) totalSize
+     let text : List String -> String
+         text ls = fastConcat (map (++ "\n") ls)
+     if nunits == 0
+        then do coreLift_ $ writeFile outn $ text (headerLines ++ concatMap (withComments . defLines) bodies ++ footerLines)
+                log "compiler.refc" 10 $ "Generated C file " ++ outn
+                pure Nothing
+        else do
+          let base = if Data.String.isSuffixOf ".c" outn
+                        then substr 0 (length outn `minus` 2) outn
+                        else outn
+          units <- prepareUnits base headerFiles
+          let groups = groupUnits nunits bodies
+          Right h <- coreLift $ openFile outn WriteTruncate
+            | Left err => throw $ FileErr outn err
+          Right () <- coreLift $ fPutStr h (text headerLines)
+            | Left err => throw $ FileErr outn err
+          -- The main function is in the unit 0.
+          let mainRef = cName (MN "__mainExpression" 0)
+          (present, todo) <- units' units protos consts pre footerLines mainRef nunits groups h
+          coreLift_ $ closeFile h
+          log "compiler.refc" 10 $
+            "Generated C file " ++ outn ++ " in " ++ show (length present) ++ " units, "
+            ++ show (length todo) ++ " to compile"
+          pure (Just (units, present, todo))
+  where
+    -- Make the files of the units, and the guarded definitions of the
+    -- single file.
+    units' : Units
+          -> SortedMap String (List String) -> SortedMap String String
+          -> (pre : List String) -> (footerLines : List String) -> (mainRef : String)
+          -> (nunits : Nat) -> SortedMap Nat (List DefOut) -> (h : File)
+          -> Core (List Nat, List (Nat, Nat))
+    units' units protos consts pre footerLines mainRef nunits groups h = go 0 [<] [<]
+      where
+        go : Nat -> SnocList Nat -> SnocList (Nat, Nat) -> Core (List Nat, List (Nat, Nat))
+        go k present todo
+          = if k >= nunits
+               then pure (present <>> [], todo <>> [])
+               else do
+                 let ds = fromMaybe [] (lookup k groups)
+                 let isMain = k == 0
+                 if null ds && not isMain
+                    then go (S k) present todo
+                    else do
+                      let defsLines = concatMap defLines ds
+                      let ls = concatMap (withComments . defLines) ds ++ (if isMain then footerLines else [])
+                      let refs = SortedSet.fromList $
+                                   (if isMain then [mainRef] else []) ++ concatMap defRefs ds
+                      let used = SortedSet.fromList $ concatMap defConsts ds
+                      let protoLines : List String
+                            = concatMap (\r => fromMaybe [] (lookup r protos)) (Prelude.toList refs)
+                      let constLines : List String
+                            = mapMaybe (\n => lookup n consts) (Prelude.toList used)
+                      let codeLines : List String
+                            = withoutComments defsLines ++ (if isMain then footerLines else [])
+                      let unitLines : List String
+                            = pre ++ declarations protoLines constLines ++ codeLines
+                      let guarded = "#if !defined(IDRIS2_PARTS) || \{show k} * IDRIS2_PARTS / \{show nunits} == IDRIS2_PART"
+                                    :: ls ++ ["#endif"]
+                      Right () <- coreLift $ fPutStr h (fastConcat (map (++ "\n") guarded))
+                        | Left err => throw $ FileErr "(the C file)" err
+                      let unitText = fastConcat (map (++ "\n") unitLines)
+                      needed <- updateUnit units k unitText
+                      go (S k) (present :< k)
+                         (if needed then todo :< (k, length unitText) else todo)
 
 export
 generateCSourceFile : {auto c : Ref Ctxt Defs}
@@ -2068,8 +2504,12 @@ compileExpr ANF c s _ outputDir tm outfile =
      cdata <- getCompileData False ANF tm
      let defs = anf cdata
 
-     chunks <- generateCSourceFileParts defs outn
-     Just objs <- compileCObjectFiles chunks outn outobj
+     plan <- generateCSourceFileParts defs outn
+     Just objs <- the (Core (Maybe (List String))) $ case plan of
+                       Nothing => do Just o <- compileCObjectFile outn outobj
+                                       | Nothing => pure Nothing
+                                     pure (Just (o :: []))
+                       Just (units, present, todo) => compileUnits units present todo
        | Nothing => pure Nothing
      compileCFiles objs outexec
 

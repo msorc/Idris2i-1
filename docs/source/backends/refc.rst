@@ -73,6 +73,36 @@ C, you will need to arrange for them to be accessible via ``LD_LIBRARY_PATH``
 when running the executable. The default Idris 2 support libraries are
 statically linked.
 
+Big programs
+============
+
+A program of more than 4MB of C (the Idris 2 compiler itself is 140MB) is
+compiled in units, by C compilers running in parallel: ``IDRIS2_CC_JOBS`` of
+them at once (the number of processors by default).  Besides ``<name>.c``,
+which has the whole program, the compiler writes ``<name>.u<k>.c``, one file
+per unit with the definitions of the unit and only the prototypes and
+constants that they use, and compiles those to ``<name>.u<k>.o``.
+
+When the program is compiled again, the object file of a unit is reused if
+nothing that decides it has changed: the text of the unit (it is compared with
+the file of the last compilation, not hashed), the C compiler and its version,
+its flags (``IDRIS2_CC``, ``IDRIS2_CFLAGS``, ``IDRIS2_CPPFLAGS``, ``-fpic``,
+the include directories), a few environment variables that it reads (``CPATH``
+and the like) and the contents of the header files of the runtime (in the
+``refc`` and ``c`` support directories).  If the program includes a header
+that is not one of them (``%foreign "C:f,lib header.h"``), nothing is reused.
+The text of a unit stays the same when other parts of the program change: the
+definitions are put in units by their modules (a big module in several, by the
+names of its definitions), the number of units depends only on the size of the
+program, constants are named after their values, and so are not renumbered when
+another one is added.  Changing a module therefore compiles only the units of
+its definitions again, and those that refer to something that changed.
+
+``<name>.c`` is a single file that can be compiled by itself.  With
+``-DIDRIS2_PARTS=p -DIDRIS2_PART=i`` the C compiler builds only the ``i``-th of
+``p`` parts of it (this is how the Idris 2 compiler is bootstrapped).  Add
+``-flto`` (or ``-flto=auto``) to the C flags to keep the inlining across units.
+
 Strings and characters
 ======================
 

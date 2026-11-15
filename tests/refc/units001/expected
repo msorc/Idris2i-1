@@ -1,0 +1,45 @@
+first build: compiled all
+hello
+2432902008176640000
+55
+a b c
+again: reused all
+hello
+2432902008176640000
+55
+a b c
+other flags: compiled all
+hello
+2432902008176640000
+55
+a b c
+other flags again: reused all
+hello
+2432902008176640000
+55
+a b c
+flags back: compiled all
+hello
+2432902008176640000
+55
+a b c
+a string changed: compiled some
+hullo
+2432902008176640000
+55
+a b c
+unchanged: reused all
+hullo
+2432902008176640000
+55
+a b c
+a function added: compiled some
+hullo
+2432902008176640000
+988333333302
+a b c
+one job: reused all
+hullo
+2432902008176640000
+988333333302
+a b c

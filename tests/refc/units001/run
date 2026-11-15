@@ -1,0 +1,47 @@
+. ../../testutils.sh
+
+# A big program is compiled in units, and when it is compiled again the object
+# files of the units that did not change are reused.  Programs are split from
+# 4MB of C, so the limit is lowered (and many units are made of this small
+# program) to check that.  Each build says if it compiled all of the units,
+# some of them, or none, and runs the program: an object file that was reused
+# wrongly would show.
+
+rm -rf ed
+mkdir ed
+cd ed
+cp ../Main.idr .
+
+build() {
+    idris2 --directive refc-split-size=1000 --log compiler.refc:10 -o main Main.idr \
+        | sed -n 's/.*Generated C file .* in \([0-9]*\) units, \([0-9]*\) to compile.*/\1 \2/p' \
+        | { read units todo
+            if [ "$todo" -eq 0 ]; then echo "$1: reused all"
+            elif [ "$todo" -eq "$units" ]; then echo "$1: compiled all"
+            else echo "$1: compiled some"
+            fi; }
+    ./build/exec/main
+}
+
+build "first build"
+build "again"
+
+# The C flags are part of what decides an object file.
+(export IDRIS2_CFLAGS=-O1; build "other flags")
+(export IDRIS2_CFLAGS=-O1; build "other flags again")
+build "flags back"
+
+# Only the units that change are compiled again.
+sed -i.bak 's/hello/hullo/' Main.idr
+build "a string changed"
+build "unchanged"
+
+# (a new function and a new constant)
+sed -i.bak 's/^main : IO ()/foo : Integer -> Integer\nfoo x = x * 12345678 + 987654321012\n\nmain : IO ()/; s/printLn (sum \[1..10\])/printLn (foo (sum [1..10]))/' Main.idr
+build "a function added"
+
+# The jobs do not matter.
+(export IDRIS2_CC_JOBS=1; build "one job")
+
+cd ..
+rm -rf ed
