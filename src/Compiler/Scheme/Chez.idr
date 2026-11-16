@@ -673,7 +673,6 @@ incCompile c s sourceFile
          cdata <- getIncCompileData False Cases
 
          d <- getDirs
-         outputDir <- ttcBuildDirectory
 
          let ndefs = namedDefs cdata
          if isNil ndefs
@@ -693,7 +692,9 @@ incCompile c s sourceFile
                   | Left err => throw (FileErr ssFile err)
 
                -- Compile to .so
-               let tmpFileAbs = outputDir </> "compileChez"
+               -- (a script of its own for each module: the modules of a
+               -- package are built in parallel)
+               let tmpFileAbs = ssFile ++ ".compile"
                let build = "(parameterize ([optimize-level 3] " ++
                            "[compile-file-message #f]) (compile-file " ++
                           show ssFile ++ "))"
