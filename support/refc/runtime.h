@@ -53,6 +53,19 @@ extern Idris2_Value const idris2_tailCallMarker;
 #define IDRIS2_MUSTTAIL __attribute__((musttail))
 #endif
 
+// How many arguments a function takes in registers: a call in tail position
+// of a function with no more arguments than that can be a jump whatever the
+// arguments of its caller are, as nothing is passed on the stack.
+#if defined(IDRIS2_MUSTTAIL)
+#if defined(__x86_64__) && !defined(_WIN32)
+#define IDRIS2_MUSTTAIL_REG_ARGS 6
+#elif defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
+#define IDRIS2_MUSTTAIL_REG_ARGS 8
+#else
+#define IDRIS2_MUSTTAIL_REG_ARGS 0
+#endif
+#endif
+
 // The application of a closure in tail position (see cStatementsFromANF in
 // RefC.idr): a jump when the C compiler can make one, so that
 // idris2_tailcall_apply_closure can itself jump to the function of the

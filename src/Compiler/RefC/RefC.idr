@@ -222,6 +222,11 @@ varName : AVar -> String
 varName (ALocal i) = "var_" ++ (show i)
 varName (ANull)    = "NULL"
 
+||| What stands for the value of an expression that ended in a jump (a call
+||| in tail position): nothing is done with it.
+unreachable : String
+unreachable = "NULL /* unreachable */"
+
 data ArgCounter : Type where
 data EnvTracker : Type where
 data Foreigns : Type where
@@ -539,13 +544,13 @@ removeVars : {auto oft : Ref OutfileText Output}
            -> {auto il : Ref IndentLevel Nat}
            -> List String
            -> Core ()
-removeVars = applyFunctionToVars "idris2_removeReference"
+removeVars = applyFunctionToVars "idris2_removeReference" . filter (/= "NULL")
 
 dupVars : {auto oft : Ref OutfileText Output}
            -> {auto il : Ref IndentLevel Nat}
            -> List String
            -> Core ()
-dupVars = applyFunctionToVars "idris2_newReference"
+dupVars = applyFunctionToVars "idris2_newReference" . filter (/= "NULL")
 
 
 removeReuseConstructors : {auto oft : Ref OutfileText Output}
@@ -578,6 +583,7 @@ intOperand env v@(ALocal i)
 intOperand _ ANull = "0"
 
 avarToC : Env -> AVar -> String
+avarToC env ANull = "NULL"
 avarToC env var =
     if isUnboxedIn env.unboxed var then boxInt var
     else if contains var env.owned then varName var
@@ -586,6 +592,7 @@ avarToC env var =
 
 avarsToC : SortedSet Int -> Owned -> List AVar -> List String
 avarsToC _ _ [] = []
+avarsToC u owned (ANull :: vars) = "NULL" :: avarsToC u owned vars
 avarsToC u owned (v::vars) =
   let v' = varName v in
       if isUnboxedIn u v
@@ -616,6 +623,7 @@ fillArgs env arglist (v :: vars) k = do
 ||| borrowed must be neither owned nor C integers (see `borrowedCall`).
 sigArgsToC : SortedSet Int -> Owned -> List (AVar, Bool) -> List String
 sigArgsToC _ _ [] = []
+sigArgsToC u owned ((ANull, _) :: rest) = "NULL" :: sigArgsToC u owned rest
 sigArgsToC u owned ((v, True) :: rest) = varName v :: sigArgsToC u owned rest
 sigArgsToC u owned ((v, False) :: rest)
     = if isUnboxedIn u v then boxInt v :: sigArgsToC u owned rest
@@ -672,6 +680,7 @@ borrowedCall fc env fn pairs = do
   where
     cArgs : Owned -> List (AVar, Bool) -> Core (List String, List String)
     cArgs _ [] = pure ([], [])
+    cArgs owned ((ANull, _) :: rest) = mapFst ("NULL" ::) <$> cArgs owned rest
     cArgs owned ((v, True) :: rest)
         = if isUnboxedIn env.unboxed v
              then do
@@ -756,20 +765,25 @@ makeTailCall fc n args = do
     -- the ABI).  Other compilers use a pending tail call.
     otherCall : Env -> List (AVar, Bool) -> Core String
     otherCall env pairs =
-      if length args <= env.selfArity
+      if length args <= env.selfArity || length args <= 8
          then do
            let args' = sigArgsToC env.unboxed env.owned pairs
-           emit fc "#ifdef IDRIS2_MUSTTAIL"
+           -- (a callee that takes more arguments than the caller can still
+           -- be jumped to when it takes all of them in registers, which
+           -- depends on the platform: see IDRIS2_MUSTTAIL_REG_ARGS)
+           emit EmptyFC $ if length args <= env.selfArity
+                        then "#ifdef IDRIS2_MUSTTAIL"
+                        else "#if defined(IDRIS2_MUSTTAIL) && IDRIS2_MUSTTAIL_REG_ARGS >= \{show (length args)}"
            emit fc "IDRIS2_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
-           emit fc "#else"
+           emit EmptyFC "#else"
            pc <- pendingCallVar
-           emit fc "\{pc}->f = (void *)\{cName n};"
-           emit fc "\{pc}->arity = \{show $ length args};"
+           emit EmptyFC "\{pc}->f = (void *)\{cName n};"
+           emit EmptyFC "\{pc}->arity = \{show $ length args};"
            for_ (zip [0 .. length args] args') $ \(k, a) =>
-             emit fc "\{pc}->args[\{show k}] = \{a};"
-           emit fc "return IDRIS2_TAILCALL;"
-           emit fc "#endif"
-           pure "NULL /* unreachable */"
+             emit EmptyFC "\{pc}->args[\{show k}] = \{a};"
+           emit EmptyFC "return IDRIS2_TAILCALL;"
+           emit EmptyFC "#endif"
+           pure unreachable
          else pendingCall pairs
 
     -- A call of the function to itself: the arguments become the new values
@@ -788,23 +802,33 @@ makeTailCall fc n args = do
       let values = filter (\(p, _) => not (contains p env.unboxed)) pairs
       let vals = sigArgsToC env.unboxed env.owned
                    (map (\(p, a) => (a, contains p bparams)) values)
-      tmps <- traverse (\_ => getNewVarThatWillNotBeFreedAtEndOfBlock) vals
-      for_ (zip tmps vals) $ \(t, v) => emit fc "Idris2_Value *\{t} = \{v};"
-      itmps <- traverse (\(_, a) => do
-                 t <- getNewVarThatWillNotBeFreedAtEndOfBlock
-                 emit fc "int64_t \{t} = \{intOperand env a};"
-                 pure t) ints
+      -- (a parameter that keeps its value is left alone)
+      tmps <- traverse (\(p, v) => if v == "var_\{show p}"
+                                      then pure Nothing
+                                      else Just <$> getNewVarThatWillNotBeFreedAtEndOfBlock)
+                       (zip (map fst values) vals)
+      for_ (zip tmps vals) $ \(t, v) =>
+        whenJust t $ \t => emit fc "Idris2_Value *\{t} = \{v};"
+      itmps <- traverse (\(p, a) =>
+                 if intOperand env a == intVarName p
+                    then pure Nothing
+                    else do
+                      t <- getNewVarThatWillNotBeFreedAtEndOfBlock
+                      emit fc "int64_t \{t} = \{intOperand env a};"
+                      pure (Just t)) ints
       let passed = SortedSet.fromList (map snd values)
       let released = filter (\v => contains v env.owned && not (contains v passed))
                             (nub (map snd ints))
       removeVars (map varName released)
-      for_ (zip (map fst values) tmps) $ \(p, t) => emit fc "var_\{show p} = \{t};"
-      for_ (zip (map fst ints) itmps) $ \(p, t) => emit fc "\{intVarName p} = \{t};"
+      for_ (zip (map fst values) tmps) $ \(p, t) =>
+        whenJust t $ \t => emit fc "var_\{show p} = \{t};"
+      for_ (zip (map fst ints) itmps) $ \(p, t) =>
+        whenJust t $ \t => emit fc "\{intVarName p} = \{t};"
       -- A loop may run for long: let the other threads of the worker run
       -- if the scheduler asks for it.
       emit fc "IDRIS2_SAFEPOINT();"
       emit fc "goto idris2_self_entry;"
-      pure "NULL /* unreachable */"
+      pure unreachable
 
 
 ||| Does the function with the C name `self` and `nargs` parameters call
@@ -851,12 +875,24 @@ unboxConst : Constant -> String -> String
 unboxConst c v = case c of
     -- (the scrutinee may not have the type of the constants: comparisons
     -- give unboxed Bools for example)
-    B8 _  => "idris2_extractUInt64(\{v})"
-    B16 _ => "idris2_extractUInt64(\{v})"
+    -- The values of the small types are never boxed (see `alwaysUnboxed`).
+    B8 _  => "idris2_vp_to_Bits16(\{v})"
+    B16 _ => "idris2_vp_to_Bits16(\{v})"
+    I8 _  => "idris2_vp_to_Int16(\{v})"
+    I16 _ => "idris2_vp_to_Int16(\{v})"
     B32 _ => "idris2_extractUInt64(\{v})"
     Ch _  => "idris2_extractUInt64(\{v})"
     B64 _ => "(uint64_t)idris2_extractUInt64(\{v})"
     _     => "idris2_extractInt64(\{v})"
+
+||| The types whose values are never allocated, on any platform: they are
+||| kept in the pointer itself (see _datatypes.h).
+alwaysUnboxed : Constant -> Bool
+alwaysUnboxed (B8 _) = True
+alwaysUnboxed (B16 _) = True
+alwaysUnboxed (I8 _) = True
+alwaysUnboxed (I16 _) = True
+alwaysUnboxed _ = False
 
 const2Integer : Constant -> Integer -> String
 const2Integer c i =
@@ -891,7 +927,7 @@ tailApply : {auto oft : Ref OutfileText Output}
          -> FC -> String -> Core String
 tailApply fc call = do
     emit fc "IDRIS2_TAIL_APPLY return \{call};"
-    pure "NULL /* unreachable */"
+    pure unreachable
 
 ||| The key of the cells that the constructor `n`, with the tag `tag` and
 ||| `nargs` fields, may take over (see `ReuseKey`).
@@ -1016,6 +1052,14 @@ applyFirst env var body f a =
 ||| What the translation of an expression gives: a value (which may be a
 ||| pending call, in tail position), or a C integer (see Compiler.RefC.Unbox).
 data Result = AValue TailPositionStatus | AnInt
+
+||| Give the variable `var` the result of an expression, unless the
+||| expression ended in a jump.
+assignResult : {auto oft : Ref OutfileText Output}
+            -> {auto il : Ref IndentLevel Nat}
+            -> String -> String -> Core ()
+assignResult var result
+    = unless (result == unreachable) $ emit emptyFC "\{var} = \{result};"
 
 mutual
     ||| The translation of an expression, as `r` says.
@@ -1165,7 +1209,7 @@ mutual
         put EnvTracker ({owned := actualOwned, reuseMap := actualReuseMap} env)
         removeVars shouldDrop
         removeReuseConstructors dropReuseCons
-        emit emptyFC "\{returnvar} = \{!(cResult body r)};"
+        assignResult returnvar !(cResult body r)
         decreaseIndentation
 
     cStatementsFromANF : {auto a : Ref ArgCounter Nat}
@@ -1418,16 +1462,50 @@ mutual
         switchReturnVar <- getNewVarThatWillNotBeFreedAtEndOfBlock
         emit fc "Idris2_Value * \{switchReturnVar} = NULL;"
         env <- get EnvTracker
-        _ <- foldlC (\els, (MkAConAlt name coninfo tag args body) => do
-            let erased = coninfo == NIL || coninfo == NOTHING || coninfo == ZERO || coninfo == UNIT
-            if erased then emit emptyFC "\{els}if (NULL == \{sc'} /* \{show name} \{show coninfo} */) {"
-                else if coninfo == CONS || coninfo == JUST || coninfo == SUCC
-                then emit emptyFC "\{els}if (NULL != \{sc'} /* \{show name} \{show coninfo} */) {"
-                else do
-                    case conTag tag of
-                        Nothing   => emit emptyFC "\{els}if (! strcmp(idris2_constructorName(\{sc'}), idris2_constr_\{cName name})) {"
-                        Just tag' => emit emptyFC "\{els}if (((Idris2_Constructor *)\{sc'})->tag == \{show tag'} /* \{show name} */) {"
+        if tagSwitch
+           then do
+             -- (the constructors of the type all have tags: a `switch`)
+             emit emptyFC "switch (((Idris2_Constructor *)\{sc'})->tag) {"
+             for_ alts $ \alt@(MkAConAlt name _ tag _ _) => do
+                 emit emptyFC "case \{show (fromMaybe 0 (conTag tag))}: { /* \{show name} */"
+                 altBody env switchReturnVar alt
+                 emit emptyFC "  break;"
+                 emit emptyFC "}"
+             whenJust mDef $ \body => do
+                 emit emptyFC "default: {"
+                 concaseBody env switchReturnVar "" [] body (AValue tailPosition)
+                 emit emptyFC "}"
+             emit emptyFC "}"
+           else case (alts, mDef) of
+             -- The only constructor of its type (a record, the dictionary
+             -- of an interface): there is nothing to test.
+             ([alt@(MkAConAlt name coninfo (Just _) _ _)], Nothing) =>
+               if plain alt
+                  then do
+                    emit emptyFC "{ /* \{show name} */"
+                    altBody env switchReturnVar alt
+                    emit emptyFC "}"
+                  else ifChain env switchReturnVar
+             _ => ifChain env switchReturnVar
+        pure switchReturnVar
+      where
+        erasedCon : ConInfo -> Bool
+        erasedCon ci = ci == NIL || ci == NOTHING || ci == ZERO || ci == UNIT
 
+        -- Is the constructor of the alternative told by its tag?
+        plain : AConAlt -> Bool
+        plain (MkAConAlt _ ci tag _ _)
+            = not (erasedCon ci || ci == CONS || ci == JUST || ci == SUCC)
+              && isJust (conTag tag)
+
+        tagSwitch : Bool
+        tagSwitch = all plain alts && length alts >= 2
+
+        -- The body of an alternative, in the environment `env` of the case.
+        altBody : Env -> String -> AConAlt -> Core ()
+        altBody env switchReturnVar (MkAConAlt name coninfo tag args body) = do
+            let sc' = varName sc
+            let erased = erasedCon coninfo
             let conArgs = ALocal <$> args
             -- The fields of a borrowed value are borrowed (see
             -- Compiler.RefC.Borrow): it keeps them alive.  Those of a value
@@ -1460,17 +1538,28 @@ mutual
             put EnvTracker ({ owned := actualOwned, reuseMap := actualReuseMap
                             , borrowed := if scBorrowed then SortedSet.union (fromList conArgs) env.borrowed
                                                          else env.borrowed } env)
-            emit emptyFC "\{switchReturnVar} = \{!(cStatementsFromANF body tailPosition)};"
+            assignResult switchReturnVar !(cStatementsFromANF body tailPosition)
             decreaseIndentation
-            pure "} else ") "" alts
 
-        case mDef of
-            Nothing => pure ()
-            Just body => do
-                emit emptyFC "} else {"
-                concaseBody env switchReturnVar "" [] body (AValue tailPosition)
-        emit emptyFC "}"
-        pure switchReturnVar
+        ifChain : Env -> String -> Core ()
+        ifChain env switchReturnVar = do
+            let sc' = varName sc
+            _ <- foldlC (\els, alt@(MkAConAlt name coninfo tag args body) => do
+                if erasedCon coninfo then emit emptyFC "\{els}if (NULL == \{sc'} /* \{show name} \{show coninfo} */) {"
+                    else if coninfo == CONS || coninfo == JUST || coninfo == SUCC
+                    then emit emptyFC "\{els}if (NULL != \{sc'} /* \{show name} \{show coninfo} */) {"
+                    else do
+                        case conTag tag of
+                            Nothing   => emit emptyFC "\{els}if (! strcmp(idris2_constructorName(\{sc'}), idris2_constr_\{cName name})) {"
+                            Just tag' => emit emptyFC "\{els}if (((Idris2_Constructor *)\{sc'})->tag == \{show tag'} /* \{show name} */) {"
+                altBody env switchReturnVar alt
+                pure "} else ") "" alts
+            case mDef of
+                Nothing => pure ()
+                Just body => do
+                    emit emptyFC "} else {"
+                    concaseBody env switchReturnVar "" [] body (AValue tailPosition)
+            emit emptyFC "}"
 
     cStatementsFromANF (AConstCase fc sc alts def) tailPosition
         = constCase fc sc alts def (AValue tailPosition)
@@ -1570,14 +1659,18 @@ mutual
               if integer_switch alts
                 then do
                   emit emptyFC "switch (\{scrutinee env c}) {"
+                  -- A value of a small type is never allocated: there is
+                  -- no reference to release.
+                  let env = if alwaysUnboxed c then { owned $= delete sc } env else env
                   for_ alts $ \(MkAConstAlt c' body) => do
                       emit emptyFC "case \{const2Integer c' 0}: {"
                       concaseBody env switchReturnVar "" [] body r
                       emit emptyFC "  break;"
                       emit emptyFC "}"
-                  emit emptyFC "default: {"
-                  traverse_ (\body => concaseBody env switchReturnVar "" [] body r) (toList def)
-                  emit emptyFC "}"
+                  whenJust def $ \body => do
+                      emit emptyFC "default: {"
+                      concaseBody env switchReturnVar "" [] body r
+                      emit emptyFC "}"
                   emit emptyFC "}"
                 else do
                   _ <- foldlC (\els, (MkAConstAlt c body) => do
@@ -1974,9 +2067,12 @@ createCFunctions opts n canonN (MkAFun args anf) = do
                               !(get ValueFns) trmc empty opts.optStatics)
     if trmc
        then do
-         emit EmptyFC $ "*trmc_hole = \{!(cStatementsFromANF anf InTailPosition)};"
+         assignResult "*trmc_hole" !(cStatementsFromANF anf InTailPosition)
          emit EmptyFC "return trmc_result;"
-       else emit EmptyFC $ "return \{!(cStatementsFromANF anf InTailPosition)};"
+       else do
+         result <- cStatementsFromANF anf InTailPosition
+         -- (nothing to return after a jump)
+         unless (result == unreachable) $ emit EmptyFC "return \{result};"
     decreaseIndentation
     emit EmptyFC  "}\n"
     -- (idris2_constantValue makes it once, even with threads running in

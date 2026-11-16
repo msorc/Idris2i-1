@@ -19,7 +19,8 @@ Idris2_Value *Main_turn
 )
 {
     Idris2_Value * tmp_0 = NULL;                             // Main:15:8--15:13
-    if (((Idris2_Constructor *)var_0)->tag == 0 /* Main.Circle */) {
+    switch (((Idris2_Constructor *)var_0)->tag) {
+    case 0: { /* Main.Circle */
         Idris2_Value *var_1 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_2 = ((Idris2_Constructor*)var_0)->args[1];
         Idris2_Constructor* constructor_1 = NULL;
@@ -42,7 +43,9 @@ Idris2_Value *Main_turn
         constructor_1->args[0] = var_2;
         constructor_1->args[1] = var_1;
         tmp_0 = (Idris2_Value*)constructor_1;
-    } else if (((Idris2_Constructor *)var_0)->tag == 1 /* Main.Rect */) {
+      break;
+    }
+    case 1: { /* Main.Rect */
         Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_4 = ((Idris2_Constructor*)var_0)->args[1];
         Idris2_Constructor* constructor_2 = NULL;
@@ -69,7 +72,9 @@ Idris2_Value *Main_turn
         }                                                    // Main:17:19--17:25
         constructor_2->args[1] = var_6;
         tmp_0 = (Idris2_Value*)constructor_2;
-    } else if (((Idris2_Constructor *)var_0)->tag == 2 /* Main.Tri */) {
+      break;
+    }
+    case 2: { /* Main.Tri */
         Idris2_Value *var_7 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_8 = ((Idris2_Constructor*)var_0)->args[1];
         Idris2_Value *var_9 = ((Idris2_Constructor*)var_0)->args[2];
@@ -93,6 +98,8 @@ Idris2_Value *Main_turn
         constructor_4->args[0] = var_9;
         constructor_4->args[2] = var_7;
         tmp_0 = (Idris2_Value*)constructor_4;
+      break;
+    }
     }
     return tmp_0;
 }
@@ -106,7 +113,8 @@ Idris2_Value *Main_dupe
 )
 {
     Idris2_Value * tmp_0 = NULL;                             // Main:22:8--22:13
-    if (((Idris2_Constructor *)var_0)->tag == 0 /* Main.Circle */) {
+    switch (((Idris2_Constructor *)var_0)->tag) {
+    case 0: { /* Main.Circle */
         Idris2_Value *var_1 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_2 = ((Idris2_Constructor*)var_0)->args[1];
         Idris2_Constructor* constructor_1 = NULL;
@@ -129,7 +137,9 @@ Idris2_Value *Main_dupe
         }                                                    // Main:23:21--23:27
         constructor_1->args[0] = var_2;
         tmp_0 = (Idris2_Value*)constructor_1;
-    } else if (((Idris2_Constructor *)var_0)->tag == 1 /* Main.Rect */) {
+      break;
+    }
+    case 1: { /* Main.Rect */
         Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_4 = ((Idris2_Constructor*)var_0)->args[1];
         Idris2_Constructor* constructor_2 = NULL;
@@ -153,8 +163,11 @@ Idris2_Value *Main_dupe
         }                                                    // Main:24:19--24:25
         constructor_2->args[0] = var_4;
         tmp_0 = (Idris2_Value*)constructor_2;
-    } else {
+      break;
+    }
+    default: {
         tmp_0 = var_0;
+    }
     }
     return tmp_0;
 }
