@@ -135,13 +135,10 @@ Idris2_Value *Main_main
 )
 {
     Idris2_Value * var_10 = ((Idris2_Value *)&idris2_static_closure_Main_main_9_2);
-                                                             // Main:14:3--14:7
     Idris2_Value * var_11 = ((Idris2_Value *)&idris2_static_closure_Main_main_10_2);
-                                                             // Main:14:3--14:7
-    Idris2_Value * var_8 = (NULL /* _builtin.NIL */);        // Main:15:11--15:13
-    Idris2_Value * var_5 = (NULL /* _builtin.NIL */);        // Prelude.Types:605:11--605:20
+    Idris2_Value * var_8 = (NULL /* _builtin.NIL */);
+    Idris2_Value * var_5 = (NULL /* _builtin.NIL */);
     Idris2_Value * var_6 = ((Idris2_Value *)&idris2_static_closure_Main_main_11_1);
-                                                             // Prelude.Types:605:11--605:20
     Idris2_Value * var_2 = csegen_45();                      // Prelude.Types:1126:1--1143:48
     Idris2_Value * var_3 = (idris2_fitsSmallInteger(1) ? idris2_mkSmallInteger(1) : idris2_getPredefinedInteger(1));
                                                              // Prelude.Types:1126:1--1143:48
@@ -228,28 +225,8 @@ Idris2_Value *Main_main_9
 ,   Idris2_Value * var_0
 )
 {
-    Idris2_Value * var_2 = ((Idris2_Value *)&idris2_static_closure_Main_main_0_5);
-                                                             // Prelude.IO:19:1--26:30
-    Idris2_Value * var_3 = ((Idris2_Value *)&idris2_static_closure_Main_main_1_3);
-                                                             // Prelude.IO:19:1--26:30
-    Idris2_Value * var_4 = ((Idris2_Value *)&idris2_static_closure_Main_main_2_5);
-                                                             // Prelude.IO:19:1--26:30
     Idris2_Value * var_11 = ((Idris2_Value *)&idris2_static_con01_5acb2dca2a4874db) /* Prelude.Interfaces.MkApplicative */;
-                                                             // Main:14:8--14:12
-    Idris2_Value * var_5 = ((Idris2_Value *)&idris2_static_closure_Main_main_3_5);
-                                                             // Prelude.Types:656:1--669:59
-    Idris2_Value * var_6 = ((Idris2_Value *)&idris2_static_closure_Main_main_4_5);
-                                                             // Prelude.Types:656:1--669:59
-    Idris2_Value * var_7 = ((Idris2_Value *)&idris2_static_closure_Main_main_5_2);
-                                                             // Prelude.Types:656:1--669:59
-    Idris2_Value * var_8 = ((Idris2_Value *)&idris2_static_closure_Main_main_6_7);
-                                                             // Prelude.Types:656:1--669:59
-    Idris2_Value * var_9 = ((Idris2_Value *)&idris2_static_closure_Main_main_7_2);
-                                                             // Prelude.Types:656:1--669:59
-    Idris2_Value * var_10 = ((Idris2_Value *)&idris2_static_closure_Main_main_8_5);
-                                                             // Prelude.Types:656:1--669:59
     Idris2_Value * var_12 = ((Idris2_Value *)&idris2_static_con01_9a729428f632cfe0) /* Prelude.Interfaces.MkFoldable */;
-                                                             // Main:14:8--14:12
     #if defined(IDRIS2_MUSTTAIL) && IDRIS2_MUSTTAIL_REG_ARGS >= 4
     IDRIS2_MUSTTAIL return Prelude_Interfaces_for_(var_11, var_12, var_1, var_0);
                                                              // Main:14:8--14:12

@@ -188,6 +188,15 @@ The code generator does the following, each of which a directive turns off
   the cell first, with a hole for the result of the call, so that it needs no
   stack for a long list (tail recursion modulo cons).
 
+- ``refc-no-static``: a closure that holds no argument yet (a function passed
+  as a value), and a constructor whose fields are all such values, constants
+  or other static constructors (the dictionary of an implementation), are
+  data of the C program instead of values allocated every time.
+- ``refc-no-lazy-constants``: an expression that occurs several times inside
+  delayed code is a constant like the other repeated expressions, evaluated
+  the first time that it is needed, instead of a delayed constant that is
+  evaluated again every time that it is forced.
+
 The cell of a value that is not used any more, and that nothing else refers
 to, is reused in place for a new value of the same constructor.
 ``--directive refc-size-reuse`` reuses it for any constructor with as many

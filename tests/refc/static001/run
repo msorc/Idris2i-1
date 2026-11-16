@@ -1,0 +1,12 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+$VALGRIND ./build/exec/main
+# (not under Valgrind: the leak check looks at the pages)
+IDRIS2_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null | sed 's/,.*//'
+# Main.op and Main.nested allocate nothing
+awk -v RS= '/Value \*Main_op\n/' build/exec/main.c | grep -c 'idris2_newConstructor\|idris2_mkClosure'
+awk -v RS= '/Value \*Main_nested\n/' build/exec/main.c | grep -c 'idris2_newConstructor\|idris2_mkClosure'
+# without the static values, the program gives the same
+idris2 --directive refc-no-static -o main2 Main.idr
+./build/exec/main2

@@ -371,6 +371,15 @@ staticConstructor tag fields = do
                    Nothing => name
                    Just t => if t == text name init then name else fresh defs prefx init (S k)
 
+||| May the expression have a static value: is it made of constructors,
+||| closures without arguments and constants only?
+staticShape : ANF -> Bool
+staticShape (ALet _ _ value body) = staticShape value && staticShape body
+staticShape (ACon _ _ _ _ _) = True
+staticShape (AUnderApp _ _ _ []) = True
+staticShape (APrimVal _ _) = True
+staticShape _ = False
+
 ||| What a cell that a constructor may take over is chosen by: its number of
 ||| fields, and whether the constructor is told apart by its name (which takes
 ||| a slot of its own, see idris2_newNamedConstructor), so that the cell has
@@ -509,8 +518,14 @@ emit fc line = do
         (Yes _) => flip appendR [indentedLine, strCons sameLine comment]
         (No _)  => flip appendR [indentedLine, strCons ownLine comment]
 
+||| An element of the output that is not a part of the text: it tells that the
+||| definition has a call in tail position that is a jump (IDRIS2_MUSTTAIL,
+||| see `plainReturn`).
+jumpMark : String
+jumpMark = "\x03"
+
 commentTag : String -> Maybe Char
-commentTag s = if s /= "" && (first == sameLine || first == ownLine)
+commentTag s = if s /= "" && (first == sameLine || first == ownLine || s == jumpMark)
                   then Just first
                   else Nothing
   where
@@ -520,14 +535,80 @@ commentTag s = if s /= "" && (first == sameLine || first == ownLine)
 ||| The lines that `emit` made, with the comments about their code.
 withComments : List String -> List String
 withComments (l :: c :: rest)
-    = case commentTag c of
+    = if l == jumpMark then withComments (c :: rest)
+      else if c == jumpMark then withComments (l :: rest)
+      else case commentTag c of
            Just t => if t == sameLine
                         then (lJust l maxLineLengthForComment ' ' ++ " " ++ assert_total (strTail c))
                                :: withComments rest
                         else l :: (lJust "" maxLineLengthForComment ' ' ++ " " ++ assert_total (strTail c))
                                :: withComments rest
            Nothing => l :: withComments (c :: rest)
-withComments ls = ls
+withComments ls = filter (/= jumpMark) ls
+
+||| The declaration of a variable whose value is static (see `StaticVal`) is
+||| written with the number of the variable in front, between two
+||| `staticMark`s: `dropUnusedStatics` removes them, and the declarations of
+||| the variables that the definition does not use.
+staticMark : Char
+staticMark = '\x04'
+
+emitStatic : {auto oft : Ref OutfileText Output}
+          -> {auto il : Ref IndentLevel Nat}
+          -> Int -> String -> Core ()
+emitStatic var line = do
+    indent <- indentation
+    update OutfileText (flip snoc (strCons staticMark (show var) ++ strCons staticMark (indent ++ line)))
+
+||| The numbers of the variables `var_N` in a line.
+varsOfLine : List Char -> SortedSet Int -> SortedSet Int
+varsOfLine ('v' :: 'a' :: 'r' :: '_' :: rest) acc
+    = let (ds, rest') = span isDigit rest in
+          varsOfLine rest' (maybe acc (\n => insert n acc) (parseInteger {a = Int} (pack ds)))
+varsOfLine (_ :: rest) acc = varsOfLine rest acc
+varsOfLine [] acc = acc
+
+||| Remove the marks of the declarations of static values in the definition
+||| being written (see `staticMark`), and those that declare a variable
+||| that is not used.
+dropUnusedStatics : {auto oft : Ref OutfileText Output} -> Core ()
+dropUnusedStatics = do
+    ls <- reify <$> get OutfileText
+    when (any marked ls) $ do
+      let used : SortedSet Int
+               = foldl (\acc, l => if marked l then acc else varsOfLine (unpack l) acc) SortedSet.empty ls
+      put OutfileText (appendR DList.Nil (mapMaybe (unmark used) ls))
+  where
+    marked : String -> Bool
+    marked l = l /= "" && assert_total (strIndex l 0) == staticMark
+
+    unmark : SortedSet Int -> String -> Maybe String
+    unmark used l
+        = if marked l
+             then let (n, rest) = break (== staticMark) (assert_total (strTail l)) in
+                      if maybe False (`contains` used) (parseInteger {a = Int} n)
+                         then Just (assert_total (strTail rest))
+                         else Nothing
+             else Just l
+
+||| Tell that the definition being written has a jump (see `jumpMark`).
+markJump : {auto oft : Ref OutfileText Output} -> Core ()
+markJump = update OutfileText (flip snoc jumpMark)
+
+||| The `return` of a value that is not the result of a jump.  In a function
+||| that has jumps too, GCC checks them by walking back from every `return`
+||| through all the paths that reach it, until a statement that reads or
+||| writes memory: with many branches in a row that only compute, that takes
+||| time exponential in their number (minutes for a unit of the compiler,
+||| with GCC 16).  IDRIS2_PLAIN_RETURN stops the walk at once (see runtime.h).
+plainReturn : {auto oft : Ref OutfileText Output}
+           -> {auto il : Ref IndentLevel Nat}
+           -> String -> Core ()
+plainReturn value = do
+    ls <- reify <$> get OutfileText
+    emit EmptyFC $ if any (== jumpMark) ls
+                      then "IDRIS2_PLAIN_RETURN return \{value};"
+                      else "return \{value};"
 
 ||| The lines that `emit` made, without the comments about their code.
 withoutComments : List String -> List String
@@ -774,6 +855,7 @@ makeTailCall fc n args = do
            emit EmptyFC $ if length args <= env.selfArity
                         then "#ifdef IDRIS2_MUSTTAIL"
                         else "#if defined(IDRIS2_MUSTTAIL) && IDRIS2_MUSTTAIL_REG_ARGS >= \{show (length args)}"
+           markJump
            emit fc "IDRIS2_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
            emit EmptyFC "#else"
            pc <- pendingCallVar
@@ -926,6 +1008,7 @@ tailApply : {auto oft : Ref OutfileText Output}
          -> {auto il : Ref IndentLevel Nat}
          -> FC -> String -> Core String
 tailApply fc call = do
+    markJump
     emit fc "IDRIS2_TAIL_APPLY return \{call};"
     pure unreachable
 
@@ -1087,10 +1170,18 @@ mutual
         -- When translating value into C, we borrow variables that will be used in body
         let valueEnv = { reuseMap $= (`intersectionMap` usedCons) } (moveFromOwnedToBorrowed env borrowVal)
         put EnvTracker valueEnv
-        emit fc $ "Idris2_Value * var_\{show var} = \{!(cStatementsFromANF value NotInTailPosition)};"
-        unless (contains (ALocal var) usedVars) $ emit fc $ "idris2_removeReference(var_\{show var});"
+        result <- cStatementsFromANF value NotInTailPosition
         -- (what `cStatementsFromANF` made of the value just above)
         sv <- staticOf valueEnv value
+        let decl = "Idris2_Value * var_\{show var} = \{result};"
+        case sv of
+          -- A static value is not released, and its variable may not be
+          -- used at all (when it only goes in a static constructor): see
+          -- `dropUnusedStatics`.
+          Just _ => emitStatic var decl
+          Nothing => do
+            emit fc decl
+            unless (contains (ALocal var) usedVars) $ emit fc $ "idris2_removeReference(var_\{show var});"
         put EnvTracker ({ owned := owned', reuseMap $= (`differenceMap` usedCons)
                         , statics $= maybe id (insert var) sv } env)
         cResult body r
@@ -1142,6 +1233,15 @@ mutual
       where
         small : Core (Maybe StaticVal)
         small = pure $ Just (MkStaticVal !(cStatementsFromANF anf NotInTailPosition) [] 0)
+    -- (the value of a `let` is often a chain of `let`s itself, which ends
+    -- with the constructor that takes their variables.  The variables of
+    -- such a chain are those of the `let`s that `cStatementsFromANF` wrote,
+    -- with fewer cells to take over at most, so it found them static too.)
+    staticOf env anf@(ALet _ var value body)
+        = if staticShape anf
+             then do sv <- staticOf env value
+                     staticOf ({ statics $= maybe id (insert var) sv } env) body
+             else pure Nothing
     staticOf _ _ = pure Nothing
 
     ||| A `let` of a variable that is a C integer (see Compiler.RefC.Unbox):
@@ -2068,13 +2168,14 @@ createCFunctions opts n canonN (MkAFun args anf) = do
     if trmc
        then do
          assignResult "*trmc_hole" !(cStatementsFromANF anf InTailPosition)
-         emit EmptyFC "return trmc_result;"
+         plainReturn "trmc_result"
        else do
          result <- cStatementsFromANF anf InTailPosition
          -- (nothing to return after a jump)
-         unless (result == unreachable) $ emit EmptyFC "return \{result};"
+         unless (result == unreachable) $ plainReturn result
     decreaseIndentation
     emit EmptyFC  "}\n"
+    dropUnusedStatics
     -- (idris2_constantValue makes it once, even with threads running in
     -- parallel.)
     when (nargs == 0) $ do

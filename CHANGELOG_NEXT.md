@@ -465,6 +465,22 @@ should target this file (`CHANGELOG_NEXT`).
   `take`, an `insert` down one path of a tree) loops instead of recursing
   (tail recursion modulo cons): it does not need a stack as deep as the list.
   `--directive refc-no-trmc` turns it off.
+* Closures that hold no argument yet, and constructors whose fields are all
+  such closures, constants or other static constructors (the dictionary of an
+  implementation, say), are static data of the C program instead of values
+  allocated every time (`--directive refc-no-static` turns it off); taking or
+  releasing a reference to an immortal value no longer calls the runtime.  A
+  list comprehension over `Int`s runs with 24% fewer instructions.
+* An expression that occurs several times inside delayed code is evaluated
+  once, the first time that it is needed, instead of every time that it is
+  forced (`--directive refc-no-lazy-constants` turns it off).
+* A call in tail position of a function that takes more arguments than its
+  caller is a jump too (with GCC 15 or later) when the arguments are passed in
+  registers.
+* The generated C is simpler: a `switch` on the tag of a constructor, no test
+  for the only constructor of a type, no reference counting of `NULL` or of
+  the values of the small integer types that a `case` looks at, and no dead
+  statements after a jump.
 * `IDRIS2_REFC_MEMSTATS=1` and `IDRIS2_REFC_LEAKCHECK=1` report the memory of a
   program, and the values that leaked, when it exits; with
   `-DIDRIS2_REFC_STATS` they count the reference count operations, reuses and

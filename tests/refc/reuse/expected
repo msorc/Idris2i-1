@@ -26,9 +26,7 @@ Idris2_Value *Main_insert
         idris2_removeReference(var_0);
         idris2_removeReference(var_2);
         Idris2_Value * var_3 = idris2_nullaryConstructor(0) /* Main.Leaf */;
-                                                             // Main:7:17--7:21
         Idris2_Value * var_4 = idris2_nullaryConstructor(0) /* Main.Leaf */;
-                                                             // Main:7:17--7:21
          // constructor Main.Node                            // Main:7:17--7:21
         Idris2_Constructor* constructor_1 = idris2_newConstructor(3, 1);
                                                              // Main:7:17--7:21

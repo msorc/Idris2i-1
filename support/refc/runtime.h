@@ -53,10 +53,21 @@ extern Idris2_Value const idris2_tailCallMarker;
 #define IDRIS2_MUSTTAIL __attribute__((musttail))
 #endif
 
+// The `return` of a value in a function that has calls that are jumps too
+// (see `plainReturn` in RefC.idr): a statement that GCC takes to touch
+// memory, and that is no code, stops its check of the jumps from walking
+// back through the whole function from this `return`.
+#if defined(IDRIS2_MUSTTAIL)
+#define IDRIS2_PLAIN_RETURN __asm__ volatile("" ::: "memory");
+#else
+#define IDRIS2_PLAIN_RETURN
+#endif
+
 // How many arguments a function takes in registers: a call in tail position
 // of a function with no more arguments than that can be a jump whatever the
 // arguments of its caller are, as nothing is passed on the stack.
-#if defined(IDRIS2_MUSTTAIL)
+// (-DIDRIS2_MUSTTAIL_REG_ARGS=0 turns these jumps off.)
+#if defined(IDRIS2_MUSTTAIL) && !defined(IDRIS2_MUSTTAIL_REG_ARGS)
 #if defined(__x86_64__) && !defined(_WIN32)
 #define IDRIS2_MUSTTAIL_REG_ARGS 6
 #elif defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)

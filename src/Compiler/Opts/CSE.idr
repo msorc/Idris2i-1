@@ -75,9 +75,16 @@ public export
 ReplaceMap : Type
 ReplaceMap = SortedMap Name (ClosedCExp, Count, Bool)
 
-toReplaceMap : UsageMap -> ReplaceMap
-toReplaceMap = SortedMap.fromList
-             . map (\((_,exp),(n,c,d)) => (n, (exp, C c, d)))
+||| `lazyConstants`: the code generator evaluates a toplevel constant the
+||| first time that it is needed, and keeps its value.  An expression that
+||| occurs inside `%delay` can then be a plain constant: it is not evaluated
+||| before it is forced, and it is evaluated once instead of every time
+||| (which is what forcing a delayed constant does, in a code generator that
+||| does not keep the values of the delayed expressions).
+toReplaceMap : (lazyConstants : Bool) -> UsageMap -> ReplaceMap
+toReplaceMap lazyConstants
+             = SortedMap.fromList
+             . map (\((_,exp),(n,c,d)) => (n, (exp, C c, d && not lazyConstants)))
              . SortedMap.toList
 
 --------------------------------------------------------------------------------
@@ -503,7 +510,10 @@ cse defs me = do
       s            <- newRef Sts $ MkSt empty 0 False
       analyzedDefs <- traverse (traversePair (traversePair analyzeDef)) compiledDefs
       MkSt um _ _  <- get Sts
-      srep         <- newRef ReplaceMap $ toReplaceMap um
+      -- (the constants of RefC are evaluated when they are first needed)
+      let lazyConstants = compilerDefs.options.session.codegen == RefC
+                          && not ("refc-no-lazy-constants" `elem` !(getDirectives RefC))
+      srep         <- newRef ReplaceMap $ toReplaceMap lazyConstants um
       replacedDefs <- traverse replaceDef analyzedDefs
       replacedMain <- replaceExp 1 me
       replaceMap   <- get ReplaceMap
