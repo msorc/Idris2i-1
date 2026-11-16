@@ -468,12 +468,17 @@ should target this file (`CHANGELOG_NEXT`).
 * Closures that hold no argument yet, and constructors whose fields are all
   such closures, constants or other static constructors (the dictionary of an
   implementation, say), are static data of the C program instead of values
-  allocated every time (`--directive refc-no-static` turns it off); taking or
-  releasing a reference to an immortal value no longer calls the runtime.  A
-  list comprehension over `Int`s runs with 24% fewer instructions.
+  allocated every time (`--directive refc-no-static` turns it off).  No
+  references are counted for the variables that hold them, nor for string
+  constants, and taking or releasing a reference to another immortal value no
+  longer calls the runtime (`-DIDRIS2_REFC_SMALL_CODE` in the C flags makes it
+  call again, for code that is 10% smaller).  A list comprehension over `Int`s
+  runs with 27% fewer instructions.
 * An expression that occurs several times inside delayed code is evaluated
   once, the first time that it is needed, instead of every time that it is
-  forced (`--directive refc-no-lazy-constants` turns it off).
+  forced (`--directive refc-no-lazy-constants` turns it off).  With the other
+  changes of this list, the compiler built with RefC checks the prelude with
+  27% fewer instructions.
 * A call in tail position of a function that takes more arguments than its
   caller is a jump too (with GCC 15 or later) when the arguments are passed in
   registers.

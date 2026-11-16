@@ -197,6 +197,12 @@ The code generator does the following, each of which a directive turns off
   the first time that it is needed, instead of a delayed constant that is
   evaluated again every time that it is forced.
 
+The reference counting of immortal values (the static values, the constants
+of a program) is tested in line, which saves calls of the runtime.  Compiling
+the C code with ``-DIDRIS2_REFC_SMALL_CODE`` (in ``IDRIS2_CFLAGS``) leaves that
+test to the runtime: the code is about 10% smaller and compiles as much
+faster, and runs a few percent slower.
+
 The cell of a value that is not used any more, and that nothing else refers
 to, is reused in place for a new value of the same constructor.
 ``--directive refc-size-reuse`` reuses it for any constructor with as many
