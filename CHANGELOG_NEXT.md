@@ -176,10 +176,6 @@ should target this file (`CHANGELOG_NEXT`).
   (`IDRIS2_JOBS`, the number of processors up to 16 by default): checking the
   compiler with a RefC-built compiler takes 2m20s instead of 7m, and `base`
   20s instead of 70s, on 16 cores.  The TTC files are the same.
-* The generated code of the bootstraps (`bootstrap/idris2_app/idris2.ss`,
-  `idris2.rkt` and `idris2.c.xz`) is no longer kept in the repository: the
-  directory is ignored by git, and `make bootstrap`, `bootstrap-racket` and
-  `bootstrap-c` say so when their file is missing (see `INSTALL.md`).
 * `make help` lists the targets of the top-level `Makefile` and the variables
   that change the build, with their current values.
 * `make` rebuilds the support libraries (`support/c`, `support/refc`) whenever
