@@ -332,6 +332,19 @@ IDRIS2_INLINE Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
                                                 Idris2_Value *arg1,
                                                 Idris2_Value *arg2, int n) {
   uint8_t filled = clos->filled;
+  if (filled == 0) {
+    // Nothing to take from the closure (which has no room for arguments when
+    // it is static, see IDRIS2_STATIC_CLOSURE): the arguments are passed as
+    // they are.
+    void *f = clos->f;
+    IDRIS2_STAT(apply[IDRIS2_APPLY_SATURATED]);
+    if (!idris2_isShared(clos) && clos->header.refCounter == 1)
+      idris2_freeValue((Idris2_Value *)clos);
+    else
+      idris2_removeReference((Idris2_Value *)clos);
+    return idris2_trampoline(n == 1 ? (*(FUN1)f)(arg1)
+                                    : (*(FUN2)f)(arg1, arg2));
+  }
   int unique;
   if (__builtin_expect(idris2_isShared(clos), 0)) {
     if (!idris2_tryUnshare((Idris2_Value *)clos))

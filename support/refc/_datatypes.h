@@ -271,6 +271,26 @@ typedef struct {
   Idris2_Value *args[];
 } Idris2_Closure;
 
+// Static values of the generated code (see `StaticVal` in RefC.idr): data of
+// the program, in read only memory, that is never allocated nor freed.  Like
+// the other statically allocated values, they are immortal.
+//
+// A closure of the function `fn`, which takes `ar` arguments, without any
+// argument yet.  It has no room for arguments: applying it makes a call, or
+// another closure (see runtime.c).
+#define IDRIS2_STATIC_CLOSURE(name, fn, ar)                                    \
+  IDRIS2_UNUSED static const Idris2_Closure name = {                           \
+      IDRIS2_STOCKVAL(CLOSURE_TAG), (void *)(fn), ar, 0}
+
+// A constructor with the tag `t` and `n` fields, which are static values too.
+#define IDRIS2_STATIC_CONSTRUCTOR(name, n, t, ...)                             \
+  IDRIS2_UNUSED static const struct {                                          \
+    Idris2_header header;                                                      \
+    uint16_t total;                                                            \
+    int16_t tag;                                                               \
+    Idris2_Value *args[n];                                                     \
+  } name = {IDRIS2_STOCKVAL(CONSTRUCTOR_TAG), n, t, {__VA_ARGS__}}
+
 typedef struct {
   Idris2_header header;
   // Guards `v` when the IORef is shared (see prim.h).

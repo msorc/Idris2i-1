@@ -137,7 +137,11 @@ IDRIS2_INLINE Idris2_Value *idris2_newReference(Idris2_Value *source) {
 #ifdef IDRIS2_REFC_STATS
       IDRIS2_STAT(dup[IDRIS2_RC_PLAIN]);
 #endif
-    } else {
+    } else if (idris2_wordRefCounter(idris2_headerWord(source)) !=
+               IDRIS2_VP_REFCOUNTER_MAX) {
+      // (not immortal, which static values and constants are: for those the
+      // test is all there is to do, and the C compiler removes it for a
+      // static value that it sees)
       idris2_newReferenceSlow(source);
     }
   } else {
@@ -175,7 +179,8 @@ IDRIS2_INLINE void idris2_removeReference(Idris2_Value *elem) {
       elem->header.refCounter = count - 1;
     else
       idris2_releaseValue(elem);
-  } else {
+  } else if (idris2_wordRefCounter(idris2_headerWord(elem)) !=
+             IDRIS2_VP_REFCOUNTER_MAX) {
     idris2_removeReferenceSlow(elem);
   }
 }
@@ -187,7 +192,8 @@ IDRIS2_INLINE void idris2_dropSharedReference(Idris2_Value *v) {
   if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(v)), 1)) {
     IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
     --v->header.refCounter;
-  } else
+  } else if (idris2_wordRefCounter(idris2_headerWord(v)) !=
+             IDRIS2_VP_REFCOUNTER_MAX)
     idris2_removeReferenceSlow(v);
 }
 

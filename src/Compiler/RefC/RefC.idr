@@ -262,9 +262,11 @@ record ConstTable where
   constNames : SortedSet String
   ||| The names of the constants that the definition being compiled uses.
   constUses : SortedSet String
+  ||| The definitions of the static values (see `StaticVal`), by name.
+  staticDefs : SortedMap String String
 
 emptyConsts : ConstTable
-emptyConsts = MkConstTable empty empty empty
+emptyConsts = MkConstTable empty empty empty empty
 
 -- A 64 bit hash of a string (FNV-1a over its characters, then mixed so that
 -- every bit is good to use).
@@ -312,6 +314,57 @@ bookConstant c mk stable
 ||| The constant is used by the definition being compiled.
 useConstant : {auto _ : Ref ConstDef ConstTable} -> ConstDef -> Core ()
 useConstant cdef = update ConstDef { constUses $= insert (constantName cdef) }
+
+||| A value that is known when the program is compiled, and that is data of
+||| the C program rather than a value allocated at run time: a closure without
+||| arguments, a constructor whose fields are all static values, a constant.
+||| Like the string constants, it is immortal (taking and releasing references
+||| to it does nothing) and it is never updated in place.
+record StaticVal where
+  constructor MkStaticVal
+  ||| The C expression of the value (a constant expression).
+  expr : String
+  ||| The names of the constants that it is made of (see `constUses`).
+  names : List String
+  ||| How deep static constructors are nested in it.  The definitions of
+  ||| the constants are written in the order of their names, which begin with
+  ||| the depth, so that a constructor comes after its fields.
+  depth : Nat
+
+||| The static value of a closure of the function `n` (by its C name) that
+||| has no arguments yet, and takes `arity`.
+staticClosure : {auto _ : Ref ConstDef ConstTable} -> String -> Nat -> Core StaticVal
+staticClosure fn arity = do
+    let name = "idris2_static_closure_\{fn}_\{show arity}"
+    update ConstDef { staticDefs $= insert name "IDRIS2_STATIC_CLOSURE(\{name}, \{fn}, \{show arity});"
+                    , constUses $= insert name }
+    pure (MkStaticVal "((Idris2_Value *)&\{name})" [name] 0)
+
+||| The static value of a constructor with the tag `tag` and the fields
+||| `fields`.  Its name is made of its definition, like the names of the
+||| other constants (see `ConstTable`).
+staticConstructor : {auto _ : Ref ConstDef ConstTable} -> Int -> List StaticVal -> Core StaticVal
+staticConstructor tag fields = do
+    let depth = S (foldl max 0 (map depth fields))
+    let init = "\{show (length fields)}, \{show tag}, \{concat $ intersperse ", " (map expr fields)}"
+    tbl <- get ConstDef
+    let prefx = "idris2_static_con\{if depth < 10 then "0" else ""}\{show depth}_\{hashName init}"
+    let name = fresh tbl.staticDefs prefx init 0
+    let names = name :: concatMap names fields
+    put ConstDef ({ staticDefs $= insert name (text name init)
+                  , constUses $= (\u => foldl (flip insert) u names) } tbl)
+    pure (MkStaticVal "((Idris2_Value *)&\{name})" names depth)
+  where
+    text : String -> String -> String
+    text name init = "IDRIS2_STATIC_CONSTRUCTOR(\{name}, \{init});"
+
+    -- (two definitions with the same hash get different names)
+    fresh : SortedMap String String -> String -> String -> Nat -> String
+    fresh defs prefx init k
+        = let name = if k == 0 then prefx else prefx ++ "_" ++ show k in
+              case lookup name defs of
+                   Nothing => name
+                   Just t => if t == text name init then name else fresh defs prefx init (S k)
 
 ||| What a cell that a constructor may take over is chosen by: its number of
 ||| fields, and whether the constructor is told apart by its name (which takes
@@ -372,6 +425,11 @@ record Env where
   ||| `trmcFunction`): a value that it returns goes in the hole of the last
   ||| cell that it made, and the first cell is returned.
   trmc : Bool
+  ||| The variables whose values are static (see `StaticVal`).
+  statics : SortedMap Int StaticVal
+  ||| May a constructor be a static value?  Not the cell that tail recursion
+  ||| modulo cons makes with a hole, which is filled later.
+  staticOK : Bool
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -987,8 +1045,60 @@ mutual
         put EnvTracker valueEnv
         emit fc $ "Idris2_Value * var_\{show var} = \{!(cStatementsFromANF value NotInTailPosition)};"
         unless (contains (ALocal var) usedVars) $ emit fc $ "idris2_removeReference(var_\{show var});"
-        put EnvTracker ({ owned := owned', reuseMap $= (`differenceMap` usedCons) } env)
+        -- (what `cStatementsFromANF` made of the value just above)
+        sv <- staticOf valueEnv value
+        put EnvTracker ({ owned := owned', reuseMap $= (`differenceMap` usedCons)
+                        , statics $= maybe id (insert var) sv } env)
         cResult body r
+
+    ||| The static value of an expression, if it has one (see `StaticVal`).
+    staticOf : {auto a : Ref ArgCounter Nat}
+            -> {auto oft : Ref OutfileText Output}
+            -> {auto il : Ref IndentLevel Nat}
+            -> {auto e : Ref EnvTracker Env}
+            -> {auto _ : Ref ConstDef ConstTable}
+            -> Env -> ANF -> Core (Maybe StaticVal)
+    staticOf env (AUnderApp _ n (S missing) [])
+        = if env.staticOK then Just <$> staticClosure (cName n) (S missing)
+                          else pure Nothing
+    staticOf env anf@(ACon _ n ci tag args)
+        = if ci == NIL || ci == NOTHING || ci == ZERO || ci == UNIT
+             then pure $ Just (MkStaticVal "NULL" [] 0)
+             else case (args, conTag tag) of
+               ([], Just t) => pure $ if t < 256
+                  then Just (MkStaticVal "idris2_nullaryConstructor(\{show t})" [] 0)
+                  else Nothing
+               (_, Just t) =>
+                  if env.staticOK && length args <= 255
+                     && isNothing (SortedMap.lookup (reuseKey env n tag (length args)) env.reuseMap)
+                     then case the (Maybe (List StaticVal)) (traverse field args) of
+                            Just fields =>
+                              if all (\f => f.depth < 90) fields
+                                 then Just <$> staticConstructor t fields
+                                 else pure Nothing
+                            Nothing => pure Nothing
+                     else pure Nothing
+               _ => pure Nothing
+      where
+        field : AVar -> Maybe StaticVal
+        field (ALocal i) = lookup i env.statics
+        field ANull = Just (MkStaticVal "NULL" [] 0)
+    staticOf env anf@(APrimVal fc c) = case c of
+        Str _ => do
+          e <- cStatementsFromANF anf NotInTailPosition
+          tbl <- get ConstDef
+          pure $ map (\cdef => MkStaticVal e [constantName cdef] 0) (lookup c tbl.constByValue)
+        -- (these are made by macros, which give constant expressions)
+        Ch _ => small
+        B8 _ => small
+        B16 _ => small
+        I8 _ => small
+        I16 _ => small
+        _ => pure Nothing
+      where
+        small : Core (Maybe StaticVal)
+        small = pure $ Just (MkStaticVal !(cStatementsFromANF anf NotInTailPosition) [] 0)
+    staticOf _ _ = pure Nothing
 
     ||| A `let` of a variable that is a C integer (see Compiler.RefC.Unbox):
     ||| like `letGeneric`, but the variable is not a value that we own.
@@ -1107,7 +1217,10 @@ mutual
                  removeVars (map varName owned)
                  pure resultVar
 
-    cStatementsFromANF (AUnderApp fc n missing args) _ = makeClosure fc n args missing
+    cStatementsFromANF anf@(AUnderApp fc n missing args) _ = do
+        Just sv <- staticOf !(get EnvTracker) anf
+          | Nothing => makeClosure fc n args missing
+        pure sv.expr
     cStatementsFromANF (AApp fc _ closure arg) tailPosition = do
        env <- get EnvTracker
        case tailPosition of
@@ -1175,7 +1288,7 @@ mutual
         trmcSite : Env -> Nat -> FC -> Name -> List AVar -> Core String
         trmcSite env k fc1 f as = do
             let keep = intersection env.owned (fromList as)
-            put EnvTracker (moveFromOwnedToBorrowed env keep)
+            put EnvTracker ({ staticOK := False } (moveFromOwnedToBorrowed env keep))
             let (fc2, cell') = case body of
                     ACon fc2 n ci tag cargs =>
                       (fc2, ACon fc2 n ci tag (map (\a => if a == ALocal var then ANull else a) cargs))
@@ -1186,7 +1299,7 @@ mutual
             emit fc2 "*trmc_hole = \{c};"
             emit fc2 "trmc_hole = &((Idris2_Constructor *)\{c})->args[\{show k}];"
             env' <- get EnvTracker
-            put EnvTracker ({ owned := keep } env')
+            put EnvTracker ({ owned := keep, staticOK := env.staticOK } env')
             makeTailCall fc1 f as
 
     cStatementsFromANF (ALet fc var value body) tailPosition = do
@@ -1206,9 +1319,16 @@ mutual
                    else newConstructor
               _ => newConstructor
       where
+        allocConstructor : Env -> Core String
+
         newConstructor : Core String
         newConstructor = do
                 env <- get EnvTracker
+                Just sv <- staticOf env (ACon fc n coninfo tag args)
+                  | Nothing => allocConstructor env
+                pure "\{sv.expr} /* \{show n} */"
+
+        allocConstructor env = do
                 let createNewConstructor = case conTag tag of
                       Just t => " = idris2_newConstructor(\{show (length args)}, \{show t});"
                       Nothing => " = idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName n});"
@@ -1673,6 +1793,8 @@ record RefCOptions where
   optSizeReuse : Bool
   ||| `--directive refc-no-trmc` (see `trmcFunction`)
   optTrmc : Bool
+  ||| not `--directive refc-no-static` (see `StaticVal`)
+  optStatics : Bool
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
@@ -1680,6 +1802,7 @@ refcOptions = do
     ds <- getDirectives RefC
     pure $ MkRefCOptions ("refc-size-reuse" `elem` ds)
                          (not ("refc-no-trmc" `elem` ds))
+                         (not ("refc-no-static" `elem` ds))
 
 ||| The variables of the function `n` (C name `cn`) that are C integers (see
 ||| Compiler.RefC.Unbox).
@@ -1848,7 +1971,7 @@ createCFunctions opts n canonN (MkAFun args anf) = do
                               -- (many arguments are passed in an array)
                               (if nargs > MaxExtractFunArgs then 1 else nargs)
                               foreigns unboxed opts.optSizeReuse sigs borrowedVars
-                              !(get ValueFns) trmc)
+                              !(get ValueFns) trmc empty opts.optStatics)
     if trmc
        then do
          emit EmptyFC $ "*trmc_hole = \{!(cStatementsFromANF anf InTailPosition)};"
@@ -1966,7 +2089,8 @@ genConstant c cdef = case c of
 
 ||| The definitions of the constants, by name.
 constantTexts : ConstTable -> SortedMap String String
-constantTexts tbl = fromList $ map (\(c, cdef) => (constantName cdef, genConstant c cdef))
+constantTexts tbl = mergeLeft tbl.staticDefs $
+                    fromList $ map (\(c, cdef) => (constantName cdef, genConstant c cdef))
                                    (SortedMap.toList tbl.constByValue)
 
 ||| The beginning of every C file: the runtime and the headers of the foreign
