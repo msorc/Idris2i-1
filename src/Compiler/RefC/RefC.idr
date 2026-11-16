@@ -663,24 +663,34 @@ intOperand env v@(ALocal i)
          else "idris2_vp_to_Int64(\{varName v})"
 intOperand _ ANull = "0"
 
+||| Is the value of the variable static (see `StaticVal`)?  Such a variable
+||| is never owned, and no reference is taken where it is used: its value
+||| is immortal.
+isStaticIn : Env -> AVar -> Bool
+isStaticIn env (ALocal i) = isJust (lookup i env.statics)
+isStaticIn _ ANull = False
+
 avarToC : Env -> AVar -> String
 avarToC env ANull = "NULL"
 avarToC env var =
-    if isUnboxedIn env.unboxed var then boxInt var
+    if isStaticIn env var then varName var
+    else if isUnboxedIn env.unboxed var then boxInt var
     else if contains var env.owned then varName var
         -- case when the variable is borrowed
     else "idris2_newReference(" ++ varName var ++ ")"
 
-avarsToC : SortedSet Int -> Owned -> List AVar -> List String
+avarsToC : Env -> Owned -> List AVar -> List String
 avarsToC _ _ [] = []
-avarsToC u owned (ANull :: vars) = "NULL" :: avarsToC u owned vars
-avarsToC u owned (v::vars) =
+avarsToC env owned (ANull :: vars) = "NULL" :: avarsToC env owned vars
+avarsToC env owned (v::vars) =
   let v' = varName v in
-      if isUnboxedIn u v
-          then boxInt v :: avarsToC u owned vars
+      if isStaticIn env v
+          then v' :: avarsToC env owned vars
+      else if isUnboxedIn env.unboxed v
+          then boxInt v :: avarsToC env owned vars
       else if contains v owned
-          then v'::avarsToC u (delete v owned) vars
-          else "idris2_newReference(\{v'})"::avarsToC u owned vars -- when v is borrowed
+          then v'::avarsToC env (delete v owned) vars
+          else "idris2_newReference(\{v'})"::avarsToC env owned vars -- when v is borrowed
 
 moveFromOwnedToBorrowed : Env -> SortedSet AVar -> Env
 moveFromOwnedToBorrowed env vars = { owned $= (`difference` vars) } env
@@ -702,14 +712,15 @@ fillArgs env arglist (v :: vars) k = do
 ||| Compiler.RefC.Borrow): the arguments of the borrowed parameters are passed
 ||| as they are, the others as `avarsToC` passes them.  The variables passed
 ||| borrowed must be neither owned nor C integers (see `borrowedCall`).
-sigArgsToC : SortedSet Int -> Owned -> List (AVar, Bool) -> List String
+sigArgsToC : Env -> Owned -> List (AVar, Bool) -> List String
 sigArgsToC _ _ [] = []
-sigArgsToC u owned ((ANull, _) :: rest) = "NULL" :: sigArgsToC u owned rest
-sigArgsToC u owned ((v, True) :: rest) = varName v :: sigArgsToC u owned rest
-sigArgsToC u owned ((v, False) :: rest)
-    = if isUnboxedIn u v then boxInt v :: sigArgsToC u owned rest
-      else if contains v owned then varName v :: sigArgsToC u (delete v owned) rest
-      else "idris2_newReference(\{varName v})" :: sigArgsToC u owned rest
+sigArgsToC env owned ((ANull, _) :: rest) = "NULL" :: sigArgsToC env owned rest
+sigArgsToC env owned ((v, True) :: rest) = varName v :: sigArgsToC env owned rest
+sigArgsToC env owned ((v, False) :: rest)
+    = if isStaticIn env v then varName v :: sigArgsToC env owned rest
+      else if isUnboxedIn env.unboxed v then boxInt v :: sigArgsToC env owned rest
+      else if contains v owned then varName v :: sigArgsToC env (delete v owned) rest
+      else "idris2_newReference(\{varName v})" :: sigArgsToC env owned rest
 
 ||| Can the call be made in tail position, i.e. are no variables that we own
 ||| (or C integers, which are passed as new values) passed to borrowed
@@ -773,7 +784,9 @@ borrowedCall fc env fn pairs = do
                (as, bs) <- cArgs owned rest
                pure (varName v :: as, bs)
     cArgs owned ((v, False) :: rest)
-        = if isUnboxedIn env.unboxed v
+        = if isStaticIn env v
+             then mapFst (varName v ::) <$> cArgs owned rest
+          else if isUnboxedIn env.unboxed v
              then mapFst (boxInt v ::) <$> cArgs owned rest
              else if contains v owned
                 then mapFst (varName v ::) <$> cArgs (delete v owned) rest
@@ -835,7 +848,7 @@ makeTailCall fc n args = do
       pc <- pendingCallVar
       emit fc "\{pc}->f = (void *)\{cName n};"
       emit fc "\{pc}->arity = \{show $ length args};"
-      for_ (zip [0 .. length args] (sigArgsToC env.unboxed env.owned pairs)) $ \(k, a) =>
+      for_ (zip [0 .. length args] (sigArgsToC env env.owned pairs)) $ \(k, a) =>
         emit EmptyFC "\{pc}->args[\{show k}] = \{a};"
       pure "IDRIS2_TAILCALL"
 
@@ -848,7 +861,7 @@ makeTailCall fc n args = do
     otherCall env pairs =
       if length args <= env.selfArity || length args <= 8
          then do
-           let args' = sigArgsToC env.unboxed env.owned pairs
+           let args' = sigArgsToC env env.owned pairs
            -- (a callee that takes more arguments than the caller can still
            -- be jumped to when it takes all of them in registers, which
            -- depends on the platform: see IDRIS2_MUSTTAIL_REG_ARGS)
@@ -882,7 +895,7 @@ makeTailCall fc n args = do
       let bparams = fromList (map fst (filter snd (zip params borrowed)))
       let ints = filter (\(p, _) => contains p env.unboxed) pairs
       let values = filter (\(p, _) => not (contains p env.unboxed)) pairs
-      let vals = sigArgsToC env.unboxed env.owned
+      let vals = sigArgsToC env env.owned
                    (map (\(p, a) => (a, contains p bparams)) values)
       -- (a parameter that keeps its value is left alone)
       tmps <- traverse (\(p, v) => if v == "var_\{show p}"
@@ -1182,7 +1195,9 @@ mutual
           Nothing => do
             emit fc decl
             unless (contains (ALocal var) usedVars) $ emit fc $ "idris2_removeReference(var_\{show var});"
-        put EnvTracker ({ owned := owned', reuseMap $= (`differenceMap` usedCons)
+        -- (a static value is not owned, see `isStaticIn`)
+        put EnvTracker ({ owned := if isJust sv then borrowVal else owned'
+                        , reuseMap $= (`differenceMap` usedCons)
                         , statics $= maybe id (insert var) sv } env)
         cResult body r
 
@@ -1339,7 +1354,7 @@ mutual
                     case withSignature env n args of
                       (True, pairs) => borrowedCall fc env (cName n) pairs
                       _ => do
-                        let args' = avarsToC env.unboxed env.owned args
+                        let args' = avarsToC env env.owned args
                         pure $ trampolined env (cName n) nargs "\{cName n}(\{concat $ intersperse ", " args'})"
       where
         -- A full application of a foreign function calls the variant of
@@ -1485,7 +1500,7 @@ mutual
                         -- `fillArgs` would make them (a variable that is
                         -- used twice is taken over the first time).
                         let fields = zip3 [0 .. length args] args
-                                          (avarsToC env.unboxed env.owned args)
+                                          (avarsToC env env.owned args)
                         -- A field that gets the variable loaded from the
                         -- same field of the cell already holds it when the
                         -- cell is taken over: only the reference that the
