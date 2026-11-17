@@ -92,15 +92,20 @@ all:
 
 idris2-exec: ${TARGET}
 
+# With RefC, the generated C is optimised unless told otherwise (older
+# compilers, like the one of bootstrap-c, do not do it by default).  The
+# compiler is compiled in parts in parallel.  A plain make is quick: -O1, no
+# link time optimisation.  With LTO=1 it is -O2, and -flto=auto when the C
+# compiler has it: that gives back the inlining across the parts (the compiler
+# runs about 4% faster) but doubles the time of the C build.  An IDRIS2_CFLAGS
+# or CFLAGS from the user takes precedence.
+#
+# RefC builds a single binary: it is given the layout of the Scheme backends,
+# a launcher next to an idris2_app directory.  The compiler skips compiling an
+# executable that is up to date: then ${TARGET} is the launcher already (a
+# script), and the binary is where it was moved to.
 ${TARGET}: support src/IdrisPaths.idr
 ifeq ($(IDRIS2_CG), refc)
-	# Optimise the generated C unless told otherwise (older compilers, like the
-	# one of bootstrap-c, do not do it by default).  The compiler is compiled
-	# in parts in parallel.  A plain make is quick: -O1, no link time
-	# optimisation.  With LTO=1 it is -O2, and -flto=auto when the C compiler
-	# has it: that gives back the inlining across the parts (the compiler runs
-	# about 4% faster) but doubles the time of the C build.  An IDRIS2_CFLAGS
-	# or CFLAGS from the user takes precedence.
 	DEFAULT_CFLAGS=-O1; \
 	if [ "${LTO}" = 1 ]; then \
 		DEFAULT_CFLAGS=-O2; \
@@ -111,10 +116,6 @@ else
 	${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 endif
 ifeq ($(IDRIS2_CG), refc)
-	# RefC builds a single binary: give it the layout of the Scheme backends,
-	# a launcher next to an idris2_app directory.  The compiler skips
-	# compiling an executable that is up to date: then ${TARGET} is the
-	# launcher already (a script), and the binary is where it was moved to.
 	mkdir -p ${TARGETDIR}/${NAME}_app
 	if [ "$$(head -c 2 ${TARGET})" != '#!' ]; then \
 		mv -f ${TARGET} ${TARGETDIR}/${NAME}_app/${NAME}; \
