@@ -118,15 +118,16 @@ mkBuildMods mod
 -- Given a main file name, return the list of modules that need to be
 -- built for that main file, in the order they need to be built
 -- Return an empty list if it turns out it's in the 'done' list
-export
-getBuildMods : {auto c : Ref Ctxt Defs} ->
-               {auto o : Ref ROpts REPLOpts} ->
-               FC -> (done : List BuildMod) ->
-               (mainFile : String) ->
-               Core (List BuildMod)
-getBuildMods loc done fname
-    = do a <- newRef AllMods []
-         fname_ns <- ctxtPathToNS fname
+-- (The module trees in AllMods are those already read, from the headers of
+-- the source files.)
+getBuildModsWith : {auto c : Ref Ctxt Defs} ->
+                   {auto o : Ref ROpts REPLOpts} ->
+                   Ref AllMods (List (ModuleIdent, ModTree)) ->
+                   FC -> (done : List BuildMod) ->
+                   (mainFile : String) ->
+                   Core (List BuildMod)
+getBuildModsWith a loc done fname
+    = do fname_ns <- ctxtPathToNS fname
          if fname_ns `elem` map buildNS done
             then pure []
             else
@@ -135,6 +136,16 @@ getBuildMods loc done fname
                  o <- newRef BuildOrder []
                  mkBuildMods {d=dm} {o} t
                  pure (reverse !(get BuildOrder))
+
+export
+getBuildMods : {auto c : Ref Ctxt Defs} ->
+               {auto o : Ref ROpts REPLOpts} ->
+               FC -> (done : List BuildMod) ->
+               (mainFile : String) ->
+               Core (List BuildMod)
+getBuildMods loc done fname
+    = do a <- newRef AllMods []
+         getBuildModsWith a loc done fname
 
 checkTotalReq : {auto c : Ref Ctxt Defs} ->
                 String -> String -> TotalReq -> Core Bool
@@ -316,21 +327,35 @@ buildDeps fname
                        pure []
               errs => pure errs -- Error happened, give up
 
+-- The modules of all the files, which share their imports: the header of
+-- each source file is read once (a package lists most of its modules, and
+-- each of them imports many others).
 getAllBuildMods : {auto c : Ref Ctxt Defs} ->
                   {auto o : Ref ROpts REPLOpts} ->
                   FC -> (done : List BuildMod) ->
                   (allFiles : List String) ->
                   Core (List BuildMod)
-getAllBuildMods fc done [] = pure done
-getAllBuildMods fc done (f :: fs)
-    = do ms <- getBuildMods fc done f
-         getAllBuildMods fc (ms ++ done) fs
+getAllBuildMods fc done allFiles
+    = do a <- newRef AllMods []
+         go a done allFiles
+  where
+    go : Ref AllMods (List (ModuleIdent, ModTree)) ->
+         List BuildMod -> List String -> Core (List BuildMod)
+    go a done [] = pure done
+    go a done (f :: fs)
+        = do ms <- getBuildModsWith a fc done f
+             go a (ms ++ done) fs
 
 -- There'll be duplicates, so if something is already built, drop it
 dropLater : List BuildMod -> List BuildMod
-dropLater [] = []
-dropLater (b :: bs)
-    = b :: dropLater (filter (\x => buildFile x /= buildFile b) bs)
+dropLater = go empty
+  where
+    go : StringMap () -> List BuildMod -> List BuildMod
+    go seen [] = []
+    go seen (b :: bs)
+        = case StringMap.lookup (buildFile b) seen of
+               Just _ => go seen bs
+               Nothing => b :: go (StringMap.insert (buildFile b) () seen) bs
 
 export
 buildAll : {auto c : Ref Ctxt Defs} ->
