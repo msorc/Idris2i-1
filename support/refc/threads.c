@@ -966,26 +966,32 @@ static void expire_timers(void) {
   if (deadline > now) {
     return;
   }
+  // The threads are claimed while timer_lock is held, that is while they are
+  // still in the wait that set the deadline.  A thread that an event claims
+  // first is left alone: once it is off the timer list, it may be woken up,
+  // run, and wait again (with a new deadline, and `claimed` reset) at any
+  // time, so it must not be touched after timer_lock is released.
   Idris2_Thread *expired = NULL;
   idris2_spinLock(&timer_lock);
   while (timers && timers->deadline_ns <= now) {
     Idris2_Thread *thread = timers;
     timer_remove(thread);
-    thread->timer_next = expired;
-    expired = thread;
+    int zero = 0;
+    if (__atomic_compare_exchange_n(&thread->claimed, &zero, 1, 0,
+                                    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+      thread->timer_next = expired;
+      expired = thread;
+    }
   }
   idris2_spinUnlock(&timer_lock);
+  // Only this worker may wake up the threads that it claimed.
   while (expired) {
     Idris2_Thread *thread = expired;
     expired = thread->timer_next;
     thread->timer_next = NULL;
-    int zero = 0;
-    if (__atomic_compare_exchange_n(&thread->claimed, &zero, 1, 0,
-                                    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
-      // It leaves its wait queue itself (see block_current).
-      thread->timed_out = 1;
-      make_runnable(thread);
-    }
+    // It leaves its wait queue itself (see block_current).
+    thread->timed_out = 1;
+    make_runnable(thread);
   }
 }
 #endif
