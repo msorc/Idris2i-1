@@ -10,17 +10,36 @@ import Core.Value
 
 %default covering
 
--- Expand all the pi bindings at the start of a term, but otherwise don't
--- reduce
+-- Expand all the pi bindings at the start of a term. The types of the
+-- binders which are already there are left as they are: the only user, the
+-- instantiation of a metavariable, erases them. Normalising them took time
+-- cubic in the number of variables in scope (the type of a metavariable
+-- has a binder for each, whose type may apply other metavariables to all
+-- the variables before it).
 export
 normalisePis : {auto c : Ref Ctxt Defs} ->
                {vars : Scope} ->
                Defs -> Env Term vars -> Term vars -> Core (Term vars)
 normalisePis defs env tm
-    = do tmnf <- nf defs env tm
-         case tmnf of
-              NBind _ _ (Pi {}) _ => quoteWithPi defs env tmnf
-              _ => pure tm
+    = if plainPi tm
+         then spine env tm
+         else do tmnf <- nf defs env tm
+                 case tmnf of
+                      NBind _ _ (Pi {}) _ => quoteWithPi defs env tmnf
+                      _ => pure tm
+  where
+    -- A pi binder whose PiInfo has no term in it to normalise
+    plainPi : forall vs . Term vs -> Bool
+    plainPi (Bind _ _ (Pi _ _ (DefImplicit _) _) _) = False
+    plainPi (Bind _ _ (Pi {}) _) = True
+    plainPi _ = False
+
+    spine : {vs : Scope} -> Env Term vs -> Term vs -> Core (Term vs)
+    spine env tm@(Bind fc x b sc)
+        = if plainPi tm
+             then Bind fc x b <$> spine (b :: env) sc
+             else quoteWithPi defs env !(nf defs env tm)
+    spine env tm = quoteWithPi defs env !(nf defs env tm)
 
 export
 glueBack : {auto c : Ref Ctxt Defs} ->

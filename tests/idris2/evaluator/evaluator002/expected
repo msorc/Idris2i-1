@@ -81,9 +81,7 @@ LOG eval.stuck.outofscope:5: Stuck function: Main.{a:8}
 LOG eval.stuck.outofscope:5: Stuck function: Main.{a:8}
 LOG eval.stuck.outofscope:5: Stuck function: Main.{a:8}
 LOG eval.stuck.outofscope:5: Stuck function: Main.{ty:1}
-LOG eval.stuck.outofscope:5: Stuck function: Main.{a:8}
 LOG eval.stuck.outofscope:5: Stuck function: Main.{ty:1}
-LOG eval.stuck.outofscope:5: Stuck function: Main.{a:8}
 LOG eval.stuck.outofscope:5: Stuck function: Lib.accMap
 Main> LOG eval.stuck:5: Stuck function: Lib.accMapAux
 LOG eval.stuck:5: Stuck function: Lib.accMapAux

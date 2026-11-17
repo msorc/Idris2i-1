@@ -635,27 +635,31 @@ mutual
                                                  show (atTop mode)) env x y
                         else convertError loc env x y
 
-  getArgTypes : {vars : _} ->
-                {auto c : Ref Ctxt Defs} ->
-                Defs -> (fnType : NF vars) -> List (Closure vars) ->
-                Core (Maybe (List (NF vars)))
-  getArgTypes defs (NBind _ n (Pi _ _ _ ty) sc) (a :: as)
-     = do Just scTys <- getArgTypes defs !(sc defs a) as
-               | Nothing => pure Nothing
-          pure (Just (!(evalClosure defs ty) :: scTys))
-  getArgTypes _ _ [] = pure (Just [])
-  getArgTypes _ _ _ = pure Nothing
+  -- The type of the last argument, if there are any arguments, or Nothing
+  -- if the function type does not take as many arguments. Only the last
+  -- type is evaluated: evaluating all of them took time cubic in the number
+  -- of arguments for a metavariable applied to the variables in scope.
+  getLastArgType : {vars : _} ->
+                   {auto c : Ref Ctxt Defs} ->
+                   Defs -> (fnType : NF vars) -> List (Closure vars) ->
+                   Core (Maybe (Maybe (NF vars)))
+  getLastArgType defs (NBind _ n (Pi _ _ _ ty) sc) [a]
+     = pure (Just (Just !(evalClosure defs ty)))
+  getLastArgType defs (NBind _ n (Pi _ _ _ ty) sc) (a :: as)
+     = getLastArgType defs !(sc defs a) as
+  getLastArgType _ _ [] = pure (Just Nothing)
+  getLastArgType _ _ _ = pure Nothing
 
   headsConvert : {vars : _} ->
                  {auto c : Ref Ctxt Defs} ->
                  {auto u : Ref UST UState} ->
                  UnifyInfo ->
                  FC -> Env Term vars ->
-                 Maybe (List (NF vars)) -> Maybe (List (NF vars)) ->
+                 Maybe (Maybe (NF vars)) -> Maybe (Maybe (NF vars)) ->
                  Core Bool
   headsConvert mode fc env (Just vs) (Just ns)
-      = case (reverse vs, reverse ns) of
-             (v :: _, n :: _) =>
+      = case (vs, ns) of
+             (Just v, Just n) =>
                 do logNF "unify.head" 10 "Unifying head" env v
                    logNF "unify.head" 10 ".........with" env n
                    res <- unify mode fc env v n
@@ -685,9 +689,9 @@ mutual
            -- argument types match up
            Just vty <- lookupTyExact (Resolved mref) (gamma defs)
                 | Nothing => ufail fc ("No such metavariable " ++ show mname)
-           vargTys <- getArgTypes defs !(nf defs env (embed vty)) (margs ++ margs')
+           vargTys <- getLastArgType defs !(nf defs env (embed vty)) (margs ++ margs')
            nargTys <- maybe (pure Nothing)
-                            (\ty => getArgTypes defs !(nf defs env (embed ty)) $ map snd args')
+                            (\ty => getLastArgType defs !(nf defs env (embed ty)) $ map snd args')
                             nty
            -- If the rightmost arguments have the same type, or we don't
            -- know the types of the arguments, we'll get on with it.

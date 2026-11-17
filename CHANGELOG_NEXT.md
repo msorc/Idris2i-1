@@ -259,6 +259,14 @@ should target this file (`CHANGELOG_NEXT`).
   nested parenthesised terms took 2 seconds to parse, and each level more
   twice as long.  A binder is now only tried when there is a `:` or a `<-`
   directly inside the parentheses.
+* Elaborating deeply nested binders is faster: 400 nested `let`s took 13
+  seconds to check and now take 0.7, and a `do` block of 400 binds 44
+  seconds instead of 8 (it is still about cubic: each search for an
+  implementation tries every variable in scope).  The metadata for the IDE
+  substituted the variables in scope one at a time, solving a metavariable
+  normalised the types of all the variables in scope, and unifying an
+  application of a metavariable evaluated the types of all its arguments
+  instead of only the last one.
 
 ### Building/Packaging changes
 

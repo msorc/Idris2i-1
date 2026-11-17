@@ -7,6 +7,7 @@ import Core.Normalise
 import Core.TTC
 
 import System.File
+import Libraries.Data.List.SizeOf
 import Libraries.Data.NatSet
 import Libraries.Data.PosMap
 
@@ -212,11 +213,18 @@ addLHS loc outerenvlen env tm
 -- along with its source span?
 -- In any case, one could always look at the other names to get their
 -- types directly!
+-- Substitute all the variables at once: one at a time, it took time
+-- quadratic in the size of the environment, and this happens at every
+-- variable and let binding, so elaborating deeply nested binders was cubic.
 substEnv : {vars : _} ->
            FC -> Env Term vars -> (tm : Term vars) -> ClosedTerm
-substEnv loc [] tm = tm
-substEnv {vars = x :: _} loc (b :: env) tm
-    = substEnv loc env (subst (Ref loc Bound x) tm)
+substEnv loc env tm
+    = substs (mkSizeOf vars) (refs vars)
+             (rewrite appendNilRightNeutral vars in tm)
+  where
+    refs : (vs : Scope) -> SubstEnv vs Scope.empty
+    refs [] = []
+    refs (v :: vs) = Ref loc Bound v :: refs vs
 
 export
 addNameType : {vars : _} ->
