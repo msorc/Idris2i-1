@@ -11,6 +11,7 @@ import Data.List
 import Data.Maybe
 import Data.String
 
+import Libraries.Text.DisplayWidth
 import Libraries.Text.Lexer.Tokenizer
 import Parser.Lexer.Source
 
@@ -150,8 +151,10 @@ export
 contents : Editor -> List Char
 contents e = reverse e.before ++ e.after
 
+-- (with the combining marks, so that the word-wise commands don't stop
+-- between a letter and its accent)
 isWordChar : Char -> Bool
-isWordChar c = isAlphaNum c || c == '_' || c == '\''
+isWordChar c = isAlphaNum c || c == '_' || c == '\'' || isZeroWidth c
 
 ||| What the word-wise commands skip over: separators, then a word
 wordSpan : List Char -> (List Char, List Char)
@@ -163,25 +166,43 @@ wordSpan cs =
 insertChar : Char -> Editor -> Editor
 insertChar c = { before $= (c ::) }
 
+-- The cursor moves, and Backspace and Delete delete, by what takes up a place
+-- on the screen: a character with the zero width ones after it (combining
+-- marks, variation selectors, joiners), so that the cursor is never between
+-- a letter and its accent, where it would be shown in the wrong place.
+-- (These are not the grapheme clusters of Unicode: emoji joined by U+200D,
+-- for instance, are still several places.)  Transposing and the word-wise
+-- commands work on code points.
+
+||| The place before the cursor, nearest character first, and what is before
+||| it (`before` is nearest first)
+placeBefore : List Char -> (List Char, List Char)
+placeBefore cs =
+  let (marks, rest) = span isZeroWidth cs
+  in case rest of
+       (base :: rest') => (marks ++ [base], rest')
+       [] => (marks, [])
+
+||| The place after the cursor, and what is after it
+placeAfter : List Char -> (List Char, List Char)
+placeAfter [] = ([], [])
+placeAfter (c :: cs) = let (marks, rest) = span isZeroWidth cs in (c :: marks, rest)
+
 backspace : Editor -> Editor
-backspace e = case e.before of
-  [] => e
-  (_ :: bs) => { before := bs } e
+backspace e = { before := snd (placeBefore e.before) } e
 
 deleteChar : Editor -> Editor
-deleteChar e = case e.after of
-  [] => e
-  (_ :: as) => { after := as } e
+deleteChar e = { after := snd (placeAfter e.after) } e
 
 moveLeft : Editor -> Editor
-moveLeft e = case e.before of
-  [] => e
-  (c :: bs) => { before := bs, after $= (c ::) } e
+moveLeft e =
+  let (place, rest) = placeBefore e.before
+  in { before := rest, after := reverse place ++ e.after } e
 
 moveRight : Editor -> Editor
-moveRight e = case e.after of
-  [] => e
-  (c :: as) => { before $= (c ::), after := as } e
+moveRight e =
+  let (place, rest) = placeAfter e.after
+  in { before := reverse place ++ e.before, after := rest } e
 
 wordLeft : Editor -> Editor
 wordLeft e =
@@ -413,34 +434,63 @@ escRight : Nat -> String
 escRight Z = ""
 escRight n = "\ESC[" ++ show n ++ "C"
 
+||| The characters of a text that are shown, without its escape sequences
+||| (CSI sequences, such as colours, and two character ones)
+export
+shownChars : List Char -> List Char
+shownChars ('\ESC' :: '[' :: cs) =
+  shownChars (assert_smaller cs (drop 1 (dropWhile (\c => c < '@' || c > '~') cs)))
+shownChars ('\ESC' :: _ :: cs) = shownChars cs
+shownChars ['\ESC'] = []
+shownChars (c :: cs) = c :: shownChars cs
+shownChars [] = []
+
+||| Where the terminal goes on after it has shown a character: the row, and
+||| the column after the character, which is `cols` when it ends at the right
+||| edge, as the terminal goes to the next row only when more is shown.  A
+||| wide character that doesn't fit in the rest of a row is shown on the next
+||| one.
+advance : (cols : Int) -> (Int, Int) -> Char -> (Int, Int)
+advance cols (row, col) c =
+  let w = cast (charWidth c)
+  in if w > 0 && col + w > cols then (row + 1, w) else (row, col + w)
+
 ||| The escapes that redraw the prompt and the line, which may be longer than
-||| the terminal is wide, and put the cursor in its place.
+||| the terminal is wide, and put the cursor in its place.  The positions are
+||| in columns of the terminal (see `Libraries.Text.DisplayWidth`), so wide
+||| characters take up two and combining marks none.
 |||
-||| @ prompt   the prompt, without escapes
+||| @ prompt   the prompt (it may have escapes, such as colours)
 ||| @ text     the line, as it is shown (with escapes)
-||| @ len      how many characters the line has
-||| @ cursor   the cursor position in the line
+||| @ line     the characters of the line
+||| @ cursor   how many characters of the line are before the cursor
 ||| @ termCols the width of the terminal (0 if unknown)
 ||| @ oldRow   the row of the cursor now, counted from the prompt
 ||| Returns the escapes and the new row of the cursor.
 export
-frame : (prompt : String) -> (text : String) -> (len, cursor, cols, oldRow : Nat) ->
-        (String, Nat)
-frame prompt text len cursor termCols oldRow =
+frame : (prompt : String) -> (text : String) -> (line : List Char) ->
+        (cursor, termCols, oldRow : Nat) -> (String, Nat)
+frame prompt text line cursor termCols oldRow =
   let cols : Int = if termCols < 2 then 80 else cast termCols
-      size : Int = cast (length prompt + len)
+      (left, right) = splitAt cursor line
+      start = foldl (advance cols) (0, 0) (shownChars (unpack prompt))
+      here = foldl (advance cols) start left
+      (endRow, endCol) = foldl (advance cols) here right
       -- the cursor is at the end of the output, which is on this row; text that
       -- ends at the right edge needs a line break to get the cursor off it
-      wrap = size > 0 && size `mod` cols == 0
-      endRow = size `div` cols
-      pos : Int = cast (length prompt + cursor)
-      row = pos `div` cols
-      col = pos `mod` cols
+      wrap = endCol >= cols
+      shownEnd = if wrap then endRow + 1 else endRow
+      -- the cursor is on the character after it (a wide one may not fit in
+      -- this row), or after the end of the line
+      next : Int = case right of
+                     (c :: _) => max 1 (cast (charWidth c))
+                     [] => 1
+      (row, col) = if snd here + next > cols then (fst here + 1, 0) else here
       toNat : Int -> Nat
       toNat = integerToNat . cast
   in ( escUp oldRow ++ "\r\ESC[J" ++ prompt ++ text
        ++ (if wrap then "\r\n" else "")
-       ++ escUp (toNat (endRow - row)) ++ "\r" ++ escRight (toNat col)
+       ++ escUp (toNat (shownEnd - row)) ++ "\r" ++ escRight (toNat col)
      , toNat row)
 
 --------------------------------------------------------------------------------
@@ -506,11 +556,11 @@ export
 columns : (width : Nat) -> List String -> String
 columns width candidates =
   let shown = take maxListed candidates
-      cell = foldl (\m, c => max m (length c)) 0 shown + 2
+      cell = foldl (\m, c => max m (stringWidth c)) 0 shown + 2
       perRow = max 1 (integerToNat (cast (cast {to = Int} (if width < 2 then 80 else width)
                                            `div` cast {to = Int} cell)))
       pad : String -> String
-      pad c = c ++ pack (replicate (cell `minus` length c) ' ')
+      pad c = c ++ pack (replicate (cell `minus` stringWidth c) ' ')
       row : List String -> String
       row cs = case reverse cs of
                  [] => ""
@@ -559,7 +609,7 @@ draw prompt colour e row = do
   cols <- getTermCols
   let line = contents e
       text = if colour then highlight line else pack line
-      (out, row') = frame prompt text (length line) (length e.before)
+      (out, row') = frame prompt text line (length e.before)
                           (integerToNat (cast cols)) row
   putStr out
   fflush stdout
@@ -608,7 +658,7 @@ loop s@(MkSession prompt colour e row) = do
 ||| Read a line at the prompt, with the user editing it, until they submit it
 ||| (or ask for a completion).
 |||
-||| @ prompt  the prompt, without escapes
+||| @ prompt  the prompt (it may have escapes, such as colours)
 ||| @ colour  whether to highlight the line as it is typed
 ||| @ history the previous lines, the most recent one first
 export covering

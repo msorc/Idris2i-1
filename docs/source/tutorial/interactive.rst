@@ -59,6 +59,13 @@ The line editor is not used when the input or the output is not a terminal,
 when the environment variable ``TERM`` is unset or ``dumb``, and not on
 Windows.
 
+The editor counts the columns that characters take up on the terminal as
+``wcwidth`` does: two for CJK characters and most emoji, none for combining
+marks. A character and the combining marks after it are one character for
+the cursor keys, ``Backspace`` and ``Delete`` (but not for ``Ctrl-T``).
+Sequences that terminals show in one way or another, such as emoji joined
+by U+200D, may make the cursor look misplaced.
+
 The REPL provides a number of commands, which we will describe
 shortly, which generate new program fragments based on the currently
 loaded module. These take the general form:

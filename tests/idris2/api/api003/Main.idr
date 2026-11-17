@@ -7,6 +7,7 @@ import Data.List
 import Data.String
 
 import Idris.REPL.LineEditor
+import Libraries.Text.DisplayWidth
 
 keys : String -> List Key
 keys = map KChar . unpack
@@ -48,10 +49,18 @@ hl : String -> IO ()
 hl s = putStrLn (visible (highlight (unpack s)))
 
 -- prompt, text, cursor, width of the terminal, cursor row now
-draw : String -> Nat -> Nat -> Nat -> IO ()
-draw text cursor cols row = do
-  let (out, row') = frame "Main> " text (length text) cursor cols row
+drawWith : String -> String -> Nat -> Nat -> Nat -> IO ()
+drawWith prompt text cursor cols row = do
+  let (out, row') = frame prompt text (unpack text) cursor cols row
   putStrLn (show (visible out) ++ " row " ++ show row')
+
+draw : String -> Nat -> Nat -> Nat -> IO ()
+draw = drawWith "Main> "
+
+-- the code points, their widths, and the width of the string
+widths : String -> IO ()
+widths s = putStrLn $ show (map ord (unpack s)) ++ " "
+  ++ show (map charWidth (unpack s)) ++ " " ++ show (stringWidth s)
 
 main : IO ()
 main = do
@@ -88,6 +97,14 @@ main = do
   test "decode ctrl-d" new (map decodeKey [4])
   test "decode unknown" new (keys "ab" ++ map decodeKey [0x20000a, 9, 0x300099])
   test "decode non-ASCII" new (map decodeKey [0x3bb, 0x1f600])
+  -- a letter and its combining accents take up one place
+  test "left over an accent" new (keys "cafe\x301" ++ [KLeft, KChar '|'])
+  test "right over accents" new (keys ("ae\x301\x323" ++ "b") ++ [KHome, KRight, KRight, KChar '|'])
+  test "backspace an accent" new (keys "cafe\x301" ++ [KBackspace])
+  test "delete an accent" new (keys "e\x301x" ++ [KHome, KDelete])
+  test "accent at the start" new (keys "\x301x" ++ [KHome, KRight, KChar '|'])
+  test "wide characters" new (keys "日本語" ++ [KLeft, KBackspace])
+  test "word left over an accent" new (keys "x cafe\x301" ++ [KWordLeft])
   -- completion
   test "tab" new (keys "ab" ++ [KTab])
   complete "ma" (Just ("", ["map", "mapM", "maybe"]))
@@ -131,3 +148,34 @@ main = do
   draw "abcd" 2 10 1
   draw "" 0 6 0
   draw "abc" 3 0 0
+  -- wide characters take up two columns, combining marks none
+  draw "日本" 2 80 0
+  draw "日本" 1 80 0
+  draw "e\x301x" 1 80 0
+  draw "e\x301x" 2 80 0
+  draw "😀!" 1 80 0
+  -- a wide character that doesn't fit at the end of a row goes on the next
+  draw "abc日" 4 10 0
+  draw "abc日" 3 10 0
+  draw "ab日" 3 10 0
+  draw "ab日x" 3 10 0
+  draw "日本語日本語" 6 12 0
+  draw "日本語日本語" 3 12 0
+  -- a prompt with colours, or with wide characters
+  drawWith "\ESC[1;36mMain>\ESC[0m " "abc" 1 80 0
+  drawWith "日本> " "abc" 3 10 0
+  drawWith "Main> " "abcd" 2 10 0
+  -- widths
+  widths "aZ~ λé"
+  widths "e\x301\x200b\xfe0f\xad"
+  widths "日本語ｱｲ가힣"
+  widths "\x1100\x1161\x11a8"
+  widths "😀🎉❤"
+  widths "\x20000\x3fffd\x2fffe"
+  widths "\ESC\x7f\x85"
+  -- completion lists line up wide candidates
+  putStr (columns 20 ["日本語", "ab", "café"])
+  putStr (columns 20 ["e\x301" ++ "e\x301", "x"])
+  -- long lines are highlighted in time linear in their length
+  let long = fastConcat (replicate 4000 "x + 1 ")
+  printLn (length (highlight (unpack long)))

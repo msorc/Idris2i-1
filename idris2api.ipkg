@@ -224,6 +224,7 @@ modules =
     Libraries.System.Directory.Tree,
 
     Libraries.Text.Bounded,
+    Libraries.Text.DisplayWidth,
     Libraries.Text.Distance.Levenshtein,
     Libraries.Text.Lexer,
     Libraries.Text.Lexer.Core,

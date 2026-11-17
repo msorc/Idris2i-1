@@ -177,6 +177,10 @@ should target this file (`CHANGELOG_NEXT`).
   `Tab` completes the names of commands, pragmas and names in scope (also in
   the arguments of commands such as `:t`), listing the candidates when the
   word can't be completed further.
+  The editor places the cursor by the columns that characters take up on the
+  terminal (two for CJK characters and most emoji, none for combining
+  marks), also when the line wraps, and the cursor keys, `Backspace` and
+  `Delete` go over a character together with the combining marks after it.
 
 ### Building/Packaging changes
 

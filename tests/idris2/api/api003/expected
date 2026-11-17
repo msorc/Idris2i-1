@@ -29,6 +29,13 @@ decode ctrl-a: |ab
 decode ctrl-d: end of input
 decode unknown: completion
 decode non-ASCII: λ😀|
+left over an accent: caf||é
+right over accents: aẹ́||b
+backspace an accent: caf|
+delete an accent: |x
+accent at the start: ́||x
+wide characters: 日|語
+word left over an accent: x |café
 tab: completion
 ma => list ["map", "mapM", "maybe"] ma|
 ma => replace maybe |
@@ -78,3 +85,28 @@ Data.List.length xs
 "<E>[1A\r<E>[JMain> abcd\r\n<E>[1A\r<E>[8C" row 0
 "\r<E>[JMain> \r\n\r" row 1
 "\r<E>[JMain> abc\r<E>[9C" row 0
+"\r<E>[JMain> \26085\26412\r<E>[10C" row 0
+"\r<E>[JMain> \26085\26412\r<E>[8C" row 0
+"\r<E>[JMain> e\769x\r<E>[7C" row 0
+"\r<E>[JMain> e\769x\r<E>[7C" row 0
+"\r<E>[JMain> \128512!\r<E>[8C" row 0
+"\r<E>[JMain> abc\26085\r<E>[2C" row 1
+"\r<E>[JMain> abc\26085\r" row 1
+"\r<E>[JMain> ab\26085\r\n\r" row 1
+"\r<E>[JMain> ab\26085x\r" row 1
+"\r<E>[JMain> \26085\26412\35486\26085\26412\35486\r<E>[6C" row 1
+"\r<E>[JMain> \26085\26412\35486\26085\26412\35486\r" row 1
+"\r<E>[J<E>[1;36mMain><E>[0m abc\r<E>[7C" row 0
+"\r<E>[J\26085\26412> abc\r<E>[9C" row 0
+"\r<E>[JMain> abcd\r\n<E>[1A\r<E>[8C" row 0
+[97, 90, 126, 32, 955, 233] [1, 1, 1, 1, 1, 1] 6
+[101, 769, 8203, 65039, 173] [1, 0, 0, 0, 1] 2
+[26085, 26412, 35486, 65393, 65394, 44032, 55203] [2, 2, 2, 1, 1, 2, 2] 12
+[4352, 4449, 4520] [2, 0, 0] 2
+[128512, 127881, 10084] [2, 2, 1] 5
+[131072, 262141, 196606] [2, 2, 1] 5
+[27, 127, 133] [0, 0, 0] 0
+日本語  ab
+café
+éé  x
+68000
