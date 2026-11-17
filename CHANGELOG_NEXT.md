@@ -282,6 +282,9 @@ should target this file (`CHANGELOG_NEXT`).
   backend.  `bootstrap/update-c-bootstrap.sh` regenerates that file.
   The generated C is compiled in parallel (see below), so that compiling it
   takes seconds instead of minutes.
+* `make bootstrap-c` stops with an error when `xz` is missing or cannot
+  decompress `bootstrap/idris2_app/idris2.c.xz`.  It used to go on with an
+  empty or truncated C file, and fail later with an unrelated error.
 
 ### Backend changes
 

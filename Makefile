@@ -376,12 +376,24 @@ bootstrap-racket: support
 bootstrap-c: support
 	mkdir -p bootstrap-build/idris2_app
 	cp ${IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} bootstrap-build/idris2_app/
-	if [ -f bootstrap/idris2_app/idris2.c.xz ] ; then \
-		xz -dc bootstrap/idris2_app/idris2.c.xz ; \
-	else \
-		cat bootstrap/idris2_app/idris2.c ; \
-	fi | sed 's|__PREFIX__|${IDRIS2_BOOT_PREFIX}|g' \
-		> bootstrap-build/idris2_app/idris2-boot.c
+	@src=bootstrap/idris2_app/idris2.c; out=bootstrap-build/idris2_app/idris2-boot.c; \
+	$(RM) $$out $$out.tmp $$out.xz-tmp; \
+	if [ -f $$src.xz ]; then \
+		if ! command -v xz >/dev/null 2>&1; then \
+			echo "ERROR: xz is needed to decompress $$src.xz: install it (the package is usually xz or xz-utils)"; \
+			exit 1; \
+		fi; \
+		echo "xz -dc $$src.xz > $$out.xz-tmp"; \
+		if ! xz -dc $$src.xz > $$out.xz-tmp; then \
+			$(RM) $$out.xz-tmp; \
+			echo "ERROR: could not decompress $$src.xz"; \
+			exit 1; \
+		fi; \
+		src=$$out.xz-tmp; \
+	fi; \
+	echo "sed 's|__PREFIX__|${IDRIS2_BOOT_PREFIX}|g' $$src > $$out"; \
+	sed 's|__PREFIX__|${IDRIS2_BOOT_PREFIX}|g' $$src > $$out.tmp && mv -f $$out.tmp $$out; \
+	status=$$?; $(RM) $$out.tmp $$out.xz-tmp; exit $$status
 	CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" \
 		$(SHELL) ./bootstrap-stage1-refc.sh
 	IDRIS2_CG="refc" $(SHELL) ./bootstrap-stage2.sh
