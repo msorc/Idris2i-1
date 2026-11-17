@@ -18,6 +18,7 @@ record EvalOpts where
   removeAs : Bool -- reduce 'as' patterns (don't do this on LHS)
   evalAll : Bool -- evaluate everything, including private names
   tcInline : Bool -- inline for totality checking
+  keepLets : Bool -- keep let bindings instead of substituting their values
   fuel : Maybe Nat -- Limit for recursion depth
   reduceLimit : List (Name, Nat) -- reduction limits for given names. If not
                      -- present, no limit
@@ -31,6 +32,7 @@ defaultOpts = MkEvalOpts
     , removeAs = True
     , evalAll = False
     , tcInline = False
+    , keepLets = False
     , fuel = Nothing
     , reduceLimit = []
     , strategy = CBN
@@ -44,6 +46,7 @@ withHoles = MkEvalOpts
     , removeAs = False
     , evalAll = False
     , tcInline = False
+    , keepLets = False
     , fuel = Nothing
     , reduceLimit = []
     , strategy = CBN
@@ -57,6 +60,7 @@ withAll = MkEvalOpts
     , removeAs = True
     , evalAll = True
     , tcInline = False
+    , keepLets = False
     , fuel = Nothing
     , reduceLimit = []
     , strategy = CBN
@@ -70,6 +74,7 @@ withArgHoles = MkEvalOpts
     , removeAs = False
     , evalAll = False
     , tcInline = False
+    , keepLets = False
     , fuel = Nothing
     , reduceLimit = []
     , strategy = CBN
@@ -78,6 +83,14 @@ withArgHoles = MkEvalOpts
 export
 tcOnly : EvalOpts
 tcOnly = { tcInline := True } withArgHoles
+
+||| Like `tcOnly`, but keep the let bindings: substituting a value which is
+||| used several times duplicates it, which can make the normal form
+||| exponentially bigger than the term (a chain of lets each using the
+||| previous one twice).
+export
+tcOnlyKeepLets : EvalOpts
+tcOnlyKeepLets = { keepLets := True } tcOnly
 
 export
 onLHS : EvalOpts

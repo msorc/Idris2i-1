@@ -244,6 +244,15 @@ should target this file (`CHANGELOG_NEXT`).
   importing both, one definition silently replaced the other (a `where`
   function or a with block of one module ran the code of the other).  The
   TTC format version changes accordingly.
+* Building the size change graphs for the totality checker no longer takes
+  time exponential in the length of a chain of `let`s which each use the
+  previous variable twice (`let x2 = f x1 x1 in let x3 = f x2 x2 in ...`):
+  substituting the values of the lets made the right hand side exponentially
+  big; 16 such lets took 0.7 seconds and 50 ran out of memory.  When
+  substituting them would make the term more than 16 times bigger (and
+  bigger than 10,000 nodes), the lets stay, and an argument is then only
+  seen to be smaller through a let bound variable given directly as the
+  argument.  Otherwise nothing changes.
 
 ### Building/Packaging changes
 

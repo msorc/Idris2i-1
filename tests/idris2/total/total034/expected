@@ -1,0 +1,6 @@
+1/1: Building LetChain (LetChain.idr)
+LetChain> LetChain.chain is total
+LetChain> LetChain.loop is possibly not terminating due to recursive path LetChain.loop
+LetChain> LetChain.inCase is total
+LetChain> LetChain.prims is total
+LetChain> Bye for now!

@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+# Chains of lets used twice each: building the size change graphs used to
+# take time exponential in the length of the chain
+idris2 LetChain.idr < input

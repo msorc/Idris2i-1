@@ -68,6 +68,96 @@ delazy defs (App fc f a) = App fc (delazy defs f) (delazy defs a)
 delazy defs (As fc s a p) = As fc s (delazy defs a) (delazy defs p)
 delazy defs tm = tm
 
+-- Is the variable bound by a let in the environment? Unlike `getBinder`,
+-- this doesn't weaken the binder, so it is cheap.
+letBound : {idx : Nat} -> (0 p : IsVar n idx vars) -> Env Term vars -> Bool
+letBound {idx = Z} First (Let {} :: _) = True
+letBound {idx = Z} First _ = False
+letBound {idx = S k} (Later p) (_ :: env) = letBound p env
+
+-- If the term is a let bound variable, replace it by its value, so that
+-- the size of a call argument is compared through the let bindings which
+-- `normaliseSC` keeps.
+expandLet : {vars : _} -> Env Term vars -> Term vars -> Term vars
+expandLet env tm@(Local _ _ _ p)
+    = if letBound p env
+         then case getBinder p env of
+                   Let _ _ val _ => expandLet env val
+                   _ => tm
+         else tm
+expandLet env tm = tm
+
+-- The number of nodes of a term, counting at most up to `cap`. With `subst`,
+-- count as if the values of the let bindings were substituted for their
+-- variables (`lets` holds the sizes of the values of the variables bound in
+-- the term, innermost first).
+sizeUpTo : (cap : Nat) -> (subst : Bool) -> (lets : List Nat) -> Term vars -> Nat
+sizeUpTo cap subst lets tm = go lets tm
+  where
+    add : Nat -> Lazy Nat -> Nat
+    add x y = if x >= cap then cap else min cap (x + y)
+
+    go : List Nat -> Term vs -> Nat
+    goBinder : List Nat -> Binder (Term vs) -> Nat
+
+    go ls (Local _ _ idx _) = if subst then fromMaybe 1 (getAt idx ls) else 1
+    go ls (Meta _ _ _ args) = foldl (\acc, a => add acc (go ls a)) 1 args
+    go ls (Bind _ _ b@(Let _ _ val _) sc)
+        = if subst
+             then let v = go ls val in go (v :: ls) sc
+             else add (goBinder ls b) (go (1 :: ls) sc)
+    go ls (Bind _ _ b sc) = add (goBinder ls b) (go (1 :: ls) sc)
+    go ls (App _ f a) = add (go ls f) (go ls a)
+    go ls (As _ _ a p) = add (go ls a) (go ls p)
+    go ls (TDelayed _ _ t) = add 1 (go ls t)
+    go ls (TDelay _ _ t x) = add (go ls t) (go ls x)
+    go ls (TForce _ _ t) = add 1 (go ls t)
+    go ls (Erased _ (Dotted t)) = add 1 (go ls t)
+    go ls _ = 1
+
+    goBinder ls (Let _ _ val ty) = add (go ls val) (go ls ty)
+    goBinder ls (PLet _ _ val ty) = add (go ls val) (go ls ty)
+    goBinder ls (Pi _ _ (DefImplicit d) ty) = add (go ls d) (go ls ty)
+    goBinder ls (Lam _ _ (DefImplicit d) ty) = add (go ls d) (go ls ty)
+    goBinder ls b = add 1 (go ls (binderType b))
+
+hasLet : Term vars -> Bool
+hasLet (Bind _ _ (Let {}) _) = True
+hasLet (Bind _ _ b sc) = any hasLet b || hasLet sc
+hasLet (Meta _ _ _ args) = any hasLet args
+hasLet (App _ f a) = hasLet f || hasLet a
+hasLet (As _ _ a p) = hasLet a || hasLet p
+hasLet (TDelayed _ _ t) = hasLet t
+hasLet (TDelay _ _ t x) = hasLet t || hasLet x
+hasLet (TForce _ _ t) = hasLet t
+hasLet (Erased _ (Dotted t)) = hasLet t
+hasLet _ = False
+
+-- Normalise a right hand side for building its size change graph.
+-- Usually the values of the let bindings are substituted, so that the size
+-- of an argument can be seen through its let bound variables. But when a
+-- value is used several times this duplicates it, and a chain of lets in
+-- which each value uses the previous variable twice makes the normal form
+-- exponentially big. So first normalise keeping the lets, and only
+-- normalise again substituting them if the result stays reasonably small
+-- (at most 16 times bigger, or 10000 nodes). Otherwise, the lets stay, and
+-- `findSC` looks at each value once: this loses some precision (the
+-- argument sizes are only compared through a let bound variable used
+-- directly as an argument), but no calls.
+normaliseSC : {vars : _} ->
+              {auto c : Ref Ctxt Defs} ->
+              Defs -> Env Term vars -> Term vars -> Core (Term vars)
+normaliseSC defs env tm
+    = do kept <- normaliseOpts tcOnlyKeepLets defs env tm
+         if not (hasLet kept)
+            then pure kept
+            else do let k = sizeUpTo 100000000 False [] kept
+                    let cap = max 10000 (16 * k)
+                    if sizeUpTo (S cap) True [] kept <= cap
+                       then normaliseOpts tcOnly defs env tm
+                       else do log "totality" 5 "Keeping the let bindings of a term of size \{show k}"
+                               pure kept
+
 mutual
   findSC : {vars : _} ->
            {auto c : Ref Ctxt Defs} ->
@@ -83,7 +173,10 @@ mutual
       findSCPiInfo _ = pure []
 
       findSCbinder : Binder (Term vars) -> Core (List SCCall)
-      findSCbinder (Let _ _ val ty) = [| findSC defs env g pats val ++ findSC defs env g pats ty |]
+      -- Only from `normaliseSC` keeping the lets. The value may be used
+      -- anywhere in the scope, so it is not guarded by its context. The
+      -- type is ignored, as it is when the value is substituted
+      findSCbinder (Let _ _ val ty) = findSC defs env Unguarded pats val
       findSCbinder (Pi _ _ p ty) = [| findSCPiInfo p ++ findSC defs env g pats ty |]
       findSCbinder (Lam _ _ p ty) = [| findSCPiInfo p ++ findSC defs env g pats ty |]
       findSCbinder b = pure [] -- other binders shouldn't appear in the RHS of a definition
@@ -374,17 +467,18 @@ mutual
         -- Under 'assert_total' we assume that all calls are fine, so leave
         -- the size change list empty
       = do fn <- getFullName fn_in
+           let args' = map (expandLet env) args
            logC "totality.termination.sizechange" 10 $ do pure $ "Looking under " ++ show !(toFullNames fn)
            aSmaller <- resolved (gamma defs) (NS builtinNS (UN $ Basic "assert_smaller"))
            if caseFn fn
               then do scs1 <- traverse (findSC defs env g pats) args
-                      mps  <- getCasePats defs fn pats args
+                      mps  <- getCasePats defs fn pats args'
                       scs2 <- traverse (findInCase defs g) $ fromMaybe [] mps
                       pure (concat (scs1 ++ scs2))
               else do scs <- traverse (findSC defs env g pats) args
                       pure $ [MkSCCall fn
                                (fromListList
-                                    !(traverse (mkChange defs aSmaller pats) args))
+                                    !(traverse (mkChange defs aSmaller pats) args'))
                                fc]
                                ++ concat scs
 
@@ -397,7 +491,7 @@ mutual
                    do ps <- traverse toFullNames pats
                       pure ("Looking in case args " ++ show ps)
           logTermNF "totality" 10 "        =" env tm
-          rhs <- normaliseOpts tcOnly defs env tm
+          rhs <- normaliseSC defs env tm
           findSC defs env g pats (delazy defs rhs)
 
 findCalls : {auto c : Ref Ctxt Defs} ->
@@ -405,7 +499,7 @@ findCalls : {auto c : Ref Ctxt Defs} ->
             Core (List SCCall)
 findCalls defs (_ ** (env, lhs, rhs_in))
    = do let pargs = getArgs (delazy defs lhs)
-        rhs <- normaliseOpts tcOnly defs env rhs_in
+        rhs <- normaliseSC defs env rhs_in
         findSC defs env Toplevel pargs (delazy defs rhs)
 
 getSC : {auto c : Ref Ctxt Defs} ->

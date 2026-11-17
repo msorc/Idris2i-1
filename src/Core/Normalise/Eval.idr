@@ -122,7 +122,8 @@ parameters (defs : Defs) (topopts : EvalOpts)
     eval env locs (Bind fc x (Lam _ r _ ty) scope) (thunk :: stk)
         = eval env (snd thunk :: locs) scope stk
     eval env locs (Bind fc x b@(Let _ r val ty) scope) stk
-        = if (holesOnly topopts || argHolesOnly topopts) && not (tcInline topopts)
+        = if keepLets topopts
+                || ((holesOnly topopts || argHolesOnly topopts) && not (tcInline topopts))
              then do let b' = map (mkClosure topopts locs env) b
                      pure $ NBind fc x b'
                         (\defs', arg => evalWithOpts defs' topopts
@@ -172,7 +173,8 @@ parameters (defs : Defs) (topopts : EvalOpts)
         = do arg' <- sc defs $ snd arg
              applyToStack env arg' stk
     applyToStack env (NBind fc x b@(Let _ r val ty) sc) stk
-        = if (holesOnly topopts || argHolesOnly topopts) && not (tcInline topopts)
+        = if keepLets topopts
+                || ((holesOnly topopts || argHolesOnly topopts) && not (tcInline topopts))
              then pure (NBind fc x b
                               (\defs', arg => applyToStack env !(sc defs' arg) stk))
              else applyToStack env !(sc defs val) stk
