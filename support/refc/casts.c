@@ -17,6 +17,7 @@ Idris2_Value *idris2_cast_Int8_to_string(Idris2_Value *input) {
   int l = snprintf(NULL, 0, "%" PRId8 "", x);
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRId8 "", x);
+  idris2_setAscii(retVal);
 
   return (Idris2_Value *)retVal;
 }
@@ -32,6 +33,7 @@ Idris2_Value *idris2_cast_Int16_to_string(Idris2_Value *input) {
   int l = snprintf(NULL, 0, "%" PRId16 "", x);
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRId16 "", x);
+  idris2_setAscii(retVal);
 
   return (Idris2_Value *)retVal;
 }
@@ -47,6 +49,7 @@ Idris2_Value *idris2_cast_Int32_to_string(Idris2_Value *input) {
   int l = snprintf(NULL, 0, "%" PRId32 "", x);
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRId32 "", x);
+  idris2_setAscii(retVal);
 
   return (Idris2_Value *)retVal;
 }
@@ -61,6 +64,7 @@ Idris2_Value *idris2_cast_Int64_to_string(Idris2_Value *input) {
   int l = snprintf(NULL, 0, "%" PRId64 "", from);
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRId64 "", from);
+  idris2_setAscii(retVal);
 
   return (Idris2_Value *)retVal;
 }
@@ -221,7 +225,9 @@ static void formatDouble(double x, char *out) {
 Idris2_Value *idris2_cast_Double_to_string(Idris2_Value *input) {
   char buf[64];
   formatDouble(idris2_vp_to_Double(input), buf);
-  return (Idris2_Value *)idris2_mkString(buf);
+  Idris2_String *retVal = idris2_mkString(buf);
+  idris2_setAscii(retVal);
+  return (Idris2_Value *)retVal;
 }
 
 uint64_t idris2_double_to_wrapped(double d) {
@@ -252,6 +258,8 @@ Idris2_Value *idris2_cast_Char_to_string(Idris2_Value *input) {
   Idris2_String *retVal =
       idris2_mkEmptyString(idris2_utf8_encodedLength(c) + 1);
   idris2_utf8_encode(c, retVal->str);
+  if (idris2_isValidCodePoint(c))
+    idris2_setCodePoints(retVal, 1);
 
   return (Idris2_Value *)retVal;
 }
@@ -403,6 +411,7 @@ Idris2_Value *idris2_cast_Bits8_to_string(Idris2_Value *input) {
   int l = snprintf(NULL, 0, "%" PRIu8 "", x);
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRIu8 "", x);
+  idris2_setAscii(retVal);
 
   return (Idris2_Value *)retVal;
 }
@@ -418,6 +427,7 @@ Idris2_Value *idris2_cast_Bits16_to_string(Idris2_Value *input) {
   int l = snprintf(NULL, 0, "%" PRIu16 "", x);
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRIu16 "", x);
+  idris2_setAscii(retVal);
 
   return (Idris2_Value *)retVal;
 }
@@ -433,6 +443,7 @@ Idris2_Value *idris2_cast_Bits32_to_string(Idris2_Value *input) {
   int l = snprintf(NULL, 0, "%" PRIu32 "", x);
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRIu32 "", x);
+  idris2_setAscii(retVal);
 
   return (Idris2_Value *)retVal;
 }
@@ -448,6 +459,7 @@ Idris2_Value *idris2_cast_Bits64_to_string(Idris2_Value *input) {
   int l = snprintf(NULL, 0, "%" PRIu64 "", x);
   Idris2_String *retVal = idris2_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRIu64 "", x);
+  idris2_setAscii(retVal);
 
   return (Idris2_Value *)retVal;
 }
@@ -563,5 +575,7 @@ Idris2_Value *idris2_cast_Integer_to_Char(Idris2_Value *input) {
 
 Idris2_Value *idris2_cast_Integer_to_string(Idris2_Value *input) {
   IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkStringOwned(mpz_get_str(NULL, 10, fromi));
+  Idris2_String *retVal = idris2_mkStringOwned(mpz_get_str(NULL, 10, fromi));
+  idris2_setAscii(retVal);
+  return (Idris2_Value *)retVal;
 }

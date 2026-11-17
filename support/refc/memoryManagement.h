@@ -290,6 +290,17 @@ Idris2_String *idris2_mkStringN(char const *s, size_t l);
 // Takes ownership of a string from malloc instead of copying it.
 Idris2_String *idris2_mkStringOwned(char *);
 
+// Record that the string s, just made (no other thread sees it yet), has n
+// code points.  The empty string is a static value, which is left alone.
+static inline void idris2_setCodePoints(Idris2_String *s, int64_t n) {
+  if (n >= 0 && n < (int64_t)UINT32_MAX &&
+      !(s->header.reserved & IDRIS2_STATIC_FLAG))
+    s->codePoints = (uint32_t)(n + 1);
+}
+// The same for a string of ASCII characters only (or more generally, one byte
+// per character).
+#define idris2_setAscii(s) idris2_setCodePoints((s), (int64_t)(s)->len)
+
 Idris2_Pointer *idris2_makePointer(void *);
 Idris2_GCPointer *idris2_makeGCPointer(void *ptr_Raw,
                                        Idris2_Closure *onCollectFct);

@@ -10,6 +10,8 @@ uint32_t idris2_utf8_decode(char const **p);
 int idris2_utf8_encode(uint32_t c, char *out);
 int idris2_utf8_encodedLength(uint32_t c);
 int64_t idris2_utf8_length(char const *s, size_t len);
+// The number of code points of a string (counted once, see stringOps.c).
+int64_t idris2_stringCodePoints(Idris2_Value *str);
 
 // Compare two strings, byte by byte (which, for UTF-8, is the order of the
 // code points).

@@ -77,22 +77,35 @@ uint32_t idris2_utf8_decode(char const **p) {
 
 #define STR(v) ((Idris2_String *)(v))
 
-/* Skip at most n code points of the bytes from s to end. */
-static char const *utf8_skip(char const *s, char const *end, int64_t n) {
-  while (n > 0 && s < end) {
+/* Skip at most n code points of the bytes from s to end; *skipped is the
+ * number of code points skipped. */
+static char const *utf8_skip(char const *s, char const *end, int64_t n,
+                             int64_t *skipped) {
+  int64_t i = 0;
+  while (i < n && s < end) {
     if ((unsigned char)*s < 0x80)
       s++;
     else
       idris2_utf8_decode(&s);
-    n--;
+    i++;
   }
+  *skipped = i;
   return s < end ? s : end;
 }
+
+#define IDRIS2_HIGH_BITS UINT64_C(0x8080808080808080)
 
 int64_t idris2_utf8_length(char const *s, size_t len) {
   char const *end = s + len;
   int64_t n = 0;
   while (s < end) {
+    // Eight ASCII characters at a time
+    uint64_t w;
+    if (end - s >= 8 && (memcpy(&w, s, 8), (w & IDRIS2_HIGH_BITS) == 0)) {
+      s += 8;
+      n += 8;
+      continue;
+    }
     if ((unsigned char)*s < 0x80)
       s++;
     else
@@ -102,9 +115,59 @@ int64_t idris2_utf8_length(char const *s, size_t len) {
   return n;
 }
 
-/* An Idris String that holds the l bytes at s. */
-static Idris2_Value *stringOfBytes(char const *s, size_t l) {
-  return (Idris2_Value *)idris2_mkStringN(s, l);
+/*
+ * The number of code points of a string is counted once, and kept in the
+ * string (see Idris2_String): then the length of a string is known at once,
+ * and the characters of an ASCII string (or any string whose characters are
+ * all one byte) can be indexed directly, like the other backends do with
+ * their strings.  The functions that make a string
+ * from strings whose lengths are known set the length of the result, when it
+ * is the number that counting would give: a substring has the code points
+ * that were skipped over to find it (an invalid byte is one U+FFFD, wherever
+ * the string ends), but the concatenation of two strings that are not valid
+ * UTF-8 can have fewer code points than the two (the end of one and the
+ * start of the other can make a code point), and so can the reverse of one.
+ * That is when the second string starts with a continuation byte.
+ *
+ * The count is written into a string that other threads may see, but they
+ * would all write the same number: it is a relaxed atomic store.  A static
+ * string (a constant of a program) may be in read only memory: it is not
+ * written to, the code generator gives the length of the ASCII ones.
+ */
+static inline int64_t knownCodePoints(Idris2_String *s) {
+  return (int64_t)__atomic_load_n(&s->codePoints, __ATOMIC_RELAXED) - 1;
+}
+
+// Does a string start with a UTF-8 continuation byte?  (see above)
+static inline int startsWithContinuation(Idris2_String *s) {
+  return s->len > 0 && ((unsigned char)s->str[0] & 0xC0) == 0x80;
+}
+
+int64_t idris2_stringCodePoints(Idris2_Value *str) {
+  Idris2_String *s = STR(str);
+  int64_t n = knownCodePoints(s);
+  if (n >= 0)
+    return n;
+  n = idris2_utf8_length(s->str, s->len);
+  if (n < (int64_t)UINT32_MAX && !(s->header.reserved & IDRIS2_STATIC_FLAG))
+    __atomic_store_n(&s->codePoints, (uint32_t)(n + 1), __ATOMIC_RELAXED);
+  return n;
+}
+
+/* Is each character of the string one byte (an ASCII character, or an
+ * invalid byte, which is U+FFFD)?  Then the byte offsets are the character
+ * offsets.  When this is not known, and a string operation would only look
+ * at the first `upTo` bytes, it is not worth counting the code points of the
+ * whole string: false. */
+#define IDRIS2_COUNT_FROM 32
+static inline int isNarrow(Idris2_String *s, int64_t upTo) {
+  int64_t n = knownCodePoints(s);
+  if (n < 0) {
+    if (upTo < IDRIS2_COUNT_FROM)
+      return 0;
+    n = idris2_stringCodePoints((Idris2_Value *)s);
+  }
+  return (size_t)n == s->len;
 }
 
 int idris2_compareStrings(Idris2_Value *a, Idris2_Value *b) {
@@ -116,7 +179,7 @@ int idris2_compareStrings(Idris2_Value *a, Idris2_Value *b) {
 }
 
 Idris2_Value *stringLength(Idris2_Value *str) {
-  return idris2_mkInt64(idris2_utf8_length(STR(str)->str, STR(str)->len));
+  return idris2_mkInt64(idris2_stringCodePoints(str));
 }
 
 Idris2_Value *head(Idris2_Value *str) {
@@ -125,8 +188,12 @@ Idris2_Value *head(Idris2_Value *str) {
 
 Idris2_Value *tail(Idris2_Value *input) {
   char const *s = STR(input)->str, *end = s + STR(input)->len;
-  char const *rest = utf8_skip(s, end, 1);
-  return stringOfBytes(rest, end - rest);
+  int64_t skipped, n = knownCodePoints(STR(input));
+  char const *rest = utf8_skip(s, end, 1, &skipped);
+  Idris2_String *retVal = idris2_mkStringN(rest, end - rest);
+  if (n >= 0)
+    idris2_setCodePoints(retVal, n - skipped);
+  return (Idris2_Value *)retVal;
 }
 
 Idris2_Value *reverse(Idris2_Value *str) {
@@ -136,29 +203,41 @@ Idris2_Value *reverse(Idris2_Value *str) {
   if (l == 0)
     return (Idris2_Value *)retVal;
 
-  /* Copy the encoding of each code point to the mirrored position. */
+  /* Copy the encoding of each code point to the mirrored position.  (Bytes
+   * that are not UTF-8 can make a code point once reversed: the number of
+   * code points is only known for ASCII.) */
   char *out = retVal->str + l;
   char const *p = input, *end = input + l;
+  int ascii = 1;
   while (p < end) {
     char const *start = p;
     if ((unsigned char)*p < 0x80)
       p++;
-    else
+    else {
       idris2_utf8_decode(&p);
+      ascii = 0;
+    }
     if (p > end)
       p = end;
     out -= p - start;
     memcpy(out, start, p - start);
   }
+  if (ascii)
+    idris2_setAscii(retVal);
   return (Idris2_Value *)retVal;
 }
 
 Idris2_Value *strIndex(Idris2_Value *str, Idris2_Value *i) {
-  int64_t idx = idris2_vp_to_Int64(i);
+  int64_t idx = idris2_vp_to_Int64(i), skipped;
   char const *s = STR(str)->str, *end = s + STR(str)->len;
-  if (idx < 0)
+  // (a string has no more code points than bytes)
+  if (idx < 0 || (uint64_t)idx >= STR(str)->len)
     return idris2_mkChar(0);
-  s = utf8_skip(s, end, idx);
+  if (isNarrow(STR(str), idx)) {
+    unsigned char c = s[idx];
+    return idris2_mkChar(c < 0x80 ? c : 0xFFFD);
+  }
+  s = utf8_skip(s, end, idx, &skipped);
   return idris2_mkChar(s >= end ? 0 : idris2_utf8_decode(&s));
 }
 
@@ -166,9 +245,12 @@ Idris2_Value *strCons(Idris2_Value *c, Idris2_Value *str) {
   uint32_t ch = idris2_vp_to_Char(c);
   size_t l = STR(str)->len;
   int cl = idris2_utf8_encodedLength(ch);
+  int64_t n = knownCodePoints(STR(str));
   Idris2_String *retVal = idris2_mkEmptyString(cl + l + 1);
   idris2_utf8_encode(ch, retVal->str);
   memcpy(retVal->str + cl, STR(str)->str, l);
+  if (n >= 0 && idris2_isValidCodePoint(ch))
+    idris2_setCodePoints(retVal, n + 1);
   return (Idris2_Value *)retVal;
 }
 
@@ -178,9 +260,12 @@ Idris2_Value *strAppend(Idris2_Value *a, Idris2_Value *b) {
     return idris2_newReference(a);
   if (la == 0)
     return idris2_newReference(b);
+  int64_t na = knownCodePoints(STR(a)), nb = knownCodePoints(STR(b));
   Idris2_String *retVal = idris2_mkEmptyString(la + lb + 1);
   memcpy(retVal->str, STR(a)->str, la);
   memcpy(retVal->str + la, STR(b)->str, lb);
+  if (na >= 0 && nb >= 0 && !startsWithContinuation(STR(b)))
+    idris2_setCodePoints(retVal, na + nb);
   return (Idris2_Value *)retVal;
 }
 
@@ -188,7 +273,8 @@ Idris2_Value *strAppend(Idris2_Value *a, Idris2_Value *b) {
  * substring stops at the end of the string. */
 Idris2_Value *strSubstr(Idris2_Value *start, Idris2_Value *len,
                         Idris2_Value *s) {
-  char const *input = STR(s)->str, *end = input + STR(s)->len;
+  size_t bytes = STR(s)->len;
+  char const *input = STR(s)->str, *end = input + bytes;
   int64_t offset = idris2_vp_to_Int64(start);
   int64_t l = idris2_vp_to_Int64(len);
   if (offset < 0)
@@ -196,14 +282,33 @@ Idris2_Value *strSubstr(Idris2_Value *start, Idris2_Value *len,
   if (l < 0)
     l = 0;
 
-  char const *from = utf8_skip(input, end, offset);
-  char const *to = utf8_skip(from, end, l);
-  return stringOfBytes(from, to - from);
+  char const *from, *to;
+  int64_t n;
+  int64_t upTo = offset < IDRIS2_COUNT_FROM && l < IDRIS2_COUNT_FROM
+                     ? offset + l
+                     : IDRIS2_COUNT_FROM;
+  if (isNarrow(STR(s), upTo)) {
+    from = input + ((uint64_t)offset < bytes ? offset : bytes);
+    to = from + ((uint64_t)l < (uint64_t)(end - from) ? l : end - from);
+    n = to - from;
+  } else {
+    int64_t skipped;
+    from = utf8_skip(input, end, offset, &skipped);
+    to = utf8_skip(from, end, l, &n);
+  }
+  if (from == input && to == end)
+    return idris2_newReference(s);
+  Idris2_String *retVal = idris2_mkStringN(from, to - from);
+  idris2_setCodePoints(retVal, n);
+  return (Idris2_Value *)retVal;
 }
 
 Idris2_Value *fastPack(Idris2_Value *charList) {
   Idris2_Constructor *current;
 
+  // (The number of characters is not kept: counting them costs more than
+  // counting them later, when it is needed, for the many strings that are
+  // packed from short lists, like words.)
   size_t l = 0;
   current = (Idris2_Constructor *)charList;
   while (current != NULL) {
@@ -246,9 +351,13 @@ Idris2_Value *fastConcat(Idris2_Value *strList) {
   Idris2_Constructor *current;
 
   size_t totalLength = 0;
+  int64_t n = 0; // the number of code points, -1 when one is not known
   current = (Idris2_Constructor *)strList;
   while (current != NULL) {
-    totalLength += STR(current->args[0])->len;
+    Idris2_String *s = STR(current->args[0]);
+    int64_t k = knownCodePoints(s);
+    totalLength += s->len;
+    n = n < 0 || k < 0 || startsWithContinuation(s) ? -1 : n + k;
     current = (Idris2_Constructor *)current->args[1];
   }
 
@@ -261,6 +370,7 @@ Idris2_Value *fastConcat(Idris2_Value *strList) {
     offset += s->len;
     current = (Idris2_Constructor *)current->args[1];
   }
+  idris2_setCodePoints(retVal, n);
   return (Idris2_Value *)retVal;
 }
 
@@ -290,8 +400,12 @@ Idris2_Value *stringIteratorToString(void *a, Idris2_Value *str,
     rest = idris2_newReference(str);
   else if (pos >= l)
     rest = (Idris2_Value *)idris2_mkEmptyString(1);
-  else
-    rest = stringOfBytes(STR(str)->str + pos, l - pos);
+  else {
+    Idris2_String *r = idris2_mkStringN(STR(str)->str + pos, l - pos);
+    if ((size_t)knownCodePoints(STR(str)) == l) // one byte per character
+      idris2_setAscii(r);
+    rest = (Idris2_Value *)r;
+  }
   return idris2_apply_closure(idris2_newReference((Idris2_Value *)f), rest);
 }
 

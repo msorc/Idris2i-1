@@ -143,6 +143,9 @@ function (so it may be a literal or a static buffer, like the result of
 (``Idris2_Value *``, an ``Idris2_String`` with its length ``len`` and its
 bytes ``str``), like ``Integer`` and foreign objects: the arguments are
 borrowed, a result is a new reference (``idris2_mkStringN`` makes one).
+A string must not be changed once other code has seen it: the runtime keeps
+the number of its characters (``codePoints``), counted the first time that it
+is needed.
 
 Memory
 ======

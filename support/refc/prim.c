@@ -59,13 +59,14 @@ Idris2_Value *idris2_Data_IORef_prim__writeIORef(Idris2_Value *erased,
 #define IDRIS2_OS_NAME "unknown"
 #endif
 Idris2_ShortString const idris2_predefined_osstring = {
-    IDRIS2_STOCKVAL(STRING_TAG), sizeof(IDRIS2_OS_NAME) - 1, IDRIS2_OS_NAME};
+    IDRIS2_STOCKVAL(STRING_TAG), sizeof(IDRIS2_OS_NAME),
+    sizeof(IDRIS2_OS_NAME) - 1, IDRIS2_OS_NAME};
 
 // NOTE: The codegen is obviously determined at compile time,
 //       so the backend should optimize it by replacing it with a constant.
 //       It would probably also be useful for conditional compilation.
 Idris2_ShortString const idris2_predefined_codegenstring = {
-    IDRIS2_STOCKVAL(STRING_TAG), 4, "refc"};
+    IDRIS2_STOCKVAL(STRING_TAG), 5, 4, "refc"};
 
 // Like blodwen-error-quit of the Scheme backends: the message goes to stdout,
 // and the program exits with 1.

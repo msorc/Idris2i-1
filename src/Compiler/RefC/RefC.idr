@@ -2341,7 +2341,10 @@ genConstant c cdef = case c of
     I64 x => go "Int64" "INT64" (showInt64Min x)
     B64 x => go "Bits64" "BITS64" "UINT64_C(\{show x})"
     Db x  => go "Double" "DOUBLE" (cDouble x)
-    Str x => "IDRIS2_STRING_CONSTANT(\{constantName cdef}, \{cStringQuoted x});"
+    -- (the runtime knows the number of characters of an ASCII string)
+    Str x => let kind : String
+                 kind = if all (\c => ord c < 128) (unpack x) then "ASCII_" else ""
+             in "IDRIS2_\{kind}STRING_CONSTANT(\{constantName cdef}, \{cStringQuoted x});"
     BI _  => "IDRIS2_UNUSED static Idris2_Value *\{constantName cdef} = NULL;"
     _ => "/* bad constant */"
   where

@@ -737,6 +737,13 @@ should target this file (`CHANGELOG_NEXT`).
   backends, instead of a copy of the string behind a pointer with a
   finaliser: making one allocates nothing.  Hashing short strings with
   `Data.String.Iterator.foldl` runs with 17% fewer instructions.
+* Strings keep the number of their characters, counted the first time that it
+  is needed (or known from the strings that they were made of, or for the
+  ASCII string constants), and the characters of an ASCII string are indexed
+  directly: `length` takes constant time after the first call, and so do
+  `strIndex` and `substr` on ASCII strings, instead of a scan from the start
+  of the string every time.  A loop of `strIndex` over a string of 20,000
+  ASCII characters runs with 360 times fewer instructions.
 
 #### Chez Backend
 

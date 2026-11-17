@@ -777,6 +777,10 @@ Idris2_Value *idris2_normaliseInteger(Idris2_Integer *i) {
   return (Idris2_Value *)i;
 }
 
+// The number of code points of a string fills the padding after the header.
+_Static_assert(sizeof(void *) < 8 || sizeof(Idris2_String) == 16,
+               "Idris2_String is not 16 bytes");
+
 Idris2_String *idris2_mkEmptyString(size_t l) {
   if (l <= 1)
     return (Idris2_String *)&idris2_predefined_nullstring;
@@ -784,6 +788,7 @@ Idris2_String *idris2_mkEmptyString(size_t l) {
   Idris2_String *retVal =
       (Idris2_String *)idris2_newValue(sizeof(Idris2_String) + l);
   retVal->header.tag = STRING_TAG;
+  retVal->codePoints = 0;
   retVal->len = l - 1;
   retVal->str[l - 1] = '\0';
   return retVal;
@@ -1094,7 +1099,7 @@ Idris2_NullaryConstructor const
         IDRIS2_NULLARY_64(192)};
 
 Idris2_ShortString const idris2_predefined_nullstring = {
-    IDRIS2_STOCKVAL(STRING_TAG), 0, ""};
+    IDRIS2_STOCKVAL(STRING_TAG), 1, 0, ""};
 
 static bool idris2_predefined_integer_initialized = false;
 Idris2_Integer idris2_predefined_Integer[100];

@@ -213,8 +213,15 @@ typedef struct {
 // A string: `len` bytes of UTF-8 (which may include NUL characters), stored
 // after the header and followed by a NUL, so that `str` is also a C string
 // (cut at the first NUL character, if any).
+//
+// `codePoints` is the number of code points (characters) of the string plus
+// one, or 0 when it is not known (yet): see idris2_stringCodePoints.  When it
+// is `len + 1`, each character is one byte (the string is ASCII, but for
+// invalid bytes), and the characters can be indexed directly.  On 64 bit
+// platforms, it fills the padding before `len`.
 typedef struct {
   Idris2_header header;
+  uint32_t codePoints;
   size_t len;
   char str[];
 } Idris2_String;
@@ -222,6 +229,7 @@ typedef struct {
 // A string constant of up to 15 bytes, with the layout of Idris2_String.
 typedef struct {
   Idris2_header header;
+  uint32_t codePoints;
   size_t len;
   char str[16];
 } Idris2_ShortString;
@@ -231,13 +239,18 @@ typedef struct {
 #define IDRIS2_UNUSED __attribute__((unused))
 
 // A string constant `name` of the generated code, for the C string literal
-// `lit` (which may contain NUL characters).
-#define IDRIS2_STRING_CONSTANT(name, lit)                                      \
+// `lit` (which may contain NUL characters).  The ASCII version is for a
+// literal of ASCII characters only: then the number of characters is known.
+#define IDRIS2_STRING_CONSTANT_CP(name, lit, cp)                               \
   IDRIS2_UNUSED static const struct {                                          \
     Idris2_header header;                                                      \
+    uint32_t codePoints;                                                       \
     size_t len;                                                                \
     char str[sizeof(lit)];                                                     \
-  } name = {IDRIS2_STOCKVAL(STRING_TAG), sizeof(lit) - 1, lit}
+  } name = {IDRIS2_STOCKVAL(STRING_TAG), cp, sizeof(lit) - 1, lit}
+#define IDRIS2_STRING_CONSTANT(name, lit) IDRIS2_STRING_CONSTANT_CP(name, lit, 0)
+#define IDRIS2_ASCII_STRING_CONSTANT(name, lit)                                \
+  IDRIS2_STRING_CONSTANT_CP(name, lit, sizeof(lit))
 
 // Is the string `v` the C string literal `lit`?
 #define idris2_eqStringLiteral(v, lit)                                         \
