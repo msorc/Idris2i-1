@@ -214,15 +214,13 @@ refcCC = do Nothing <- idrisGetEnv "IDRIS2_CC"
               | Just cc => pure cc
             pure "cc"
 
-||| The program that a command line starts, if it is a file that we can
-||| look at
+||| The file of a program (a path, or a name looked for in the `PATH`), as
+||| the backends run it (as a single word: `IDRIS2_CC`, `CC` and `CHEZ` are
+||| programs, not command lines)
 programOf : String -> IO (Maybe String)
-programOf cmd
-    = case words cmd of
-           [] => pure Nothing
-           (p :: _) => if '/' `elem` unpack p
-                          then pure (Just p)
-                          else pathLookup [p]
+programOf p = if '/' `elem` unpack p
+                 then pure (Just p)
+                 else pathLookup [p]
 
 -- The backends whose executables are handled
 handled : CG -> Bool

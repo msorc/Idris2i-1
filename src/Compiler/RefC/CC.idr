@@ -15,6 +15,9 @@ import Data.String
 
 %default total
 
+||| The C compiler: `IDRIS2_CC`, `CC` or `cc`.  It is a single program (a
+||| name looked for in the `PATH`, or a path, which may contain spaces), not a
+||| command line: `ccache gcc` is not a C compiler.
 findCC : IO String
 findCC
     = do Nothing <- idrisGetEnv "IDRIS2_CC"
@@ -61,9 +64,6 @@ findLDLIBS
 
 clibdirs : List String -> List String
 clibdirs ds = map (\d => "-L" ++ d) ds
-
--- cincdirs : List String -> String
--- cincdirs ds = concat (map (\d => "-I" ++ d ++ " ") ds)
 
 -- The command that compiles `sourceFile` to `objectFile`, with `extra` flags.
 ccObjectCommand : {auto c : Ref Ctxt Defs}
@@ -182,9 +182,9 @@ headerTexts dir
 -- What the C compiler is: its version and target.
 ccIdentity : String -> IO (Maybe String)
 ccIdentity cc
-  = do Just v <- run (cc ++ " --version 2>&1")
+  = do Just v <- run (escapeCmd [cc, "--version"] ++ " 2>&1")
          | Nothing => pure Nothing
-       Just m <- run (cc ++ " -dumpmachine 2>&1")
+       Just m <- run (escapeCmd [cc, "-dumpmachine"] ++ " 2>&1")
          | Nothing => pure Nothing
        pure (Just (v ++ m))
   where

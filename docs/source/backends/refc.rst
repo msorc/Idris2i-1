@@ -64,7 +64,9 @@ Alternatively, you can set it via the ``IDRIS2_CG`` environment variable:
     $ export IDRIS2_CG=refc
 
 The C compiler it invokes is determined by either the ``IDRIS2_CC`` or ``CC``
-environment variables. If neither is set, it uses ``cc``.
+environment variables. If neither is set, it uses ``cc``.  It is the name or
+the path of a program (which may contain spaces), not a command line: to use
+``ccache gcc``, point ``IDRIS2_CC`` to a script or link that runs it.
 
 Both ``:exec`` and ``:c`` work at the REPL: ``:exec`` compiles the expression
 to a temporary executable in the build directory and runs it.

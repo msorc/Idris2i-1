@@ -267,6 +267,8 @@ should target this file (`CHANGELOG_NEXT`).
   value, like `void` applied to a value) prints its message and stops with
   exit code 1, like with the Scheme backends.  It used to go on silently
   with a null value.
+* `:exec` runs the compiled program also when the path of the build
+  directory has spaces or other characters that the shell would take.
 * Fixed an issue to do with `alligned_alloc` not existing on older MacOS
   versions, causing builds targeting PowerPC to fail (#3662).  For these
   systems, the compiler will now use `posix_memalign`.
