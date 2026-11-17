@@ -145,7 +145,10 @@ should target this file (`CHANGELOG_NEXT`).
   `sortBy`).  The modules searched are those in the build directory and in the
   packages in use.  Modules that are already imported are not suggested (the
   name is then hidden, or needs another qualifier), and for a qualified name
-  only the modules with a matching namespace are.
+  only the modules with a matching namespace are.  What these suggestions read
+  of the TTC files is kept for the session (also across reloads in the REPL
+  and IDE mode) while the files do not change, instead of reading and decoding
+  every TTC file of the packages in use for each undefined name.
 * A totality error that comes from a path of calls ("possibly not
   terminating due to recursive path ...", or "due to function ... being
   reachable via ...") lists the calls of the path with their locations, under
@@ -201,6 +204,15 @@ should target this file (`CHANGELOG_NEXT`).
   (`IDRIS2_JOBS`, the number of processors up to 16 by default): checking the
   compiler with a RefC-built compiler takes 2m20s instead of 7m, and `base`
   20s instead of 70s, on 16 cores.  The TTC files are the same.
+* Finding out that the modules of a package are up to date takes much less
+  work: the header of each source file is read once (it was read again for
+  each module of the package that imports it, directly or not), only the
+  start of a TTC file is read for its version and hashes, and the paths of
+  the TTC files of the imports are made only as they are tried.
+  `idris2 --build base.ipkg` with nothing to do takes 2.3 billion
+  instructions instead of 23.7 billion (0.3s instead of 2.6s), and
+  `idris2 --typecheck idris2.ipkg` 10.4 billion instead of 42.5 billion (1.2s
+  instead of 4.6s).
 * `make help` lists the targets of the top-level `Makefile` and the variables
   that change the build, with their current values.
 * `make` rebuilds the support libraries (`support/c`, `support/refc`) whenever
