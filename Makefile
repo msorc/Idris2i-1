@@ -61,7 +61,8 @@ else
 	IDRIS2_PREFIX ?= ${PREFIX}
 	IDRIS2_CURDIR := ${CURDIR}
 	SEP := :
-	LINK_CMD = ln -sf
+	# -n: replace a link to a directory instead of putting a link in it
+	LINK_CMD = ln -sfn
 endif
 
 IDRIS2_SUPPORT_DIR ?= ${IDRIS2_CURDIR}/support/c
