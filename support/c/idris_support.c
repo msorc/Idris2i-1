@@ -46,12 +46,17 @@ int idris2_getErrno() {
 
 char *idris2_strerror(int errnum) { return strerror(errnum); }
 
+// The line is returned in a buffer of the thread, valid until the next call:
+// the Scheme backends (and the checked-in bootstrap C) copy it into a string
+// of their own right away, and none frees it (a buffer from malloc was lost
+// at every call).  RefC reads lines with idris2_refc_getStr instead.
 char *idris2_getStr() {
-  char *inp = idris2_readLine(stdin);
-  if (inp == NULL) { // the end of the input, or an error: an empty string
-    inp = calloc(1, 1);
-    IDRIS2_VERIFY(inp, "calloc failed: %s", strerror(errno));
-  }
+  static _Thread_local char *inp = NULL;
+  static char empty[1] = "";
+  free(inp);
+  inp = idris2_readLine(stdin);
+  if (inp == NULL) // the end of the input, or an error: an empty string
+    return empty;
   // Remove trailing newline; easier to do this than in PrimIO which
   // doesn't have the relevant functions available yet
   for (char *c = inp; *c != '\0'; ++c) {

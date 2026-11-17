@@ -440,11 +440,11 @@ void idris2_refc_putStr(Idris2_Value *str) {
   fwrite(STR(str)->str, 1, STR(str)->len, stdout);
 }
 
-// getLine.  idris2_getStr (support/c) gives a line from malloc, which the `C`
-// calling convention copies but cannot free; this one reads the line into a
-// buffer of its own.  Like idris2_getStr, it reads up to and including the
-// newline, and keeps what comes before the first '\r', '\n' or NUL; at the
-// end of the input, or on an error, the line is empty.
+// getLine.  idris2_getStr (support/c) gives a line in a buffer from malloc,
+// which the `C` calling convention copies into a string; this one reads the
+// line into a buffer of its own.  Like idris2_getStr, it reads up to and
+// including the newline, and keeps what comes before the first '\r', '\n' or
+// NUL; at the end of the input, or on an error, the line is empty.
 Idris2_Value *idris2_refc_getStr(void) {
   char local[256];
   char *buf = local;

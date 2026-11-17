@@ -1,0 +1,35 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+
+mkinput() {
+  printf 'αβγ → ok\r\n'
+  seq 1 "$1"
+}
+mkinput 10 > input10
+mkinput 1000 > input1000
+
+./build/exec/main < input1000
+
+# Under Valgrind, the blocks definitely lost (Chez itself may lose a few)
+# must be the same for 10 and for 1000 lines: each line was lost.
+lost() {
+  valgrind --leak-check=full --trace-children=yes \
+    --log-file=output.valgrind.chez.%p.log ./build/exec/main < "$1" > /dev/null
+  cat output.valgrind.chez.*.log \
+    | sed -n 's/.*definitely lost: [0-9,]* bytes in \([0-9,]*\) blocks.*/\1/p' \
+    | tr -d , | awk '{ s += $1 } END { print s + 0 }'
+  rm -f output.valgrind.chez.*.log
+}
+if [ -n "$VALGRIND" ]; then
+  l10=$(lost input10)
+  l1000=$(lost input1000)
+  if [ "$l10" = "$l1000" ]; then
+    echo "no lines lost"
+  else
+    echo "blocks lost: $l10 for 10 lines, $l1000 for 1000 lines"
+  fi
+else
+  echo "no lines lost"
+fi
+rm -f input10 input1000

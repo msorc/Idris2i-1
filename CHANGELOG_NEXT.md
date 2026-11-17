@@ -793,6 +793,12 @@ should target this file (`CHANGELOG_NEXT`).
   -128 as an `Int8` is -128 (it was 128), that of 200 as a `Bits8` is 56 (it
   was -200).  (`negate` of the `Num` implementations, which is `0 - x`, was
   right.)  The same for the Racket, Gambit and JavaScript backends.
+* `getLine` no longer leaks the line that it reads (120 bytes for a short
+  line): `idris2_getStr` of the support library gave it in a buffer from
+  `malloc`, which the `C` calling convention copied into a string and never
+  freed.  It now gives it in a buffer of the thread, valid until the next
+  call (the previous line is freed).  The Racket and Gambit backends, and the
+  checked-in bootstrap code, use the same function.
 
 ### Library changes
 
