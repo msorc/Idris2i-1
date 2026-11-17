@@ -313,6 +313,13 @@ should target this file (`CHANGELOG_NEXT`).
   compiler built with RefC folds constants with these primitives, this also
   fixes the folding of such constant expressions (`prim__shl_Bits32 1 32`
   was folded to 1) for every backend.
+* `idris_crash` exits with code 1, like with the Scheme backends (it was
+  255).  `copyData` within one buffer copies overlapping ranges correctly
+  (it used `memcpy`), and running out of memory for a buffer or an array
+  stops with a message instead of crashing later.  In the C support library
+  of every backend, `Network.Socket.recv` no longer writes a byte past its
+  buffer when it fills it, `fGetChars` stops with a message when it runs out
+  of memory, and the messages of failed assertions show their arguments.
 * Fixed an issue to do with `alligned_alloc` not existing on older MacOS
   versions, causing builds targeting PowerPC to fail (#3662).  For these
   systems, the compiler will now use `posix_memalign`.

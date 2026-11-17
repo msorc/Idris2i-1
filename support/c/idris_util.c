@@ -10,7 +10,8 @@ void idris2_verify_failed(const char *file, int line, const char *cond,
   va_start(ap, fmt);
 
   char message[1000];
-  snprintf(message, sizeof(message), fmt, ap);
+  vsnprintf(message, sizeof(message), fmt, ap);
+  va_end(ap);
 
   fprintf(stderr, "assertion failed in %s:%d: %s: %s\n", file, line, cond,
           message);

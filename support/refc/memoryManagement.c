@@ -832,8 +832,8 @@ Idris2_Array *idris2_makeArray(int length) {
   a->header.tag = ARRAY_TAG;
   a->lock = 0;
   a->capacity = length;
-  a->arr = (Idris2_Value **)malloc(sizeof(Idris2_Value *) * length);
-  memset(a->arr, 0, sizeof(Idris2_Value *) * length);
+  a->arr = (Idris2_Value **)calloc(length, sizeof(Idris2_Value *));
+  IDRIS2_REFC_VERIFY(a->arr || length == 0, "malloc failed");
   return a;
 }
 

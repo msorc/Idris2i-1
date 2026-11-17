@@ -8,9 +8,7 @@ void *newBuffer(int bytes) {
   size_t size = sizeof(Buffer) + bytes * sizeof(uint8_t);
 
   Buffer *buf = malloc(size);
-  if (buf == NULL) {
-    return NULL;
-  }
+  IDRIS2_REFC_VERIFY(buf, "malloc failed");
 
   buf->size = bytes;
   memset(buf->data, 0, bytes);
@@ -20,7 +18,7 @@ void *newBuffer(int bytes) {
 
 static void assert_valid_range(Buffer *buf, int64_t offset, int64_t len) {
   IDRIS2_REFC_VERIFY(offset >= 0, "offset (%lld) < 0", (long long)offset);
-  IDRIS2_REFC_VERIFY(len >= 0, "len (%lld) < 0", (long long)offset);
+  IDRIS2_REFC_VERIFY(len >= 0, "len (%lld) < 0", (long long)len);
   IDRIS2_REFC_VERIFY(offset + len <= buf->size,
                      "offset (%lld) + len (%lld) > buf.size (%lld)",
                      (long long)offset, (long long)len, (long long)buf->size);
@@ -33,7 +31,8 @@ void copyBuffer(void *from, int from_offset, int len, void *to, int to_offset) {
   assert_valid_range(bfrom, from_offset, len);
   assert_valid_range(bto, to_offset, len);
 
-  memcpy(bto->data + to_offset, bfrom->data + from_offset, len);
+  // (the ranges overlap when the data is copied within one buffer)
+  memmove(bto->data + to_offset, bfrom->data + from_offset, len);
 }
 
 int getBufferSize(void *buffer) { return ((Buffer *)buffer)->size; }

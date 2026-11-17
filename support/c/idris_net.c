@@ -260,8 +260,8 @@ void *idrnet_recv(int sockfd, int len) {
   int recv_res = recv(sockfd, buf, len, 0);
   res_struct->result = recv_res;
 
-  if (recv_res > 0) {         // Data was received
-    buf[recv_res + 1] = 0x00; // Null-term, so Idris can interpret it
+  if (recv_res > 0) {     // Data was received
+    buf[recv_res] = 0x00; // Null-term, so Idris can interpret it
   }
   res_struct->payload = buf;
   return (void *)res_struct;

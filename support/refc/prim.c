@@ -67,10 +67,15 @@ Idris2_ShortString const idris2_predefined_osstring = {
 Idris2_ShortString const idris2_predefined_codegenstring = {
     IDRIS2_STOCKVAL(STRING_TAG), 4, "refc"};
 
+// Like blodwen-error-quit of the Scheme backends: the message goes to stdout,
+// and the program exits with 1.
 Idris2_Value *idris2_crash(Idris2_Value *msg) {
   Idris2_String *str = (Idris2_String *)msg;
-  printf("ERROR: %s\n", str->str);
-  exit(-1);
+  fputs("ERROR: ", stdout);
+  fwrite(str->str, 1, str->len, stdout);
+  fputc('\n', stdout);
+  fflush(stdout);
+  exit(1);
 }
 
 Idris2_Value *idris2_crashMsg(const char *msg) {

@@ -147,6 +147,7 @@ char *idris2_readLine(FILE *f) {
 
 char *idris2_readChars(int num, FILE *f) {
   char *buffer = malloc((num + 1) * sizeof(char));
+  IDRIS2_VERIFY(buffer, "malloc failed: %s", strerror(errno));
   size_t len;
   len = fread(buffer, sizeof(char), (size_t)num, f);
   buffer[len] = '\0';
