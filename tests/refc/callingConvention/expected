@@ -168,9 +168,9 @@ Idris2_Value *Main_main
     Idris2_Value * var_17 = ((Idris2_Value*)&idris2_constant_String_13d921906f0493d1);
     Idris2_Value *primVar_2 = strAppend(var_16, var_17);
     idris2_removeReference(var_16);
-    Idris2_Value * var_18 = primVar_2;                       // Prelude.IO:100:22--100:34
+    Idris2_Value * var_18 = primVar_2;                       // Prelude.IO:103:22--103:34
     Idris2_Value *ffiVar_3 = idris2_borrow_Prelude_IO_prim__putStr(var_18, var_0);
-                                                             // Prelude.IO:100:22--100:34
+                                                             // Prelude.IO:103:22--103:34
     idris2_removeReference(var_0);
     idris2_removeReference(var_18);
     return ffiVar_3;
@@ -210,9 +210,9 @@ Idris2_Value *Main_main_10
     Idris2_Value * var_5 = ((Idris2_Value*)&idris2_constant_String_13d921906f0493d1);
     Idris2_Value *primVar_0 = strAppend(var_4, var_5);
     idris2_removeReference(var_4);
-    Idris2_Value * var_6 = primVar_0;                        // Prelude.IO:100:22--100:34
+    Idris2_Value * var_6 = primVar_0;                        // Prelude.IO:103:22--103:34
     Idris2_Value *ffiVar_1 = idris2_borrow_Prelude_IO_prim__putStr(var_6, var_0);
-                                                             // Prelude.IO:100:22--100:34
+                                                             // Prelude.IO:103:22--103:34
     idris2_removeReference(var_0);
     idris2_removeReference(var_6);
     return ffiVar_1;

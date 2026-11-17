@@ -440,6 +440,56 @@ void idris2_refc_putStr(Idris2_Value *str) {
   fwrite(STR(str)->str, 1, STR(str)->len, stdout);
 }
 
+// getLine.  idris2_getStr (support/c) gives a line from malloc, which the `C`
+// calling convention copies but cannot free; this one reads the line into a
+// buffer of its own.  Like idris2_getStr, it reads up to and including the
+// newline, and keeps what comes before the first '\r', '\n' or NUL; at the
+// end of the input, or on an error, the line is empty.
+Idris2_Value *idris2_refc_getStr(void) {
+  char local[256];
+  char *buf = local;
+  size_t cap = sizeof(local), len = 0;
+  int keep = 1, ascii = 1, c;
+
+#ifdef _WIN32
+#define IDRIS2_GETC(f) getc(f)
+#else
+#define IDRIS2_GETC(f) getc_unlocked(f)
+  flockfile(stdin);
+#endif
+  while ((c = IDRIS2_GETC(stdin)) != EOF && c != '\n') {
+    if (!keep)
+      continue;
+    if (c == '\r' || c == '\0') {
+      keep = 0;
+      continue;
+    }
+    if (len == cap) {
+      size_t ncap = cap * 2;
+      char *nbuf = buf == local ? malloc(ncap) : realloc(buf, ncap);
+      IDRIS2_REFC_VERIFY(nbuf, "malloc failed");
+      if (buf == local)
+        memcpy(nbuf, local, len);
+      buf = nbuf;
+      cap = ncap;
+    }
+    if (c >= 0x80)
+      ascii = 0;
+    buf[len++] = (char)c;
+  }
+#ifndef _WIN32
+  funlockfile(stdin);
+#endif
+#undef IDRIS2_GETC
+
+  Idris2_String *s = idris2_mkStringN(buf, len);
+  if (ascii)
+    idris2_setAscii(s);
+  if (buf != local)
+    free(buf);
+  return (Idris2_Value *)s;
+}
+
 int idris2_refc_writeLine(void *f, Idris2_Value *str) {
   size_t l = STR(str)->len;
   return fwrite(STR(str)->str, 1, l, (FILE *)f) == l ? 1 : 0;

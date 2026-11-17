@@ -42,5 +42,6 @@ Idris2_Value *stringIteratorNext(Idris2_Value *str, Idris2_Value *it);
 /* putChar: write the UTF-8 encoding of a character to stdout. */
 void idris2_refc_putChar(uint32_t c);
 void idris2_refc_putStr(Idris2_Value *str);
+Idris2_Value *idris2_refc_getStr(void);
 int idris2_refc_writeLine(void *f, Idris2_Value *str);
 int64_t idris2_refc_stringByteLength(Idris2_Value *str);

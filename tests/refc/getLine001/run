@@ -1,0 +1,29 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+
+# 2000 numbers after a few lines: UTF-8, CRLF, a line longer than the
+# first buffer, an empty line.
+{
+  echo 2004
+  echo "αβγ → ok"
+  printf 'crlf\r\n'
+  awk 'BEGIN { s = ""; for (i = 0; i < 1000; i++) s = s "x"; print s }'
+  echo
+  seq 1 2000
+} > input
+
+./build/exec/main < input
+if [ -n "$VALGRIND" ]; then
+  $VALGRIND ./build/exec/main < input > /dev/null
+  if grep -q "definitely lost: [1-9]" output.valgrind.refc.log; then
+    grep "definitely lost" output.valgrind.refc.log
+  else
+    echo "no definite leaks"
+  fi
+else
+  echo "no definite leaks"
+fi
+# (not under Valgrind: the leak check looks at the pages)
+IDRIS2_REFC_LEAKCHECK=1 ./build/exec/main < input 2>&1 >/dev/null | sed 's/,.*//'
+rm -f input output.valgrind.refc.log

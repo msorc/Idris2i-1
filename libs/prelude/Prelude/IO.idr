@@ -84,7 +84,10 @@ prim__putChar : Char -> (1 x : %World) -> IORes ()
          "node:support:getChar,support_system_file"
 %extern prim__getChar : (1 x : %World) -> IORes Char
 
-%foreign "C:idris2_getStr, libidris2_support, idris_support.h"
+-- (RefC: the line that idris2_getStr gives comes from malloc, and the `C`
+-- calling convention would copy it and never free it.)
+%foreign "RefC:idris2_refc_getStr"
+         "C:idris2_getStr, libidris2_support, idris_support.h"
          "node:support:getStr,support_system_file"
 prim__getStr : PrimIO String
 

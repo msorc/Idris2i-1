@@ -768,6 +768,12 @@ should target this file (`CHANGELOG_NEXT`).
   `strIndex` and `substr` on ASCII strings, instead of a scan from the start
   of the string every time.  A loop of `strIndex` over a string of 20,000
   ASCII characters runs with 360 times fewer instructions.
+* `getLine` no longer leaks the line that it reads (8 KB for every call): the
+  support library gave it in a buffer from `malloc`, which the `C` calling
+  convention copied into a string and never freed.  It now has a `RefC`
+  function of its own, which reads short lines into a buffer on the stack.
+  Reading 200,000 short lines takes 15 MB instead of 816 MB, and 0.03 s
+  instead of 0.57 s.
 
 #### Chez Backend
 
