@@ -24,10 +24,10 @@ exit code: 1
 exit code: 1
 --- REPL command
 {"severity":"error","file":null,"start":{"line":1,"col":1},"end":{"line":1,"col":5},"message":"Undefined name oops."}
-exit code: 0
+exit code: 1
 --- missing file
 {"severity":"error","file":null,"message":"Error loading file \"Missing.idr\": File Not Found"}
-exit code: 0
+exit code: 1
 --- human is the default
 1/1: Building Undefined (Undefined.idr)
 Error: While processing right hand side of g. Undefined name lenght. 

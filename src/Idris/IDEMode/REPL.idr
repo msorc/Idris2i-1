@@ -444,6 +444,7 @@ displayIDEResult outf i (NameLocList dat)
 -- do not use a catchall so that we are warned about missing cases when adding a
 -- new construtor to the enumeration.
 displayIDEResult outf i (REPL Done) = printIDEResult outf i (AString "")
+displayIDEResult outf i (REPL ErrorReported) = printIDEResult outf i (AString "")
 displayIDEResult outf i (REPL (Executed {})) = printIDEResult outf i (AString "")
 displayIDEResult outf i (REPL (ModuleLoaded {})) = printIDEResult outf i (AString "")
 displayIDEResult outf i (REPL (ErrorLoadingModule {})) = printIDEResult outf i (AString "")

@@ -325,6 +325,9 @@ public export
 data REPLResult : Type where
   Done : REPLResult
   REPLError : Doc IdrisAnn -> REPLResult
+  ||| An error that was reported when it happened (as JSON, with
+  ||| `--error-format json`)
+  ErrorReported : REPLResult
   Executed : PTerm -> REPLResult
   RequestedHelp : REPLResult
   RequestedDetails : String -> REPLResult
@@ -352,6 +355,21 @@ data REPLResult : Type where
   DefDeclared : REPLResult
   Exited : REPLResult
   Edited : EditResult -> REPLResult
+
+||| Whether a result reports that the command failed. A command given on
+||| the command line (`--client`, a file to `--check`) that fails must make
+||| the compiler exit with a failure code.
+export
+isFailure : REPLResult -> Bool
+isFailure (REPLError _) = True
+isFailure ErrorReported = True
+isFailure (ErrorLoadingModule _ _) = True
+isFailure (ErrorLoadingFile _ _) = True
+isFailure (ErrorsBuildingFile _ _) = True
+isFailure NoFileLoaded = True
+isFailure CompilationFailed = True
+isFailure (Edited (EditError _)) = True
+isFailure _ = False
 
 export
 docsOrSignature : {auto o : Ref ROpts REPLOpts} ->

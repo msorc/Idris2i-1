@@ -1,0 +1,36 @@
+--- --check Ok.idr
+exit code: 0
+--- --check Missing.idr
+exit code: 1
+--- --check Missing.idr --error-format json
+exit code: 1
+--- --check Mismatch.idr
+exit code: 1
+--- --check Parse.idr
+exit code: 1
+--- -o ok Ok.idr
+exit code: 0
+--- -o ok Missing.idr
+exit code: 1
+--- -o nomain NoMain.idr
+exit code: 1
+--- --exec main Ok.idr
+exit code: 0
+--- --exec main Missing.idr
+exit code: 1
+--- --exec nope Ok.idr
+exit code: 1
+--- --exec main NoMain.idr
+exit code: 1
+--- --build Missing.ipkg
+exit code: 1
+--- Ok.idr --client :t main
+exit code: 0
+--- Ok.idr --client :t nope
+exit code: 1
+--- Ok.idr --client :nocommand
+exit code: 1
+--- Ok.idr --client :l Missing.idr
+exit code: 1
+--- Missing.idr --client :t 1
+exit code: 1

@@ -1109,7 +1109,7 @@ replError : {auto c : Ref Ctxt Defs} ->
 replError mkDoc err
     = if !jsonErrors
          then do emitError err
-                 pure Done
+                 pure ErrorReported
          else REPLError <$> mkDoc err
 
 processCatch : {auto c : Ref Ctxt Defs} ->
@@ -1185,17 +1185,20 @@ interpret inp
            Right (Just cmd) => processCatch cmd
 
 mutual
+  ||| Run one REPL command and display its result. Returns whether it
+  ||| succeeded.
   export
   replCmd : {auto c : Ref Ctxt Defs} ->
             {auto u : Ref UST UState} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto m : Ref MD Metadata} ->
             {auto o : Ref ROpts REPLOpts} ->
-            String -> Core ()
-  replCmd "" = pure ()
+            String -> Core Bool
+  replCmd "" = pure True
   replCmd cmd
       = do res <- interpret cmd
            displayResult res
+           pure (not (isFailure res))
 
   export
   repl : {auto c : Ref Ctxt Defs} ->
@@ -1352,6 +1355,7 @@ mutual
 
   -- do not use a catchall so that we are warned when a new constructor is added
   displayResult Done = pure ()
+  displayResult ErrorReported = pure ()
   displayResult (Executed _) = pure ()
   displayResult DefDeclared = pure ()
   displayResult Exited = pure ()

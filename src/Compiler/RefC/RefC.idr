@@ -2876,7 +2876,7 @@ executeExpr : Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
 executeExpr c s tmpDir tm = do
   do let outfile = "_tmp_refc"
      Just _ <- compileExpr ANF c s tmpDir tmpDir tm outfile
-       | Nothing => do coreLift_ $ putStrLn "Error: failed to compile"
+       | Nothing => throw (UserError "failed to compile")
      coreLift_ $ system [tmpDir </> outfile]
 
 export

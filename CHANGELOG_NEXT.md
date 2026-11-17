@@ -43,6 +43,11 @@ should target this file (`CHANGELOG_NEXT`).
 * RefC is the default code generator of `idris2` itself, not only of the
   build: `-o`, `:c` and `:exec` compile via C unless another one is chosen
   with `--cg`, `IDRIS2_CG` or `:set cg` (for instance `--cg chez`).
+* `idris2` exits with code 1 when the file it is given can't be read (with
+  `--check`, `-o` or `--exec`), when the expression of `--exec` or the
+  command of `--client` fails, and when `-o` or `--exec` can't compile: it
+  used to exit with 0 then.  `--exec` no longer goes on to run the
+  expression when the file can't be read.
 * The inlining heuristic also inlines small public definitions that are not
   just a call (up to 12 nodes: nested primitive operations, calls and cases),
   such as `==`, `div` and `mod` on `Int`, and constant folding folds `Int`

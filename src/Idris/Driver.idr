@@ -218,14 +218,15 @@ stMain cgs opts
                                 pure res
 
                post <- get PostS
-               Continue <- catch (postOptions result post)
-                               (\err => emitError err *> pure Abort)
-                | Abort => do
-                    -- exit with an error code if there was an error, otherwise
-                    -- just exit
+               (flow, ok) <- catch (postOptions result post)
+                               (\err => emitError err *> pure (Abort, False))
+               let Continue = flow
+                 | Abort => do
+                    -- exit with an error code if there was an error (loading
+                    -- the file, or in one of the options), otherwise just exit
                      ropts <- get ROpts
                      showTimeRecord
-                     whenJust (errorLine ropts) $ \ _ =>
+                     when (not ok || isFailure result || isJust (errorLine ropts)) $
                        coreLift $ exitWith (ExitFailure 1)
                if ide || ideSocket then
                    if not ideSocket

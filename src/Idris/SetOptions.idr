@@ -571,41 +571,45 @@ preOptions (SpecInterfaces :: opts)
 preOptions (_ :: opts) = preOptions opts
 
 -- Options to be processed after type checking. Returns whether execution
--- should continue (i.e., whether to start a REPL)
+-- should continue (i.e., whether to start a REPL), and whether all of the
+-- options that were processed succeeded
 export
 postOptions : {auto c : Ref Ctxt Defs} ->
               {auto u : Ref UST UState} ->
               {auto s : Ref Syn SyntaxInfo} ->
               {auto o : Ref ROpts REPLOpts} ->
               {auto m : Ref MD Metadata} ->
-              REPLResult -> PostSession -> Core ControlFlow
--- In case of error loading the output file, we abort immediately without doing anything
-postOptions res@(ErrorLoadingFile {}) (MkPostSession _ (Just _) _ _)
-    = pure Abort
--- otherwise, we compile the file and
--- either :
--- - execute the given expression
--- - quit because the --check flag was given
--- - run the REPL
--- in this order, if either of those happened, we abort execution
--- if none happened we continue
-postOptions _ (MkPostSession check out ex runRepl)
-    = do controlFlow <- newRef ControlFlow Continue
-         whenJust out $ \ outfile => do
-             ignore $ compileExp (PRef EmptyFC (UN $ Basic "main")) outfile
-             put ControlFlow Abort
-         flip traverse_ (reverse ex) $ \ expr => do
-             setCurrentElabSource expr
-             let Right (_, _, e) = runParser (Virtual Interactive) Nothing expr $ aPTerm <* eoi
-                   | Left err => throw err
-             ignore $ execExp e
-             put ControlFlow Abort
-         when check $
-             put ControlFlow Abort
-         whenJust runRepl $ \cmd => do
-             replCmd cmd
-             put ControlFlow Abort
-         get ControlFlow
+              REPLResult -> PostSession -> Core (ControlFlow, Bool)
+postOptions res (MkPostSession check out ex runRepl)
+    = -- In case of error loading the input file, there is nothing to
+      -- compile, execute or check, so we abort immediately without doing
+      -- anything
+      if notLoaded res && (check || isJust out || isCons ex)
+         then pure (Abort, False)
+         -- otherwise, we compile the file and
+         -- either :
+         -- - execute the given expression
+         -- - quit because the --check flag was given
+         -- - run the REPL command given with --client
+         -- in this order, if either of those happened, we abort execution
+         -- if none happened we continue
+         else do
+           compiled <- maybe (pure True)
+                         (\ outfile => not . isFailure <$>
+                              compileExp (PRef EmptyFC (UN $ Basic "main")) outfile)
+                         out
+           executed <- for (reverse ex) $ \ expr => do
+               setCurrentElabSource expr
+               let Right (_, _, e) = runParser (Virtual Interactive) Nothing expr $ aPTerm <* eoi
+                     | Left err => throw err
+               not . isFailure <$> execExp e
+           ran <- maybe (pure True) replCmd runRepl
+           let quit = isJust out || isCons ex || check || isJust runRepl
+           pure (if quit then Abort else Continue, compiled && all id executed && ran)
+  where
+    notLoaded : REPLResult -> Bool
+    notLoaded (ErrorLoadingFile {}) = True
+    notLoaded _ = False
 
 export
 ideMode : List CLOpt -> Bool
