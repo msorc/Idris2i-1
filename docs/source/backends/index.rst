@@ -35,7 +35,19 @@ You can also execute expressions directly:
 
     Main> :exec expr
 
-Again, ``expr`` must have type ``IO ()``.
+Again, ``expr`` must have type ``IO ()``. When the program exits with a code
+other than 0 (with ``exitWith``, or when it crashes), the REPL says so, for
+example ``The program exited with code 3``, and goes on.
+
+The same can be done from the command line with ``--exec`` (or ``-x``):
+
+::
+
+    $ idris2 hello.idr --exec main
+
+This exits with the exit code of the program (as a program compiled with
+``-o`` would), or with 1 if the expression does not compile. A program killed
+by a signal gives 128 + the number of the signal, as shells report it.
 
 Finally, you can compile to an executable from the command line by adding
 the ``-o <output file>`` option:

@@ -23,6 +23,7 @@ import Libraries.Utils.Scheme
 
 import Idris.Syntax
 
+import System.Escape
 import System.File
 import System.Info
 
@@ -40,9 +41,11 @@ record Codegen where
   compileExpr : Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
                 (tmpDir : String) -> (outputDir : String) ->
                 ClosedTerm -> (outfile : String) -> Core (Maybe String)
-  ||| Execute an Idris 2 expression directly.
+  ||| Execute an Idris 2 expression directly. Returns the exit code of the
+  ||| program: 0 when it succeeded, 128 + the number of the signal when it was
+  ||| killed by one (as shells report it).
   executeExpr : Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
-                (tmpDir : String) -> ClosedTerm -> Core ()
+                (tmpDir : String) -> ClosedTerm -> Core Int
   ||| Incrementally compile definitions in the current module (toIR defs)
   ||| if supported
   ||| Takes a source file name, returns the name of the generated object
@@ -116,16 +119,48 @@ compile {c} {s} cg tm out
 
 ||| execute
 ||| As with `compile`, produce a functon that executes
-||| the `executeExpr` method of the given Codegen
+||| the `executeExpr` method of the given Codegen, and returns the exit code
+||| of the program
 export
 execute : {auto c : Ref Ctxt Defs} ->
           {auto s : Ref Syn SyntaxInfo} ->
-          Codegen -> ClosedTerm -> Core ()
+          Codegen -> ClosedTerm -> Core Int
 execute {c} {s} cg tm
     = do d <- getDirs
          let tmpDir = execBuildDir d
          ensureDirectoryExists tmpDir
          executeExpr cg c s tmpDir tm
+
+-- The C library's `system`, which gives the wait status of the command: the
+-- `system` of base gives -1 for a command killed by a signal, without the
+-- number of the signal.
+%foreign "C:system, libc 6, stdlib.h"
+prim__libcSystem : String -> PrimIO Int
+
+||| Run a shell command (for `executeExpr`), and return its exit code as a
+||| shell reports it: 128 + the number of the signal when it was killed by
+||| one, -1 when it could not be run.
+export
+runCommand : String -> Core Int
+runCommand cmd
+    = do status <- coreLift $ primIO $ prim__libcSystem cmd
+         pure $ if isWindows || status == -1
+                   then status -- Windows gives the exit code
+                   else decode status
+  where
+    -- The wait status (`WIFEXITED`, `WEXITSTATUS`, `WIFSIGNALED` and
+    -- `WTERMSIG` have the same encoding on Linux, macOS and the BSDs)
+    decode : Int -> Int
+    decode status
+        = let sig = status `mod` 128 in
+              if sig == 0 then (status `div` 256) `mod` 256 -- exited
+              else if sig /= 0x7f then 128 + sig            -- killed
+              else -1                                       -- stopped
+
+||| Run a program with arguments (escaped for the shell), as `runCommand`
+export
+runProgram : List String -> Core Int
+runProgram = runCommand . escapeCmd
 
 export
 incCompile : {auto c : Ref Ctxt Defs} ->

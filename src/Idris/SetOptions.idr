@@ -571,21 +571,23 @@ preOptions (SpecInterfaces :: opts)
 preOptions (_ :: opts) = preOptions opts
 
 -- Options to be processed after type checking. Returns whether execution
--- should continue (i.e., whether to start a REPL), and whether all of the
--- options that were processed succeeded
+-- should continue (i.e., whether to start a REPL), and the exit code of the
+-- options that were processed: 0 if they all succeeded, otherwise that of the
+-- first that failed (the exit code of the program for `--exec`, 1 for any
+-- other failure)
 export
 postOptions : {auto c : Ref Ctxt Defs} ->
               {auto u : Ref UST UState} ->
               {auto s : Ref Syn SyntaxInfo} ->
               {auto o : Ref ROpts REPLOpts} ->
               {auto m : Ref MD Metadata} ->
-              REPLResult -> PostSession -> Core (ControlFlow, Bool)
+              REPLResult -> PostSession -> Core (ControlFlow, Int)
 postOptions res (MkPostSession check out ex runRepl)
     = -- In case of error loading the input file, there is nothing to
       -- compile, execute or check, so we abort immediately without doing
       -- anything
       if notLoaded res && (check || isJust out || isCons ex)
-         then pure (Abort, False)
+         then pure (Abort, 1)
          -- otherwise, we compile the file and
          -- either :
          -- - execute the given expression
@@ -594,18 +596,20 @@ postOptions res (MkPostSession check out ex runRepl)
          -- in this order, if either of those happened, we abort execution
          -- if none happened we continue
          else do
-           compiled <- maybe (pure True)
-                         (\ outfile => not . isFailure <$>
+           compiled <- maybe (pure 0)
+                         (\ outfile => exitCode <$>
                               compileExp (PRef EmptyFC (UN $ Basic "main")) outfile)
                          out
            executed <- for (reverse ex) $ \ expr => do
                setCurrentElabSource expr
                let Right (_, _, e) = runParser (Virtual Interactive) Nothing expr $ aPTerm <* eoi
                      | Left err => throw err
-               not . isFailure <$> execExp e
+               exitCode <$> execExp e
            ran <- maybe (pure True) replCmd runRepl
            let quit = isJust out || isCons ex || check || isJust runRepl
-           pure (if quit then Abort else Continue, compiled && all id executed && ran)
+           let code = foldr (\c, rest => if c /= 0 then c else rest) 0 $
+                        compiled :: executed ++ [if ran then 0 else 1]
+           pure (if quit then Abort else Continue, code)
   where
     notLoaded : REPLResult -> Bool
     notLoaded (ErrorLoadingFile {}) = True

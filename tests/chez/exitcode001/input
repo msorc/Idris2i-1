@@ -1,0 +1,4 @@
+:exec three
+:exec ok
+:exec terminated
+:q

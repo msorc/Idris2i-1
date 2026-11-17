@@ -22,6 +22,7 @@ import Idris.Error
 
 import IdrisPaths
 
+import Data.So
 import Data.String
 import System
 import System.Directory
@@ -218,16 +219,20 @@ stMain cgs opts
                                 pure res
 
                post <- get PostS
-               (flow, ok) <- catch (postOptions result post)
-                               (\err => emitError err *> pure (Abort, False))
+               (flow, code) <- catch (postOptions result post)
+                                 (\err => emitError err *> pure (Abort, 1))
                let Continue = flow
                  | Abort => do
                     -- exit with an error code if there was an error (loading
-                    -- the file, or in one of the options), otherwise just exit
+                    -- the file, or in one of the options: with the exit code
+                    -- of the program for `--exec`), otherwise just exit
                      ropts <- get ROpts
                      showTimeRecord
-                     when (not ok || isFailure result || isJust (errorLine ropts)) $
-                       coreLift $ exitWith (ExitFailure 1)
+                     let status = if code == 0 && (isFailure result || isJust (errorLine ropts))
+                                     then 1 else code
+                     case choose (status == 0) of
+                       Left _ => pure ()
+                       Right _ => coreLift $ exitWith (ExitFailure status)
                if ide || ideSocket then
                    if not ideSocket
                     then do

@@ -11,7 +11,9 @@ Issue2041:5:17--5:19
 
 Main> Encountered unimplemented hole Main.{n:1}
 Warning: compiling hole Main.{n:1}
+The program exited with code 1
 Main> Encountered unimplemented hole Main.{n:2}
 Warning: compiling hole Main.{n:2}
+The program exited with code 1
 Main> 
 Bye for now!

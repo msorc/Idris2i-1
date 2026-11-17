@@ -53,6 +53,13 @@ should target this file (`CHANGELOG_NEXT`).
   command of `--client` fails, and when `-o` or `--exec` can't compile: it
   used to exit with 0 then.  `--exec` no longer goes on to run the
   expression when the file can't be read.
+* `idris2 --exec` exits with the exit code of the program it runs (it
+  always exited with 0 when the program ran, whatever its exit code), and
+  `:exec` at the REPL says when the program exits with a code other than 0
+  (`The program exited with code 3`).  A program killed by a signal gives
+  128 + the number of the signal, as shells report it.  For a backend built
+  with the compiler API, `executeExpr` of `Codegen` returns the exit code of
+  the program (`Core Int` instead of `Core ()`).
 * The inlining heuristic also inlines small public definitions that are not
   just a call (up to 12 nodes: nested primitive operations, calls and cases),
   such as `==`, `div` and `mod` on `Int`, and constant folding folds `Int`

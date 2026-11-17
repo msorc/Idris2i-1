@@ -65,7 +65,7 @@ compileExpr c s tmpDir outputDir tm outfile =
 executeExpr :
   Ref Ctxt Defs ->
   Ref Syn SyntaxInfo ->
-  (tmpDir : String) -> ClosedTerm -> Core ()
+  (tmpDir : String) -> ClosedTerm -> Core Int
 executeExpr c s tmpDir tm =
   throw $ InternalError "Javascript backend is only able to compile, use Node instead"
 

@@ -655,11 +655,11 @@ compileExpr makeitso c s tmpDir outputDir tm outfile
 executeExpr :
   Ref Ctxt Defs ->
   Ref Syn SyntaxInfo ->
-  (tmpDir : String) -> ClosedTerm -> Core ()
+  (tmpDir : String) -> ClosedTerm -> Core Int
 executeExpr c s tmpDir tm
     = do Just sh <- compileExpr False c s tmpDir tmpDir tm "_tmpchez"
             | Nothing => throw (InternalError "compileExpr returned Nothing")
-         coreLift_ $ system [sh]
+         runProgram [sh]
 
 incCompile :
   Ref Ctxt Defs ->

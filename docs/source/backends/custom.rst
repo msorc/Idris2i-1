@@ -39,14 +39,19 @@ Now create a file containing
 
     execute :
       Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
-      (execDir : String) -> ClosedTerm -> Core ()
+      (execDir : String) -> ClosedTerm -> Core Int
     execute defs syn dir term = do coreLift $ putStrLn "Maybe in an hour."
+                                   pure 0
 
     lazyCodegen : Codegen
     lazyCodegen = MkCG compile execute Nothing Nothing
 
     main : IO ()
     main = mainWithCodegens [("lazy", lazyCodegen)]
+
+The function that executes an expression returns the exit code of the
+program it ran (0 when it succeeded): ``idris2 --exec`` exits with it, and
+``:exec`` at the REPL reports it when it is not 0.
 
 Build it with
 

@@ -403,12 +403,11 @@ compileExpr c s tmpDir outputDir tm outfile
 executeExpr :
   Ref Ctxt Defs ->
   Ref Syn SyntaxInfo ->
-  (tmpDir : String) -> ClosedTerm -> Core ()
+  (tmpDir : String) -> ClosedTerm -> Core Int
 executeExpr c s tmpDir tm
     = do Just sh <- compileExpr c s tmpDir tmpDir tm "_tmpgambit"
            | Nothing => throw (InternalError "compileExpr returned Nothing")
-         coreLift_ $ system [sh] -- TODO: on windows, should add exe extension
-         pure ()
+         runProgram [sh] -- TODO: on windows, should add exe extension
 
 export
 codegenGambit : Codegen

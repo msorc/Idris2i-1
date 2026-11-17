@@ -329,7 +329,8 @@ data REPLResult : Type where
   ||| An error that was reported when it happened (as JSON, with
   ||| `--error-format json`)
   ErrorReported : REPLResult
-  Executed : PTerm -> REPLResult
+  ||| An expression was executed; the program exited with this code
+  Executed : PTerm -> (exitCode : Int) -> REPLResult
   RequestedHelp : REPLResult
   RequestedDetails : String -> REPLResult
   Evaluated : IPTerm -> Maybe IPTerm -> REPLResult
@@ -370,7 +371,16 @@ isFailure (ErrorsBuildingFile _ _) = True
 isFailure NoFileLoaded = True
 isFailure CompilationFailed = True
 isFailure (Edited (EditError _)) = True
+isFailure (Executed _ code) = code /= 0
 isFailure _ = False
+
+||| The exit code that an action given on the command line (`--exec`, `-o`)
+||| gives the compiler: that of the program for an executed expression, 1 for
+||| another failure.
+export
+exitCode : REPLResult -> Int
+exitCode (Executed _ code) = code
+exitCode res = if isFailure res then 1 else 0
 
 export
 docsOrSignature : {auto o : Ref ROpts REPLOpts} ->

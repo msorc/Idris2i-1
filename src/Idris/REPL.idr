@@ -769,9 +769,9 @@ execExp ctm
               do iputStrLn (reflow "No such code generator available")
                  pure CompilationFailed
          tm_erased <- prepareExp ctm
-         logTimeWhen !getEvalTiming 0 "Execution" $
-           execute cg tm_erased
-         pure $ Executed ctm
+         code <- logTimeWhen !getEvalTiming 0 "Execution" $
+                   execute cg tm_erased
+         pure $ Executed ctm code
 
 
 execDecls : {auto c : Ref Ctxt Defs} ->
@@ -879,7 +879,7 @@ process (Eval itm)
     = do opts <- get ROpts
          let emode = evalMode opts
          case emode of
-            Execute => do ignore (execExp itm); pure (Executed itm)
+            Execute => execExp itm
             Scheme =>
               do (tm `WithType` ty) <- inferAndElab InExpr itm Env.empty
                  qtm <- logTimeWhen !getEvalTiming 0 "Evaluation" $
@@ -1356,7 +1356,9 @@ mutual
   -- do not use a catchall so that we are warned when a new constructor is added
   displayResult Done = pure ()
   displayResult ErrorReported = pure ()
-  displayResult (Executed _) = pure ()
+  displayResult (Executed _ 0) = pure ()
+  displayResult (Executed _ code)
+      = printResult (reflow "The program exited with code" <++> byShow code)
   displayResult DefDeclared = pure ()
   displayResult Exited = pure ()
 

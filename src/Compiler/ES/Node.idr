@@ -57,14 +57,14 @@ compileExpr c s tmpDir outputDir tm outfile =
 executeExpr :
   Ref Ctxt Defs ->
   Ref Syn SyntaxInfo ->
-  (tmpDir : String) -> ClosedTerm -> Core ()
+  (tmpDir : String) -> ClosedTerm -> Core Int
 executeExpr c s tmpDir tm =
   do let outn = tmpDir </> "_tmp_node.js"
      js <- compileToNode c s tm
      Core.writeFile outn js
      node <- coreLift findNode
      quoted_node <- pure $ "\"" ++ node ++ "\"" -- Windows often have a space in the path.
-     coreLift_ $ system (quoted_node ++ " " ++ outn)
+     runCommand (quoted_node ++ " " ++ outn)
 
 ||| Codegen wrapper for Node implementation.
 export

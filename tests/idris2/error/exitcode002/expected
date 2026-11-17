@@ -1,0 +1,22 @@
+--- --exec ok Exit.idr
+ok
+exit code: 0
+--- --exec three Exit.idr
+exiting with 3
+exit code: 3
+--- --exec failure Exit.idr
+exit code: 1
+--- --exec crash Exit.idr
+ERROR: crashing
+exit code: 1
+--- --exec terminated Exit.idr
+exit code: 143
+--- --exec three --exec ok Exit.idr
+exiting with 3
+ok
+exit code: 3
+Exit> exiting with 3
+The program exited with code 3
+Exit> ok
+Exit> The program exited with code 143
+Exit> Bye for now!

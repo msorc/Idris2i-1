@@ -19,8 +19,9 @@ compile defs syn tmp dir term file
 execute :
   Ref Ctxt Defs ->
   Ref Syn SyntaxInfo ->
-  (execDir : String) -> ClosedTerm -> Core ()
+  (execDir : String) -> ClosedTerm -> Core Int
 execute defs syn dir term = do coreLift $ putStrLn "Maybe in an hour."
+                               pure 0
 
 lazyCodegen : Codegen
 lazyCodegen = MkCG compile execute Nothing Nothing

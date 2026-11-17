@@ -1,6 +1,9 @@
 1/1: Building partial (partial.idr)
 Main> ERROR: Unhandled input for Main.foo at partial:4:1--4:17
+The program exited with code 1
 Main> 2
 Main> ERROR: Unhandled input for Main.lookup' at partial:19:1--19:40
+The program exited with code 1
 Main> ERROR: Unhandled input for Main.lookup' at partial:19:1--19:40
+The program exited with code 1
 Main> Bye for now!
