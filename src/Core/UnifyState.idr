@@ -155,7 +155,8 @@ resetNextVar : {auto u : Ref UST UState} ->
                Core ()
 resetNextVar = update UST { nextName := 0 }
 
--- Generate a global name based on the given root, in the current namespace
+-- Generate a global name based on the given root, in the namespace of the
+-- module (see 'inModuleNS')
 export
 genName : {auto c : Ref Ctxt Defs} ->
           {auto u : Ref UST UState} ->
@@ -163,10 +164,11 @@ genName : {auto c : Ref Ctxt Defs} ->
 genName str
     = do ust <- get UST
          put UST ({ nextName $= (+1) } ust)
-         n <- inCurrentNS (MN str (nextName ust))
+         n <- inModuleNS (MN str (nextName ust))
          pure n
 
--- Generate a global name based on the given name, in the current namespace
+-- Generate a global name based on the given name, in the namespace of the
+-- module
 export
 genMVName : {auto c : Ref Ctxt Defs} ->
             {auto u : Ref UST UState} ->
@@ -176,7 +178,7 @@ genMVName (MN str _) = genName str
 genMVName n
     = do ust <- get UST
          put UST ({ nextName $= (+1) } ust)
-         mn <- inCurrentNS (MN (show n) (nextName ust))
+         mn <- inModuleNS (MN (show n) (nextName ust))
          pure mn
 
 -- Generate a unique variable name based on the given root
@@ -189,7 +191,7 @@ genVarName str
          put UST ({ nextName $= (+1) } ust)
          pure (MN str (nextName ust))
 
--- Again, for case names
+-- Again, for case names (in the namespace of the module)
 export
 genCaseName : {auto c : Ref Ctxt Defs} ->
               {auto u : Ref UST UState} ->
@@ -197,7 +199,7 @@ genCaseName : {auto c : Ref Ctxt Defs} ->
 genCaseName root
     = do ust <- get UST
          put UST ({ nextName $= (+1) } ust)
-         inCurrentNS (CaseBlock root (nextName ust))
+         inModuleNS (CaseBlock root (nextName ust))
 
 export
 genWithName : {auto c : Ref Ctxt Defs} ->
@@ -206,7 +208,7 @@ genWithName : {auto c : Ref Ctxt Defs} ->
 genWithName root
     = do ust <- get UST
          put UST ({ nextName $= (+1) } ust)
-         inCurrentNS (WithBlock root (nextName ust))
+         inModuleNS (WithBlock root (nextName ust))
 
 addHoleName : {auto u : Ref UST UState} ->
               FC -> Name -> Int -> Core ()

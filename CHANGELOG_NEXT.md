@@ -235,6 +235,15 @@ should target this file (`CHANGELOG_NEXT`).
   depth of the code, instead of cubic when the same name is bound again and
   again (as in a long chain of inlined binds): 8,800 nested `let`s took 7
   minutes.
+* The names that the elaborator makes for nested (`where`) functions, case
+  and with blocks and metavariables are in the namespace of the module, not
+  in the current namespace.  They are numbered by a counter of the module,
+  and the current namespace can be that of another module (in the module
+  `A`, the block `namespace B` has the namespace `A.B`, which is also that of
+  the module `A.B`): two modules could make the same name, and in a program
+  importing both, one definition silently replaced the other (a `where`
+  function or a with block of one module ran the code of the other).  The
+  TTC format version changes accordingly.
 
 ### Building/Packaging changes
 

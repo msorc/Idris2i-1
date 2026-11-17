@@ -2487,12 +2487,12 @@ anfRefs _ acc = acc
 -- the numbers of the names of the same namespace that are alike (the nested
 -- functions that have the same name, the case blocks of the same function):
 -- they are still different, and change only when one of them is added or
--- removed.  The counters are those of modules, and two modules can have the
--- same namespace (the module A.B, and a `namespace B` in the module A): two
--- nested functions of the namespace can have the same `i`, and differ only by
--- `outer`.  So the numbers are ranked by `i`, then by `outer`, which tells
--- them apart (and gives the same ranks as `i` alone when no two have the same
--- `i`).
+-- removed.  The counters are those of modules, and the names made with them
+-- are in the namespace of their module (see `inModuleNS`; they used to be in
+-- the current namespace, which two modules can share), so two names of a
+-- namespace do not have the same `i`.  The numbers are still ranked by `i`,
+-- then by `outer`, which would tell apart two names with the same `i` (and
+-- gives the same ranks as `i` alone otherwise).
 
 ||| A group of numbers: the kind of name, its namespace, and what makes names
 ||| alike (the name of a nested function, the root of a case block).

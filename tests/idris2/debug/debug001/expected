@@ -105,7 +105,7 @@ Compiled: \ {arg:2}, {arg:3} => case {arg:3} of
   { _builtin.NIL {tag = 0} [nil] => _builtin.NIL {tag = 0} [nil]
   ; _builtin.CONS {tag = 1} [cons] {e:3} {e:4} => let rest = Prelude.Types.SnocList.filter {arg:2} {e:3} incase {arg:2} {e:4} of  { 1 => _builtin.CONS {tag = 1} [cons] rest {e:4}; 0 => rest}
   }
-Refers to: Prelude.Basics.SnocList, Prelude.Basics.Lin, Prelude.Types.SnocList.case block in filter, Prelude.Types.SnocList.filter
+Refers to: Prelude.Basics.SnocList, Prelude.Basics.Lin, Prelude.Types.case block in filter, Prelude.Types.SnocList.filter
 Refers to (runtime): _builtin.CONS, _builtin.NIL, Prelude.Types.SnocList.filter
 Flags: total
 Size change:

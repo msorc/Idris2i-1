@@ -86,7 +86,9 @@ localHelper {vars} nest env nestdecls_in func
           = do ust <- get UST
                put UST ({ nextName $= (+1) } ust)
                let nestedName_in = Nested (outer, nextName ust) inner
-               nestedName <- inCurrentNS nestedName_in
+               -- (in the namespace of the module, as the number is that
+               -- of the module, see 'inModuleNS')
+               nestedName <- inModuleNS nestedName_in
                n' <- addName nestedName
                pure (inner, (Just nestedName, reverse (allVars env),
                         \fc, nt => applyToFull fc

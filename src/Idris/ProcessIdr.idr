@@ -197,7 +197,7 @@ readAsMain fname
          -- a little bit of a hack? Or maybe that will have too much overhead.
          update UST { nextName := nextName ustm }
 
-         setNS replNS
+         setModuleNS replNS
          setNestedNS replNestedNS
 
 addPrelude : List Import -> List Import
@@ -339,7 +339,7 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
         if (sourceUnchanged && sameCompiler && sort importInterfaceHashes == sort storedImportInterfaceHashes && incrementalOK)
            then -- Hashes the same, source up to date, just set the ns
                 -- for the REPL
-                do setNS (miAsNamespace ns)
+                do setModuleNS (miAsNamespace ns)
                    pure Nothing
            else -- needs rebuilding
              do when announce $ iputStrLn msg
@@ -387,7 +387,7 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
                 -- names are set to private (TODO, maybe if we want this?)
 --                 defs <- get Ctxt
 --                 traverse (\x => setVisibility emptyFC x Private) (hiddenNames defs)
-                setNS (miAsNamespace ns)
+                setModuleNS (miAsNamespace ns)
                 errs <- logTime 2 "Processing decls" $
                             processDecls (decls mod)
                 totErrs <- logTime 3 ("Totality check overall")

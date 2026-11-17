@@ -1,0 +1,11 @@
+. ../../testutils.sh
+
+# Two modules, A.B and A (with a namespace A.B), have nested functions and with
+# blocks of the same numbers in the namespace A.B: their names must differ.
+idris2 --dumpanf anf -o main Main.idr
+./build/exec/main
+# The two nested functions `go` have the same number in their modules (else
+# the test does not test that), and different names.
+grep -oE 'A(\.B)?\.[0-9]+:[0-9]+:go' anf | sort -u | wc -l | tr -d ' '
+grep -oE 'A(\.B)?\.[0-9]+:[0-9]+:go' anf | sed 's/.*:\([0-9]*\):go/\1/' | sort -u | wc -l | tr -d ' '
+rm -f anf

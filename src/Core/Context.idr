@@ -1021,6 +1021,9 @@ record Defs where
   gamma : Context
   mutData : List Name -- Currently declared but undefined data types
   currentNS : Namespace -- namespace for current definitions
+  moduleNS : Namespace
+     -- ^ namespace of the module being processed, for the names made with
+     -- the counter of the module (see 'inModuleNS')
   nestedNS : List Namespace -- other nested namespaces we can look in
   options : Options
   toSave : NameMap ()
@@ -1129,6 +1132,7 @@ initDefs
            { gamma = gam
            , mutData = []
            , currentNS = mainNS
+           , moduleNS = mainNS
            , nestedNS = []
            , options = opts
            , toSave = empty
@@ -2019,6 +2023,12 @@ export
 setNS : {auto c : Ref Ctxt Defs} -> Namespace -> Core ()
 setNS ns = update Ctxt { currentNS := ns }
 
+-- Set the namespace of the module being processed (and the default namespace
+-- for new definitions), see 'inModuleNS'
+export
+setModuleNS : {auto c : Ref Ctxt Defs} -> Namespace -> Core ()
+setModuleNS ns = update Ctxt { currentNS := ns, moduleNS := ns }
+
 -- Set the nested namespaces we're allowed to look inside
 export
 setNestedNS : {auto c : Ref Ctxt Defs} ->
@@ -2125,6 +2135,22 @@ inCurrentNS n@(DN {})
     = do defs <- get Ctxt
          pure (NS (currentNS defs) n)
 inCurrentNS n = pure n
+
+-- Put a name made with the counter of the module ('nextName' in the
+-- unification state: the names of nested functions, case and with blocks,
+-- metavariables) in the namespace of the module, rather than the current
+-- namespace. The counter is only unique within the module, and the current
+-- namespace can be that of another module: in the module A, the namespace
+-- block `namespace B` has the namespace A.B, which is also that of the module
+-- A.B. Two modules never have the same namespace, so the names made by
+-- different modules are different.
+export
+inModuleNS : {auto c : Ref Ctxt Defs} ->
+             Name -> Core Name
+inModuleNS n@(NS {}) = pure n
+inModuleNS n
+    = do defs <- get Ctxt
+         pure (NS (moduleNS defs) n)
 
 export
 setVisible : {auto c : Ref Ctxt Defs} ->
