@@ -131,9 +131,15 @@ execute {c} {s} cg tm
          ensureDirectoryExists tmpDir
          executeExpr cg c s tmpDir tm
 
--- The C library's `system`, which gives the wait status of the command: the
--- `system` of base gives -1 for a command killed by a signal, without the
--- number of the signal.
+-- The C library's `system`, which gives the wait status of the command.
+-- `system` of base now gives the same result as `runCommand` (128 + the
+-- number of the signal for a command killed by one), but its C part,
+-- `idris2_system`, comes from the support library: a compiler built with
+-- RefC links the static support library of the compiler that builds it,
+-- whose `idris2_system` can be an older one giving -1 for a killed command.
+-- So this private copy stays until the compilers that build this one are
+-- installed with the new support library; `runCommand` can then be
+-- `system` of base, lifted to `Core`.
 %foreign "C:system, libc 6, stdlib.h"
 prim__libcSystem : String -> PrimIO Int
 
