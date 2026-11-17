@@ -14,16 +14,8 @@ idris2 -o main Main.idr
 } > input
 
 ./build/exec/main < input
-if [ -n "$VALGRIND" ]; then
-  $VALGRIND ./build/exec/main < input > /dev/null
-  if grep -q "definitely lost: [1-9]" output.valgrind.refc.log; then
-    grep "definitely lost" output.valgrind.refc.log
-  else
-    echo "no definite leaks"
-  fi
-else
-  echo "no definite leaks"
-fi
+# Once more under Valgrind, which prints only when it finds an error.
+$VALGRIND ./build/exec/main < input | grep '^valgrind:'
 # (not under Valgrind: the leak check looks at the pages)
 IDRIS2_REFC_LEAKCHECK=1 ./build/exec/main < input 2>&1 >/dev/null | sed 's/,.*//'
 rm -f input output.valgrind.refc.log

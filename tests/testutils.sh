@@ -11,8 +11,14 @@ idris2="$1"
 rm -rf build
 rm -rf prefix
 
-if type valgrind >/dev/null 2>&1; then
-    export VALGRIND="valgrind --leak-check=full -s --log-file=output.valgrind.refc.log"
+# `$VALGRIND prog args` runs prog under Valgrind (see valgrind.sh, next to
+# this file), or just runs it when Valgrind is not installed.
+_tests_root="$(pwd)"
+while [ "$_tests_root" != / ] && [ ! -f "$_tests_root/valgrind.sh" ]; do
+    _tests_root="$(dirname "$_tests_root")"
+done
+if type valgrind >/dev/null 2>&1 && [ -f "$_tests_root/valgrind.sh" ]; then
+    export VALGRIND="sh $_tests_root/valgrind.sh"
 else
     unset VALGRIND
 fi

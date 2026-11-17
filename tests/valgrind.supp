@@ -1,0 +1,27 @@
+# Valgrind suppressions for the tests (see valgrind.sh).
+#
+# The worker threads of the RefC runtime (support/refc/threads.c: the OS
+# threads that run the green threads, and the thread that asks for
+# preemption) are started when a program first forks a thread, and run
+# until the process exits: like in the Chez backend, a program is over once
+# its main expression is done, and the threads still running are abandoned
+# (one may be blocked in a foreign call, so it could not be stopped and
+# joined). For each of them, pthread_create allocates the thread's dynamic
+# thread vector (DTV) with calloc, and glibc keeps in the thread control
+# block a pointer to the second entry of that vector, not to its start.
+# At exit Valgrind thus sees only an interior pointer to a block that the
+# live thread still uses, and reports it as "possibly lost". This is not a
+# leak: the block lives as long as its thread, which is as long as the
+# process.
+{
+   refc-worker-thread-dtv
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+   fun:_dl_allocate_tls
+   ...
+   fun:pthread_create*
+   ...
+   fun:refc_fork
+}
