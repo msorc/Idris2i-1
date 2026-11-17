@@ -320,6 +320,9 @@ should target this file (`CHANGELOG_NEXT`).
   of every backend, `Network.Socket.recv` no longer writes a byte past its
   buffer when it fills it, `fGetChars` stops with a message when it runs out
   of memory, and the messages of failed assertions show their arguments.
+* Nested functions (`where`) of the same name in the same namespace of two
+  modules (the module `A.B`, and a `namespace B` in the module `A`) could get
+  the same C name, and the C compiler rejected the program.
 * Fixed an issue to do with `alligned_alloc` not existing on older MacOS
   versions, causing builds targeting PowerPC to fail (#3662).  For these
   systems, the compiler will now use `posix_memalign`.

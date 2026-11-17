@@ -1,0 +1,12 @@
+. ../../testutils.sh
+
+# Two nested functions `go` in the namespace A.B, one of the module A.B and
+# one of the module A, that have the same number in their modules: their names
+# differ only by the index of the function they are in, which the C names leave
+# out (see `canonName` in RefC.idr).
+idris2 --dumpanf anf -o main Main.idr
+./build/exec/main
+# Two names with one number (else the test does not test that).
+grep -o 'A\.B\.[0-9]*:[0-9]*:go' anf | sort -u | wc -l | tr -d ' '
+grep -o 'A\.B\.[0-9]*:[0-9]*:go' anf | sed 's/.*:\([0-9]*\):go/\1/' | sort -u | wc -l | tr -d ' '
+rm -f anf

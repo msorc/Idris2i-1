@@ -2447,18 +2447,24 @@ anfRefs _ acc = acc
 -- them change when unrelated parts of the program do, and with them the
 -- units that refer to them.  So these names are made again before the code
 -- is generated: `outer` is left out, and `i` is replaced by its rank among
--- the numbers of the names of the same module that are alike (the nested
+-- the numbers of the names of the same namespace that are alike (the nested
 -- functions that have the same name, the case blocks of the same function):
 -- they are still different, and change only when one of them is added or
--- removed.
+-- removed.  The counters are those of modules, and two modules can have the
+-- same namespace (the module A.B, and a `namespace B` in the module A): two
+-- nested functions of the namespace can have the same `i`, and differ only by
+-- `outer`.  So the numbers are ranked by `i`, then by `outer`, which tells
+-- them apart (and gives the same ranks as `i` alone when no two have the same
+-- `i`).
 
-||| A group of numbers: the kind of name, its module, and what makes names
+||| A group of numbers: the kind of name, its namespace, and what makes names
 ||| alike (the name of a nested function, the root of a case block).
 NumKey : Type
 NumKey = (String, String, String)
 
-||| "outer:index:name", what a machine name made from a nested name begins with.
-splitNested : String -> Maybe (Int, String)
+||| "outer:index:name", what a machine name made from a nested name begins
+||| with: the outer index, the index and the name.
+splitNested : String -> Maybe (Int, Int, String)
 splitNested s
     = case break (== ':') (unpack s) of
            (a@(_ :: _), ':' :: r1) =>
@@ -2466,7 +2472,7 @@ splitNested s
                  then case break (== ':') r1 of
                            (b@(_ :: _), ':' :: r2) =>
                               if all isDigit b
-                                 then Just (cast (pack b), pack r2)
+                                 then Just (cast (pack a), cast (pack b), pack r2)
                                  else Nothing
                            _ => Nothing
                  else Nothing
@@ -2491,16 +2497,21 @@ splitBlock s
                                    _ => Nothing
                _ => Nothing
 
+||| The number of a name in its group: its index, then the outer index of a
+||| nested name (see above).
+NumOf : Type
+NumOf = (Int, Int)
+
 ||| The numbers that a name has: their group, and the number.
-nameNumbers : Namespace -> Name -> List (NumKey, Int)
+nameNumbers : Namespace -> Name -> List (NumKey, NumOf)
 nameNumbers ns (NS m n) = nameNumbers m n
-nameNumbers ns (Nested (_, i) n) = (("N", showNSWithSep "." ns, show n), i) :: nameNumbers ns n
-nameNumbers ns (CaseBlock s i) = [(("C", showNSWithSep "." ns, s), i)]
-nameNumbers ns (WithBlock s i) = [(("W", showNSWithSep "." ns, s), i)]
+nameNumbers ns (Nested (o, i) n) = (("N", showNSWithSep "." ns, show n), (i, o)) :: nameNumbers ns n
+nameNumbers ns (CaseBlock s i) = [(("C", showNSWithSep "." ns, s), (i, 0))]
+nameNumbers ns (WithBlock s i) = [(("W", showNSWithSep "." ns, s), (i, 0))]
 nameNumbers ns (MN s _) = case splitNested s of
-                               Just (i, rest) => [(("N", showNSWithSep "." ns, rest), i)]
+                               Just (o, i, rest) => [(("N", showNSWithSep "." ns, rest), (i, o))]
                                Nothing => case splitBlock s of
-                                               Just (k, outer, i) => [((k, showNSWithSep "." ns, outer), i)]
+                                               Just (k, outer, i) => [((k, showNSWithSep "." ns, outer), (i, 0))]
                                                Nothing => []
 nameNumbers ns (DN _ n) = nameNumbers ns n
 nameNumbers ns (PV n _) = nameNumbers ns n
@@ -2538,42 +2549,42 @@ mapANFNames _ a = a
 
 ||| The ranks of the numbers of every group.
 Numbering : Type
-Numbering = SortedMap NumKey (SortedMap Int Nat)
+Numbering = SortedMap NumKey (SortedMap NumOf Nat)
 
 -- The ranks of the numbers, from the smallest.
-numbered : List Int -> SortedMap Int Nat
+numbered : List NumOf -> SortedMap NumOf Nat
 numbered xs = snd (foldl (\(k, m), x => (S k, insert x k m)) (Z, empty) xs)
 
 ||| The numbers of the names of the definitions, by group.
 numbering : List (Name, ANFDef) -> Numbering
 numbering defs = map (\s => numbered (Prelude.toList s)) (foldl one empty defs)
   where
-    add : Name -> SortedMap NumKey (SortedSet Int) -> SortedMap NumKey (SortedSet Int)
+    add : Name -> SortedMap NumKey (SortedSet NumOf) -> SortedMap NumKey (SortedSet NumOf)
     add n acc = foldl (\m, (k, i) => insert k (insert i (fromMaybe empty (lookup k m))) m)
                       acc (nameNumbers emptyNS n)
 
-    one : SortedMap NumKey (SortedSet Int) -> (Name, ANFDef) -> SortedMap NumKey (SortedSet Int)
+    one : SortedMap NumKey (SortedSet NumOf) -> (Name, ANFDef) -> SortedMap NumKey (SortedSet NumOf)
     one acc (n, MkAFun _ anf) = anfNames anf add (add n acc)
     one acc (n, _) = add n acc
 
 -- The rank of a number in its group (the number itself if it is not known).
-rank : Numbering -> NumKey -> Int -> Int
-rank nb k i = maybe i cast (lookup k nb >>= lookup i)
+rank : Numbering -> NumKey -> NumOf -> Int
+rank nb k i = maybe (fst i) cast (lookup k nb >>= lookup i)
 
 ||| The name with its numbers made stable (see above).
 canonName : Numbering -> Namespace -> Name -> Name
 canonName nb ns (NS m n) = NS m (canonName nb m n)
-canonName nb ns (Nested (_, i) n)
-    = Nested (0, rank nb ("N", showNSWithSep "." ns, show n) i) (canonName nb ns n)
-canonName nb ns (CaseBlock s i) = CaseBlock s (rank nb ("C", showNSWithSep "." ns, s) i)
-canonName nb ns (WithBlock s i) = WithBlock s (rank nb ("W", showNSWithSep "." ns, s) i)
+canonName nb ns (Nested (o, i) n)
+    = Nested (0, rank nb ("N", showNSWithSep "." ns, show n) (i, o)) (canonName nb ns n)
+canonName nb ns (CaseBlock s i) = CaseBlock s (rank nb ("C", showNSWithSep "." ns, s) (i, 0))
+canonName nb ns (WithBlock s i) = WithBlock s (rank nb ("W", showNSWithSep "." ns, s) (i, 0))
 canonName nb ns (MN s k)
     = case splitNested s of
-           Just (i, rest) => MN ("0:" ++ show (rank nb ("N", showNSWithSep "." ns, rest) i) ++ ":" ++ rest) k
+           Just (o, i, rest) => MN ("0:" ++ show (rank nb ("N", showNSWithSep "." ns, rest) (i, o)) ++ ":" ++ rest) k
            Nothing => case splitBlock s of
                            Just (kind, outer, i) =>
                               MN ((if kind == "C" then "case block in " else "with block in ") ++ outer
-                                    ++ " (" ++ show (rank nb (kind, showNSWithSep "." ns, outer) i) ++ ")") k
+                                    ++ " (" ++ show (rank nb (kind, showNSWithSep "." ns, outer) (i, 0)) ++ ")") k
                            Nothing => MN s k
 canonName nb ns (DN s n) = DN s (canonName nb ns n)
 canonName nb ns (PV n k) = PV (canonName nb ns n) k
