@@ -1,0 +1,48 @@
+--- in parallel
+exit code 0
+1/5: Building Base (work/Base.idr)
+4/5: Building Extra (work/Extra.idr)
+3/5: Building Right (work/Right.idr)
+2/5: Building Left (work/Left.idr)
+5/5: Building Top (work/Top.idr)
+Base.ttc
+Left.ttc
+Right.ttc
+Top.ttc
+Extra.ttc
+--- nothing to build
+exit code 0
+--- one module changed
+exit code 0
+3/5: Building Right (work/Right.idr)
+5/5: Building Top (work/Top.idr)
+--- an error in a module that is built at the same time as another
+exit code 1
+1/5: Building Base (work/Base.idr)
+4/5: Building Extra (work/Extra.idr)
+3/5: Building Right (work/Right.idr)
+2/5: Building Left (work/Left.idr)
+Error: While processing right hand side of twice. When unifying:
+    Colour
+and:
+    Colour -> Colour
+Mismatch between: Colour and Colour -> Colour.
+
+Left:7:11--7:26
+ 3 | import Base
+ 4 |
+ 5 | export
+ 6 | twice : Colour -> Colour
+ 7 | twice c = next (next c) c
+               ^^^^^^^^^^^^^^^
+
+Base.ttc
+Right.ttc
+Extra.ttc
+--- one process
+exit code 0
+1/5: Building Base (work/Base.idr)
+2/5: Building Left (work/Left.idr)
+3/5: Building Right (work/Right.idr)
+4/5: Building Extra (work/Extra.idr)
+5/5: Building Top (work/Top.idr)

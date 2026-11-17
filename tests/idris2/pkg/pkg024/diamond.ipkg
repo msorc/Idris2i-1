@@ -1,0 +1,4 @@
+package diamond
+
+sourcedir = "src"
+modules = Top, Left, Right, Base, Extra
