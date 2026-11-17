@@ -9,8 +9,11 @@ else
     DIR="$(dirname "$(readlink -f -- "$0")")"
 fi
 
-# The compiler recurses deeply and the RefC backend runs the main program on
-# the stack of the process, so lift the stack limit as far as it goes.
+# The compiler recurses deeply.  A program compiled with RefC runs its main
+# expression on a large stack of its own (IDRIS2_MAIN_STACK_SIZE), which
+# ulimit -s does not limit; but where that stack cannot be allocated (or the
+# platform has no green threads) it runs on the stack of the process, so lift
+# the stack limit as far as it goes, as a fallback.
 ulimit -s unlimited 2>/dev/null || ulimit -s "$(ulimit -H -s)" 2>/dev/null || true
 
 export LD_LIBRARY_PATH="$DIR/idris2_app:$LD_LIBRARY_PATH"

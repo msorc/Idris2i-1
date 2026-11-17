@@ -40,24 +40,27 @@ nix profile install github:idris-lang/Idris2
 
 ## Installing from source
 
-The easiest way to install from source is via the existing generated Scheme
-code. The requirements are:
+The easiest way to install from source is to bootstrap from the C code of
+the compiler that is in the repository (`make bootstrap-c`, see
+[below](#2-installing-without-an-existing-idris-2)). The requirements are:
 
-- A Scheme compiler; either Chez Scheme (default), or Racket.
-- `bash`, `GNU make`, `gcc` or `clang`, `sha256sum` and `GMP`.  On Linux, you probably already
-  have these.  On macOS and major BSD flavours, you can install them using a
-  package manager: for instance, on macOS, you can install with the
-  `brew install coreutils gmp` and on OpenBSD, with the `pkg_add coreutils
-  bash gmake gmp` command. You specifically need the dev GMP library, which
+- `bash`, `GNU make`, `gcc` or `clang`, `xz` and `GMP`.  On Linux, you probably
+  already have these.  On macOS and major BSD flavours, you can install them
+  using a package manager: for instance, on macOS, you can install with the
+  `brew install coreutils gmp xz` and on OpenBSD, with the `pkg_add coreutils
+  bash gmake gmp xz` command. You specifically need the dev GMP library, which
   means on some systems the package you need to install will be named
   something more like `libgmp3-dev`. macOS ships with `clang` whereas `gcc` is
   more common for other \*nix distributions.
+- Optionally, a Scheme compiler: Chez Scheme or Racket. You can bootstrap
+  from the generated Scheme code instead of the C code, build the compiler
+  with a Scheme backend, and compile your programs with it.
 
 On Windows, [MSYS2](https://www.msys2.org/) is required. On Windows older
 than Windows 8, you may need to set an environment variable `OLD_WIN=1` or
 modify it in `config.mk`.
 
-On Raspberry Pi, you can bootstrap via Racket.
+On Raspberry Pi, you can bootstrap from the C code, or via Racket.
 
 By default, code generation is via the RefC backend, which needs a C compiler.
 You can use Chez Scheme or Racket instead, by setting the environment variable
@@ -96,8 +99,13 @@ export CPATH=/opt/homebrew/include:/opt/homebrew/lib
 
 ### 2: Installing without an existing Idris 2
 
-You can build from pre-built Chez Scheme source, as long as you have Chez Scheme
-installed (or, alternatively, Racket). To do this, enter one of the following:
+The simplest way needs only a C compiler: see
+[Bootstrapping with only a C compiler](#bootstrapping-with-only-a-c-compiler)
+below.
+
+You can also build from pre-built Chez Scheme source, as long as you have Chez
+Scheme installed (or, alternatively, Racket). To do this, enter one of the
+following:
 
 - `make bootstrap SCHEME=chez`
 - `make bootstrap-racket`
@@ -114,14 +122,22 @@ or use Racket instead. This is
 
 This builds an Idris 2 compiler from Scheme code output from a working Idris 2
 compiler (which isn't necessarily up to date, but is up to date enough to
-build the current repository). It then rebuilds using the result, and runs
-the tests.
+build the current repository). It then rebuilds the compiler and the
+libraries using the result. `make bootstrap-test` runs the tests with the
+bootstrapped compiler.
 
 If all is well, to install, type:
 
-- `make install`
+- `IDRIS2_CG=chez make install` after `make bootstrap SCHEME=chez`
+- `IDRIS2_CG=racket make install` after `make bootstrap-racket`
 
-If you are building with Racket, you'll need to run `IDRIS2_CG=racket make install`.
+The `IDRIS2_CG` setting matters: a plain `make install` assumes a compiler
+built with RefC, the default, and installs the libraries without the compiled
+Scheme code of their modules, which incremental builds with Chez use.
+
+The compiler built this way still compiles programs with the RefC backend by
+default: pass `--cg chez` (or `--cg racket`), or set `IDRIS2_CG`, to use the
+Scheme backend.
 
 #### Bootstrapping with only a C compiler
 
@@ -133,10 +149,13 @@ code that the RefC backend generated for the compiler
 - `make bootstrap-c`
 
 The compiler built this way uses the RefC backend, which is the default code
-generator. It is slower than
-a compiler built with Chez Scheme, and it needs a large stack, so it is run
-by a launcher script that raises the stack limit (`ulimit -s`). The generated
-C is compiled in parts by C compilers running in parallel, one per processor;
+generator. It is slower than a compiler built with Chez Scheme. Like every
+program compiled with RefC, it runs its main expression on a large stack of
+its own (see `IDRIS2_MAIN_STACK_SIZE` in the RefC documentation), so the
+stack limit of the shell (`ulimit -s`) does not limit it; the launcher script
+`idris2` that runs it raises that limit anyway, as a fallback for when that
+stack cannot be allocated and the program runs on the stack of the process.
+The generated C is compiled in parts by C compilers running in parallel, one per processor;
 set `BOOT_JOBS` to run fewer of them (each needs a few hundred MB of memory),
 and `BOOT_CFLAGS` to change the flags of this first compiler (`-O1`, without
 link time optimisation: it is quick to build, and it only builds the
@@ -163,11 +182,20 @@ evaluation mode `:set eval scheme` is not available.
 
 ### 3: Installing with an existing Idris 2
 
-If you have the latest *released* version of Idris 2
-(0.8.0 at the time of writing) installed:
+If you have an Idris 2 built from this repository installed:
 
 - `make all`
 - `make install`
+
+If you have the latest *released* version of Idris 2 (0.8.0 at the time of
+writing) installed, build with its Chez Scheme backend, which is the way this
+is tested: the RefC backend of 0.8.0 is not known to compile this compiler.
+
+- `IDRIS2_CG=chez make all`
+- `IDRIS2_CG=chez make install`
+
+You can then rebuild with RefC, as described in
+[step 5](#5-optional-self-hosting-step).
 
 ### 4: (Optional) Installing Idris 2 library documentation
 
@@ -181,8 +209,10 @@ that everything has worked correctly. Assuming that `idris2` is in your
 `PATH`.
 
 - `make clean` -- to make sure you're building everything with the new version
-- `make all && make install` -- OR
-`make all IDRIS2_BOOT='idris2 --codegen racket' && make install`
+- `make all && make install` -- to build with RefC, the default, OR
+`IDRIS2_CG=chez make all && IDRIS2_CG=chez make install`
+if using Chez Scheme, OR
+`IDRIS2_CG=racket make all && IDRIS2_CG=racket make install`
 if using Racket.
 
 ### 6: Running tests
@@ -194,8 +224,12 @@ executable in `./build/exec`.
 
 If you are working on Idris, incremental compilation means that rebuilds are
 much faster, at the cost of runtime performance being slower. To enable
-incremental compilation for the Chez backend, set the environment variable
-`IDRIS2_INC_CGS=chez`, or set the `--inc chez` flag in `idris2.ipkg`.
+incremental compilation for the Chez backend, build with Chez
+(`IDRIS2_CG=chez`) and set the environment variable `IDRIS2_INC_CGS=chez`, or
+set the `--inc chez` flag in `idris2.ipkg`: for instance,
+`IDRIS2_CG=chez IDRIS2_INC_CGS=chez make all`. (The RefC backend has no
+incremental mode, but it reuses the object files of the parts of a big
+program that did not change, see the RefC documentation.)
 
 ### 8: (Optional) Installing the Idris 2 API
 
