@@ -225,12 +225,13 @@ mbPathToNS wdir sdir fname =
 export
 corePathToNS : String -> Maybe String -> String -> Core ModuleIdent
 corePathToNS wdir sdir fname = do
-  let err = UserError $
-          "Source file "
-       ++ show (cleanPath fname)
-       ++ " is not in the source directory "
-       ++ show (cleanPath (wdir </> fromMaybe "" sdir))
-  maybe (throw err) pure (mbPathToNS wdir sdir fname)
+  let Just ns = mbPathToNS wdir sdir fname
+        | Nothing => throw $ UserError $
+                       "Source file "
+                    ++ show (cleanPath fname)
+                    ++ " is not in the source directory "
+                    ++ show (cleanPath (wdir </> fromMaybe "" sdir))
+  pure ns
 
 export
 ctxtPathToNS : {auto c : Ref Ctxt Defs} -> String -> Core ModuleIdent
