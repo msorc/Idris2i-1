@@ -264,63 +264,55 @@ Idris2_Value *fastConcat(Idris2_Value *strList) {
   return (Idris2_Value *)retVal;
 }
 
-typedef struct {
-  char *str;
-  size_t len;
-  size_t pos;
-} String_Iterator;
+/*
+ * A string iterator (Data.String.Iterator) is the byte offset of the next
+ * character in the string, as the Scheme and JavaScript backends have it.
+ * `uncons` and `withIteratorString` are handed the string with the iterator,
+ * so nothing else is needed: an iterator is an unboxed value (the offset
+ * shifted left by one bit, with the low bit set), with no allocation, no copy
+ * of the string and no finaliser.  An offset past the end of the string (an
+ * iterator that came from an equal string) reads as the end of the string.
+ */
+#define IDRIS2_ITERATOR(pos) ((Idris2_Value *)(((uintptr_t)(pos) << 1) | 1))
+#define IDRIS2_ITERATOR_POS(it) ((size_t)((uintptr_t)(it) >> 1))
 
 Idris2_Value *stringIteratorNew(Idris2_Value *str) {
-  size_t l = STR(str)->len;
-
-  String_Iterator *it = (String_Iterator *)malloc(sizeof(String_Iterator));
-  IDRIS2_REFC_VERIFY(it, "malloc failed");
-  it->str = (char *)malloc(l + 1);
-  IDRIS2_REFC_VERIFY(it->str, "malloc failed");
-  it->len = l;
-  it->pos = 0;
-  memcpy(it->str, STR(str)->str, l + 1); // a copy, in case it is freed
-
-  return (Idris2_Value *)idris2_makeGCPointer(
-      it, (Idris2_Closure *)idris2_mkClosure(
-              (Idris2_Value * (*)()) onCollectStringIterator, 2, 0));
-}
-
-// The finaliser of the GC pointer of an iterator: it is handed the reference
-// to the pointer that the GC pointer held (see idris2_releaseValue).
-Idris2_Value *onCollectStringIterator(Idris2_Pointer *ptr, void *null) {
-  String_Iterator *it = (String_Iterator *)ptr->p;
-  free(it->str);
-  free(it);
-  idris2_removeReference((Idris2_Value *)ptr);
-  return NULL;
+  (void)str;
+  return IDRIS2_ITERATOR(0);
 }
 
 Idris2_Value *stringIteratorToString(void *a, Idris2_Value *str,
-                                     Idris2_Value *it_p, Idris2_Closure *f) {
-  String_Iterator *it = ((Idris2_GCPointer *)it_p)->p->p;
-  Idris2_Value *strVal = stringOfBytes(it->str + it->pos, it->len - it->pos);
-  return idris2_apply_closure(idris2_newReference((Idris2_Value *)f), strVal);
+                                     Idris2_Value *it, Idris2_Closure *f) {
+  (void)a;
+  size_t pos = IDRIS2_ITERATOR_POS(it), l = STR(str)->len;
+  Idris2_Value *rest;
+  if (pos == 0)
+    rest = idris2_newReference(str);
+  else if (pos >= l)
+    rest = (Idris2_Value *)idris2_mkEmptyString(1);
+  else
+    rest = stringOfBytes(STR(str)->str + pos, l - pos);
+  return idris2_apply_closure(idris2_newReference((Idris2_Value *)f), rest);
 }
 
 // contrib/Data.String.Iterator.uncons :
 //   (str : String) -> (1 it : StringIterator str) -> UnconsResult str
-Idris2_Value *stringIteratorNext(Idris2_Value *s, Idris2_Value *it_p) {
-  String_Iterator *it = (String_Iterator *)((Idris2_GCPointer *)it_p)->p->p;
-  char const *p = it->str + it->pos;
-
-  if (it->pos >= it->len)
+Idris2_Value *stringIteratorNext(Idris2_Value *str, Idris2_Value *it) {
+  size_t pos = IDRIS2_ITERATOR_POS(it);
+  if (pos >= STR(str)->len)
     return NULL; // EOF [nil]
 
-  uint32_t c = idris2_utf8_decode(&p);
-  it->pos = p - it->str; // Ok to do this as StringIterator linear
+  char const *s = STR(str)->str, *p = s + pos;
+  uint32_t c;
+  if ((unsigned char)*p < 0x80)
+    c = (unsigned char)*p++;
+  else
+    c = idris2_utf8_decode(&p);
 
   // Character [cons]
-  Idris2_Constructor *retVal =
-      (Idris2_Constructor *)idris2_newConstructor(2, 1);
+  Idris2_Constructor *retVal = idris2_newConstructor(2, 1);
   retVal->args[0] = idris2_mkChar(c);
-  retVal->args[1] = idris2_newReference(it_p);
-
+  retVal->args[1] = IDRIS2_ITERATOR(p - s);
   return (Idris2_Value *)retVal;
 }
 

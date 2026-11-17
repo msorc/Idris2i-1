@@ -732,6 +732,11 @@ should target this file (`CHANGELOG_NEXT`).
   indented like code 64 levels deep.  The text of deeply nested code grew with
   the square of its depth, mostly spaces (code nested 1,800 levels deep made a
   file of 332 MB).
+* A string iterator (`Data.String.Iterator` in `contrib`, which the compiler
+  uses to hash strings) is a byte offset into the string, like with the other
+  backends, instead of a copy of the string behind a pointer with a
+  finaliser: making one allocates nothing.  Hashing short strings with
+  `Data.String.Iterator.foldl` runs with 17% fewer instructions.
 
 #### Chez Backend
 

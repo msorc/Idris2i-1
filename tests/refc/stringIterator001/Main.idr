@@ -3,8 +3,8 @@ module Main
 import Data.List
 import Data.String.Iterator
 
--- Each fold over a string makes an iterator, whose memory is freed by a
--- finaliser when the iterator is released.
+-- Each fold over a string makes an iterator (an offset into the string, with
+-- nothing to free): no value may leak.
 countA : String -> Nat
 countA = Data.String.Iterator.foldl (\n, c => if c == 'a' then S n else n) 0
 

@@ -30,11 +30,12 @@ Idris2_Value *fastPack(Idris2_Value *charList);
 Idris2_Value *fastUnpack(Idris2_Value *str);
 Idris2_Value *fastConcat(Idris2_Value *strList);
 
+// Data.String.Iterator: an iterator is an unboxed byte offset into the string
+// (see stringOps.c).
 Idris2_Value *stringIteratorNew(Idris2_Value *str);
-Idris2_Value *onCollectStringIterator(Idris2_Pointer *ptr, void *null);
 Idris2_Value *stringIteratorToString(void *a, Idris2_Value *str,
-                                     Idris2_Value *it_p, Idris2_Closure *f);
-Idris2_Value *stringIteratorNext(Idris2_Value *s, Idris2_Value *it_p);
+                                     Idris2_Value *it, Idris2_Closure *f);
+Idris2_Value *stringIteratorNext(Idris2_Value *str, Idris2_Value *it);
 
 /* putChar: write the UTF-8 encoding of a character to stdout. */
 void idris2_refc_putChar(uint32_t c);
