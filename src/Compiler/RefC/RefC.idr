@@ -1301,7 +1301,7 @@ mutual
            then letInt fc var value body AnInt
            else letGeneric fc var value body AnInt
     cIntFromANF (AConstCase fc sc alts def) = constCase fc sc alts def AnInt
-    cIntFromANF (ACrash fc _) = pure "0 /* CRASH */"
+    cIntFromANF (ACrash fc msg) = pure "(idris2_crashMsg(\{cStringQuoted msg}), 0)"
     cIntFromANF anf = throw $ InternalError "[refc] Not an Int expression: \{show anf}"
 
     concaseBody : {auto a : Ref ArgCounter Nat}
@@ -1736,7 +1736,8 @@ mutual
             WorldVal => pure "(NULL /* World */)"
 
     cStatementsFromANF (AErased fc) _ = pure "NULL"
-    cStatementsFromANF (ACrash fc x) _ = pure "(NULL /* CRASH */)"
+    -- Like the Scheme backends: print the message and stop.
+    cStatementsFromANF (ACrash fc msg) _ = pure "idris2_crashMsg(\{cStringQuoted msg})"
 
     ||| A `case` on constants, which gives a value or a C integer.  A
     ||| scrutinee that is a C integer is switched on as it is.
@@ -2279,6 +2280,18 @@ createCFunctions _ n canonN (MkAForeign ccs fargs ret) = do
       _ => throw $ InternalError "[refc] FFI not found for \{cName canonN}"
           -- not really total but this way this internal error does not contaminate everything else
 
+-- A name without a definition to compile (a hole, for instance): like in the
+-- Scheme backends, the program is compiled, and it stops with the message
+-- when it gets to that name.
+createCFunctions _ n canonN (MkAError (ACrash _ msg)) = do
+    let fn = "Idris2_Value *\{cName canonN}(void)"
+    addProtos (cName canonN) [fn ++ ";\n"]
+    emit EmptyFC fn
+    emit EmptyFC "{"
+    increaseIndentation
+    emit EmptyFC "return idris2_crashMsg(\{cStringQuoted msg});"
+    decreaseIndentation
+    emit EmptyFC "}"
 createCFunctions _ n canonN (MkAError exp) = throw $ InternalError "[refc] Error with expression: \{show exp}"
 -- not really total but this way this internal error does not contaminate everything else
 

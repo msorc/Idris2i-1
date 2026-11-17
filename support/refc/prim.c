@@ -46,26 +46,17 @@ Idris2_Value *idris2_Data_IORef_prim__writeIORef(Idris2_Value *erased,
 //       System operations
 // -----------------------------------
 
-#ifdef _WIN32
+// The names are the ones of the Scheme backends (blodwen-os in support.ss).
+#if defined(_WIN32) || defined(_WIN64)
 #define IDRIS2_OS_NAME "windows"
-#elif _WIN64
-#define IDRIS2_OS_NAME "windows"
-#elif __APPLE__ || __MACH__
-#define IDRIS2_OS_NAME "macOS"
-#elif __linux__
-#define IDRIS2_OS_NAME "Linux"
-#elif __FreeBSD__
-#define IDRIS2_OS_NAME "FreeBSD"
-#elif __OpenBSD__
-#define IDRIS2_OS_NAME "OpenBSD"
-#elif __NetBSD__
-#define IDRIS2_OS_NAME "NetBSD"
-#elif __DragonFly__
-#define IDRIS2_OS_NAME "DragonFly"
-#elif __unix || __unix__
-#define IDRIS2_OS_NAME "Unix"
+#elif defined(__APPLE__) || defined(__MACH__)
+#define IDRIS2_OS_NAME "darwin"
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) ||    \
+    defined(__NetBSD__) || defined(__DragonFly__) || defined(__unix) ||        \
+    defined(__unix__)
+#define IDRIS2_OS_NAME "unix"
 #else
-#define IDRIS2_OS_NAME "Other"
+#define IDRIS2_OS_NAME "unknown"
 #endif
 Idris2_ShortString const idris2_predefined_osstring = {
     IDRIS2_STOCKVAL(STRING_TAG), sizeof(IDRIS2_OS_NAME) - 1, IDRIS2_OS_NAME};
@@ -80,6 +71,13 @@ Idris2_Value *idris2_crash(Idris2_Value *msg) {
   Idris2_String *str = (Idris2_String *)msg;
   printf("ERROR: %s\n", str->str);
   exit(-1);
+}
+
+Idris2_Value *idris2_crashMsg(const char *msg) {
+  fputs(msg, stdout);
+  fputc('\n', stdout);
+  fflush(stdout);
+  exit(1);
 }
 
 //
