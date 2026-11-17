@@ -332,18 +332,18 @@ commentSpan c =
         then Nothing
         else Just (b.startCol, b.endCol, commentStyle)
 
-||| The style of each of `n` characters
+||| The style of each of `n` characters (the spans don't overlap)
 paint : Nat -> List Span -> List String
-paint n spans = go 0 n
+paint n spans = go 0 n (sortBy (\(s, _, _), (s', _, _) => compare s s') spans)
   where
-    styleAt : Int -> String
-    styleAt i = case find (\(s, e, _) => s <= i && i < e) spans of
-      Nothing => ""
-      Just (_, _, style) => style
-
-    go : Int -> Nat -> List String
-    go i Z = []
-    go i (S k) = styleAt i :: go (i + 1) k
+    -- the spans that are not over yet, in order
+    go : Int -> Nat -> List Span -> List String
+    go i Z _ = []
+    go i (S k) ss =
+      case dropWhile (\(_, e, _) => e <= i) ss of
+        [] => "" :: go (i + 1) k []
+        ss'@((s, _, style) :: _) =>
+          (if s <= i then style else "") :: go (i + 1) k ss'
 
 ||| The style of each character of some Idris code. If the end of the code
 ||| can't be lexed (yet), say in an unfinished string, only the part before
@@ -384,19 +384,22 @@ lineStyles cs =
 ||| The line with SGR escapes to show it in its styles
 export
 highlight : List Char -> String
-highlight cs = go "" (zip cs (lineStyles cs)) ""
+highlight cs = fastConcat (go [] [] (zip cs (lineStyles cs)) "")
   where
     sgr : String -> String
     sgr "" = "\ESC[0m"
     sgr style = "\ESC[0;" ++ style ++ "m"
 
-    -- the output so far, the style that is on
-    go : String -> List (Char, String) -> String -> String
-    go acc [] current = acc ++ (if current == "" then "" else sgr "")
-    go acc ((c, style) :: rest) current =
+    -- the pieces of the output so far and the characters in the style that is
+    -- on, both last first
+    go : List String -> List Char -> List (Char, String) -> String -> List String
+    go acc run [] current =
+      let acc' = pack (reverse run) :: acc
+      in reverse (if current == "" then acc' else sgr "" :: acc')
+    go acc run ((c, style) :: rest) current =
       if style == current
-         then go (acc ++ singleton c) rest current
-         else go (acc ++ sgr style ++ singleton c) rest style
+         then go acc (c :: run) rest current
+         else go (sgr style :: pack (reverse run) :: acc) [c] rest style
 
 --------------------------------------------------------------------------------
 -- Drawing
@@ -511,9 +514,9 @@ columns width candidates =
       row : List String -> String
       row cs = case reverse cs of
                  [] => ""
-                 (lst :: before) => concat (map pad (reverse before)) ++ lst
+                 (lst :: before) => fastConcat (map pad (reverse before)) ++ lst
       more = length candidates `minus` maxListed
-  in concat (map (\line => row line ++ "\r\n") (chunks perRow shown))
+  in fastConcat (map (\line => row line ++ "\r\n") (chunks perRow shown))
      ++ (if more > 0 then "(" ++ show more ++ " more)\r\n" else "")
 
 --------------------------------------------------------------------------------
