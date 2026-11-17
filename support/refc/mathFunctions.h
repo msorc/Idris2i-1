@@ -25,6 +25,20 @@ static inline int idris2_eqIntegerSmall(Idris2_Value *x, int64_t n) {
   return mpz_cmp_si(((Idris2_Integer *)x)->i, (long)n) == 0;
 }
 
+// A division by zero (undefined behaviour in C, which traps on x86) stops the
+// program with an error, like the exception of the Scheme back ends.  The
+// test of the divisor is one well predicted branch (and none for a constant).
+// (`__noreturn__`: `noreturn` may be the macro of stdnoreturn.h)
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((__noreturn__, __cold__))
+#endif
+void idris2_divideByZero(void);
+#define IDRIS2_CHECK_DIVISOR(d)                                                \
+  do {                                                                         \
+    if (__builtin_expect((d) == 0, 0))                                         \
+      idris2_divideByZero();                                                   \
+  } while (0)
+
 #define idris2_binop(ty, op, l, r)                                             \
   ((Idris2_Value *)idris2_mk##ty(idris2_vp_to_##ty(l) op idris2_vp_to_##ty(r)))
 
@@ -131,10 +145,24 @@ static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
 #define idris2_mul_Double(l, r) (idris2_binop(Double, *, l, r))
 
 /* div */
-#define idris2_div_Bits8(l, r) (idris2_binop(Bits8, /, l, r))
-#define idris2_div_Bits16(l, r) (idris2_binop(Bits16, /, l, r))
-#define idris2_div_Bits32(l, r) (idris2_binop(Bits32, /, l, r))
-#define idris2_div_Bits64(l, r) (idris2_binop(Bits64, /, l, r))
+#define IDRIS2_UNSIGNED_DIVMOD(ty, cty)                                        \
+  static inline Idris2_Value *idris2_div_##ty(Idris2_Value *x,                 \
+                                              Idris2_Value *y) {               \
+    cty d = idris2_vp_to_##ty(y);                                              \
+    IDRIS2_CHECK_DIVISOR(d);                                                   \
+    return (Idris2_Value *)idris2_mk##ty(idris2_vp_to_##ty(x) / d);            \
+  }                                                                            \
+  static inline Idris2_Value *idris2_mod_##ty(Idris2_Value *x,                 \
+                                              Idris2_Value *y) {               \
+    cty d = idris2_vp_to_##ty(y);                                              \
+    IDRIS2_CHECK_DIVISOR(d);                                                   \
+    return (Idris2_Value *)idris2_mk##ty(idris2_vp_to_##ty(x) % d);            \
+  }
+IDRIS2_UNSIGNED_DIVMOD(Bits8, uint8_t)
+IDRIS2_UNSIGNED_DIVMOD(Bits16, uint16_t)
+IDRIS2_UNSIGNED_DIVMOD(Bits32, uint32_t)
+IDRIS2_UNSIGNED_DIVMOD(Bits64, uint64_t)
+
 // The signed `div` and `mod` are Euclidean (`mod` is never negative), unlike
 // C's `/` and `%`, which truncate.  They are inline, so that a division by a
 // constant (`x `mod` 2`) is compiled to shifts and masks instead of a
@@ -160,12 +188,14 @@ static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
 // code generator uses them on the Ints that it keeps unboxed.
 #define IDRIS2_EUCLID_DIVMOD(ty, cty, uty)                                     \
   static inline cty idris2_euclidDiv_##ty(cty num, cty denom) {                \
+    IDRIS2_CHECK_DIVISOR(denom);                                               \
     if (denom == -1)                                                           \
       return (cty)(0u - (uty)num);                                             \
     cty rem = num % denom;                                                     \
     return num / denom + ((rem < 0) ? (denom < 0) ? 1 : -1 : 0);               \
   }                                                                            \
   static inline cty idris2_euclidMod_##ty(cty num, cty denom) {                \
+    IDRIS2_CHECK_DIVISOR(denom);                                               \
     cty rem;                                                                   \
     IDRIS2_EUCLID_REM(num, denom, rem);                                        \
     return rem;                                                                \
@@ -186,7 +216,8 @@ IDRIS2_EUCLID_DIVMOD(Int32, int32_t, uint32_t)
 IDRIS2_EUCLID_DIVMOD(Int64, int64_t, uint64_t)
 
 // The Integers have a fast path for the small ones (see idris2_add_Integer),
-// with a divisor that is not 0 (division by 0 is left to the slow path).
+// with a divisor that is not 0 (division by 0 is left to the slow path, which
+// stops the program).
 Idris2_Value *idris2_div_IntegerSlow(Idris2_Value *x, Idris2_Value *y);
 static inline Idris2_Value *idris2_div_Integer(Idris2_Value *x,
                                                 Idris2_Value *y) {
@@ -200,11 +231,7 @@ static inline Idris2_Value *idris2_div_Integer(Idris2_Value *x,
 }
 #define idris2_div_Double(l, r) (idris2_binop(Double, /, l, r))
 
-/* mod */
-#define idris2_mod_Bits8(l, r) (idris2_binop(Bits8, %, l, r))
-#define idris2_mod_Bits16(l, r) (idris2_binop(Bits16, %, l, r))
-#define idris2_mod_Bits32(l, r) (idris2_binop(Bits32, %, l, r))
-#define idris2_mod_Bits64(l, r) (idris2_binop(Bits64, %, l, r))
+/* mod (of the Bits: with div) */
 Idris2_Value *idris2_mod_IntegerSlow(Idris2_Value *x, Idris2_Value *y);
 static inline Idris2_Value *idris2_mod_Integer(Idris2_Value *x,
                                                 Idris2_Value *y) {

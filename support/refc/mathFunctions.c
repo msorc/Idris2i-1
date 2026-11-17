@@ -1,5 +1,6 @@
 #include "mathFunctions.h"
 #include "memoryManagement.h"
+#include "prim.h"
 #include "runtime.h"
 
 /* The operations on the fixed width types are in mathFunctions.h. */
@@ -8,6 +9,11 @@ double idris2_flonumUnitRoundoff(void) { return DBL_EPSILON / 2; }
 double idris2_flonumEpsilon(void) { return DBL_EPSILON; }
 double idris2_flonumNaN(void) { return NAN; }
 double idris2_flonumInf(void) { return INFINITY; }
+
+void idris2_divideByZero(void) {
+  idris2_crashMsg("ERROR: Division by zero");
+  abort();
+}
 
 /* Integers (see idris2_integerMpz) */
 
@@ -55,10 +61,12 @@ static int64_t idris2_euclidRem(int64_t num, int64_t denom) {
 
 IDRIS2_INTEGER_OP2(
     idris2_div_IntegerSlow,
-    // (by 0: GMP reports the division by zero)
     if (b != 0) return idris2_mkIntegerFromInt64(
         (a - idris2_euclidRem(a, b)) / b);
     , {
+      // (GMP would raise SIGFPE)
+      if (mpz_sgn(mb) == 0)
+        idris2_divideByZero();
       mpz_t rem, yq;
       mpz_inits(rem, yq, NULL);
       mpz_mod(rem, ma, mb);
@@ -69,6 +77,7 @@ IDRIS2_INTEGER_OP2(
 IDRIS2_INTEGER_OP2(idris2_mod_IntegerSlow,
                    if (b != 0) return idris2_mkIntegerFromInt64(
                        idris2_euclidRem(a, b));,
+                   if (mpz_sgn(mb) == 0) idris2_divideByZero();
                    mpz_mod(retVal->i, ma, mb))
 // (a shift by a negative count goes the other way, like `ash`; the right
 // shift is arithmetic: the floor of the division)

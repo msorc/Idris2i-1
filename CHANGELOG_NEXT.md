@@ -649,6 +649,10 @@ should target this file (`CHANGELOG_NEXT`).
   `-DIDRIS2_REFC_STATS` they count the reference count operations, reuses and
   closure applications.  `make install-support-refc-asan` installs a support
   library built with AddressSanitizer.
+* A division (`div`, `mod`) of a `Bits`, `Int` or `Integer` by zero stops
+  the program with `ERROR: Division by zero` and exit code 1, like a crash
+  (the Scheme backends raise an exception), instead of the undefined
+  behaviour of C (a `SIGFPE` on x86, or a wrong result).
 
 #### Chez Backend
 

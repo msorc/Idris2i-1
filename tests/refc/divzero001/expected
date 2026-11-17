@@ -1,0 +1,72 @@
+--- Bits8
+ERROR: Division by zero
+exit code: 1
+--- Bits16
+ERROR: Division by zero
+exit code: 1
+--- Bits32
+ERROR: Division by zero
+exit code: 1
+--- Bits64
+ERROR: Division by zero
+exit code: 1
+--- Int8
+ERROR: Division by zero
+exit code: 1
+--- Int16
+ERROR: Division by zero
+exit code: 1
+--- Int32
+ERROR: Division by zero
+exit code: 1
+--- Int64
+ERROR: Division by zero
+exit code: 1
+--- Int
+ERROR: Division by zero
+exit code: 1
+--- Integer
+ERROR: Division by zero
+exit code: 1
+--- big Integer
+ERROR: Division by zero
+exit code: 1
+--- mod Bits8
+ERROR: Division by zero
+exit code: 1
+--- mod Bits16
+ERROR: Division by zero
+exit code: 1
+--- mod Bits32
+ERROR: Division by zero
+exit code: 1
+--- mod Bits64
+ERROR: Division by zero
+exit code: 1
+--- mod Int8
+ERROR: Division by zero
+exit code: 1
+--- mod Int16
+ERROR: Division by zero
+exit code: 1
+--- mod Int32
+ERROR: Division by zero
+exit code: 1
+--- mod Int64
+ERROR: Division by zero
+exit code: 1
+--- mod Int
+ERROR: Division by zero
+exit code: 1
+--- mod Integer
+ERROR: Division by zero
+exit code: 1
+--- mod big Integer
+ERROR: Division by zero
+exit code: 1
+--- loop
+ERROR: Division by zero
+exit code: 1
+--- mod loop
+ERROR: Division by zero
+exit code: 1
