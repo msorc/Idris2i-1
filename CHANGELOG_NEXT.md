@@ -271,6 +271,12 @@ should target this file (`CHANGELOG_NEXT`).
   makes over its scope with a pass over the scope: a chain of 512 inlined
   binds is inlined in 3.6 s instead of 65 s, 1,024 binds in 19 s instead of
   380 s.  The code it makes is the same.
+* The inliner does not inline a function into its own body.  Inlinable
+  functions that call each other (such as the copies that `%spec` makes of
+  the case blocks of a recursive function) got their recursion unrolled
+  again in every round of transformations: the copy of `nextDirEntry` in the
+  compiler (System.Directory, `%spec hio`) had it unrolled 133 times, 15,000
+  lines of C nested 266 levels deep, now 530 lines.
 
 ### Building/Packaging changes
 

@@ -700,13 +700,18 @@ mergeLambdas args exp = (args ** exp)
 ||| Inline all inlinable functions into the given expression.
 ||| @ n the function name
 ||| @ exp the body of the function
+-- The function itself is not inlined into its body: in a group of inlinable
+-- functions that call each other, its body would get a copy of itself
+-- through the others in every round of the transformations, and every
+-- function that calls it a copy of all that.
 doEval : {args : _} ->
          {auto c : Ref Ctxt Defs} ->
          (n : Name) -> (exp : CExp args) -> Core (CExp args)
 doEval n exp
     = do l <- newRef LVar (the Int 0)
          log "compiler.inline.eval" 10 (show n ++ ": " ++ show exp)
-         res <- eval {vars = []} {params = args} False [] IntMap.empty [] [] exp
+         fn <- toFullNames n
+         res <- eval {vars = []} {params = args} False [fn] IntMap.empty [] [] exp
          let exp' = finalise IntMap.empty 0 res
          log "compiler.inline.eval" 10 ("Inlined: " ++ show exp')
          pure exp'
