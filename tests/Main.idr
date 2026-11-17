@@ -2,10 +2,12 @@ module Main
 
 import System
 import System.Directory
+import System.Escape
 import System.File
 
 import Data.List
 import Data.Maybe
+import Data.String
 
 import Test.Golden
 
@@ -109,11 +111,20 @@ idrisTestsAllBackends cg = testsInDir "allbackends"
 idrisTestsTotality : IO TestPool
 idrisTestsTotality = testsInDir "idris2/total" "Totality checking"
 
--- This will only work with an Idris compiled via Chez or Racket, but at
--- least for the moment we're not officially supporting self hosting any
--- other way. If we do, we'll need to have a way to disable these.
-idrisTestsSchemeEval : IO TestPool
-idrisTestsSchemeEval = testsInDir "idris2/schemeeval" "Scheme Evaluator"
+||| The Scheme evaluator (`:set eval scheme`) runs the code in the Scheme
+||| system that the compiler runs on, so it only works with a compiler
+||| compiled with Chez or Racket.  Ask the compiler under test whether it
+||| evaluates with Scheme: a compiler compiled with another backend (RefC, the
+||| default) says that the Scheme evaluator is not available.
+schemeHosted : (idris2 : String) -> Requirement
+schemeHosted idris2 = MkReq "Scheme evaluator" $ do
+    (out, _) <- run $ "printf ':set eval scheme\\nthe Integer (6 * 7)\\n:q\\n' | "
+                        ++ escapeArg idris2 ++ " --no-banner --no-color --console-width 0 2>&1"
+    pure $ toMaybe ("[scheme] Main> 42\n" `isInfixOf` out) idris2
+
+idrisTestsSchemeEval : (idris2 : String) -> IO TestPool
+idrisTestsSchemeEval idris2 = testsInDir "idris2/schemeeval" "Scheme Evaluator"
+  {requirements = [schemeHosted idris2]}
 
 idrisTestsReflection : IO TestPool
 idrisTestsReflection = testsInDir "idris2/reflection" "Quotation and Reflection"
@@ -186,49 +197,57 @@ commandLineTests : IO TestPool
 commandLineTests = testsInDir "cli" "Command-line interface"
 
 main : IO ()
-main = (runner =<<) $ sequence $
-  [ ttimpTests
-  , idrisTestsBasic
-  , idrisTestsCoverage
-  , idrisTestsTermination
-  , idrisTestsCasetree
-  , idrisTestsError
-  , idrisTestsFailing
-  , idrisTestsWarning
-  , idrisTestsInteractive
-  , idrisTestsInterface
-  , idrisTestsLiterate
-  , idrisTestsLinear
-  , idrisTestsPerformance
-  , idrisTestsRegression
-  , idrisTestsData
-  , idrisTestsBuiltin
-  , idrisTestsEvaluator
-  , idrisTestsREPL
-  , idrisTestsFalse
-  , idrisTestsTotality
-  , idrisTestsSchemeEval
-  , idrisTestsReflection
-  , idrisTestsWith
-  , idrisTestsOperators
-  , idrisTestsDebug
-  , idrisTestsIPKG
-  , idrisTestsMkdoc
-  , idrisTestsMisc
-  , typeddTests
-  , ideModeTests
-  , preludeTests
-  , baseLibraryTests
-  , linearLibraryTests
-  , contribLibraryTests
-  , chezTests
-  , refcTests
-  , racketTests
-  , nodeTests
-  , vmcodeInterpTests
-  , templateTests
-  , codegenTests
-  , commandLineTests
-  ]
-  ++ map idrisTestsAllSchemes [Chez, Racket]
-  ++ map idrisTestsAllBackends [Chez, Node, Racket, C]
+main = do
+  args <- getArgs
+  Just opts <- options args
+    | _ => do printLn args
+              putStrLn usage
+  runnerWith opts =<< sequence (pools opts.exeUnderTest)
+  where
+    pools : String -> List (IO TestPool)
+    pools idris2 =
+      [ ttimpTests
+      , idrisTestsBasic
+      , idrisTestsCoverage
+      , idrisTestsTermination
+      , idrisTestsCasetree
+      , idrisTestsError
+      , idrisTestsFailing
+      , idrisTestsWarning
+      , idrisTestsInteractive
+      , idrisTestsInterface
+      , idrisTestsLiterate
+      , idrisTestsLinear
+      , idrisTestsPerformance
+      , idrisTestsRegression
+      , idrisTestsData
+      , idrisTestsBuiltin
+      , idrisTestsEvaluator
+      , idrisTestsREPL
+      , idrisTestsFalse
+      , idrisTestsTotality
+      , idrisTestsSchemeEval idris2
+      , idrisTestsReflection
+      , idrisTestsWith
+      , idrisTestsOperators
+      , idrisTestsDebug
+      , idrisTestsIPKG
+      , idrisTestsMkdoc
+      , idrisTestsMisc
+      , typeddTests
+      , ideModeTests
+      , preludeTests
+      , baseLibraryTests
+      , linearLibraryTests
+      , contribLibraryTests
+      , chezTests
+      , refcTests
+      , racketTests
+      , nodeTests
+      , vmcodeInterpTests
+      , templateTests
+      , codegenTests
+      , commandLineTests
+      ]
+      ++ map idrisTestsAllSchemes [Chez, Racket]
+      ++ map idrisTestsAllBackends [Chez, Node, Racket, C]
