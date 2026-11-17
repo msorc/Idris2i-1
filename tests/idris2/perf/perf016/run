@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+# About 3 seconds; more than a minute when the inliner closed each binder
+# over its scope as it made it.
+TIMEOUT=40
+check Deep.idr

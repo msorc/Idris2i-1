@@ -267,6 +267,10 @@ should target this file (`CHANGELOG_NEXT`).
   normalised the types of all the variables in scope, and unifying an
   application of a metavariable evaluated the types of all its arguments
   instead of only the last one.
+* The inliner ("Compile defs" in `--timing`) no longer closes each binder it
+  makes over its scope with a pass over the scope: a chain of 512 inlined
+  binds is inlined in 3.6 s instead of 65 s, 1,024 binds in 19 s instead of
+  380 s.  The code it makes is the same.
 
 ### Building/Packaging changes
 
