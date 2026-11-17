@@ -1184,20 +1184,28 @@ getSimilarNames nm = case show <$> userNameRoot nm of
   Just str => if length str <= 1 then pure (Just (str, [])) else
     do defs <- get Ctxt
        let threshold : Nat := max 1 (assert_total (divNat (length str) 3))
-       let test : Name -> Core (Maybe (Visibility, Nat)) := \ nm => do
-               let (Just str') = show <$> userNameRoot nm
-                   | _ => pure Nothing
-               dist <- coreLift $ Levenshtein.compute str str'
-               let True = dist <= threshold
-                   | False => pure Nothing
+       let tgt = target str
+       -- First the names close enough, in the order of the map. This is a
+       -- pure fold over every name in the context, and a cheap length check
+       -- discards most of them.
+       let close : List (Name, Nat) -> Name -> Int -> List (Name, Nat)
+             := \ acc, nm, _ =>
+                  let Just str' = show <$> userNameRoot nm
+                        | Nothing => acc
+                      Just dist = withinDistance threshold tgt str'
+                        | Nothing => acc
+                  in (nm, dist) :: acc
+       let candidates = reverse $ foldlNames close [] (resolvedAs (gamma defs))
+       let test : (Name, Nat) -> Core (Maybe (Name, Visibility, Nat))
+             := \ (nm, dist) => do
                Just def <- lookupCtxtExact nm (gamma defs)
                    | Nothing => pure Nothing -- should be impossible
                let predicate = fromMaybe (\_ => pure True) keepPredicate
                True <- predicate (nm, def)
                    | False => pure Nothing
-               pure (Just (collapseDefault $ visibility def, dist))
-       kept <- NameMap.mapMaybeM @{CORE} test (resolvedAs (gamma defs))
-       pure $ Just (str, toList kept)
+               pure (Just (nm, collapseDefault $ visibility def, dist))
+       kept <- traverse test candidates
+       pure $ Just (str, catMaybes kept)
 
 export
 showSimilarNames : Namespace -> Name -> String ->

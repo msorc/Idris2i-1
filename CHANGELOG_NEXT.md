@@ -154,6 +154,15 @@ should target this file (`CHANGELOG_NEXT`).
   of the TTC files is kept for the session (also across reloads in the REPL
   and IDE mode) while the files do not change, instead of reading and decoding
   every TTC file of the packages in use for each undefined name.
+* The "Did you mean" suggestions for an undefined name are much cheaper to
+  find, with the same suggestions in the same order: the name was compared to
+  every name in the context with a full edit distance (allocating a matrix for
+  each), which took most of the time of checking a file with a few typos.
+  Names whose length differs too much are now skipped without computing their
+  distance, and the computation stops as soon as the distance is known to be
+  too large.  Checking a file importing modules of `base` and `contrib` with
+  five undefined names takes 4.7 G instructions instead of 25 G (one undefined
+  name: 2.7 G instead of 7.5 G).
 * A totality error that comes from a path of calls ("possibly not
   terminating due to recursive path ...", or "due to function ... being
   reachable via ...") lists the calls of the path with their locations, under
