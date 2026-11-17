@@ -130,9 +130,9 @@ int idrnet_bind(int sockfd, int family, int socket_type, char *host, int port) {
     }
 
     bind_res = bind(sockfd, address_res->ai_addr, address_res->ai_addrlen);
+    freeaddrinfo(address_res);
   }
   if (bind_res == -1) {
-    // freeaddrinfo(address_res);
     // printf("Lib err: bind\n");
     return -1;
   }
@@ -205,11 +205,14 @@ int idrnet_sockaddr_family(void *sockaddr) {
   return (int)addr->sa_family;
 }
 
+// The address is returned in a buffer of the thread, valid until the next
+// call: the backends copy it into a string of their own right away, and none
+// frees it (a buffer from malloc was lost at every call).
 char *idrnet_sockaddr_ipv4(void *sockaddr) {
+  static _Thread_local char ip_addr[INET_ADDRSTRLEN];
   struct sockaddr_in *addr = (struct sockaddr_in *)sockaddr;
-  char *ip_addr = (char *)malloc(sizeof(char) * INET_ADDRSTRLEN);
-  inet_ntop(AF_INET, &(addr->sin_addr), ip_addr, INET_ADDRSTRLEN);
-  // printf("Lib: ip_addr: %s\n", ip_addr);
+  if (inet_ntop(AF_INET, &(addr->sin_addr), ip_addr, INET_ADDRSTRLEN) == NULL)
+    ip_addr[0] = '\0';
   return ip_addr;
 }
 
@@ -223,8 +226,10 @@ char *idrnet_sockaddr_unix(void *sockaddr) {
   return addr->sun_path;
 }
 
+// Zeroed: `accept` on a Unix socket leaves the path of an unnamed peer
+// unset, and idrnet_sockaddr_unix reads it as a C string.
 void *idrnet_create_sockaddr() {
-  return malloc(sizeof(struct sockaddr_storage));
+  return calloc(1, sizeof(struct sockaddr_storage));
 }
 
 int idrnet_accept(int sockfd, void *sockaddr) {
@@ -330,7 +335,7 @@ int idrnet_sendto_buf(int sockfd, void *buf, int buf_len, char *host, int port,
   if (send_res == -1) {
     perror("lib err: sendto \n");
   }
-  // freeaddrinfo(remote_host);
+  freeaddrinfo(remote_host);
   return send_res;
 }
 

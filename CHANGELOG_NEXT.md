@@ -803,6 +803,11 @@ should target this file (`CHANGELOG_NEXT`).
   So are those of `System`, `System.File` and `System.Directory` (except
   `usleep` and `readLinesOnto`): reading a file line by line with `fGetLine`
   runs 3 times faster, writing one with `fPutStr` 4.5 times faster.
+* `network`, with every backend: `accept` no longer leaks the text of the
+  IPv4 address of the peer (`idrnet_sockaddr_ipv4` gives it in a buffer of
+  the thread instead of one from `malloc`), `bind` and `sendToBuf` no longer
+  leak the result of `getaddrinfo`, and `accept` on a Unix socket no longer
+  reads the uninitialised path of an unnamed peer (it is `""`).
 
 #### Base
 
