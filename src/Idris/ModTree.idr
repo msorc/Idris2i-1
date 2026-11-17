@@ -14,6 +14,7 @@ import Idris.Pretty
 
 import Data.Either
 import Data.List
+import Data.SortedMap
 import Data.String
 
 import System.Directory
@@ -95,6 +96,7 @@ mkModTree loc done modFP mod
 
 data DoneMod : Type where
 data BuildOrder : Type where
+data TTCPaths : Type where
 
 -- Given a module tree, returns the modules in the reverse order they need to
 -- be built, including their dependencies
@@ -426,6 +428,7 @@ buildAllParallel jobs childCmd allFiles
          -- longest chain does, however many processes there are.
          sizes <- traverse (\m => sourceSize m.buildFile) mods
          let chains = chainWeights (zip mods sizes)
+         paths <- newRef TTCPaths SortedMap.empty
          loop inBuild len logDir
               (sortBy (longestFirst chains) (zip [1 .. len] mods)) [] [] False
   where
@@ -492,10 +495,26 @@ buildAllParallel jobs childCmd allFiles
     blocked inBuild done mod
         = any (\i => (i `elem` inBuild) && not (i `elem` done)) (imports mod)
 
-    needed : BuildMod -> Core Bool
+    -- The TTC file of an import, as nsToPath finds it. It is found once:
+    -- most modules have the same imports, and the TTC files that are found
+    -- stay where they are during the build (an import of this build is
+    -- built before the modules that import it are looked at).
+    ttcPath : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+              ModuleIdent -> Core (Either Error String)
+    ttcPath ns
+        = case SortedMap.lookup ns !(get TTCPaths) of
+               Just path => pure (Right path)
+               Nothing =>
+                 do Right path <- nsToPath EmptyFC ns
+                      | Left err => pure (Left err)
+                    update TTCPaths (SortedMap.insert ns path)
+                    pure (Right path)
+
+    needed : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+             BuildMod -> Core Bool
     needed mod
         = do ttcFile <- getTTCFileName mod.buildFile "ttc"
-             depFilesE <- traverse (nsToPath EmptyFC) mod.imports
+             depFilesE <- traverse ttcPath mod.imports
              let (ferrs, depFiles) = partitionEithers depFilesE
              -- let the process report missing imports
              if not (null ferrs)
@@ -504,7 +523,8 @@ buildAllParallel jobs childCmd allFiles
 
     -- Start what can be started, skip what is up to date.  Returns the
     -- pending, running and done modules, and whether anything changed.
-    launch : List ModuleIdent -> Nat -> String ->
+    launch : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+             List ModuleIdent -> Nat -> String ->
              List (Nat, BuildMod) -> List Job -> List ModuleIdent ->
              Core (List (Nat, BuildMod), List Job, List ModuleIdent, Bool)
     launch inBuild len logDir [] running done = pure ([], running, done, False)
@@ -543,7 +563,8 @@ buildAllParallel jobs childCmd allFiles
                            then throw (InternalError "Lost track of the build processes")
                            else waitJob running -- not one of ours
 
-    loop : List ModuleIdent -> Nat -> String ->
+    loop : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+           List ModuleIdent -> Nat -> String ->
            List (Nat, BuildMod) -> List Job -> List ModuleIdent -> Bool ->
            Core (List Error)
     loop inBuild len logDir pending running done failed

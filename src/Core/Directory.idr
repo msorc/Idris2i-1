@@ -194,12 +194,25 @@ nsToPath : {auto c : Ref Ctxt Defs} ->
            FC -> ModuleIdent -> Core (Either Error String)
 nsToPath loc ns
     = do bdir <- ttcBuildDirectory
-         ttcs <- extraSearchDirectories
-         let fnameBase = ModuleIdent.toPath ns
-         let fs = map (\p => cleanPath $ p </> fnameBase <.> "ttc") (bdir :: ttcs)
-         Just f <- firstAvailable fs
+         d <- getDirs
+         -- the directories of ttcBuildDirectory and extraSearchDirectories,
+         -- whose paths are made as they are tried: making a path parses
+         -- paths, which was most of the work of deciding that the modules of
+         -- a package are up to date, and a module is usually found in one of
+         -- the first directories
+         let ttcs = the (List (Lazy String)) $
+                      Delay bdir :: map (\p => Delay (p </> show ttcVersion))
+                                        (extra_dirs d ++ package_dirs d)
+         Just f <- firstIn (ModuleIdent.toPath ns) ttcs
             | Nothing => pure (Left (ModuleNotFound loc ns))
          pure (Right f)
+  where
+    firstIn : String -> List (Lazy String) -> Core (Maybe String)
+    firstIn fnameBase [] = pure Nothing
+    firstIn fnameBase (p :: ps)
+        = do Nothing <- firstAvailable [cleanPath $ p </> fnameBase <.> "ttc"]
+               | found => pure found
+             firstIn fnameBase ps
 
 -- Given a namespace, return the path to the source module relative
 -- to the working directory, if the module exists.
