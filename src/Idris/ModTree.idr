@@ -248,21 +248,31 @@ buildMessage num len mod
       (pretty0 (replicate pad ' ') <+> byShow num <+> slash <+> byShow len <+> colon,
        pretty0 mod.buildNS <++> parens (pretty0 mod.buildFile))
 
-export
-buildMod : {auto c : Ref Ctxt Defs} ->
-           {auto s : Ref Syn SyntaxInfo} ->
-           {auto o : Ref ROpts REPLOpts} ->
-           {default True announce : Bool} -> -- print "Building" when building
-           FC -> Nat -> Nat -> BuildMod ->
-           Core (List Error)
-buildMod {announce} loc num len mod
-   = do -- Also forget what the module built before set (%language,
-        -- %pair, ...): the module is built as by a process of its own, which
-        -- is how a parallel build (buildAllParallel) builds it.
-        clearCtxt; update Ctxt { options $= clearNames }; addPrimitives
+-- Forget what the context holds, and what the previous module set
+-- (%language, %pair, ...): each module is built as by a process of its own,
+-- which is how a parallel build (buildAllParallel) builds it.
+resetForModule : {auto c : Ref Ctxt Defs} ->
+                 {auto s : Ref Syn SyntaxInfo} ->
+                 Core ()
+resetForModule
+   = do clearCtxt; update Ctxt { options $= clearNames }; addPrimitives
         lazyActive True; setUnboundImplicits True
+        put Syn initSyntax
 
-        let sourceFile = buildFile mod
+-- Build a module if it is not up to date. The context is reset before the
+-- module is built, but not when it is up to date: deciding that only takes
+-- the options, and resetting the context (with the primitives added again)
+-- costs more than that, for each module of a build where few have changed.
+-- Returns the errors, and whether the module was up to date (so the context
+-- was not reset).
+buildOrSkipMod : {auto c : Ref Ctxt Defs} ->
+                 {auto s : Ref Syn SyntaxInfo} ->
+                 {auto o : Ref ROpts REPLOpts} ->
+                 {default True announce : Bool} -> -- print "Building" when building
+                 FC -> Nat -> Nat -> BuildMod ->
+                 Core (List Error, Bool)
+buildOrSkipMod {announce} loc num len mod
+   = do let sourceFile = buildFile mod
         let modNamespace = buildNS mod
         ttcFile <- getTTCFileName sourceFile "ttc"
         -- We'd expect any errors in nsToPath to have been caught by now
@@ -278,17 +288,35 @@ buildMod {announce} loc num len mod
           ] ++ depFiles
         rebuild <- needsBuilding sourceFile ttcFile depFiles
 
-        u <- newRef UST initUState
-        m <- newRef MD (initMetadata (PhysicalIdrSrc modNamespace))
-        put Syn initSyntax
+        if not rebuild
+           then do -- what the context holds is not reported again (a
+                   -- reset would forget it)
+                   update Ctxt { warnings := [] }
+                   put Syn initSyntax
+                   ws <- emitWarningsAndErrors ferrs
+                   pure (ws ++ ferrs, True)
+           else do
+             resetForModule
+             u <- newRef UST initUState
+             m <- newRef MD (initMetadata (PhysicalIdrSrc modNamespace))
+             let (msgPrefix, buildMsg) = buildMessage num len mod
+             log "import.file" 10 $ "Processing " ++ sourceFile
+             errs <- process {announce} {u} {m} msgPrefix buildMsg sourceFile modNamespace
+             ws <- emitWarningsAndErrors (if null errs then ferrs else errs)
+             pure (ws ++ if null errs then ferrs else ferrs ++ errs, False)
 
-        errs <- ifThenElse (not rebuild) (pure []) $
-           do let (msgPrefix, buildMsg) = buildMessage num len mod
-              log "import.file" 10 $ "Processing " ++ sourceFile
-              process {announce} {u} {m} msgPrefix buildMsg sourceFile modNamespace
-
-        ws <- emitWarningsAndErrors (if null errs then ferrs else errs)
-        pure (ws ++ if null errs then ferrs else ferrs ++ errs)
+export
+buildMod : {auto c : Ref Ctxt Defs} ->
+           {auto s : Ref Syn SyntaxInfo} ->
+           {auto o : Ref ROpts REPLOpts} ->
+           {default True announce : Bool} -> -- print "Building" when building
+           FC -> Nat -> Nat -> BuildMod ->
+           Core (List Error)
+buildMod {announce} loc num len mod
+   = do (errs, skipped) <- buildOrSkipMod {announce} loc num len mod
+        -- the context is reset after a module, whether it was built or not
+        when skipped resetForModule
+        pure errs
 
 export
 buildMods : {auto c : Ref Ctxt Defs} ->
@@ -298,9 +326,13 @@ buildMods : {auto c : Ref Ctxt Defs} ->
             Core (List Error)
 buildMods fc num len [] = pure []
 buildMods fc num len (m :: ms)
-    = case !(buildMod fc num len m) of
-           [] => buildMods fc (1 + num) len ms
-           errs => pure errs
+    = do (errs, skipped) <- buildOrSkipMod fc num len m
+         case (errs, ms) of
+              ([], _ :: _) => buildMods fc (1 + num) len ms
+              -- the context is reset after the last module, whether it was
+              -- built or not (a module that is built resets it before)
+              _ => do when skipped resetForModule
+                      pure errs
 
 export
 buildDeps : {auto c : Ref Ctxt Defs} ->
