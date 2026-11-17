@@ -4,6 +4,14 @@
 #if defined(__unix__) || defined(__APPLE__)
 #include <sys/mman.h>
 #include <unistd.h>
+#if defined(MAP_ANONYMOUS) || defined(MAP_ANON)
+#define IDRIS2_HAVE_MMAP 1
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+#endif
+#elif defined(_WIN32)
+#include <malloc.h>
 #endif
 
 #if defined(__has_include)
@@ -110,10 +118,99 @@ static void initPage(Idris2_Page *page, Idris2_Worker *w, unsigned cls) {
   pageTaken();
 }
 
+/*
+ * The pages are cut from regions: memory that comes from the system in
+ * blocks of many pages, aligned on IDRIS2_PAGE_SIZE.  A page of its own from
+ * aligned_alloc costs more than the page: glibc serves it with a mapping of
+ * twice its size, touches a page or two of it besides the page, and makes a
+ * system call for every page.  A region costs one system call for many
+ * pages, and nothing besides them: what the program does not touch of it is
+ * never resident.
+ *
+ * The regions grow from IDRIS2_REGION_MIN to IDRIS2_REGION_MAX bytes, every
+ * one as large as all the earlier ones, so that a small program reserves
+ * little address space and a large one makes few system calls.  Pages are
+ * cut from a region one at a time, when a worker needs a new one, so that
+ * the pages of a region that are never used are never touched either.
+ *
+ * Like the pages, the regions are never given back: the headers of the
+ * pages stay in the list of every page, and an empty page may be taken
+ * again by any worker.  The memory of an empty page goes back to the system
+ * with madvise (see decommitPage), which works on any part of a region; all
+ * that it keeps is the address space, and the header of the page.
+ *
+ * The workers share the current region, under allPagesLock, which newPage
+ * takes anyway: a page is cut from it once per 64KB of new values.
+ */
+#define IDRIS2_REGION_MIN ((size_t)1024 * 1024)
+#define IDRIS2_REGION_MAX ((size_t)16 * 1024 * 1024)
+
+static char *regionNext = NULL, *regionEnd = NULL; // under allPagesLock
+static size_t regionsSize = 0; // all the regions so far, under allPagesLock
+
+// A region of `size` bytes (a multiple of IDRIS2_PAGE_SIZE) aligned on
+// IDRIS2_PAGE_SIZE, or NULL.
+static char *mapRegion(size_t size) {
+#if defined(IDRIS2_HAVE_MMAP)
+  // A page more than needed, and what is outside of the aligned region goes
+  // back.
+  size_t len = size + IDRIS2_PAGE_SIZE;
+  void *m = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
+                 -1, 0);
+  if (m == MAP_FAILED)
+    return NULL;
+  char *p = m;
+  char *start = (char *)(((uintptr_t)p + IDRIS2_PAGE_SIZE - 1) &
+                         ~(uintptr_t)(IDRIS2_PAGE_SIZE - 1));
+  if (start > p)
+    munmap(p, (size_t)(start - p));
+  if (p + len > start + size)
+    munmap(start + size, (size_t)(p + len - (start + size)));
+  return start;
+#elif defined(_WIN32)
+  return _aligned_malloc(size, IDRIS2_PAGE_SIZE);
+#else
+  void *retVal = NULL;
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) &&              \
+    !defined(__APPLE__)
+  retVal = aligned_alloc(IDRIS2_PAGE_SIZE, size);
+#elif (defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200112L)) ||           \
+    (defined(_XOPEN_SOURCE) && (_XOPEN_SOURCE >= 600))
+  if (posix_memalign(&retVal, IDRIS2_PAGE_SIZE, size) != 0)
+    retVal = NULL;
+#endif
+  return retVal;
+#endif
+}
+
+// A new page, from the current region or a new one.  Under allPagesLock.
+static Idris2_Page *cutPage(void) {
+  if (regionNext == regionEnd) {
+    size_t size = regionsSize < IDRIS2_REGION_MIN   ? IDRIS2_REGION_MIN
+                  : regionsSize > IDRIS2_REGION_MAX ? IDRIS2_REGION_MAX
+                                                    : regionsSize;
+    size &= ~(IDRIS2_PAGE_SIZE - 1);
+    char *region;
+    // (short of memory, or of address space, a smaller region may do)
+    while (!(region = mapRegion(size)) && size > IDRIS2_PAGE_SIZE) {
+      size = (size / 2) & ~(IDRIS2_PAGE_SIZE - 1);
+      if (size < IDRIS2_PAGE_SIZE)
+        size = IDRIS2_PAGE_SIZE;
+    }
+    IDRIS2_REFC_VERIFY(region, "out of memory for a page");
+    regionNext = region;
+    regionEnd = region + size;
+    regionsSize += size;
+  }
+  Idris2_Page *page = (Idris2_Page *)regionNext;
+  regionNext += IDRIS2_PAGE_SIZE;
+  return page;
+}
+
 static Idris2_Page *newPage(Idris2_Worker *w, unsigned cls) {
-  Idris2_Page *page = allocAligned(IDRIS2_PAGE_SIZE, IDRIS2_PAGE_SIZE);
-  initPage(page, w, cls);
   idris2_spinLock(&allPagesLock);
+  Idris2_Page *page = cutPage();
+  initPage(page, w, cls);
   page->nextPage = allPages;
   allPages = page;
   idris2_spinUnlock(&allPagesLock);

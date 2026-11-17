@@ -685,6 +685,14 @@ should target this file (`CHANGELOG_NEXT`).
   the system; an idle OS thread gives its empty pages to the others.  A
   program that moves from values of one size to another no longer needs the
   memory of both.
+* The pages of the allocator are cut from regions of 1MB to 16MB that the
+  program maps from the system, instead of being allocated one at a time
+  with `aligned_alloc`: glibc gave every page a mapping of its own, twice
+  its size, with a system call and about 12% more resident memory than the
+  page.  The compiler checks itself with 16% less memory at the peak (232MB
+  instead of 278MB), and a program that holds a list of 10 million `Int`s
+  needs 242MB instead of 268MB.  On Windows the regions come from
+  `_aligned_malloc` (pages could not be allocated there at all before).
 * A value with more than 65534 references is freed once they are gone (it
   became immortal).  A constant that needs itself while it is evaluated no
   longer keeps an immortal copy.

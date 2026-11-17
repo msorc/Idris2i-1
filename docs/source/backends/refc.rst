@@ -18,9 +18,13 @@ main goal is portability: the generated code should run on any platform that
 supports a C compiler.
 
 Small values are allocated from pages of values of the same size rather than
-with ``malloc``.  A page that holds no value any more can be used for values of
+with ``malloc``.  The pages (64KB each) are cut from regions of 1MB to 16MB
+that the program maps from the system (with ``mmap``; ``_aligned_malloc`` on
+Windows), so that a page costs no memory besides its own, and one system call
+serves many pages.  A page that holds no value any more can be used for values of
 another size; every OS thread of the program keeps up to 16 such pages (1MB),
-and gives the memory of the others back to the system.  The environment
+and gives the memory of the others back to the system (with ``madvise``; the
+regions themselves are kept, for the pages to be used again).  The environment
 variable ``IDRIS2_REFC_KEEP_PAGES`` sets that number.  When the program runs under Valgrind, and the support library
 was built with the Valgrind headers available, every value comes from
 ``malloc``, so that Valgrind can check them.  For other memory checkers (such
