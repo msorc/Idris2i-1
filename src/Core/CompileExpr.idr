@@ -5,7 +5,11 @@ module Core.CompileExpr
 import Core.TT
 
 import Data.List
+import Data.Maybe
 import Data.Vect
+
+import Libraries.Data.NameMap
+import Libraries.Data.StringMap
 
 import Libraries.Data.List.SizeOf
 import Libraries.Data.SnocList.SizeOf
@@ -273,41 +277,96 @@ mutual
     show (MkNConstAlt x exp)
          = "(%constcase " ++ show x ++ " " ++ show exp ++ ")"
 
-export
-data Names : Scoped where
-     Nil : Names []
-     (::) : Name -> Names xs -> Names (x :: xs)
+data Locs : Scoped where
+     Nil : Locs []
+     (::) : Name -> Locs xs -> Locs (x :: xs)
 
-elem : Name -> Names xs -> Bool
-elem n [] = False
-elem n (x :: xs) = n == x || elem n xs
+||| The names of the variables in scope, for `forget`.  They are all different:
+||| a variable whose name is already in scope gets the first of the names
+||| `tryNext` makes from it that is not.  With the names, there is a set of
+||| them, and for each root of the machine names `MN root i` the number of
+||| the first of them that is not in scope when all of `MN root 0` to
+||| `MN root (n - 1)` are (`firstFree`): with them, finding a name that is
+||| not in scope takes a few steps, not one step for each variable in scope
+||| times one for each name tried, which was cubic in the depth of code that
+||| binds the same name again and again (deep nests of `let`s).
+export
+record Names (vars : Scope) where
+  constructor MkNames
+  locs : Locs vars
+  inScope : NameMap ()
+  firstFree : StringMap Int
 
 tryNext : Name -> Name
 tryNext (UN n) = MN (displayUserName n) 0
 tryNext (MN n i) = MN n (1 + i)
 tryNext n = MN (nameRoot n) 0
 
+isInScope : Name -> Names vs -> Bool
+isInScope n ns = isJust (NameMap.lookup n ns.inScope)
+
+||| The first of `MN root i`, `MN root (i + 1)`, ... that is not in scope.
+firstFreeFrom : String -> Int -> Names vs -> Int
+firstFreeFrom root i ns
+    = let i' = max i (fromMaybe 0 (StringMap.lookup root ns.firstFree)) in
+          go i'
+  where
+    go : Int -> Int
+    go j = if isInScope (MN root j) ns then go (j + 1) else j
+
+||| The first of `s`, `tryNext s`, `tryNext (tryNext s)`, ... that is not in
+||| scope.
 uniqueName : Name -> Names vs -> Name
 uniqueName s ns =
-    if s `elem` ns
-       then uniqueName (tryNext s) ns
-       else s
+    if not (isInScope s ns)
+       then s
+       else case tryNext s of
+                 MN root i => MN root (firstFreeFrom root i ns)
+                 next => next -- not reached: `tryNext` makes an `MN`
+
+||| Bring a name that is not in scope into scope.
+bind : Name -> Names vs -> Names (x :: vs)
+bind n ns
+    = let inScope' = NameMap.insert n () ns.inScope in
+          MkNames (n :: ns.locs) inScope' (newFirstFree n inScope' ns.firstFree)
+  where
+    advance : String -> NameMap () -> Int -> Int
+    advance root s j
+        = if isJust (NameMap.lookup (MN root j) s)
+             then advance root s (j + 1)
+             else j
+
+    newFirstFree : Name -> NameMap () -> StringMap Int -> StringMap Int
+    newFirstFree (MN root i) s ff
+        = if i == fromMaybe 0 (StringMap.lookup root ff)
+             then StringMap.insert root (advance root s i) ff
+             else ff
+    newFirstFree _ _ ff = ff
+
+noNames : Names []
+noNames = MkNames [] NameMap.empty StringMap.empty
+
+getLocName' : (idx : Nat) -> Locs vars -> (0 p : IsVar name idx vars) -> Name
+getLocName' Z (x :: xs) First = x
+getLocName' (S k) (x :: xs) (Later p) = getLocName' k xs p
 
 export
 getLocName : (idx : Nat) -> Names vars -> (0 p : IsVar name idx vars) -> Name
-getLocName Z (x :: xs) First = x
-getLocName (S k) (x :: xs) (Later p) = getLocName k xs p
+getLocName idx ns p = getLocName' idx ns.locs p
 
 export
 addLocs : (args : List Name) -> Names vars -> Names (args ++ vars)
 addLocs [] ns = ns
 addLocs (x :: xs) ns
     = let rec = addLocs xs ns in
-          uniqueName x rec :: rec
+          bind (uniqueName x rec) rec
+
+conArgs' : (args : List Name) -> Locs (args ++ vars) -> List Name
+conArgs' [] ns = []
+conArgs' (a :: as) (n :: ns) = n :: conArgs' as ns
 
 conArgs : (args : List Name) -> Names (args ++ vars) -> List Name
-conArgs [] ns = []
-conArgs (a :: as) (n :: ns) = n :: conArgs as ns
+conArgs args ns = conArgs' args ns.locs
 
 mutual
   forgetExp : Names vars -> CExp vars -> NamedCExp
@@ -355,13 +414,13 @@ mutual
 export
 forget : {vars : _} -> CExp vars -> NamedCExp
 forget {vars} exp
-    = forgetExp (addLocs vars [])
+    = forgetExp (addLocs vars noNames)
                 (rewrite appendNilRightNeutral vars in exp)
 
 export
 forgetDef : CDef -> NamedDef
 forgetDef (MkFun args def)
-    = let ns = addLocs args []
+    = let ns = addLocs args noNames
           args' = conArgs {vars = Scope.empty} args ns in
           MkNmFun args' (forget def)
 forgetDef (MkCon t a nt) = MkNmCon t a nt

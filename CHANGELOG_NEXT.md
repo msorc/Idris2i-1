@@ -212,6 +212,11 @@ should target this file (`CHANGELOG_NEXT`).
   on.  A compiler built on an older runtime folded `prim__shl_Bits32 1 32`
   to 1, and the smallest value `div` -1 trapped in C.  Shifts of `Integer`s
   by more than 4096 are left to the run time.
+* Giving the local variables of a definition their names for the code
+  generators ("Forget names" in `--timing`) takes time about linear in the
+  depth of the code, instead of cubic when the same name is bound again and
+  again (as in a long chain of inlined binds): 8,800 nested `let`s took 7
+  minutes.
 
 ### Building/Packaging changes
 
