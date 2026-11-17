@@ -76,8 +76,7 @@ mkModTree loc done modFP mod
                     case lookup mod all of
                          Nothing =>
                            do file <- maybe (nsToSource loc mod) pure modFP
-                              modInfo <- readHeader file mod
-                              let imps = map path (imports modInfo)
+                              imps <- readHeaderImports file mod
                               if mod `elem` imps
                                 then coreFail $ CyclicImports [mod, mod]
                                 else do

@@ -30,7 +30,7 @@ import public Libraries.Utils.Binary
 ||| version number if you're changing the version more than once in the same day.
 export
 ttcVersion : Int
-ttcVersion = 2026_11_17_00
+ttcVersion = 2026_11_18_00
 
 ||| The version of the compiler that writes a TTC file, including the commit
 ||| it was built from. A module whose TTC was written by another compiler is
@@ -56,6 +56,9 @@ record TTCFile extra where
   ifaceHash : Int
   importHashes : List (Namespace, Int)
   incData : List (CG, String, List String)
+  sourceHeader : Maybe (Bits64, List ModuleIdent)
+    -- ^ the key of the source file, and the imports of its header (see
+    -- `Defs.sourceHeader`)
   context : List (Name, Binary)
   userHoles : List Name
   autoHints : List (Name, Bool)
@@ -107,14 +110,14 @@ HasNames (Name, Name, Bool) where
 
 HasNames e => HasNames (TTCFile e) where
   full gam (MkTTCFile version totalReq sourceHash ifaceHash iHashes incData
-                      context userHoles
+                      srcHdr context userHoles
                       autoHints typeHints
                       imported nextVar currentNS nestedNS
                       pairnames rewritenames primnames foreignImpl
                       namedirectives cgdirectives trans
                       fexp extra)
       = pure $ MkTTCFile version totalReq sourceHash ifaceHash iHashes incData
-                         context userHoles
+                         srcHdr context userHoles
                          !(traverse (full gam) autoHints)
                          !(traverse (full gam) typeHints)
                          imported nextVar currentNS nestedNS
@@ -155,14 +158,14 @@ HasNames e => HasNames (TTCFile e) where
   -- from the file we're going to add them to learn what the resolved names
   -- are supposed to be! But for completeness, let's do it right.
   resolved gam (MkTTCFile version totalReq sourceHash ifaceHash iHashes incData
-                      context userHoles
+                      srcHdr context userHoles
                       autoHints typeHints
                       imported nextVar currentNS nestedNS
                       pairnames rewritenames primnames foreignImpl
                       namedirectives cgdirectives trans
                       fexp extra)
       = pure $ MkTTCFile version totalReq sourceHash ifaceHash iHashes incData
-                         context userHoles
+                         srcHdr context userHoles
                          !(traverse (resolved gam) autoHints)
                          !(traverse (resolved gam) typeHints)
                          imported nextVar currentNS nestedNS
@@ -214,6 +217,7 @@ writeTTCFile b file_in
            toBuf (ifaceHash file)
            toBuf (importHashes file)
            toBuf (incData file)
+           toBuf (sourceHeader file)
            toBuf (imported file)
            toBuf (extraData file)
            toBuf (context file)
@@ -248,12 +252,13 @@ readTTCFile readall file as b
            ifaceHash <- fromBuf
            importHashes <- fromBuf
            incData <- fromBuf
+           srcHdr <- fromBuf
            imp <- fromBuf
            ex <- fromBuf
            if not readall
               then pure (MkTTCFile ver totalReq
                                    sourceFileHash ifaceHash importHashes
-                                   incData [] [] [] [] []
+                                   incData srcHdr [] [] [] [] []
                                    0 (mkNamespace "") [] Nothing
                                    Nothing
                                    (MkPrimNs Nothing Nothing Nothing Nothing Nothing Nothing Nothing)
@@ -276,7 +281,7 @@ readTTCFile readall file as b
                  fexp <- fromBuf
                  pure (MkTTCFile ver totalReq
                                  sourceFileHash ifaceHash importHashes incData
-                                 (map (replaceNS cns) defs) uholes
+                                 srcHdr (map (replaceNS cns) defs) uholes
                                  autohs typehs imp nextv cns nns
                                  pns rws prims foreignImpl nds cgds trans fexp ex)
   where
@@ -330,6 +335,7 @@ writeToTTC extradata sourceFileName ttcFileName
                               sourceHash
                               (ifaceHash defs) (importHashes defs)
                               (incData defs)
+                              (sourceHeader defs)
                               gdefs
                               (keys (userHoles defs))
                               (saveAutoHints defs)
@@ -584,6 +590,21 @@ getIncData file b
     = do ignore $ getImportHashes file b
          fromBuf -- `incData`
 
+-- Implements a portion of @readTTCFile@. The fields must be read in order.
+-- This reads everything up to and including `sourceHeader`, with the
+-- compiler version.
+getSourceHeader : String -> Ref Bin Binary ->
+                  Core (String, Maybe (Bits64, List ModuleIdent))
+getSourceHeader file b
+    = do ver <- getCompilerVersion file b
+         ignore $ fromBuf {a = TotalReq} -- `totalReq`
+         ignore $ fromBuf {a = Maybe String} -- `sourceHash`
+         ignore $ fromBuf {a = Int} -- `ifaceHash`
+         ignore $ fromBuf {a = List (Namespace, Int)} -- `importHashes`
+         ignore $ fromBuf {a = List (CG, String, List String)} -- `incData`
+         hdr <- fromBuf -- `sourceHeader`
+         pure (ver, hdr)
+
 -- The fields at the start of a TTC file, up to the incremental data, fit in
 -- this many bytes unless the module has an unusual number of imports.
 headerPrefix : Int
@@ -732,6 +753,16 @@ readImportHashes : (fname : String) -> -- file containing the module
 readImportHashes fname
     = catch (readTTCStart fname (getImportHashes fname))
             (\err => pure [])
+
+||| The key of the source file and the imports of its header that a TTC file
+||| recorded, if it was written by this compiler (see `Defs.sourceHeader`).
+export
+readSourceHeader : (fname : String) -> -- file containing the module
+                   Core (Maybe (Bits64, List ModuleIdent))
+readSourceHeader fname
+    = catch (do (ver, hdr) <- readTTCStart fname (getSourceHeader fname)
+                pure (if ver == compilerVersion then hdr else Nothing))
+            (\err => pure Nothing)
 
 export
 readIncData : (fname : String) -> -- file containing the module

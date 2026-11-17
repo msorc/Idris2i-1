@@ -34,6 +34,8 @@ import Idris.Syntax.TTC
 import Idris.Pretty
 import Idris.Doc.String
 
+import Data.Bits
+import Data.Buffer
 import Data.SortedMap
 import Data.String
 
@@ -224,6 +226,72 @@ readHeader path origin
          traverse_ recordWarning ws
          pure mod
 
+-- A step of the FNV-1a hash, on 64 bits at a time (inlined: the Int64 values
+-- of the loops below are not boxed)
+%inline
+fnvStep : Int64 -> Int64 -> Int64
+fnvStep h x = prim__xor_Int64 h x * 1099511628211
+
+-- The hash of the bytes of a buffer, eight at a time, then those that are
+-- left
+hashBuffer : Buffer -> (len : Int) -> IO Int64
+hashBuffer b len = ones (8 * (len `div` 8)) !(eights 0 (-3750763034362895579))
+  where
+    eights : Int -> Int64 -> IO Int64
+    eights i h
+        = if i + 8 > len
+             then pure h
+             else eights (i + 8) (fnvStep h !(getInt64 b i))
+
+    ones : Int -> Int64 -> IO Int64
+    ones i h
+        = if i >= len
+             then pure (fnvStep h (cast len))
+             else ones (i + 1) (fnvStep h (cast !(getBits8 b i)))
+
+||| The key of a source file, which the TTC file of its module records with
+||| the imports of its header (see `Defs.sourceHeader`): a hash (FNV-1a, 64
+||| bits) of its content, and the content. Nothing for a literate file,
+||| whose header is not recorded, or when it cannot be read.
+export
+sourceKey : (path : String) -> Core (Maybe (Bits64, Binary))
+sourceKey path
+    = if isJust (isLitFile path)
+         then pure Nothing
+         else do Right bin <- coreLift $ readFromFile path
+                   | Left _ => pure Nothing
+                 h <- coreLift $ hashBuffer (buf bin) (cast (used bin))
+                 pure (Just (cast h, bin))
+
+||| The modules that a source file imports, as its header says. They are read
+||| from the TTC file of the module when it was written by this compiler from
+||| the same content of the source file (see `sourceKey`), which saves lexing
+||| and parsing the header: finding out which modules a package needs to build
+||| reads the header of each of them.
+export
+readHeaderImports : {auto c : Ref Ctxt Defs} ->
+                    {auto o : Ref ROpts REPLOpts} ->
+                    (file : String) -> (origin : ModuleIdent) ->
+                    Core (List ModuleIdent)
+readHeaderImports file origin
+    = do Just (key, bin) <- sourceKey file
+           | Nothing => fromSource
+         -- (no TTC file for a source file outside the source directory)
+         Just ttcFile <- catch (Just <$> getTTCFileName file "ttc")
+                               (\_ => pure Nothing)
+           | Nothing => fromSource
+         Just (key', imps) <- readSourceHeader ttcFile
+           | Nothing => fromSource
+         if key /= key'
+            then fromSource
+            else do -- as readHeader does
+                    res <- coreLift $ getString (buf bin) 0 (cast (used bin))
+                    setCurrentElabSource res
+                    pure imps
+  where
+    fromSource : Core (List ModuleIdent)
+    fromSource = map path . imports <$> readHeader file origin
+
 %foreign "scheme:collect"
          "RefC:idris2_refc_gc"
 prim__gc : Int -> PrimIO ()
@@ -309,6 +377,9 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
         -- see if we can avoid rebuilding if none have changed)
         moduleHeader <- readHeader sourceFileName origin
         let ns = moduleNS moduleHeader
+        -- saved in the TTC file, for readHeaderImports
+        key <- map fst <$> sourceKey sourceFileName
+        update Ctxt { sourceHeader := map (, map path (imports moduleHeader)) key }
 
         -- Add an implicit prelude import
         let allImports =

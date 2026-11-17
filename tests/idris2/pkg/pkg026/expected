@@ -1,0 +1,8 @@
+--- first check
+1/2: Building A (A.idr)
+2/2: Building Main (Main.idr)
+--- nothing changed
+--- an import added, with an old modification time
+1/3: Building B (B.idr)
+2/3: Building A (A.idr)
+--- nothing changed

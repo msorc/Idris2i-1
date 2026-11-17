@@ -311,6 +311,22 @@ should target this file (`CHANGELOG_NEXT`).
   instructions instead of 23.7 billion (0.3s instead of 2.6s), and
   `idris2 --typecheck idris2.ipkg` 10.4 billion instead of 42.5 billion (1.2s
   instead of 4.6s).
+* A module that is up to date costs less again in a build:
+  - The context is no longer reset (with the primitives added again) for
+    each module of the build, but only before a module is built, and after
+    the last one.
+  - The TTC file of a module records the imports of its header, with a hash
+    of the content of its source file, and they are read from there while the
+    source file has the same content, instead of lexing and parsing its
+    header.  The TTC format version changes accordingly.
+  - The lexer makes its rules once, instead of again for each token (they
+    were lazy, and lazy values are not shared), and no longer puts the rest
+    of a file back together into a string after the header of a module.
+  With nothing to do, `idris2 --build base.ipkg` takes 0.3 billion
+  instructions instead of 4.0 billion, `idris2 --build contrib.ipkg` 0.24
+  billion instead of 3.2 billion (0.19 billion instead of 1.1 billion with
+  `--jobs`), and `idris2 --typecheck idris2.ipkg` 0.75 billion instead of 14.2
+  billion.
 * `make help` lists the targets of the top-level `Makefile` and the variables
   that change the build, with their current values.
 * `make` rebuilds the support libraries (`support/c`, `support/refc`) whenever

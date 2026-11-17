@@ -1,0 +1,29 @@
+. ../../../testutils.sh
+
+# The modules that a module imports are read from its TTC file, instead of
+# the header of its source file, when the source file has the same content
+# as when the TTC file was written: an import that is added to a source file
+# is seen even when its modification time is older than that of its TTC file.
+# (Main is not built again: the interface of A is the same.)
+
+rm -rf work
+mkdir work
+cp src/Main.idr src/A.idr src/B.idr work
+cd work
+
+echo "--- first check"
+check Main.idr
+
+echo "--- nothing changed"
+check Main.idr
+
+echo "--- an import added, with an old modification time"
+cp ../src/A2.idr A.idr
+touch -t 200001010000 A.idr
+check Main.idr
+
+echo "--- nothing changed"
+check Main.idr
+
+cd ..
+rm -rf work

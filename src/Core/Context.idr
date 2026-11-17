@@ -1072,6 +1072,11 @@ record Defs where
   incData : List (CG, String, List String)
      -- ^ What we've compiled incrementally for this module: codegen,
      -- object file, any additional CG dependent data (e.g. linker flags)
+  sourceHeader : Maybe (Bits64, List ModuleIdent)
+     -- ^ The key of the source file of this module (a hash of its content,
+     -- see Idris.ProcessIdr.sourceKey) and the imports of its header, which
+     -- are saved in its TTC: while the source file has the same key, the
+     -- imports are read from there instead of the source.
   allIncData : List (CG, List String, List String)
      -- ^ Incrementally compiled files for all imports. Only lists CGs for
      -- while all modules have associated incremental compile data
@@ -1153,6 +1158,7 @@ initDefs
            , cgdirectives = SortedSet.empty
            , toCompileCase = []
            , incData = []
+           , sourceHeader = Nothing
            , allIncData = []
            , toIR = empty
            , userHoles = empty
