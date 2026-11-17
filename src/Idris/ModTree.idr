@@ -15,6 +15,7 @@ import Idris.Pretty
 import Data.Either
 import Data.List
 import Data.SortedMap
+import Data.SortedSet
 import Data.String
 
 import System.Directory
@@ -414,7 +415,7 @@ buildAllParallel : {auto c : Ref Ctxt Defs} ->
                    Core (List Error)
 buildAllParallel jobs childCmd allFiles
     = do mods <- dropLater <$> getAllBuildMods EmptyFC [] allFiles
-         let inBuild = map buildNS mods
+         let inBuild = SortedSet.fromList (map buildNS mods)
          let len = length mods
          defs <- get Ctxt
          wd <- getWorkingDir
@@ -430,7 +431,7 @@ buildAllParallel jobs childCmd allFiles
          let chains = chainWeights (zip mods sizes)
          paths <- newRef TTCPaths SortedMap.empty
          loop inBuild len logDir
-              (sortBy (longestFirst chains) (zip [1 .. len] mods)) [] [] False
+              (sortBy (longestFirst chains) (zip [1 .. len] mods)) [] empty False
   where
     -- the longest chain first, then in the order of the list
     longestFirst : StringMap Nat -> (Nat, BuildMod) -> (Nat, BuildMod) -> Ordering
@@ -455,21 +456,21 @@ buildAllParallel jobs childCmd allFiles
     -- build that starts with it and goes through the modules that import it
     -- (the module itself included)
     chainWeights : List (BuildMod, Nat) -> StringMap Nat
-    chainWeights ws = passes (length ws) weights
+    chainWeights ws
+        = -- bound here, not in the `where` block: a local definition without
+          -- arguments is computed again at each use
+          let weights = StringMap.fromList (map (\(m, w) => (show m.buildNS, w)) ws)
+              -- The modules, with the imports that are in the build; the
+              -- modules that import the others come first, which is the
+              -- order in which the chains are known, as the list has the
+              -- imports before them
+              entries = reverse $ map (\(m, _) => (show m.buildNS, importsInBuild weights m)) ws
+          in passes entries (length ws) weights
       where
-        weights : StringMap Nat
-        weights = StringMap.fromList (map (\(m, w) => (show m.buildNS, w)) ws)
-
-        -- The modules, with the imports that are in the build; the modules
-        -- that import the others come first, which is the order in which
-        -- the chains are known, as the list has the imports before them
-        entries : List (String, List (String, Nat))
-        entries = reverse $ map (\(m, _) => (show m.buildNS, importsInBuild m)) ws
-          where
-            importsInBuild : BuildMod -> List (String, Nat)
-            importsInBuild m = mapMaybe (\i => let k = show i in
-                                                 map (k,) (StringMap.lookup k weights))
-                                        m.imports
+        importsInBuild : StringMap Nat -> BuildMod -> List (String, Nat)
+        importsInBuild weights m
+            = mapMaybe (\i => let k = show i in map (k,) (StringMap.lookup k weights))
+                       m.imports
 
         -- what is below a module makes the chains of its imports longer
         relax : (StringMap Nat, Bool) -> (String, List (String, Nat)) -> (StringMap Nat, Bool)
@@ -483,17 +484,17 @@ buildAllParallel jobs childCmd allFiles
 
         -- until nothing changes, which takes as many passes as there are
         -- modules at the most (two, when the imports come before the modules)
-        passes : Nat -> StringMap Nat -> StringMap Nat
-        passes Z cur = cur
-        passes (S k) cur
+        passes : List (String, List (String, Nat)) -> Nat -> StringMap Nat -> StringMap Nat
+        passes entries Z cur = cur
+        passes entries (S k) cur
             = case foldl relax (cur, False) entries of
-                   (next, True) => passes k next
+                   (next, True) => passes entries k next
                    (_, False) => cur
 
     -- An import of a module of this build that is not built yet
-    blocked : List ModuleIdent -> List ModuleIdent -> BuildMod -> Bool
+    blocked : SortedSet ModuleIdent -> SortedSet ModuleIdent -> BuildMod -> Bool
     blocked inBuild done mod
-        = any (\i => (i `elem` inBuild) && not (i `elem` done)) (imports mod)
+        = any (\i => contains i inBuild && not (contains i done)) (imports mod)
 
     -- The TTC file of an import, as nsToPath finds it. It is found once:
     -- most modules have the same imports, and the TTC files that are found
@@ -524,9 +525,9 @@ buildAllParallel jobs childCmd allFiles
     -- Start what can be started, skip what is up to date.  Returns the
     -- pending, running and done modules, and whether anything changed.
     launch : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
-             List ModuleIdent -> Nat -> String ->
-             List (Nat, BuildMod) -> List Job -> List ModuleIdent ->
-             Core (List (Nat, BuildMod), List Job, List ModuleIdent, Bool)
+             SortedSet ModuleIdent -> Nat -> String ->
+             List (Nat, BuildMod) -> List Job -> SortedSet ModuleIdent ->
+             Core (List (Nat, BuildMod), List Job, SortedSet ModuleIdent, Bool)
     launch inBuild len logDir [] running done = pure ([], running, done, False)
     launch inBuild len logDir ((num, mod) :: pending) running done
         = if blocked inBuild done mod || length running >= jobs
@@ -534,7 +535,7 @@ buildAllParallel jobs childCmd allFiles
                      pure ((num, mod) :: p, r, d, ch)
              else if not !(needed mod)
              then do (p, r, d, _) <- launch inBuild len logDir pending running
-                                            (mod.buildNS :: done)
+                                            (SortedSet.insert mod.buildNS done)
                      pure (p, r, d, True)
              else do let logFile = logDir </> "build-" ++ show num ++ ".log"
                      pid <- coreLift $ primIO $ prim__spawnShell (childCmd mod.buildFile logFile)
@@ -564,12 +565,12 @@ buildAllParallel jobs childCmd allFiles
                            else waitJob running -- not one of ours
 
     loop : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
-           List ModuleIdent -> Nat -> String ->
-           List (Nat, BuildMod) -> List Job -> List ModuleIdent -> Bool ->
+           SortedSet ModuleIdent -> Nat -> String ->
+           List (Nat, BuildMod) -> List Job -> SortedSet ModuleIdent -> Bool ->
            Core (List Error)
     loop inBuild len logDir pending running done failed
         = do (pending, running, done, changed) <-
-                 the (Core (List (Nat, BuildMod), List Job, List ModuleIdent, Bool)) $
+                 the (Core (List (Nat, BuildMod), List Job, SortedSet ModuleIdent, Bool)) $
                    if failed then pure ([], running, done, False)
                              else launch inBuild len logDir pending running done
              if changed
@@ -582,5 +583,5 @@ buildAllParallel jobs childCmd allFiles
                                   _ => throw (InternalError "Modules left that cannot be built")
                   _ => do (j, ok, running) <- waitJob running
                           loop inBuild len logDir pending running
-                               (if ok then j.mod.buildNS :: done else done)
+                               (if ok then SortedSet.insert j.mod.buildNS done else done)
                                (failed || not ok)
