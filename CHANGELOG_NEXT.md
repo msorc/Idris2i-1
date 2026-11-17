@@ -521,7 +521,8 @@ should target this file (`CHANGELOG_NEXT`).
   jumps to the function of the closure with GCC 15 or later.  The calls of
   functions that always return a value skip the trampoline
   (`--directive refc-no-direct-results`), and a closure that a function makes
-  and applies once is not made (`--directive refc-no-local-closures`).
+  and applies once, or applies to its missing arguments one at a time, is not
+  made (`--directive refc-no-local-closures`).
 * A function that makes a cell of a call to itself (`map`, `++`, `filter`,
   `take`, an `insert` down one path of a tree) loops instead of recursing
   (tail recursion modulo cons): it does not need a stack as deep as the list.

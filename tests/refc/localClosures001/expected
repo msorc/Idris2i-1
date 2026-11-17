@@ -15,6 +15,7 @@ x-+*/
 (9, 0)
 hey!
 oneBranch 0
+manyMissing 0
 nested 0
 reuseBranch 0
 tree 0
@@ -36,6 +37,7 @@ x-+*/
 (9, 0)
 hey!
 oneBranch 1
+manyMissing 1
 nested 2
 reuseBranch 1
 tree 1

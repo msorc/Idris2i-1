@@ -3,10 +3,11 @@
 idris2 -o main Main.idr
 $VALGRIND ./build/exec/main
 
-# A partial application that is applied once (in one branch, or as the
-# argument of another one) is a call: no closure is made for it.
+# A partial application that is applied once (in one branch, as the
+# argument of another one, or to its missing arguments one at a time) is a
+# call: no closure is made for it.
 count() {
-  for f in oneBranch nested reuseBranch tree lazyClosure; do
+  for f in oneBranch manyMissing nested reuseBranch tree lazyClosure; do
     printf '%s %s\n' $f $(awk -v RS= "/Value \\*Main_$f\\n/" build/exec/$1.c | grep -c 'idris2_mkClosure')
   done
 }

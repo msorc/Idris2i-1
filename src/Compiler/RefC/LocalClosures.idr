@@ -18,6 +18,7 @@
 module Compiler.RefC.LocalClosures
 
 import Compiler.ANF
+import Core.FC
 import Core.Name
 
 import Data.SortedMap
@@ -65,6 +66,27 @@ uses _ u = u
 Pending : Type
 Pending = SortedMap Int (Name, Nat, List AVar)
 
+-- The lets that a value starts with, and what it gives after them.
+--
+-- An application to one more argument is `let w = a in c @ w`, so when a
+-- closure is applied to its arguments one at a time, the value of each step
+-- is such a let:
+--
+--   let c2 = (let w = a in c1 @ w) in ... c2 @ b ...
+--
+-- Once `c1 @ w` is the partial application `f x w`, the let of `c2` can be
+-- `let w = a in let c2 = f x w in ...`, where `c2` is pending as well.  The
+-- two are the same: `a` is evaluated before the rest either way, and `w` is
+-- not used outside of the value, as variables are bound once in ANF.  The
+-- let of `w` encloses the application of `c2` then, which refers to `w`.
+splitLets : ANF -> (List (FC, Int, ANF), ANF)
+splitLets (ALet fc w a x)
+    = let (lets, res) = splitLets x in ((fc, w, a) :: lets, res)
+splitLets anf = ([], anf)
+
+wrapLets : List (FC, Int, ANF) -> ANF -> ANF
+wrapLets lets body = foldr (\(fc, w, a), acc => ALet fc w a acc) body lets
+
 mutual
   rewriteANF : Uses -> Pending -> ANF -> ANF
   rewriteANF u ps (AApp fc lz c@(ALocal i) a)
@@ -73,11 +95,12 @@ mutual
              Just (f, S (S k), args) => AUnderApp fc f (S k) (args ++ [a])
              _ => AApp fc lz c a
   rewriteANF u ps (ALet fc v val body)
-      = let val' = rewriteANF u ps val in
-            case val' of
+      = let val' = rewriteANF u ps val
+            (lets, res) = splitLets val' in
+            case res of
                  AUnderApp _ f m@(S _) args =>
                    if SortedMap.lookup v u.all == Just 1 && SortedMap.lookup v u.applied == Just 1
-                      then rewriteANF u (insert v (f, m, args) ps) body
+                      then wrapLets lets (rewriteANF u (insert v (f, m, args) ps) body)
                       else ALet fc v val' (rewriteANF u ps body)
                  _ => ALet fc v val' (rewriteANF u ps body)
   rewriteANF u ps (AConCase fc sc alts def)
