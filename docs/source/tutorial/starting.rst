@@ -15,10 +15,16 @@ Installing from Source
 Prerequisites
 -------------
 
-Idris 2 is implemented in Idris 2 itself, so to bootstrap it you can build from
-generated Scheme sources. To do this, you need either Chez Scheme (default, and
-currently preferred since it is the fastest) or Racket. You can get one of
-these from:
+Idris 2 is implemented in Idris 2 itself, so to bootstrap it you build from
+code that it generated for itself: C or Scheme.
+
+In every case you need a C compiler (``gcc`` or ``clang``), ``make`` and the
+GMP library with its headers: by default, Idris compiles programs to
+executables via C (see :doc:`../backends/refc`).  That is all that the
+bootstrap from C needs, apart from ``xz``.
+
+To bootstrap from the Scheme code instead, which gives a faster compiler, you
+also need either Chez Scheme or Racket. You can get one of these from:
 
 - `Chez Scheme <https://cisco.github.io/ChezScheme/>`_
 - `Racket <https://download.racket-lang.org/>`_
@@ -36,8 +42,12 @@ You can download the Idris 2 source from the `Idris web site
 <https://www.idris-lang.org/pages/download.html>`_ or get the latest
 development version from `idris-lang/Idris2
 <https://github.com/idris-lang/Idris2>`_ on Github.  This includes the Idris 2
-source code and the Scheme code generated from that.  Once you have
-unpacked the source, you can install it as follows::
+source code and the C and Scheme code generated from that.  Once you have
+unpacked the source, you can build it with only a C compiler as follows::
+
+    make bootstrap-c
+
+Or, with Chez Scheme::
 
     make bootstrap SCHEME=chez
 
@@ -102,8 +112,8 @@ If you are familiar with Haskell, it should be fairly clear what the
 program is doing and how it works, but if not, we will explain the
 details later. You can compile the program to an executable by
 entering ``idris2 hello.idr -o hello`` at the shell prompt. This will,
-by default, create an executable called ``hello``, which invokes a generated
-and compiled Chez Scheme program, in the destination directory ``build/exec``
+by default, create an executable called ``hello``, compiled from generated
+C code, in the destination directory ``build/exec``
 which you can run:
 
 ::

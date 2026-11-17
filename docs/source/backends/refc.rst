@@ -2,7 +2,7 @@
 C with Reference Counting
 *************************
 
-There is an experimental code generator which compiles to an executable via C,
+The default code generator compiles to an executable via C,
 using a reference counting garbage collector. This is intended as a lightweight
 (i.e. minimal dependencies) code generator that can be ported to multiple
 platforms, especially those with memory constraints.

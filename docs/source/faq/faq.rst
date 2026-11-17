@@ -33,9 +33,10 @@ community libraries.
 Can Idris 2 compile itself?
 ===========================
 
-Yes, Idris 2 is implemented in Idris 2. By default, it targets
-`Chez Scheme <https://cisco.github.io/ChezScheme/>`_, so you can bootstrap
-from the generated Scheme code, as described in Section :ref:`sect-starting`.
+Yes, Idris 2 is implemented in Idris 2. It targets C by default, and
+`Chez Scheme <https://cisco.github.io/ChezScheme/>`_ among others, so you can
+bootstrap from the generated C or Scheme code, as described in Section
+:ref:`sect-starting`.
 
 Why does Idris 2 target Scheme? Surely a dynamically typed target language is going to be slow?
 ===============================================================================================
