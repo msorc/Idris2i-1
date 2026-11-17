@@ -128,12 +128,12 @@ bootstrapped compiler.
 
 If all is well, to install, type:
 
-- `IDRIS2_CG=chez make install` after `make bootstrap SCHEME=chez`
-- `IDRIS2_CG=racket make install` after `make bootstrap-racket`
+- `make install`
 
-The `IDRIS2_CG` setting matters: a plain `make install` assumes a compiler
-built with RefC, the default, and installs the libraries without the compiled
-Scheme code of their modules, which incremental builds with Chez use.
+When the compiler in `build/exec` runs on Chez Scheme, as after `make
+bootstrap SCHEME=chez`, `make install` also installs the compiled Scheme code
+of the modules of the libraries, which incremental builds with Chez use
+(`LIBS_INC_CGS`, see `make help`).
 
 The compiler built this way still compiles programs with the RefC backend by
 default: pass `--cg chez` (or `--cg racket`), or set `IDRIS2_CG`, to use the

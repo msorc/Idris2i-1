@@ -59,10 +59,8 @@ follows::
     make bootstrap-racket
 
 Once you've successfully bootstrapped with any of the above commands, you can
-install with the command ``make install`` (``IDRIS2_CG=chez make install``
-after a bootstrap with Chez Scheme, ``IDRIS2_CG=racket make install`` after
-one with Racket).  This will, by default, install into
-``${HOME}/.idris2``. You can change this by editing the options in
+install with the command ``make install``.  This will, by default, install
+into ``${HOME}/.idris2``. You can change this by editing the options in
 ``config.mk``. For example, to install into ``/usr/local``, you can edit the
 ``PREFIX`` as follows::
 

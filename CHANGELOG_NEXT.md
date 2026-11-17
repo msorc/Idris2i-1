@@ -293,6 +293,14 @@ should target this file (`CHANGELOG_NEXT`).
   libraries and `make bootstrap-c` see it.  The RefC library built for
   AddressSanitizer (`make install-support-refc-asan`) is compiled with the
   usual `CFLAGS` too (`-fPIC`, the warnings).
+* `make install` after `make bootstrap SCHEME=chez` installs the libraries
+  with the compiled Chez code of their modules again (for incremental builds),
+  which it stopped doing when RefC became the default `IDRIS2_CG`.  The
+  libraries are compiled for incremental builds with `LIBS_INC_CGS`: `chez`
+  when `IDRIS2_CG` is `chez` or when the compiler in `build/exec` runs on Chez
+  Scheme, and nothing otherwise (the RefC and Racket backends have no
+  incremental builds, `IDRIS2_INC_CGS=refc` was ignored).  `IDRIS2_CG=chez
+  make install` is no longer needed after a Chez bootstrap.
 
 ### Backend changes
 

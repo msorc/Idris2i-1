@@ -22,9 +22,12 @@ with their current values):
 * ``IDRIS2_BOOT`` - The Idris 2 compiler that builds the compiler (default:
   ``idris2``).
 * ``IDRIS2_CG`` - The code generator that the compiler is built with:
-  ``refc`` (the default), ``chez`` or ``racket``. It is also used for the
-  incremental builds of the libraries, so give the same value to ``make
-  install``.
+  ``refc`` (the default), ``chez`` or ``racket``.
+* ``LIBS_INC_CGS`` - The code generators that the libraries are also compiled
+  with for incremental builds (``IDRIS2_INC_CGS``; only ``chez`` has them).
+  The default is ``chez`` when ``IDRIS2_CG`` is ``chez`` or when the compiler
+  in ``build/exec`` runs on Chez Scheme (as after ``make bootstrap``), and
+  none otherwise.
 * ``IDRIS2_JOBS`` - How many modules of the compiler and of the libraries are
   built in parallel (default: the number of processors, at most 16; ``1``
   builds them one after the other).

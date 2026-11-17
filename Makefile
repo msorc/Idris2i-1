@@ -8,9 +8,21 @@ NAME = idris2
 TARGETDIR = ${CURDIR}/build/exec
 TARGET = ${TARGETDIR}/${NAME}
 
-# Default code generator. This is passed to the libraries for incremental
-# builds, but overridable via environment variables or arguments to make
+# The code generator that builds the compiler (refc, chez or racket), with the
+# compiler of IDRIS2_BOOT.  It does not change the code generator that the
+# compiler uses by default, which is RefC.
 IDRIS2_CG ?= refc
+
+# The code generators that the libraries are also compiled with module by
+# module, for the incremental builds of programs (IDRIS2_INC_CGS of the
+# compiler, see docs/source/backends/incremental.rst).  Only Chez has such
+# builds.  By default, chez when the compiler is built with Chez (IDRIS2_CG),
+# or when the compiler in build/exec runs on Chez Scheme, as after `make
+# bootstrap` (so that the `make install` that comes after it installs those
+# files too); otherwise none, which saves the time it takes.
+ifndef LIBS_INC_CGS
+LIBS_INC_CGS := $(if $(filter chez,${IDRIS2_CG})$(shell grep -Eqs '${NAME}_app/${NAME}(-boot)?\.so' ${TARGET} && echo chez),chez)
+endif
 
 # How many processes build the modules of the compiler and of the libraries in
 # parallel (IDRIS2_BUILD_JOBS of the compiler that builds them, which older
@@ -163,25 +175,25 @@ LIBS_CORE = prelude base
 endif
 
 prelude:
-	${JOBS_ENV} ${MAKE} -C libs/prelude IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${JOBS_ENV} ${MAKE} -C libs/prelude IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 base: prelude
-	${JOBS_ENV} ${MAKE} -C libs/base IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${JOBS_ENV} ${MAKE} -C libs/base IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 linear: ${LIBS_CORE}
-	${LIBS_JOBS_ENV} ${MAKE} -C libs/linear IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/linear IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 contrib: ${LIBS_CORE}
-	${LIBS_JOBS_ENV} ${MAKE} -C libs/contrib IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/contrib IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 network: ${LIBS_CORE} linear
-	${LIBS_JOBS_ENV} ${MAKE} -C libs/network IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/network IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 test-lib: ${LIBS_CORE} contrib
-	${LIBS_JOBS_ENV} ${MAKE} -C libs/test IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/test IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 papers: ${LIBS_CORE} linear contrib
-	${LIBS_JOBS_ENV} ${MAKE} -C libs/papers IDRIS2=${TARGET} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/papers IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
 bootstrap-libs: prelude base linear network
 
@@ -310,22 +322,22 @@ install-support-refc-asan:
 	@${MAKE} -C support/refc install-asan
 
 install-bootstrap-libs:
-	${JOBS_ENV} ${MAKE} -C libs/prelude install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PREFIX=${IDRIS2_PREFIX}
-	${JOBS_ENV} ${MAKE} -C libs/base install    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PREFIX=${IDRIS2_PREFIX}
-	${JOBS_ENV} ${MAKE} -C libs/linear install  IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PREFIX=${IDRIS2_PREFIX}
-	${JOBS_ENV} ${MAKE} -C libs/network install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	${JOBS_ENV} ${MAKE} -C libs/prelude install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	${JOBS_ENV} ${MAKE} -C libs/base install    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	${JOBS_ENV} ${MAKE} -C libs/linear install  IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	${JOBS_ENV} ${MAKE} -C libs/network install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
 
 install-libs: install-bootstrap-libs
-	${JOBS_ENV} ${MAKE} -C libs/contrib install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PREFIX=${IDRIS2_PREFIX}
-	${JOBS_ENV} ${MAKE} -C libs/test install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	${JOBS_ENV} ${MAKE} -C libs/contrib install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	${JOBS_ENV} ${MAKE} -C libs/test install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
 
 install-with-src-libs:
-	${JOBS_ENV} ${MAKE} -C libs/prelude install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
-	${JOBS_ENV} ${MAKE} -C libs/base install-with-src    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
-	${JOBS_ENV} ${MAKE} -C libs/contrib install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
-	${JOBS_ENV} ${MAKE} -C libs/network install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
-	${JOBS_ENV} ${MAKE} -C libs/test install-with-src    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
-	${JOBS_ENV} ${MAKE} -C libs/linear install-with-src  IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${IDRIS2_CG}
+	${JOBS_ENV} ${MAKE} -C libs/prelude install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+	${JOBS_ENV} ${MAKE} -C libs/base install-with-src    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+	${JOBS_ENV} ${MAKE} -C libs/contrib install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+	${JOBS_ENV} ${MAKE} -C libs/network install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+	${JOBS_ENV} ${MAKE} -C libs/test install-with-src    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+	${JOBS_ENV} ${MAKE} -C libs/linear install-with-src  IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
 
 install-libdocs: libdocs
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/prelude
@@ -464,6 +476,9 @@ Variables (current value)
                          Modules to build in parallel, 1 for one after the other
   LIBS_PARALLEL=${LIBS_PARALLEL}
                          Libraries to build in parallel, 1 for one after the other
+  LIBS_INC_CGS=${LIBS_INC_CGS}
+                         Code generators that also compile the libraries for incremental
+                         builds (only chez has them; by default chez for a compiler on Chez)
   LTO=${LTO}
                          1 builds the compiler's C with -O2 and link-time optimisation:
                          slower to build, faster to run (bootstrap-c defaults to 1)
