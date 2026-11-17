@@ -1,0 +1,12 @@
+. ../../testutils.sh
+
+idris2 --dumpcases cases.txt -o deep Deep.idr
+./build/exec/deep
+
+# The 128 binders of the same name are told apart by a number each.
+grep '^Main.deep' cases.txt | grep -o '{act:[0-9]*}' | sort -u | wc -l | tr -d ' '
+
+# The deep code is indented as if it was 64 levels deep (4 spaces a level).
+cat build/exec/deep.c | awk '{ match($0, /^ */); if (RLENGTH > m) m = RLENGTH } END { print "deepest indentation:", m }'
+
+rm -f cases.txt

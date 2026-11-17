@@ -515,10 +515,18 @@ increaseIndentation = update IndentLevel S
 decreaseIndentation : {auto il : Ref IndentLevel Nat} -> Core ()
 decreaseIndentation = update IndentLevel pred
 
+||| The deepest level that the lines are indented to.  Code nested deeper (such
+||| as a long chain of inlined binds, each in a branch of the one before) has
+||| the indentation of this level: otherwise its text grows with the square of
+||| the depth, and is mostly spaces (code nested 1,800 levels deep made a unit
+||| of 332 MB).
+maxIndentLevel : Nat
+maxIndentLevel = 64
+
 indentation : {auto il : Ref IndentLevel Nat} -> Core String
 indentation = do
     iLevel <- get IndentLevel
-    pure $ pack $ replicate (4 * iLevel) ' '
+    pure $ pack $ replicate (4 * min iLevel maxIndentLevel) ' '
 
 -- The position of the code that a line comes from is a comment after the
 -- line, in an element of the output of its own, that begins with a character

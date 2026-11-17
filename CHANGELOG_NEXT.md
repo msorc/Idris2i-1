@@ -658,6 +658,10 @@ should target this file (`CHANGELOG_NEXT`).
   the program with `ERROR: Division by zero` and exit code 1, like a crash
   (the Scheme backends raise an exception), instead of the undefined
   behaviour of C (a `SIGFPE` on x86, or a wrong result).
+* The generated C is indented by at most 64 levels: code nested deeper is
+  indented like code 64 levels deep.  The text of deeply nested code grew with
+  the square of its depth, mostly spaces (code nested 1,800 levels deep made a
+  file of 332 MB).
 
 #### Chez Backend
 
