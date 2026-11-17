@@ -1,0 +1,58 @@
+. ../../testutils.sh
+
+# Each optimisation of the RefC backend can be turned off with a directive
+# (to find out whether a bug comes from it).  The programs of some other
+# tests, which the optimisations change, are compiled without each one of
+# them: each directive changes the code of some of them, and none changes
+# what they print.
+#   trmc001: tail recursion modulo constructors, static values
+#   borrow001: borrowed arguments, reuse of constructors
+#   localClosures001: partial applications that are calls
+programs="trmc001 borrow001 localClosures001"
+directives="refc-no-trmc refc-no-borrow refc-no-local-closures refc-no-direct-results refc-no-lazy-constants refc-no-static refc-size-reuse"
+
+# (trmc001 nests a million calls without TRMC: give it a big stack)
+export IDRIS2_THREAD_STACK_SIZE=1073741824
+
+# compile and run a program with one configuration, in the background (in a
+# build directory of its own)
+build() {
+  name=$1
+  shift
+  {
+    idris2_no_clean "$@" --build-dir "build-$name" -o "$name" Main.idr \
+      > "$name.log" 2>&1 || cat "$name.log"
+    ./"build-$name/exec/$name" > "$name.out" 2>&1
+    echo "exit code $?" >> "$name.out"
+  } &
+}
+
+rm -rf work
+mkdir work
+for p in $programs; do
+  mkdir "work/$p"
+  cp "../$p/Main.idr" "work/$p/"
+  (
+    cd "work/$p"
+    build default
+    for d in $directives; do build "$d" --directive "$d"; done
+    wait
+    echo "$p: $(tail -n 1 default.out)"
+  )
+done
+
+for d in $directives; do
+  code="the same code"
+  for p in $programs; do
+    if ! cmp -s "work/$p/build-default/exec/default.c" "work/$p/build-$d/exec/$d.c"; then
+      code="other code"
+    fi
+    if ! cmp -s "work/$p/default.out" "work/$p/$d.out"; then
+      echo "$p $d: other output"
+      diff "work/$p/default.out" "work/$p/$d.out"
+    fi
+  done
+  echo "$d: $code"
+done
+
+rm -rf work

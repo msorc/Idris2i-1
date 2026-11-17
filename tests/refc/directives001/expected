@@ -1,0 +1,10 @@
+trmc001: exit code 0
+borrow001: exit code 0
+localClosures001: exit code 0
+refc-no-trmc: other code
+refc-no-borrow: other code
+refc-no-local-closures: other code
+refc-no-direct-results: other code
+refc-no-lazy-constants: other code
+refc-no-static: other code
+refc-size-reuse: other code
