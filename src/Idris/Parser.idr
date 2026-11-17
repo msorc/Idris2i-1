@@ -343,6 +343,39 @@ mutual
       = do boundName <- bounds (expr plhs fname indents)
            opBinderTypes fname indents boundName
 
+  -- A binder `(x : ty <- e)`, `(x <- e)` or `(x : ty)` needs a `:` or a
+  -- `<-` directly inside its parentheses. Looking for one before trying to
+  -- parse a binder (`autobindOp`) saves parsing every other parenthesised
+  -- expression twice (first as a binder, which fails at the closing
+  -- parenthesis), which made parsing exponential in the depth of nested
+  -- parentheses. The alternative is left out rather than failing, so that
+  -- it doesn't add to the errors when nothing parses.
+  autobindAhead : List (WithBounds Token) -> Bool
+  autobindAhead (t :: ts) = case t.val of
+      Symbol "(" => go Z ts
+      _ => False
+    where
+      closing : List String
+      closing = [")", "}", "]", "|]"]
+
+      go : Nat -> List (WithBounds Token) -> Bool
+      go d [] = False
+      go d (t :: ts) = case t.val of
+          Symbol s =>
+            if s `elem` groupSymbols then go (S d) ts
+            else if s `elem` closing
+              then case d of
+                     Z => False
+                     S k => go k ts
+            else if d == Z && (s == ":" || s == "<-") then True
+            else go d ts
+          InterpBegin => go (S d) ts
+          InterpEnd => case d of
+                         Z => False
+                         S k => go k ts
+          _ => go d ts
+  autobindAhead [] = False
+
   autobindOp : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
   autobindOp q fname indents
       = do b <- fcBounds $ do
@@ -382,8 +415,11 @@ mutual
                <|> pure l.val
 
   opExpr : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
-  opExpr q fname indents = autobindOp q fname indents
-                       <|> opExprBase q fname indents
+  opExpr q fname indents
+      = do binder <- lookAhead autobindAhead
+           if binder
+              then autobindOp q fname indents <|> opExprBase q fname indents
+              else opExprBase q fname indents
 
   dpairType : OriginDesc -> WithBounds t -> IndentInfo -> Rule PTerm
   dpairType fname start indents
@@ -1040,9 +1076,13 @@ mutual
     <|> defaultImplicitPi fname indents
     <|> forall_ fname indents
     <|> implicitPi fname indents
-    <|> autobindOp pdef fname indents
-    <|> explicitPi fname indents
-    <|> lam fname indents
+    <|> do binder <- lookAhead autobindAhead
+           if binder
+              then autobindOp pdef fname indents
+                     <|> explicitPi fname indents
+                     <|> lam fname indents
+              else explicitPi fname indents
+                     <|> lam fname indents
 
   typeExpr : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
   typeExpr q fname indents

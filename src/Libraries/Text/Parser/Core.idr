@@ -24,6 +24,7 @@ data Grammar : (state : Type) -> (tok : Type) -> (consumes : Bool) -> Type -> Ty
      Empty : (val : ty) -> Grammar state tok False ty
      Terminal : String -> (tok -> Maybe a) -> Grammar state tok True a
      NextIs : String -> (tok -> Bool) -> Grammar state tok False tok
+     LookAhead : (List (WithBounds tok) -> a) -> Grammar state tok False a
      EOF : Grammar state tok False ()
 
      Fail : (location : Maybe Bounds) -> (fatal : Bool) -> String -> Grammar state tok c ty
@@ -182,6 +183,7 @@ mapToken : (a -> b) -> Grammar state b c ty -> Grammar state a c ty
 mapToken f (Empty val) = Empty val
 mapToken f (Terminal msg g) = Terminal msg (g . f)
 mapToken f (NextIs msg g) = SeqEmpty (NextIs msg (g . f)) (Empty . f)
+mapToken f (LookAhead g) = LookAhead (g . map (map f))
 mapToken f EOF = EOF
 mapToken f (Warning bd msg) = Warning bd msg
 mapToken f (Fail bd fatal msg) = Fail bd fatal msg
@@ -210,6 +212,13 @@ pure = Empty
 export %inline
 nextIs : String -> (tok -> Bool) -> Grammar state tok False tok
 nextIs = NextIs
+
+||| Apply a function to the rest of the input, without consuming anything.
+||| The function should only look as far as it needs, since it is given all
+||| the remaining tokens.
+export %inline
+lookAhead : (List (WithBounds tok) -> a) -> Grammar state tok False a
+lookAhead = LookAhead
 
 ||| Look at the next token in the input
 export %inline
@@ -350,6 +359,7 @@ doParse s ws com (NextIs err f) (x :: xs)
       = if f x.val
            then Res s ws com (removeIrrelevance x) (x :: xs)
            else Failure com False (Error err (Just x.bounds) ::: Nil)
+doParse s ws com (LookAhead f) xs = Res s ws com (irrelevantBounds (f xs)) xs
 doParse s ws com (Alt {c1} {c2} x y) xs
     = case doParse s ws False x xs of
            Failure com' fatal errs

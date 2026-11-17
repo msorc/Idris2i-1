@@ -253,6 +253,12 @@ should target this file (`CHANGELOG_NEXT`).
   bigger than 10,000 nodes), the lets stay, and an argument is then only
   seen to be smaller through a let bound variable given directly as the
   argument.  Otherwise nothing changes.
+* Parsing no longer takes time exponential in the depth of nested
+  parentheses: each parenthesised expression was parsed twice, first as the
+  binder of an operator (`(x : a) ** b`, `(x <- e) >>= k`), so a sum of 12
+  nested parenthesised terms took 2 seconds to parse, and each level more
+  twice as long.  A binder is now only tried when there is a `:` or a `<-`
+  directly inside the parentheses.
 
 ### Building/Packaging changes
 
