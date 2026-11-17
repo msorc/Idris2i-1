@@ -1,0 +1,5 @@
+package exe
+sourcedir = "src"
+modules = Foo, Bar
+main = Bar
+executable = exe

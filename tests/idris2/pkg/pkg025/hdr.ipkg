@@ -1,0 +1,6 @@
+package hdr
+sourcedir = "src"
+modules = Hdr
+main = Hdr
+executable = hdr
+opts = "--cg refc"

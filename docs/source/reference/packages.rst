@@ -151,11 +151,14 @@ modules, which is a compilation of the whole program: it takes as long when
 nothing changed as after a change.  So, with the RefC and Chez backends (when
 the build is not incremental), a successful compilation writes a stamp file
 next to the executable (``build/exec/<executable>.stamp``) that records the
-settings of the compilation (code generator, directives, options,
-directories, the C compiler and its flags) and the state of everything that
-the executable is made from: the TTC files of the program and of the packages
-it depends on, the compiler, the runtime support files, the C compiler or
-Scheme, and the executable itself.  The next build prints ``The executable
+settings of the compilation (the main module, code generator, directives,
+options, directories, the C compiler, its flags and the variables it reads)
+and the state of everything that the executable is made from: the TTC files
+of the program and of the packages it depends on, the compiler, the runtime
+support files and libraries (also those in the ``-L`` directories of
+``IDRIS2_LDFLAGS``), the C compiler or Scheme, the C headers of the
+``%foreign`` functions that are not those of the runtime (and the headers
+they include, as the C compiler finds them), and the executable itself.  The next build prints ``The executable
 <executable> is up to date, not compiling it again`` when all of that is as
 recorded, and compiles the executable again when anything it depends on has
 changed.  ``--clean`` removes the stamp, so the next build compiles the

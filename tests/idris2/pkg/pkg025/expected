@@ -1,0 +1,22 @@
+--- first build
+Now compiling the executable: exe
+the main of Bar
+--- nothing changed
+The executable exe is up to date, not compiling it again
+the main of Bar
+--- another main module
+Now compiling the executable: exe
+the main of Foo
+--- nothing changed again
+The executable exe is up to date, not compiling it again
+--- the main module back
+Now compiling the executable: exe
+the main of Bar
+--- a header
+Now compiling the executable: hdr
+42
+--- nothing changed
+The executable hdr is up to date, not compiling it again
+--- a header that the header includes changed
+Now compiling the executable: hdr
+63

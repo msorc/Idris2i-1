@@ -16,6 +16,8 @@
 ||| the file system keeps it) and its size.
 module Idris.ExecStamp
 
+import Compiler.RefC.CC
+
 import Core.Context
 import Core.Context.Log
 import Core.Core
@@ -195,24 +197,18 @@ fingerprint items
 --------------------------------------------------------------------------------
 -- The settings of the compilation
 
--- The environment variables that RefC reads (see Compiler.RefC.CC)
+-- The environment variables that RefC reads (see Compiler.RefC.CC), and
+-- those that the C compiler reads
 refcEnv : List String
 refcEnv = [ "IDRIS2_CC", "CC", "IDRIS2_CFLAGS", "CFLAGS"
           , "IDRIS2_CPPFLAGS", "CPPFLAGS", "IDRIS2_LDFLAGS", "LDFLAGS"
-          , "IDRIS2_LDLIBS", "LDLIBS" ]
+          , "IDRIS2_LDLIBS", "LDLIBS", "IDRIS2_REFC_SPLIT_SIZE" ]
+          ++ ccEnvVars
 
 envLine : String -> IO String
 envLine name
     = do val <- getEnv name
          pure ("env \{name} " ++ maybe "unset" show val)
-
--- The C compiler that RefC uses (see findCC in Compiler.RefC.CC)
-refcCC : IO String
-refcCC = do Nothing <- idrisGetEnv "IDRIS2_CC"
-              | Just cc => pure cc
-            Nothing <- idrisGetEnv "CC"
-              | Just cc => pure cc
-            pure "cc"
 
 ||| The file of a program (a path, or a name looked for in the `PATH`), as
 ||| the backends run it (as a single word: `IDRIS2_CC`, `CC` and `CHEZ` are
@@ -230,8 +226,10 @@ handled _ = False
 
 ||| The settings of the compilation that are not about files: if there
 ||| are none, the executable is not handled (it is compiled every time).
-settings : {auto c : Ref Ctxt Defs} -> Core (Maybe (List String))
-settings
+settings : {auto c : Ref Ctxt Defs} ->
+           (mainNS : ModuleIdent) -> (mainFile : String) ->
+           Core (Maybe (List String))
+settings mainNS mainFile
     = do defs <- get Ctxt
          let opts = options defs
          let sess = session opts
@@ -252,6 +250,7 @@ settings
                 [ "idris2 \{show idrisVersion}"
                 , "cwd \{show wd}"
                 , "codegen \{show cg}"
+                , "main \{show (show mainNS)} \{show mainFile}"
                 , "directives \{show (directives sess)}"
                 , "profile \{show (profile sess)}"
                 , "nocse \{show (noCSE sess)}"
@@ -272,10 +271,20 @@ settings
                 , "data_dirs \{show (data_dirs d)}"
                 ] ++ envs
 
+-- The directories of `-L` options in a list of flags
+libFlagDirs : List String -> List String
+libFlagDirs ("-L" :: dir :: rest) = dir :: libFlagDirs rest
+libFlagDirs (flag :: rest)
+    = if "-L" `isPrefixOf` flag
+         then substr 2 (length flag) flag :: libFlagDirs rest
+         else libFlagDirs rest
+libFlagDirs [] = []
+
 ||| The things that the executable is made from, that are not the TTC files
-||| of the program: the compiler, the runtime support, the tools it uses
-inputs : {auto c : Ref Ctxt Defs} -> Core (Maybe (List Item))
-inputs
+||| of the program: the compiler, the runtime support, the tools it uses,
+||| the headers and libraries of the program
+inputs : {auto c : Ref Ctxt Defs} -> (exec : String) -> Core (Maybe (List Item))
+inputs exec
     = do d <- getDirs
          args <- coreLift getArgs
          -- The compiler: the binary of the process, and the program that was
@@ -288,7 +297,16 @@ inputs
                       (a :: _) => if isAbsolute a then [Input a] else []
                       [] => []
          let cg = codegen !getSession
+         -- the directories where the C compiler looks for libraries, other
+         -- than its own ones
+         ccLibs <- case cg of
+                        RefC => do ldflags <- coreLift findLDFLAGS
+                                   path <- coreLift $ getEnv "LIBRARY_PATH"
+                                   pure (libFlagDirs (words ldflags)
+                                         ++ maybe [] (filter (/= "") . splitOn ':') path)
+                        _ => pure []
          let libs = lib_dirs d ++ map (</> "lib") (package_dirs d ++ extra_dirs d)
+                      ++ ccLibs
          let libItems = map LibDir libs
          let supportDirs = case cg of
                                 RefC => ["refc", "c"]
@@ -297,8 +315,14 @@ inputs
                                            (\_ => pure Nothing))
                               supportDirs
          tool <- coreLift $ case cg of
-                      RefC => refcCC >>= programOf
+                      RefC => findCC >>= programOf
                       _ => findChez >>= programOf
+         -- the headers that the C file of a RefC program includes, besides
+         -- those of the runtime (see Compiler.RefC.CC.headerDepsFile)
+         headers <- case cg of
+                         RefC => coreLift $ headerItems
+                                   (headerDepsFile (outputDirWithDefault d </> exec))
+                         _ => pure (Just [])
          let toolItems : List Item = maybe [] (\t => [Input t]) tool
          -- the files that `--directive extraRuntime=file` includes
          let extraItems : List Item
@@ -306,9 +330,23 @@ inputs
          let supportItems : List Item = map InDir (catMaybes supports)
          pure $ if null selfExe && null selfArg || any isNothing supports
                    then Nothing
-                   else Just (selfExe ++ selfArg ++ supportItems
-                                ++ libItems ++ toolItems ++ extraItems)
+                   else map (\hs => selfExe ++ selfArg ++ supportItems
+                                      ++ libItems ++ toolItems ++ extraItems ++ hs)
+                            headers
   where
+    -- Nothing when the files are not known
+    headerItems : String -> IO (Maybe (List Item))
+    headerItems file
+        = do True <- exists file
+               | False => pure (Just [])
+             Right txt <- readFile file
+               | Left _ => pure Nothing
+             pure $ case lines txt of
+                         (l :: files) => if l == headerDepsLine
+                                            then Just (map Input files)
+                                            else Nothing
+                         [] => Nothing
+
     extraRuntime : String -> Maybe Item
     extraRuntime d
         = let (k, v) = break (== '=') d
@@ -340,7 +378,7 @@ stampFile exec
          pure (outputDirWithDefault d </> (exec ++ ".stamp"))
 
 stampHeader : String
-stampHeader = "idris2 executable stamp 1"
+stampHeader = "idris2 executable stamp 2"
 
 --------------------------------------------------------------------------------
 -- Writing and checking the stamp
@@ -372,21 +410,22 @@ compilationStart
          pure (seconds t * 1000000000 + nanoseconds t)
 
 ||| Write the stamp of the executable that was just compiled (successfully,
-||| from the main module `mainFile`), if that can be done reliably.
-||| `started` is the time when the compilation started (see
+||| from the main module `mainNS`, in `mainFile`), if that can be done
+||| reliably.  `started` is the time when the compilation started (see
 ||| `compilationStart`).
 export
 writeStamp : {auto c : Ref Ctxt Defs} ->
-             (exec, mainFile : String) -> (started : Integer) -> Core ()
-writeStamp exec mainFile started
-    = do Just sets <- settings
+             (exec : String) -> (mainNS : ModuleIdent) -> (mainFile : String) ->
+             (started : Integer) -> Core ()
+writeStamp exec mainNS mainFile started
+    = do Just sets <- settings mainNS mainFile
            | Nothing => pure ()
-         Just ins <- inputs
-           | Nothing => pure ()
+         Just ins <- inputs exec
+           | Nothing => log "package.stamp" 5 "No stamp: what the executable is made from is not known"
          defs <- get Ctxt
          mainTTC <- getTTCFileName mainFile "ttc"
-         mainNS <- ctxtPathToNS mainFile
-         let loaded = (mainTTC, mainNS) ::
+         mainMod <- ctxtPathToNS mainFile
+         let loaded = (mainTTC, mainMod) ::
                       map (\(file, (mod, _, _)) => (file, mod)) (allImported defs)
          let ttcs = map (\(file, mod) => TTCFile mod file)
                         (nubBy (\x, y => fst x == fst y) loaded)
@@ -407,11 +446,14 @@ writeStamp exec mainFile started
               log "package.stamp" 5 "Wrote \{stamp}"
 
 ||| Is the executable, as it was left by the last build that wrote a stamp,
-||| certainly what compiling it now would make?
+||| certainly what compiling it now (from the main module `mainNS`, in
+||| `mainFile`) would make?
 export
-upToDate : {auto c : Ref Ctxt Defs} -> (exec : String) -> Core Bool
-upToDate exec
-    = do Just sets <- settings
+upToDate : {auto c : Ref Ctxt Defs} ->
+           (exec : String) -> (mainNS : ModuleIdent) -> (mainFile : String) ->
+           Core Bool
+upToDate exec mainNS mainFile
+    = do Just sets <- settings mainNS mainFile
            | Nothing => no "this backend or these options are not handled"
          stamp <- stampFile exec
          Right content <- coreLift $ readFile stamp

@@ -1,0 +1,1 @@
+#define STAMP_FACTOR 2

@@ -593,7 +593,7 @@ build {jobsFrom} pkg opts
               -- Compiling the executable takes as long as the first time,
               -- whether or not something changed: skip it when the
               -- executable is certainly what it would make (see ExecStamp)
-              skip <- upToDate exec
+              skip <- upToDate exec mainNS mainFile
               if skip
                  then coreLift $ putStrLn "The executable \{exec} is up to date, not compiling it again"
                  else do
@@ -602,7 +602,7 @@ build {jobsFrom} pkg opts
                    removeStamp exec
                    started <- compilationStart
                    compiled <- compileMain mainName mainFile exec
-                   when compiled $ writeStamp exec mainFile started
+                   when compiled $ writeStamp exec mainNS mainFile started
 
          runScript (postbuild pkg)
          pure []

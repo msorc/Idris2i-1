@@ -220,11 +220,15 @@ should target this file (`CHANGELOG_NEXT`).
   executable is a whole-program compilation, as slow when nothing changed
   (about 90s for the compiler itself) as after a change.  After it succeeds,
   a stamp file (`build/exec/<executable>.stamp`) records the settings of the
-  compilation (code generator and directives, options, directories, the
-  `IDRIS2_CC`/`CFLAGS`/... variables of RefC) and the state (modification time
+  compilation (the main module, code generator and directives, options,
+  directories, the `IDRIS2_CC`/`CFLAGS`/... variables of RefC and those that
+  the C compiler reads, such as `CPATH`) and the state (modification time
   and size) of what the executable is made from: the TTC files of the program,
   of its dependencies too, the compiler, the runtime support files and
-  libraries, the C compiler or Scheme, and the executable itself.  The
+  libraries (also those in the `-L` directories of `IDRIS2_LDFLAGS` and in
+  `LIBRARY_PATH`), the C compiler or Scheme, the C headers of `%foreign`s
+  that are not those of the runtime and the headers they include (as the C
+  compiler finds them), and the executable itself.  The
   executable is compiled again unless all of that is as the stamp says (a
   module that was built has a new TTC file).  This is done for the RefC and Chez backends, for builds
   that are not incremental, and where the compiler can tell what it is
