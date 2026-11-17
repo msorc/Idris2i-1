@@ -1,0 +1,6 @@
+. ../../testutils.sh
+
+mkdir -p adir
+idris2 -o readdir ReadDirectory.idr > /dev/null
+./build/exec/readdir < adir
+rmdir adir

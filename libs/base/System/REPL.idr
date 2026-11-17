@@ -16,7 +16,9 @@ replWith : HasIO io =>
            (onInput : a -> String -> Maybe (String, a)) -> io ()
 replWith acc prompt fn
    = do eof <- fEOF stdin
-        if eof
+        -- (stop on an error too, which is not the end of the input)
+        err <- fileError stdin
+        if eof || err
           then pure ()
           else do putStr prompt
                   fflush stdout

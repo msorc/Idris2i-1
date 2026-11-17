@@ -1,5 +1,6 @@
 #include "idris_support.h"
 #include "idris_file.h"
+#include "idris_util.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -47,6 +48,10 @@ char *idris2_strerror(int errnum) { return strerror(errnum); }
 
 char *idris2_getStr() {
   char *inp = idris2_readLine(stdin);
+  if (inp == NULL) { // the end of the input, or an error: an empty string
+    inp = calloc(1, 1);
+    IDRIS2_VERIFY(inp, "calloc failed: %s", strerror(errno));
+  }
   // Remove trailing newline; easier to do this than in PrimIO which
   // doesn't have the relevant functions available yet
   for (char *c = inp; *c != '\0'; ++c) {

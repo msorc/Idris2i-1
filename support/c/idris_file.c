@@ -134,15 +134,20 @@ int idris2_seekLine(FILE *f) {
   }
 }
 
+// NULL when nothing was read: at the end of the file, or on an error (then
+// `idris2_fileError` tells, see getStringAndFree in System.File.ReadWrite;
+// an empty string would make the loops that read until the end of the file,
+// which an error never reaches, run forever: reading a directory fails).
 char *idris2_readLine(FILE *f) {
   char *buffer = NULL;
   size_t n = 0;
   ssize_t len;
   len = getline(&buffer, &n, f);
-  if (len < 0 && buffer != NULL) {
-    buffer[0] = '\0'; // Copy Idris 1 behaviour - empty string if nothing read
+  if (len < 0) {
+    free(buffer);
+    return NULL;
   }
-  return buffer; // freed by RTS if not NULL
+  return buffer; // freed by RTS
 }
 
 char *idris2_readChars(int num, FILE *f) {

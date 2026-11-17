@@ -706,3 +706,9 @@ should target this file (`CHANGELOG_NEXT`).
 * Implemented core interfaces for `Data.Singleton`
 * `fromList` and `toList` for `Data.Vect` rewritten so that they are optimized away during codegen.
 * Reduced the fixities of `Data.Record` operators `:-:`, `:-` and `:+` to 0.
+* Reading a file that fails (a directory, `EISDIR`) returns an error:
+  `fGetLine` returned an empty string without an error, so `readFile`,
+  `readFilePage`, `fRead` and the other loops that read until the end of the
+  file never stopped (`idris2 --check` on a directory named `Foo.idr` hung,
+  once the compiler is built with this `base`).  `replWith` and `repl` stop
+  on an error of `stdin` too.
