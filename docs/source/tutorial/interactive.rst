@@ -88,6 +88,36 @@ displays the result, then exits, using ``idris2 --client``. For example:
 A text editor can take advantage of this, along with the editing
 commands, in order to provide interactive editing support.
 
+.. _sect-error-format:
+
+Machine-readable errors
+=======================
+
+With ``--error-format json`` (the default is ``--error-format human``), the
+errors and warnings of ``--check``, ``--build``, ``--typecheck`` and
+``--client`` are printed on the standard output as JSON objects, one per
+line, which is easier for a tool to read than the usual messages. The
+informational messages (such as ``1/1: Building Foo (Foo.idr)``) go to the
+standard error instead, and the exit code is the same as with the usual
+messages. For example:
+
+::
+
+    $ idris2 --error-format json --check Foo.idr
+    {"severity":"error","file":"Foo.idr","start":{"line":4,"col":8},"end":{"line":4,"col":14},"message":"While processing right hand side of g. Undefined name lenght.\nDid you mean: length?"}
+
+The fields of an object are:
+
+* ``severity``: ``"error"`` or ``"warning"`` (a warning is an ``"error"``
+  with ``-Werror``).
+* ``file``: the source file, relative to the working directory, or ``null``
+  when there is none (an expression typed at ``--client``, say).
+* ``start`` and ``end``: where the problem is, as objects with a ``line``
+  and a ``col``, both counted from 1; ``end`` is the position just after the
+  last character. They are left out when the message has no location.
+* ``message``: the message as plain text, without the ``Error:`` prefix and
+  without the excerpt of the source code that the usual messages show.
+
 Editing Commands
 ================
 

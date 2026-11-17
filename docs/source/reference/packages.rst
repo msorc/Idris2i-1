@@ -146,6 +146,22 @@ module is built by a process of its own once the modules it imports are built.
 The output of each process is shown when it ends.  This is not available on
 Windows, where the modules are built one after the other.
 
+When the package has an ``executable``, ``--build`` compiles it after the
+modules, which is a compilation of the whole program: it takes as long when
+nothing changed as after a change.  So, with the RefC and Chez backends (when
+the build is not incremental), a successful compilation writes a stamp file
+next to the executable (``build/exec/<executable>.stamp``) that records the
+settings of the compilation (code generator, directives, options,
+directories, the C compiler and its flags) and the state of everything that
+the executable is made from: the TTC files of the program and of the packages
+it depends on, the compiler, the runtime support files, the C compiler or
+Scheme, and the executable itself.  The next build prints ``The executable
+<executable> is up to date, not compiling it again`` when all of that is as
+recorded, and compiles the executable again when anything it depends on has
+changed.  ``--clean`` removes the stamp, so the next build compiles the
+executable; ``--log package.stamp:5`` tells why a build did not skip the
+compilation.
+
 Once the test package has been installed, the command line option
 ``--package test`` makes it accessible (abbreviated to ``-p test``).
 For example::

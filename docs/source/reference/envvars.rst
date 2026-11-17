@@ -11,8 +11,35 @@ in approximately the order you're likely to need them:
 Build-time
 ----------
 
+These are variables of the ``Makefile`` that builds Idris 2 itself, given in
+the environment or on the command line of ``make`` (``make help`` lists them
+with their current values):
+
 * ``PREFIX`` - Default way to set the Idris2 installation prefix.
 * ``IDRIS2_PREFIX`` - Alternative way to set the Idris2 installation prefix.
+* ``DESTDIR`` - Directory prepended to ``PREFIX`` by ``make install``, for
+  staged installs (packaging).
+* ``IDRIS2_BOOT`` - The Idris 2 compiler that builds the compiler (default:
+  ``idris2``).
+* ``IDRIS2_CG`` - The code generator that the compiler is built with:
+  ``refc`` (the default), ``chez`` or ``racket``. It is also used for the
+  incremental builds of the libraries, so give the same value to ``make
+  install``.
+* ``IDRIS2_JOBS`` - How many modules of the compiler and of the libraries are
+  built in parallel (default: the number of processors, at most 16; ``1``
+  builds them one after the other).
+* ``LIBS_PARALLEL`` - How many libraries that do not depend on each other are
+  built at the same time (default: 3 with RefC, 1 with the Scheme backends).
+* ``LTO`` - ``1`` compiles the C of a compiler built with RefC with ``-O2``
+  and link time optimisation: slower to build, about 4% faster to run. The
+  default is ``0`` (``-O1``), except for the compiler that ``make
+  bootstrap-c`` leaves for installing.
+* ``BOOT_JOBS`` - ``make bootstrap-c``: how many C compilers compile the
+  first compiler of the bootstrap in parallel (default: the number of
+  processors).
+* ``BOOT_CFLAGS`` - ``make bootstrap-c``: the C flags of that first compiler
+  (default: ``-O1``).
+* ``SCHEME`` - ``make bootstrap``: the Chez Scheme executable.
 
 Runtime
 -------
@@ -44,7 +71,7 @@ Both
 * ``IDRIS2_CC`` - RefC backend: location of the C compiler executable.
 * ``IDRIS2_CFLAGS`` - RefC backend: C compiler flags.
 * ``IDRIS2_CC_JOBS`` - RefC backend: how many C compilers compile a big program in parallel (default: the number of processors).
-* ``IDRIS2_REFC_SPLIT_SIZE`` - RefC backend: the size in bytes of C from which a program is compiled in units (default: 4000000); to try the units on small programs.
+* ``IDRIS2_REFC_SPLIT_SIZE`` - RefC backend: the size in bytes of C from which a program is compiled in units (default: 4000000); to try the units on small programs. ``--directive refc-split-size=N`` takes precedence.
 * ``IDRIS2_CPPFLAGS`` - RefC backend: C preprocessor flags.
 * ``IDRIS2_LDFLAGS`` - RefC backend: C linker flags.
 * ``IDRIS2_LDLIBS`` - RefC backend: C linker library names or flags.
@@ -60,9 +87,37 @@ Both
   (key bindings, history and highlighting).
 * ``IDRIS2_HISTORY_FILE`` - File where the REPL keeps its history (default:
   ``~/.idris2_history``). If empty, the history is not saved.
+* ``TERM`` - The REPL's line editor is turned off when ``TERM`` is unset or
+  ``dumb``.
+* ``DESTDIR`` - Directory prepended to the installation directory of a
+  package by ``--install``, ``--install-with-src`` and ``--dump-installdir``,
+  for staged installs.
 * ``NO_COLOR`` - Instruct Idris not to print colour to stdout. Passing the
   --colour/--color option will supersede this environment variable.
 * ``GAMBIT_GSI`` - Gambit backend: location of the ``gsi`` executable.
 * ``GAMBIT_GSC`` - Gambit backend: location of the ``gsc`` executable.
 * ``GAMBIT_GSC_BACKEND`` - Gambit backend: arguments passed to ``gsc``.
 
+Programs compiled with RefC
+---------------------------
+
+A program compiled with the RefC backend (the default) reads these when it
+runs; see :doc:`../backends/refc` for the details:
+
+* ``IDRIS2_WORKERS`` - How many OS threads run the green threads, once the
+  program forks a thread (default: the number of processors; ``1`` runs them
+  all on the main OS thread).
+* ``IDRIS2_PREEMPT`` - ``0`` turns off the preemption of a green thread that
+  has run for more than 10ms while others wait.
+* ``IDRIS2_MAIN_STACK_SIZE`` - The size in bytes of the stack of the main
+  expression (default: 4GB on 64-bit systems, 64MB on the others; the memory
+  is only used as the stack grows).
+* ``IDRIS2_THREAD_STACK_SIZE`` - The size in bytes of the stack of every
+  forked thread (default: 8MB, at least 65536).
+* ``IDRIS2_REFC_KEEP_PAGES`` - How many empty pages of the allocator every OS
+  thread keeps instead of giving them back to the system (default: 16).
+* ``IDRIS2_REFC_MEMSTATS`` - ``1`` prints the pages of the allocator and the
+  values that they hold when the program exits.
+* ``IDRIS2_REFC_LEAKCHECK`` - ``1`` reports the values that are still alive
+  when the main expression is done (they leaked); ``2`` also shows some of
+  them.

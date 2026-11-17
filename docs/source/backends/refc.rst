@@ -204,6 +204,23 @@ the C code with ``-DIDRIS2_REFC_SMALL_CODE`` (in ``IDRIS2_CFLAGS``) leaves that
 test to the runtime: the code is about 10% smaller and compiles as much
 faster, and runs a few percent slower.
 
+A call in tail position is a jump when the C compiler can make one: with GCC
+15 or later (``__attribute__((musttail))``; not with Clang), when the callee
+takes no more arguments than the caller, or no more than are passed in
+registers (6 on x86-64, 8 on AArch64 and RISC-V 64).  Otherwise the call is left to the
+trampoline of the caller, which costs more but needs no support from the C
+compiler.  Two macros, given in ``IDRIS2_CPPFLAGS`` or ``IDRIS2_CFLAGS``,
+change this: ``-DIDRIS2_NO_MUSTTAIL`` makes no jumps at all, and
+``-DIDRIS2_MUSTTAIL_REG_ARGS=0`` only the jumps to functions that take no
+more arguments than their caller.
+
+Two macros change how green threads (see below) are run:
+``-DIDRIS2_SINGLE_WORKER``, given to both the support library and the
+program, runs every green thread on the main OS thread, without starting
+other OS threads; ``-DIDRIS2_USE_UCONTEXT``, given to the support library,
+switches between green threads with ``swapcontext(3)`` instead of the
+hand-written code for x86-64 and AArch64.
+
 The cell of a value that is not used any more, and that nothing else refers
 to, is reused in place for a new value of the same constructor.
 ``--directive refc-size-reuse`` reuses it for any constructor with as many
