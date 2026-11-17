@@ -422,6 +422,16 @@ should target this file (`CHANGELOG_NEXT`).
   release its own.  `modifyIORef` used to leak the previous value of the
   `IORef` on every call.
 * Fixed the finaliser of a `GCPtr` / `GCAnyPtr` releasing the pointer twice.
+* Fixed three races of the green threads running in parallel.  The main
+  thread could evaluate its own copy of a top-level constant that another
+  thread had just started to evaluate (a global `IORef` made with
+  `unsafePerformIO`, say, was then another `IORef` in the main thread).  A
+  thread whose timed wait (`conditionWaitTimeout`, `channelGetWithTimeout`)
+  was woken up just as its deadline expired could see its next timed wait or
+  sleep end at once, and the list of deadlines could be corrupted, which hung
+  the program.  A deadline set just as an idle worker went to sleep could
+  be missed by that worker: the thread then woke up late, once a busy worker
+  was free.
 * Fixed `mod` on `Int`, `Int8`, `Int16`, `Int32` and `Int64` giving the
   divisor instead of 0 for a negative multiple of it (`-4 mod 2` was 2).
 * Fixed `div` and `mod` by -1 of the smallest `Int`, `Int32` or `Int64`
