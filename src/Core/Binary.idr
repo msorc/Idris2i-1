@@ -17,6 +17,7 @@ import System.File
 import IdrisPaths
 
 import Libraries.Data.NameMap
+import Libraries.Data.StringMap
 import Libraries.Data.NatSet
 import Libraries.Data.WithDefault
 
@@ -623,31 +624,93 @@ builtByThisCompiler : (fileName : String) -> Core Bool
 builtByThisCompiler fileName
     = (== Just compilerVersion) <$> readCompilerVersion fileName
 
+-- The definitions of a TTC file, with their full names, without what follows
+-- them in the file (only the current namespace, which completes the names).
+readTTCDefs : TTC extra =>
+              {auto c : Ref Ctxt Defs} ->
+              (fileName : String) -> Core (List (Name, Binary))
+readTTCDefs fileName
+    = do Right buffer <- coreLift $ readFromFile fileName
+            | Left err => throw (FileErr fileName err)
+         b <- newRef Bin buffer
+         ignore $ readTTCFile {extra} False fileName Nothing b
+         defs <- fromBuf {a = List (Name, Binary)}
+         ignore $ fromBuf {a = List Name} -- user holes
+         ignore $ fromBuf {a = List (Name, Bool)} -- auto hints
+         ignore $ fromBuf {a = List (Name, Name, Bool)} -- type hints
+         ignore $ fromBuf {a = Int} -- next variable
+         cns <- fromBuf
+         pure (map (replaceNS cns) defs)
+  where
+    replaceNS : Namespace -> (Name, a) -> (Name, a)
+    replaceNS ns n@(NS _ _, d) = n
+    replaceNS ns (n, d) = (NS ns n, d)
+
 ||| The exported definitions of a module whose name ends in `root`, read from
 ||| its TTC file without adding anything to the context. This is for hinting
 ||| at an import when a name is undefined, so any failure gives no names.
+||| The hint looks at every module of the packages in use for each undefined
+||| name, so what is read is kept in `ttcExports` until the file changes:
+||| the roots of the names of its definitions, and which definitions called
+||| `root` are exported.
 export
 exportedDefsNamed : TTC extra =>
                     {auto c : Ref Ctxt Defs} ->
                     (fileName : String) -> (root : String) -> Core (List Name)
 exportedDefsNamed fileName root
-    = do Right buffer <- coreLift $ readFromFile fileName
-            | Left err => pure []
-         b <- newRef Bin buffer
-         catch (do ttc <- readTTCFile {extra} True fileName Nothing b
-                   let cands = filter (hasRoot . fst) (context ttc)
-                   map fst <$> filterM exported cands)
-               (\err => pure [])
+    = do time <- modTime fileName
+         defs <- get Ctxt
+         case StringMap.lookup fileName (ttcExports defs) of
+              Just known =>
+                if modified known /= time
+                   then fromFile time
+                   else case StringMap.lookup root (exported known) of
+                          Just ns => pure ns
+                          Nothing =>
+                            case StringMap.lookup root (roots known) of
+                              Nothing => pure []
+                              Just _ =>
+                                do ns <- exportedIn !(readDefs fileName)
+                                   save ({ exported $= StringMap.insert root ns } known)
+                                   pure ns
+              Nothing => fromFile time
   where
     hasRoot : Name -> Bool
     hasRoot (NS _ (UN (Basic n))) = n == root
     hasRoot _ = False
 
-    exported : (Name, Binary) -> Core Bool
-    exported (_, bin)
+    isExported : (Name, Binary) -> Core Bool
+    isExported (_, bin)
         = do b <- newRef Bin bin
              def <- fromBuf {a = GlobalDef}
              pure (collapseDefault (visibility def) /= Private)
+
+    readDefs : String -> Core (List (Name, Binary))
+    readDefs f = catch (readTTCDefs {extra} f) (\err => pure [])
+
+    exportedIn : List (Name, Binary) -> Core (List Name)
+    exportedIn ds
+        = catch (map fst <$> filterM isExported (filter (hasRoot . fst) ds))
+                (\err => pure [])
+
+    -- the roots of the names of the definitions in a namespace
+    rootsOf : List (Name, Binary) -> StringMap ()
+    rootsOf ds
+        = foldl (\acc, (n, _) =>
+                   case n of
+                        NS _ (UN (Basic r)) => StringMap.insert r () acc
+                        _ => acc)
+                empty ds
+
+    save : TTCExports -> Core ()
+    save known = update Ctxt { ttcExports $= StringMap.insert fileName known }
+
+    fromFile : Timestamp -> Core (List Name)
+    fromFile time
+        = do ds <- readDefs fileName
+             ns <- exportedIn ds
+             save (MkTTCExports time (rootsOf ds) (StringMap.singleton root ns))
+             pure ns
 
 export
 readTotalReq : (fileName : String) -> -- file containing the module

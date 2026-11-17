@@ -34,6 +34,7 @@ import Libraries.Text.Distance.Levenshtein
 
 import System.Clock
 import System.Directory
+import System.File.Meta
 
 %default covering
 
@@ -991,6 +992,18 @@ export
 allNames : Context -> Core (List Name)
 allNames ctxt = traverse (full ctxt) $ map Resolved [1..nextEntry ctxt - 1]
 
+||| What the hints at an import for undefined names (see Idris.Error) know of
+||| the definitions in a TTC file that is not loaded, read from the file when
+||| it was last modified at `modified`.
+public export
+record TTCExports where
+  constructor MkTTCExports
+  modified : Timestamp
+  ||| The roots of the names of the definitions in a namespace
+  roots : StringMap ()
+  ||| The exported definitions, for the roots looked up so far
+  exported : StringMap (List Name)
+
 public export
 record Defs where
   constructor MkDefs
@@ -1076,6 +1089,10 @@ record Defs where
        -- ^ For functions which are callable from a foreign language. This
        -- maps names to a pair of the back end and the exported function name
   defsStack : SnocList Name -- stack of the definition names being processed
+  ttcExports : StringMap TTCExports
+     -- ^ For the import hints of undefined names, by TTC file. This is kept
+     -- when the context is cleared: an entry is used only while its file
+     -- has the same modification time.
 
 -- Label for context references
 export
@@ -1128,6 +1145,7 @@ initDefs
            , schemeEvalLoaded = False
            , foreignExports = empty
            , defsStack = [<]
+           , ttcExports = empty
            }
 
 -- Reset the context, except for the options
@@ -1137,7 +1155,8 @@ clearCtxt : {auto c : Ref Ctxt Defs} ->
 clearCtxt
     = do defs <- get Ctxt
          put Ctxt ({ options := resetElab (options defs),
-                     timings := timings defs } !initDefs)
+                     timings := timings defs,
+                     ttcExports := ttcExports defs } !initDefs)
   where
     resetElab : Options -> Options
     resetElab opts =
