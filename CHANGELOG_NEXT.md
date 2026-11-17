@@ -323,6 +323,13 @@ should target this file (`CHANGELOG_NEXT`).
 * Nested functions (`where`) of the same name in the same namespace of two
   modules (the module `A.B`, and a `namespace B` in the module `A`) could get
   the same C name, and the C compiler rejected the program.
+* A definition whose name ends like that of a C function that the code
+  generator makes for another one (`x_constant` for a constant `x`, `f_borrow`
+  for a foreign function `f`) no longer has the C name of that function, which
+  the C compiler rejected: these functions are now named `idris2_caf_...` and
+  `idris2_borrow_...`.  The C names that begin with `idris2_` are the support
+  library's and the code generator's: a definition whose C name would begin
+  with it (one of a namespace `idris2`) is given the prefix `idris2_user_`.
 * Fixed an issue to do with `alligned_alloc` not existing on older MacOS
   versions, causing builds targeting PowerPC to fail (#3662).  For these
   systems, the compiler will now use `posix_memalign`.

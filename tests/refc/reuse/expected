@@ -17,8 +17,8 @@ Idris2_Value *Main_insert
 ,   Idris2_Value * var_2
 )
 {
-    Idris2_Value *trmc_result = NULL;
-    Idris2_Value **trmc_hole = &trmc_result;
+    Idris2_Value *idris2_trmc_result = NULL;
+    Idris2_Value **idris2_trmc_hole = &idris2_trmc_result;
     idris2_self_entry: ;
     Idris2_Value * tmp_0 = NULL;                             // Main:6:24--6:31
     switch (((Idris2_Constructor *)var_2)->tag) {
@@ -69,10 +69,10 @@ Idris2_Value *Main_insert
             constructor_2->args[0] = NULL;
             constructor_2->args[1] = var_6;
             constructor_2->args[2] = var_7;
-            Idris2_Value *trmc_cell_5 = (Idris2_Value*)constructor_2;
+            Idris2_Value *idris2_trmc_cell_5 = (Idris2_Value*)constructor_2;
                                                              // Main:8:42--8:46
-            *trmc_hole = trmc_cell_5;                        // Main:8:42--8:46
-            trmc_hole = &((Idris2_Constructor *)trmc_cell_5)->args[0];
+            *idris2_trmc_hole = idris2_trmc_cell_5;          // Main:8:42--8:46
+            idris2_trmc_hole = &((Idris2_Constructor *)idris2_trmc_cell_5)->args[0];
                                                              // Main:8:42--8:46
             Idris2_Value *tmp_6 = var_5;                     // Main:8:48--8:54
             var_2 = tmp_6;                                   // Main:8:48--8:54
@@ -88,10 +88,10 @@ Idris2_Value *Main_insert
             constructor_2->args[0] = var_5;
             constructor_2->args[1] = var_6;
             constructor_2->args[2] = NULL;
-            Idris2_Value *trmc_cell_7 = (Idris2_Value*)constructor_2;
+            Idris2_Value *idris2_trmc_cell_7 = (Idris2_Value*)constructor_2;
                                                              // Main:9:42--9:46
-            *trmc_hole = trmc_cell_7;                        // Main:9:42--9:46
-            trmc_hole = &((Idris2_Constructor *)trmc_cell_7)->args[2];
+            *idris2_trmc_hole = idris2_trmc_cell_7;          // Main:9:42--9:46
+            idris2_trmc_hole = &((Idris2_Constructor *)idris2_trmc_cell_7)->args[2];
                                                              // Main:9:42--9:46
             Idris2_Value *tmp_8 = var_7;                     // Main:9:52--9:58
             var_2 = tmp_8;                                   // Main:9:52--9:58
@@ -104,6 +104,6 @@ Idris2_Value *Main_insert
       break;
     }
     }
-    *trmc_hole = tmp_0;
-    return trmc_result;
+    *idris2_trmc_hole = tmp_0;
+    return idris2_trmc_result;
 }

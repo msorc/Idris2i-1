@@ -85,9 +85,28 @@ cUserName (Basic n) = cCleanString n
 cUserName (Field n) = "rec__" ++ cCleanString n
 cUserName Underscore = cCleanString "_"
 
+-- The names that begin with `idris2_` (in any case) are those of the support
+-- library (`idris2_newValue`, `Idris2_Value`, `IDRIS2_MUSTTAIL`) and those that
+-- the code generator makes besides the C names of the definitions (`cafName`,
+-- `borrowName`, `idris2_constr_...`, `idris2_static_closure_...`, the
+-- constants, and the local variables that are not numbered, like
+-- `idris2_trmc_hole`): a C name of a definition that would begin with it
+-- (that of a definition of the namespace `idris2`) is given another
+-- beginning, `idris2_user_`, which they never have.  (The C name of a
+-- definition has a `_` after its namespace, and the numbered local variables,
+-- like `var_3`, a number after the only `_`: they never are the name of a
+-- definition either.)
+userCName : String -> String
+userCName s
+    = -- (most names are told apart by their first character)
+      if (let c = substr 0 1 s in c == "i" || c == "I")
+           && toLower (substr 0 7 s) == "idris2_"
+         then "idris2_user_" ++ s
+         else s
+
 export
 cName : Name -> String
-cName (NS ns n) = cCleanString (showNSWithSep "_" ns) ++ "_" ++ cName n
+cName (NS ns n) = userCName (cCleanString (showNSWithSep "_" ns) ++ "_" ++ cName n)
 cName (UN n) = cUserName n
 cName (MN n i) = cCleanString n ++ "_" ++ cCleanString (show i)
 cName (PV n d) = "pat__" ++ cName n
@@ -96,6 +115,16 @@ cName (Nested i n) = "n__" ++ cCleanString (show i) ++ "_" ++ cName n
 cName (CaseBlock x y) = "case__" ++ cCleanString (show x) ++ "_" ++ cCleanString (show y)
 cName (WithBlock x y) = "with__" ++ cCleanString (show x) ++ "_" ++ cCleanString (show y)
 cName (Resolved i) = "fn__" ++ cCleanString (show i)
+
+||| The C name of the function that computes the value of a definition without
+||| arguments (a CAF, see `createCFunctions`), whose C name is `cn`.
+cafName : String -> String
+cafName cn = "idris2_caf_" ++ cn
+
+||| The C name of the variant of a foreign function that borrows its arguments
+||| (see `createCFunctions`), whose C name is `cn`.
+borrowName : String -> String
+borrowName cn = "idris2_borrow_" ++ cn
 
 -- A character is its code point; RefC stores it unboxed, in at least 32 bits.
 escapeChar : Char -> String
@@ -1367,7 +1396,7 @@ mutual
         -- a value, never a pending tail call, even in tail position.
         foreignCall : FC -> Env -> Name -> List AVar -> Core String
         foreignCall fc env n args = do
-            let call = "\{cName n}_borrow(\{concat $ intersperse ", " (map varName args)})"
+            let call = "\{borrowName (cName n)}(\{concat $ intersperse ", " (map varName args)})"
             let owned = Prelude.toList $ intersection (fromList args) env.owned
             if null owned
                then pure call
@@ -1454,10 +1483,10 @@ mutual
                       (fc2, ACon fc2 n ci tag (map (\a => if a == ALocal var then ANull else a) cargs))
                     _ => (fc, body) -- (not a cell: see trmcDirect)
             cell <- cStatementsFromANF cell' NotInTailPosition
-            c <- ("trmc_cell_" ++) <$> getNextCounter
+            c <- ("idris2_trmc_cell_" ++) <$> getNextCounter
             emit fc2 "Idris2_Value *\{c} = \{cell};"
-            emit fc2 "*trmc_hole = \{c};"
-            emit fc2 "trmc_hole = &((Idris2_Constructor *)\{c})->args[\{show k}];"
+            emit fc2 "*idris2_trmc_hole = \{c};"
+            emit fc2 "idris2_trmc_hole = &((Idris2_Constructor *)\{c})->args[\{show k}];"
             env' <- get EnvTracker
             put EnvTracker ({ owned := keep, staticOK := env.staticOK } env')
             makeTailCall fc1 f as
@@ -2122,7 +2151,7 @@ createCFunctions opts n canonN (MkAFun args anf) = do
     let cn = cName canonN
     let nargs = length args
     let params = if nargs == 0 then "(void)"
-               else if nargs > MaxExtractFunArgs then "(Idris2_Value *var_arglist[\{show nargs}])"
+               else if nargs > MaxExtractFunArgs then "(Idris2_Value *idris2_arglist[\{show nargs}])"
                else ("\n(\n" ++ (showSep "\n" $ addCommaToList (map (\i =>  "  Idris2_Value * var_" ++ (show i)) args))) ++ "\n)"
     let fn = "Idris2_Value *\{cn}" ++ params
     addProtos cn [fn ++ ";\n"]
@@ -2131,7 +2160,7 @@ createCFunctions opts n canonN (MkAFun args anf) = do
     -- Scheme backends: its body is in a function of its own, and its value is
     -- kept for good (it is immortal).
     let body = if nargs == 0
-                  then "static Idris2_Value *\{cn}_constant" ++ params
+                  then "static Idris2_Value *\{cafName cn}" ++ params
                   else fn
 
     -- The parameters that the function borrows (see Compiler.RefC.Borrow):
@@ -2149,7 +2178,7 @@ createCFunctions opts n canonN (MkAFun args anf) = do
     increaseIndentation
     when (nargs > MaxExtractFunArgs) $ do
       _ <- foldlC (\i, j => do
-         emit EmptyFC "Idris2_Value *var_\{show j} = var_arglist[\{show i}];"
+         emit EmptyFC "Idris2_Value *var_\{show j} = idris2_arglist[\{show i}];"
          pure $ i + 1) 0 args
       pure ()
     foreigns <- get Foreigns
@@ -2160,8 +2189,8 @@ createCFunctions opts n canonN (MkAFun args anf) = do
                 && (trmc || hasSelfTailCall cn nargs anf)
     -- The first cell that it makes, and where the next value goes.
     when trmc $ do
-      emit EmptyFC "Idris2_Value *trmc_result = NULL;"
-      emit EmptyFC "Idris2_Value **trmc_hole = &trmc_result;"
+      emit EmptyFC "Idris2_Value *idris2_trmc_result = NULL;"
+      emit EmptyFC "Idris2_Value **idris2_trmc_hole = &idris2_trmc_result;"
     -- The variables that are C integers (see Compiler.RefC.Unbox): the
     -- parameters among them are unboxed once, before the loop starts.
     unboxed <- case lookup cn !(get UnboxedVars) of
@@ -2184,8 +2213,8 @@ createCFunctions opts n canonN (MkAFun args anf) = do
                               !(get ValueFns) trmc empty opts.optStatics)
     if trmc
        then do
-         assignResult "*trmc_hole" !(cStatementsFromANF anf InTailPosition)
-         plainReturn "trmc_result"
+         assignResult "*idris2_trmc_hole" !(cStatementsFromANF anf InTailPosition)
+         plainReturn "idris2_trmc_result"
        else do
          result <- cStatementsFromANF anf InTailPosition
          -- (nothing to return after a jump)
@@ -2199,7 +2228,7 @@ createCFunctions opts n canonN (MkAFun args anf) = do
       emit EmptyFC fn
       emit EmptyFC "{"
       emit EmptyFC "  static Idris2_Constant constant;"
-      emit EmptyFC "  return idris2_constantValue(&constant, \{cn}_constant);"
+      emit EmptyFC "  return idris2_constantValue(&constant, \{cafName cn});"
       emit EmptyFC "}\n"
     emit EmptyFC  ""
     pure ()
@@ -2234,7 +2263,7 @@ createCFunctions _ n canonN (MkAForeign ccs fargs ret) = do
              else emit EmptyFC $ additionalFFIStub fctName fargs ret
           let params = "(" ++ showSep ", " (replicate (length fargs) "Idris2_Value *") ++ ");"
           let fnDef = "Idris2_Value *" ++ cName canonN ++ params
-          let borrowDef = "Idris2_Value *" ++ cName canonN ++ "_borrow" ++ params
+          let borrowDef = "Idris2_Value *" ++ borrowName (cName canonN) ++ params
           addProtos (cName canonN) [fnDef ++ "\n", borrowDef ++ "\n"]
           typeVarNameArgList <- createFFIArgList fargs
           let argNames = (\(_, varName, _) => varName) <$> typeVarNameArgList
@@ -2244,7 +2273,7 @@ createCFunctions _ n canonN (MkAForeign ccs fargs ret) = do
           emitFDef (cName canonN) typeVarNameArgList
           emit EmptyFC "{"
           increaseIndentation
-          emit EmptyFC $ "Idris2_Value *retVal = " ++ cName canonN ++ "_borrow(" ++ showSep ", " argNames ++ ");"
+          emit EmptyFC $ "Idris2_Value *retVal = " ++ borrowName (cName canonN) ++ "(" ++ showSep ", " argNames ++ ");"
           removeVars argNames
           emit EmptyFC "return retVal;"
           decreaseIndentation
@@ -2252,7 +2281,7 @@ createCFunctions _ n canonN (MkAForeign ccs fargs ret) = do
 
           -- The variant that borrows the arguments, for full applications
           -- (see `foreignCall`)
-          emitFDef (cName canonN ++ "_borrow") typeVarNameArgList
+          emitFDef (borrowName (cName canonN)) typeVarNameArgList
           emit EmptyFC "{"
           increaseIndentation
           emit EmptyFC $ " // ffi call to " ++ cName fctName
