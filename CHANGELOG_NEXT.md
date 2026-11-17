@@ -49,6 +49,11 @@ should target this file (`CHANGELOG_NEXT`).
   operations, and casts to `Int`, whose arguments and result fit in 32 bits
   (the same on every back end).  A loop over `Int` doing `mod`, `div` and
   `==` runs 2.5 times faster with the RefC backend.
+* The inlining heuristic does not inline every function of a group of small
+  mutually recursive functions (such as `forget` on `Odd` and on `Even` in
+  `Data.List.Alternating`): each round of inlining unrolled their recursion
+  further, in their module and again in every module using them, and a small
+  program using `Data.List.Alternating` took ten minutes to compile.
 * The `case` blocks of a function with `%spec` arguments (including those
   of `if` and of `!` notation) are specialised by these arguments too, when
   they are in scope: a specialised copy of the function used to call the

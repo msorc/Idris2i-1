@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+echo "abcd" | idris2 --dumpcases Main.cases --exec main Main.idr
+# the cases on the alternating lists in the generated definitions: the
+# recursion is unrolled once (3), not again in every round (190)
+grep '^Main\.' Main.cases | grep -o '%concase' | wc -l
+rm -f Main.cases

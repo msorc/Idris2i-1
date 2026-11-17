@@ -2,6 +2,7 @@ module Compiler.Opts.InlineHeuristics
 
 import Core.CompileExpr
 import Core.Context.Log
+import Data.SortedSet
 import Data.Vect
 import Libraries.Data.WithDefault
 
@@ -76,6 +77,66 @@ parameters (fn : Name)
         simple exp || isJust (small 12 exp)
     inlineCDef _ = False
 
+mutual
+  -- The names that an expression refers to, added to `acc`
+  refs : List Name -> CExp vars -> List Name
+  refs acc (CRef _ n) = n :: acc
+  refs acc (CLam _ _ sc) = refs acc sc
+  refs acc (CLet _ _ _ val sc) = refs (refs acc val) sc
+  refs acc (CApp _ f args) = refsList (refs acc f) args
+  refs acc (CCon _ _ _ _ args) = refsList acc args
+  refs acc (COp _ _ args) = refsList acc (toList args)
+  refs acc (CExtPrim _ _ args) = refsList acc args
+  refs acc (CForce _ _ e) = refs acc e
+  refs acc (CDelay _ _ e) = refs acc e
+  refs acc (CConCase _ sc alts def)
+      = refsConAlts (maybe (refs acc sc) (refs (refs acc sc)) def) alts
+  refs acc (CConstCase _ sc alts def)
+      = refsConstAlts (maybe (refs acc sc) (refs (refs acc sc)) def) alts
+  refs acc _ = acc
+
+  refsList : List Name -> List (CExp vars) -> List Name
+  refsList acc [] = acc
+  refsList acc (e :: es) = refsList (refs acc e) es
+
+  refsConAlts : List Name -> List (CConAlt vars) -> List Name
+  refsConAlts acc [] = acc
+  refsConAlts acc (MkConAlt _ _ _ _ e :: as) = refsConAlts (refs acc e) as
+
+  refsConstAlts : List Name -> List (CConstAlt vars) -> List Name
+  refsConstAlts acc [] = acc
+  refsConstAlts acc (MkConstAlt _ e :: as) = refsConstAlts (refs acc e) as
+
+cdefRefs : CDef -> List Name
+cdefRefs (MkFun _ exp) = refs [] exp
+cdefRefs _ = []
+
+-- Whether the definition `fnIdx` (with body `cdef`) is called back by its
+-- body through definitions that are inlined.  `small` only rejects a body
+-- that calls itself directly; inlining the functions of a mutually recursive
+-- group (`forget` on `Odd` calls `forget` on `Even`, which calls the first)
+-- unrolls the recursion further in every round of transformations, and again
+-- in every module that inlines them: the bodies double each time.
+recursiveViaInlined : Ref Ctxt Defs => Int -> CDef -> Core Bool
+recursiveViaInlined fnIdx cdef = go empty (cdefRefs cdef)
+  where
+    go : SortedSet Int -> List Name -> Core Bool
+    go seen [] = pure False
+    go seen (n :: ns)
+        = do defs <- get Ctxt
+             Just (i, gdef) <- lookupCtxtExactI n defs.gamma
+                  | Nothing => go seen ns
+             if i == fnIdx
+                then pure True
+                else if contains i seen
+                   then go seen ns
+                   else do let seen' = insert i seen
+                           let inlined = (Inline `elem` gdef.flags)
+                                         && not (NoInline `elem` gdef.flags)
+                           case (inlined, gdef.compexpr) of
+                                (True, Just d) => go seen' (cdefRefs d ++ ns)
+                                _ => go seen' ns
+
 export
 inlineHeuristics : Ref Ctxt Defs => Name -> Core ()
 inlineHeuristics fn = do
@@ -97,6 +158,12 @@ inlineHeuristics fn = do
     -- public OR the destination was the same module as the source_.
     let Public = collapseDefault $ gdef.visibility
         | _ => pure ()
+    -- (already inlined, by an earlier round or by the programmer)
+    let False = Inline `elem` gdef.flags
+        | True => pure ()
     unless (NoInline `elem` gdef.flags) $ do
+      False <- recursiveViaInlined fnIdx cdef
+        | True => log "compiler.inline.heuristic" 25 $
+                    "inlining heuristic rejected a recursive function: " ++ show fn
       log "compiler.inline.heuristic" 25 $ "inlining heuristic decided to inline: " ++ show fn
       setFlag EmptyFC (Resolved fnIdx) Inline
