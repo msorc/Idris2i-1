@@ -1,5 +1,17 @@
 . ../../testutils.sh
 
+# Chez compiles a program module by module (IDRIS2_INC_CGS=chez) only when
+# each module that it imports has Chez code: the libraries have it when they
+# are built for Chez (with IDRIS2_CG=chez), not when they are built for
+# another backend (RefC, the default).  So build a prelude that has it.
+rm -rf prelude
+cp -r ../../../libs/prelude prelude
+rm -rf prelude/build
+(cd prelude && IDRIS2_INC_CGS=chez idris2 --install prelude.ipkg > /dev/null)
+rm -rf prelude
+export IDRIS2_PACKAGE_PATH="$NEW_PP"
+
+# Mod1 is checked without Chez code, so it is built again for the program.
 export IDRIS2_INC_CGS=
 check Mod1.idr < input
 
@@ -8,3 +20,4 @@ idris2 -o test Mod2.idr < input
 ./build/exec/test
 
 ls build/ttc/*/Mod1.so | sed -r "s/.([0-9]){10}//g"
+rm -rf prefix
