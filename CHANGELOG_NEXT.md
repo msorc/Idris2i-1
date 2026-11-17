@@ -38,6 +38,11 @@ should target this file (`CHANGELOG_NEXT`).
     and
     light & dark modes.
 
+  + Removed the ReadTheDocs theme options `display_version` and
+    `prev_next_buttons_location`, which `sphinx_book_theme` does not support,
+    and made `make` in `docs/` treat Sphinx warnings as errors
+    (`SPHINXOPTS` defaults to `-W --keep-going`).
+
 ### Compiler changes
 
 * RefC is the default code generator of `idris2` itself, not only of the

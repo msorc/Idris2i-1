@@ -2,8 +2,9 @@
 #
 
 # You can set these variables from the command line, and also
-# from the environment for the first two.
-SPHINXOPTS    ?=
+# from the environment for the first two.  By default any warning fails the
+# build, after Sphinx has reported all of them.
+SPHINXOPTS    ?= -W --keep-going
 SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
 BUILDDIR      = build
