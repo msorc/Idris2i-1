@@ -138,7 +138,20 @@ should target this file (`CHANGELOG_NEXT`).
 * An "Undefined name" error suggests the modules that export a definition of
   that name, when they are not imported (for example `Data.List` for
   `sortBy`).  The modules searched are those in the build directory and in the
-  packages in use.
+  packages in use.  Modules that are already imported are not suggested (the
+  name is then hidden, or needs another qualifier), and for a qualified name
+  only the modules with a matching namespace are.
+* A totality error that comes from a path of calls ("possibly not
+  terminating due to recursive path ...", or "due to function ... being
+  reachable via ...") lists the calls of the path with their locations, under
+  "Calls on the recursive path:" or "Calls leading to the non-terminating
+  function:", instead of only pointing at the declaration of the function.
+* When interface search finds an implementation that matches the goal but
+  cannot find one of the implementations that it needs in turn (usually a
+  constraint of that implementation), the "Can't find an implementation"
+  error adds a line naming the missing one: `Possible cause: Can't find an
+  implementation for Show Foo, which is needed by a matching
+  implementation.`
 * Added the `--error-format <human|json>` command line flag. With
   `--error-format json`, errors and warnings in batch mode (`--check`,
   `--build`, `--typecheck`, `--client`) are printed on stdout as one JSON object
@@ -274,25 +287,25 @@ should target this file (`CHANGELOG_NEXT`).
 * Added support for green threads: `fork` and `threadWait` from `Prelude.IO`,
   and the whole of `System.Concurrency` (mutexes, condition variables,
   semaphores, barriers, channels and thread local data) are now implemented
-  in terms of green threads, i.e. user level threads that are multiplexed onto
-  a single OS thread by the RefC runtime.  Green threads are currently only
-  supported on POSIX systems; on Windows the backend still builds and runs
-  programs, but forking a thread reports an error.  Note that a blocking
-  system call (such as reading from standard input) still blocks every green
-  thread; `sleep` and `usleep` do not, as they are implemented in terms of
-  the scheduler.  Like in the Chez backend, the program ends when the main
-  expression is done.
-* Green threads now run in parallel: once a program forks a thread, the RefC
-  runtime runs the green threads on a pool of OS threads, one per processor
-  (or `IDRIS2_WORKERS`), that take work from each other.  A thread that wakes
-  another one up lets it run next on the same OS thread, so that message
-  passing stays as fast as with a single OS thread.  The values that threads
-  hand over to each other are reference counted atomically; the others are
-  not.  A blocking system call only blocks the OS thread that makes it.
-  A thread that runs for more than 10ms while others wait for its OS thread
-  yields at the end of an iteration of a loop (`IDRIS2_PREEMPT=0` turns this
-  off).  Mutexes are taken and released with one atomic operation when no
-  thread waits for them.
+  in terms of green threads, i.e. user level threads scheduled by the RefC
+  runtime.  Once a program forks a thread, they run in parallel on a pool of
+  OS threads, one per processor (or `IDRIS2_WORKERS`; `IDRIS2_WORKERS=1` runs
+  them all on the main OS thread), that take work from each other.  A thread
+  that wakes another one up lets it run next on the same OS thread, so that
+  message passing stays as fast as with a single OS thread.  The values that
+  threads hand over to each other are reference counted atomically; the
+  others are not.  A thread that runs for more than 10ms while others wait
+  for its OS thread yields at the end of an iteration of a loop
+  (`IDRIS2_PREEMPT=0` turns this off).  A blocking system call (such as
+  reading from standard input) only blocks the OS thread that makes it;
+  `sleep` and `usleep` block no OS thread, as they are implemented in terms
+  of the scheduler.  Mutexes are taken and released with one atomic
+  operation when no thread waits for them.  Like in the Chez backend, the
+  program ends when the main expression is done.  Every forked thread runs
+  on a stack of its own, 8MB by default (`IDRIS2_THREAD_STACK_SIZE` changes
+  it), followed by a guard page.  Green threads are currently only supported
+  on POSIX systems; on Windows and WebAssembly the backend still builds and
+  runs programs, but forking a thread reports an error.
 * A full application of a foreign function borrows its arguments, like a
   primitive operation: the caller no longer takes a reference to each
   argument for the wrapper of the function to release after the call.  This
@@ -505,6 +518,14 @@ should target this file (`CHANGELOG_NEXT`).
   closure applications.  `make install-support-refc-asan` installs a support
   library built with AddressSanitizer.
 
+#### Chez Backend
+
+* In incremental builds, every module has its own script to compile its
+  Scheme code (next to its `.ss` file) instead of a `compileChez` file shared
+  by the whole package: with modules built in parallel, a module could run
+  the script of another one, or a half-written one ("variable cs.ss is not
+  bound"), which broke `make bootstrap` and `make libs IDRIS2_CG=chez`.
+
 ### Library changes
 
 * The `HasIO` functions of `Data.IORef` and `System.Concurrency` are
@@ -522,6 +543,10 @@ should target this file (`CHANGELOG_NEXT`).
   its list without making a closure for every element: sorting a list of
   `Integer`s runs with 29% fewer instructions with the RefC backend (34%
   with `--spec-interfaces`), 22% fewer with Chez.
+* `getStringAndFree` (used by `fGetLine` and `fGetChars`) and
+  `currentDir` copy the C string before they free it: once specialised at
+  `IO` and inlined, the copy, which was pure, could be made after the call of
+  `free`, and read freed memory.
 * `readFilePage`, and so `readFile`, no longer use stack space for every line
   that they read: the recursion went through the bind of the composition of
   `io` and `Either`, which is not a tail call.
