@@ -18,6 +18,7 @@ import Data.String
 ||| The C compiler: `IDRIS2_CC`, `CC` or `cc`.  It is a single program (a
 ||| name looked for in the `PATH`, or a path, which may contain spaces), not a
 ||| command line: `ccache gcc` is not a C compiler.
+export
 findCC : IO String
 findCC
     = do Nothing <- idrisGetEnv "IDRIS2_CC"
@@ -46,6 +47,7 @@ findCPPFLAGS
          | Just cppflags => pure cppflags
        pure ""
 
+export
 findLDFLAGS : IO String
 findLDFLAGS
   = do Nothing <- idrisGetEnv "IDRIS2_LDFLAGS"
@@ -65,14 +67,16 @@ findLDLIBS
 clibdirs : List String -> List String
 clibdirs ds = map (\d => "-L" ++ d) ds
 
--- The command that compiles `sourceFile` to `objectFile`, with `extra` flags.
-ccObjectCommand : {auto c : Ref Ctxt Defs}
-               -> (asLibrary : Bool)
-               -> (extra : List String)
-               -> (sourceFile : String)
-               -> (objectFile : String)
-               -> Core String
-ccObjectCommand asLibrary extra sourceFile objectFile =
+-- The command that runs the C compiler on `sourceFile`, writing `outFile`,
+-- with the flags `mode` (what to make), the include directories of the
+-- runtime and the flags of the user.
+ccCommand : {auto c : Ref Ctxt Defs}
+         -> (mode : List String)
+         -> (asLibrary : Bool)
+         -> (sourceFile : String)
+         -> (outFile : String)
+         -> Core String
+ccCommand mode asLibrary sourceFile outFile =
   do cc <- coreLift findCC
      cFlags <- coreLift findCFLAGS
      cppFlags <- coreLift findCPPFLAGS
@@ -83,11 +87,19 @@ ccObjectCommand asLibrary extra sourceFile objectFile =
      let libraryFlag = if asLibrary then ["-fpic"] else []
 
      pure $ (escapeCmd $
-         [cc, "-Werror", "-c"] ++ libraryFlag ++ extra ++ [sourceFile,
-              "-o", objectFile,
+         [cc] ++ mode ++ libraryFlag ++ [sourceFile,
+              "-o", outFile,
               "-I" ++ refcDir,
               "-I" ++ cDir])
               ++ " " ++ cppFlags ++ " " ++ cFlags
+
+-- The command that compiles `sourceFile` to `objectFile`.
+ccObjectCommand : {auto c : Ref Ctxt Defs}
+               -> (asLibrary : Bool)
+               -> (sourceFile : String)
+               -> (objectFile : String)
+               -> Core String
+ccObjectCommand = ccCommand ["-Werror", "-c"]
 
 export
 compileCObjectFile : {auto c : Ref Ctxt Defs}
@@ -96,7 +108,7 @@ compileCObjectFile : {auto c : Ref Ctxt Defs}
                   -> (objectFile : String)
                   -> Core (Maybe String)
 compileCObjectFile {asLibrary} sourceFile objectFile =
-  do runccobj <- ccObjectCommand asLibrary [] sourceFile objectFile
+  do runccobj <- ccObjectCommand asLibrary sourceFile objectFile
      log "compiler.refc.cc" 10 runccobj
      0 <- coreLift $ system runccobj
        | _ => pure Nothing
@@ -198,61 +210,162 @@ ccIdentity cc
            status <- pclose f
            pure (if status == 0 then Just out else Nothing)
 
--- The variables, other than the flags, that a C compiler reads and that
--- change what it makes of a file.
+||| The variables, other than the flags, that a C compiler reads and that
+||| change what it makes of a file.
+export
 ccEnvVars : List String
 ccEnvVars = ["CPATH", "C_INCLUDE_PATH", "CPLUS_INCLUDE_PATH", "SDKROOT",
              "GCC_EXEC_PREFIX", "COMPILER_PATH", "LIBRARY_PATH",
              "SOURCE_DATE_EPOCH", "DEPENDENCIES_OUTPUT", "SUNPRO_DEPENDENCIES"]
 
+-- The files that a rule of `make`, as `cc -M -MT x` writes it, depends on
+-- (`x: a b \<newline> c`, with the spaces in names as `\ `, `#` as `\#` and
+-- `$` as `$$`).
+makeDeps : String -> List String
+makeDeps txt = case break (== ':') (unpack txt) of
+                    (_, _ :: rest) => tokens [] rest
+                    _ => []
+  where
+    done : List Char -> List String -> List String
+    done [] rest = rest
+    done acc rest = pack (reverse acc) :: rest
+
+    tokens : List Char -> List Char -> List String
+    tokens acc [] = done acc []
+    tokens acc ('\\' :: '\n' :: cs) = done acc (tokens [] cs)
+    tokens acc ('\\' :: '\r' :: '\n' :: cs) = done acc (tokens [] cs)
+    tokens acc ('\\' :: ' ' :: cs) = tokens (' ' :: acc) cs
+    tokens acc ('\\' :: '#' :: cs) = tokens ('#' :: acc) cs
+    tokens acc ('$' :: '$' :: cs) = tokens ('$' :: acc) cs
+    tokens acc (c :: cs) = if isSpace c then done acc (tokens [] cs)
+                                        else tokens (c :: acc) cs
+
+||| The files, other than the runtime headers in the support directories, that
+||| the C compiler reads when it compiles a program that includes `headers`:
+||| the headers that are not in the support directories, and those that they
+||| include, as the C compiler finds them (with `-M`), with their texts.
+||| `Just []` when all the headers are in the support directories, `Nothing`
+||| when the files cannot be found out.  `base` is the name of the program
+||| without `.c`, next to which a file is written and removed.
+export
+extraHeaderFiles : {auto c : Ref Ctxt Defs}
+                -> {default False asLibrary : Bool}
+                -> (base : String)
+                -> (headers : List String)
+                -> Core (Maybe (List (String, String)))
+extraHeaderFiles {asLibrary} base headers =
+  do refcDir <- findDataFile "refc"
+     cDir <- findDataFile "c"
+     known <- coreLift $ traverse (\h => do a <- exists (refcDir ++ "/" ++ h)
+                                            b <- exists (cDir ++ "/" ++ h)
+                                            pure (a || b)) headers
+     -- (a POSIX shell runs the C compiler)
+     if all id known then pure (Just []) else if isWindows then pure Nothing else do
+       let src = base ++ ".hdeps.c"
+       let out = base ++ ".hdeps.d"
+       Right () <- coreLift $ writeFile src $
+                     concatMap (\h => "#include <" ++ h ++ ">\n") ("runtime.h" :: headers)
+         | Left err => throw $ FileErr src err
+       cmd <- ccCommand ["-M", "-MT", "x"] asLibrary src out
+       log "compiler.refc.cc" 10 cmd
+       status <- coreLift $ system (cmd ++ " 2>/dev/null")
+       deps <- coreLift $ readFile out
+       rm src
+       rm out
+       let support : String -> Bool
+           support f = isPrefixOf (refcDir ++ "/") f || isPrefixOf (cDir ++ "/") f
+       let files = case (status, deps) of
+                        (0, Right txt) => Just (filter (\f => f /= src && not (support f))
+                                                       (makeDeps txt))
+                        _ => Nothing
+       texts <- coreLift $ traverse (traverse (\f => map (map (\t => (f, t)) . eitherToMaybe)
+                                                         (readFile f))) files
+       let result = texts >>= sequence
+       when (isNothing result) $
+         log "compiler.refc.cc" 2 $
+           "Cannot find out which files the C compiler reads for the headers "
+             ++ show headers
+       pure result
+  where
+    eitherToMaybe : Either e a -> Maybe a
+    eitherToMaybe (Left _) = Nothing
+    eitherToMaybe (Right x) = Just x
+
+||| The file where a compilation of `<base>.c` lists the files, other than
+||| the runtime, that the headers of the program are made of (see
+||| `extraHeaderFiles`), for the stamp of an executable (see Idris.ExecStamp):
+||| a first line `headerDepsLine` and one file per line, or a single line
+||| `unknown` when the files cannot be found out.  There is no file when the
+||| headers are all in the support directories.
+export
+headerDepsFile : (base : String) -> String
+headerDepsFile base = base ++ ".hdeps"
+
+export
+headerDepsLine : String
+headerDepsLine = "idris2 refc header files 1"
+
+||| Write (or remove) the `headerDepsFile` of a program.
+export
+writeHeaderDeps : (base : String) -> Maybe (List (String, String)) -> Core ()
+writeHeaderDeps base (Just []) = rm (headerDepsFile base)
+writeHeaderDeps base files
+    = do let file = headerDepsFile base
+         let ls = maybe ["unknown"] (\fs => headerDepsLine :: map fst fs) files
+         Right () <- coreLift $ writeFile file (unlines ls)
+           | Left err => throw $ FileErr file err
+         pure ()
+
 ||| Get the units of a program ready: find out whether the object files of the
 ||| last build may be reused, which is when they were made in the same
 ||| environment (the C compiler and its version, `IDRIS2_CC`, `IDRIS2_CFLAGS`,
 ||| `IDRIS2_CPPFLAGS`, `-fpic`, the include directories, the contents of the
-||| headers of the runtime in the `refc` and `c` support directories, and
-||| the variables that the compiler reads), and remove them when they were
-||| not.  `headers` are the headers that the program includes: if one of them
-||| is not in the support directories (so that its content is not known)
-||| nothing is reused.
+||| headers of the runtime in the `refc` and `c` support directories, the
+||| variables that the compiler reads, and the contents of `extra`, the
+||| other headers that the program includes, see `extraHeaderFiles`), and
+||| remove them when they were not.  If `extra` is not known, nothing is
+||| reused.
 export
 prepareUnits : {auto c : Ref Ctxt Defs}
             -> {default False asLibrary : Bool}
             -> (base : String)
-            -> (headers : List String)
+            -> (extra : Maybe (List (String, String)))
             -> Core Units
-prepareUnits {asLibrary} base headers =
+prepareUnits {asLibrary} base extra =
   do let units = MkUnits base asLibrary False
      cc <- coreLift findCC
-     cmd <- ccObjectCommand asLibrary [] "UNIT.c" "UNIT.o"
+     cmd <- ccObjectCommand asLibrary "UNIT.c" "UNIT.o"
      refcDir <- findDataFile "refc"
      cDir <- findDataFile "c"
-     idt <- coreLift $ ccIdentity cc
-     hs1 <- coreLift $ headerTexts refcDir
-     hs2 <- coreLift $ headerTexts cDir
+     Just idt <- coreLift $ ccIdentity cc
+       | Nothing => noReuse units "the C compiler \{show cc} does not tell its version"
+     Just hs1 <- coreLift $ headerTexts refcDir
+       | Nothing => noReuse units "the headers in \{refcDir} cannot be read"
+     Just hs2 <- coreLift $ headerTexts cDir
+       | Nothing => noReuse units "the headers in \{cDir} cannot be read"
+     Just ex <- pure extra
+       | Nothing => noReuse units "the files of the headers of the program are not known"
      envs <- coreLift $ traverse (\v => map (\x => v ++ "=" ++ fromMaybe "" x ++ "\n")
                                             (getEnv v)) ccEnvVars
-     known <- coreLift $ traverse (\h => do a <- exists (refcDir ++ "/" ++ h)
-                                            b <- exists (cDir ++ "/" ++ h)
-                                            pure (a || b)) headers
-     let key = (\i, a, b => unlines ["idris2 refc units 1", cmd, i, concat envs]
-                             ++ concat a ++ concat b) <$> idt <*> hs1 <*> hs2
-     case key of
-          Just k => if all id known
-                       then do old <- coreLift $ readFile (keyFile units)
-                               unless (either (const False) (== k) old) $
-                                 do removeObjs units
-                                    _ <- coreLift $ writeFile (keyFile units) k
-                                    pure ()
-                               pure ({ reuseObjs := True } units)
-                       else noReuse units
-          Nothing => noReuse units
+     let key = unlines ["idris2 refc units 1", cmd, idt, concat envs]
+                 ++ concat hs1 ++ concat hs2
+                 ++ concatMap (\(f, t) => "// " ++ f ++ "\n" ++ t ++ "\n") ex
+     old <- coreLift $ readFile (keyFile units)
+     unless (either (const False) (== key) old) $
+       do log "compiler.refc.cc" 5 "Not reusing object files: their environment changed"
+          removeObjs units
+          _ <- coreLift $ writeFile (keyFile units) key
+          pure ()
+     pure ({ reuseObjs := True } units)
   where
     removeObjs : Units -> Core ()
     removeObjs u = for_ [0 .. minus maxUnits 1] $ \k => rm (unitObject u k)
-    noReuse : Units -> Core Units
-    noReuse u = do removeObjs u
-                   rm (keyFile u)
-                   pure u
+    noReuse : Units -> String -> Core Units
+    noReuse u why
+        = do log "compiler.refc.cc" 2 "Not reusing object files: \{why}"
+             removeObjs u
+             rm (keyFile u)
+             pure u
 
 ||| Write the unit `k` with the text `text`, unless it is the text that was
 ||| compiled to the object file that is still there.  Returns whether it must
@@ -300,7 +413,7 @@ compileUnits u present todo =
         else do
           cmds <- traverse (\(k, _) => do
                     let tmp = unitObject u k ++ ".tmp"
-                    cmd <- ccObjectCommand u.asLib [] (unitSource u k) tmp
+                    cmd <- ccObjectCommand u.asLib (unitSource u k) tmp
                     pure (k, cmd ++ " && " ++ escapeCmd ["mv", "-f", tmp, unitObject u k]))
                     (sortBy (\a, b => compare (snd b) (snd a)) todo)
           -- A POSIX shell script: workers that take the units one by one

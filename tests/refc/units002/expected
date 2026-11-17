@@ -1,0 +1,18 @@
+Not reusing object files: their environment changed
+first build: compiled all
+42
+2432902008176640000
+a b c
+again: reused all
+42
+2432902008176640000
+a b c
+Not reusing object files: their environment changed
+an included header changed: compiled all
+63
+2432902008176640000
+a b c
+unchanged: reused all
+63
+2432902008176640000
+a b c

@@ -93,7 +93,11 @@ its flags (``IDRIS2_CC``, ``IDRIS2_CFLAGS``, ``IDRIS2_CPPFLAGS``, ``-fpic``,
 the include directories), a few environment variables that it reads (``CPATH``
 and the like) and the contents of the header files of the runtime (in the
 ``refc`` and ``c`` support directories).  If the program includes a header
-that is not one of them (``%foreign "C:f,lib header.h"``), nothing is reused.
+that is not one of them (``%foreign "C:f,lib,header.h"``), the C compiler is
+asked (with ``-M``) which files that header is made of (the headers it
+includes, and so on), and their contents count too; when it cannot tell,
+nothing is reused (``--log compiler.refc.cc:2`` tells why the object files are
+not reused).
 The text of a unit stays the same when other parts of the program change: the
 definitions are put in units by their modules (a big module in several, by the
 names of its definitions), the number of units depends only on the size of the

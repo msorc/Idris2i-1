@@ -2763,15 +2763,18 @@ generateCSourceFileParts defs0 outn =
                      else unitCount (maybe minChunkSize (\n => max 1 (n `div` 16)) split) totalSize
      let text : List String -> String
          text ls = fastConcat (map (++ "\n") ls)
+     let base = if Data.String.isSuffixOf ".c" outn
+                   then substr 0 (length outn `minus` 2) outn
+                   else outn
+     -- What the headers that are not those of the runtime are made of
+     extra <- extraHeaderFiles base headerFiles
+     writeHeaderDeps base extra
      if nunits == 0
         then do coreLift_ $ writeFile outn $ text (headerLines ++ concatMap (withComments . defLines) bodies ++ footerLines)
                 log "compiler.refc" 10 $ "Generated C file " ++ outn
                 pure Nothing
         else do
-          let base = if Data.String.isSuffixOf ".c" outn
-                        then substr 0 (length outn `minus` 2) outn
-                        else outn
-          units <- prepareUnits base headerFiles
+          units <- prepareUnits base extra
           let groups = groupUnits nunits bodies
           Right h <- coreLift $ openFile outn WriteTruncate
             | Left err => throw $ FileErr outn err

@@ -457,10 +457,13 @@ should target this file (`CHANGELOG_NEXT`).
   use) are the same when the program is compiled again after a small change,
   and then their object files are reused: a unit is compiled again only when
   its text, the C compiler and its flags (`IDRIS2_CC`, `IDRIS2_CFLAGS`,
-  `IDRIS2_CPPFLAGS`), or the runtime headers changed (texts are compared,
-  not hashed).  For that, definitions are put in units by their module, the
-  number of units depends only on the size of the program (not on
-  `IDRIS2_CC_JOBS`, which only limits the C compilers that run at once),
+  `IDRIS2_CPPFLAGS`), the runtime headers, or the other headers that the
+  program includes (and those they include, as `cc -M` lists them) changed
+  (texts are compared, not hashed).  `--log compiler.refc.cc:2` tells why
+  the object files are not reused.  For that, definitions are put in units
+  by their module, the number of units depends only on the size of the
+  program (not on `IDRIS2_CC_JOBS`, which only limits the C compilers that
+  run at once),
   constants are named after their values instead of numbered, local
   variables are numbered in each function, the numbers that the elaborator
   puts in the names of nested functions and case blocks are made stable, and

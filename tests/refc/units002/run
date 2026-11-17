@@ -1,0 +1,40 @@
+. ../../testutils.sh
+
+# The object files of the units of a big program (see units001) that includes
+# a header that is not one of the runtime are reused, unless that header, or a
+# header that it includes, changed.  The C compiler is in a directory whose
+# name has a space.
+
+rm -rf ed
+mkdir ed
+cd ed
+cp ../Main.idr .
+mkdir include
+printf '#include "factor.h"\n#define stamp_scale(x) ((x) * STAMP_FACTOR)\n' > include/scale.h
+printf '#define STAMP_FACTOR 2\n' > include/factor.h
+mkdir "c compiler"
+ln -s "$(command -v "${IDRIS2_CC:-${CC:-cc}}")" "c compiler/cc"
+export IDRIS2_CC="$PWD/c compiler/cc"
+export IDRIS2_CPPFLAGS="-Iinclude"
+
+build() {
+    idris2 --directive refc-split-size=1000 --log compiler.refc:10 -o main Main.idr > output
+    sed -n 's/.*\(Not reusing object files: .*\)/\1/p' output
+    sed -n 's/.*Generated C file .* in \([0-9]*\) units, \([0-9]*\) to compile.*/\1 \2/p' output \
+        | { read units todo
+            if [ "$todo" -eq 0 ]; then echo "$1: reused all"
+            elif [ "$todo" -eq "$units" ]; then echo "$1: compiled all"
+            else echo "$1: compiled some"
+            fi; }
+    ./build/exec/main
+}
+
+build "first build"
+build "again"
+
+printf '#define STAMP_FACTOR 3\n' > include/factor.h
+build "an included header changed"
+build "unchanged"
+
+cd ..
+rm -rf ed
