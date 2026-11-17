@@ -203,6 +203,15 @@ should target this file (`CHANGELOG_NEXT`).
   terminal (two for CJK characters and most emoji, none for combining
   marks), also when the line wraps, and the cursor keys, `Backspace` and
   `Delete` go over a character together with the combining marks after it.
+* The constant folding of the shifts, negations, `div` and `mod` of the
+  fixed width types is computed on `Integer`s (then wrapped around) instead
+  of with the primitives of the backend that built the compiler, so that the
+  folded constants are what the program computes at run time on every
+  backend (`ash` semantics: a shift by the width or more gives 0 or -1, a
+  negative count shifts the other way), whichever runtime the compiler runs
+  on.  A compiler built on an older runtime folded `prim__shl_Bits32 1 32`
+  to 1, and the smallest value `div` -1 trapped in C.  Shifts of `Integer`s
+  by more than 4096 are left to the run time.
 
 ### Building/Packaging changes
 

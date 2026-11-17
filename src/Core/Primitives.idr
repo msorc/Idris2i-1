@@ -197,6 +197,55 @@ strSubstr [NPrimVal fc (I start), NPrimVal _ (I len), NPrimVal _ (Str str)]
 strSubstr _ = Nothing
 
 
+-- The negation, the division and the shifts of the fixed width types are
+-- computed on Integers here, then wrapped around, instead of with the
+-- primitives of the back end that built the compiler: that the result of
+-- folding a constant expression is that of the program at run time (Chez's
+-- `ash`, then wrapped around, on every back end) must not depend on the
+-- run time of the compiler, nor on undefined behaviour in C.  (A shift of 1
+-- by a positive count is the same everywhere.)
+
+pow2 : Nat -> Integer
+pow2 n = prim__shl_Integer 1 (natToInteger n)
+
+-- An Integer wrapped around to `w` bits, unsigned and signed
+wrapU : Nat -> Integer -> Integer
+wrapU w x = x `mod` pow2 w
+
+wrapS : Nat -> Integer -> Integer
+wrapS w x = let m = wrapU w x in if m >= pow2 (pred w) then m - pow2 w else m
+
+-- `ash x c` of the signed type of `w` bits, wrapped around: a left shift by
+-- `c`, or an arithmetic right shift by `-c` (the floor of the division).
+ashS : Nat -> Integer -> Integer -> Integer
+ashS w x c
+    = if c >= 0
+         then if c >= natToInteger w then 0 else wrapS w (x * pow2 (integerToNat c))
+         else if negate c >= natToInteger w
+                 then (if x < 0 then -1 else 0)
+                 else x `div` pow2 (integerToNat (negate c))
+
+-- The shifts of the unsigned type of `w` bits (by a count that is not
+-- negative)
+shlU : Nat -> Integer -> Integer -> Integer
+shlU w x c = if c >= natToInteger w then 0 else wrapU w (x * pow2 (integerToNat c))
+
+shrU : Nat -> Integer -> Integer -> Integer
+shrU w x c = if c >= natToInteger w then 0 else x `div` pow2 (integerToNat c)
+
+-- `ash` on Integers.  (Not folded for a huge count, which would make a huge
+-- number at compile time, or would not have its sign on old back ends.)
+ashI : Integer -> Integer -> Maybe Integer
+ashI x c
+    = if c >= 0
+         then toMaybe (c <= 4096) (x * pow2 (integerToNat c))
+         else toMaybe (negate c <= 4096) (x `div` pow2 (integerToNat (negate c)))
+
+-- The Euclidean division of a signed type of `w` bits wraps around (the
+-- smallest value divided by -1)
+divS : Nat -> Integer -> Integer -> Integer
+divS w x y = wrapS w (assert_total (x `div` y))
+
 add : Constant -> Constant -> Maybe Constant
 add (BI x) (BI y) = pure $ BI (x + y)
 add (I x) (I y) = pure $ I (x + y)
@@ -245,15 +294,15 @@ div : Constant -> Constant -> Maybe Constant
 div (BI x) (BI 0) = Nothing
 div (BI x) (BI y) = pure $ BI (assert_total (x `div` y))
 div (I x) (I 0) = Nothing
-div (I x) (I y) = pure $ I (assert_total (x `div` y))
+div (I x) (I y) = pure $ I (fromInteger (divS 64 (cast x) (cast y)))
 div (I8 x) (I8 0) = Nothing
-div (I8 x) (I8 y) = pure $ I8 (assert_total (x `div` y))
+div (I8 x) (I8 y) = pure $ I8 (fromInteger (divS 8 (cast x) (cast y)))
 div (I16 x) (I16 0) = Nothing
-div (I16 x) (I16 y) = pure $ I16 (assert_total (x `div` y))
+div (I16 x) (I16 y) = pure $ I16 (fromInteger (divS 16 (cast x) (cast y)))
 div (I32 x) (I32 0) = Nothing
-div (I32 x) (I32 y) = pure $ I32 (assert_total (x `div` y))
+div (I32 x) (I32 y) = pure $ I32 (fromInteger (divS 32 (cast x) (cast y)))
 div (I64 x) (I64 0) = Nothing
-div (I64 x) (I64 y) = pure $ I64 (assert_total (x `div` y))
+div (I64 x) (I64 y) = pure $ I64 (fromInteger (divS 64 (cast x) (cast y)))
 div (B8 x) (B8 0) = Nothing
 div (B8 x) (B8 y) = pure $ B8 (assert_total (x `div` y))
 div (B16 x) (B16 0) = Nothing
@@ -269,15 +318,15 @@ mod : Constant -> Constant -> Maybe Constant
 mod (BI x) (BI 0) = Nothing
 mod (BI x) (BI y) = pure $ BI (assert_total (x `mod` y))
 mod (I x) (I 0) = Nothing
-mod (I x) (I y) = pure $ I (assert_total (x `mod` y))
+mod (I x) (I y) = pure $ I (fromInteger (assert_total (cast x `mod` cast y)))
 mod (I8 x) (I8 0) = Nothing
-mod (I8 x) (I8 y) = pure $ I8 (assert_total (x `mod` y))
+mod (I8 x) (I8 y) = pure $ I8 (fromInteger (assert_total (cast x `mod` cast y)))
 mod (I16 x) (I16 0) = Nothing
-mod (I16 x) (I16 y) = pure $ I16 (assert_total (x `mod` y))
+mod (I16 x) (I16 y) = pure $ I16 (fromInteger (assert_total (cast x `mod` cast y)))
 mod (I32 x) (I32 0) = Nothing
-mod (I32 x) (I32 y) = pure $ I32 (assert_total (x `mod` y))
+mod (I32 x) (I32 y) = pure $ I32 (fromInteger (assert_total (cast x `mod` cast y)))
 mod (I64 x) (I64 0) = Nothing
-mod (I64 x) (I64 y) = pure $ I64 (assert_total (x `mod` y))
+mod (I64 x) (I64 y) = pure $ I64 (fromInteger (assert_total (cast x `mod` cast y)))
 mod (B8 x) (B8 0) = Nothing
 mod (B8 x) (B8 y) = pure $ B8 (assert_total (x `mod` y))
 mod (B16 x) (B16 0) = Nothing
@@ -289,29 +338,29 @@ mod (B64 x) (B64 y) = pure $ B64 (assert_total (x `mod` y))
 mod _ _ = Nothing
 
 shiftl : Constant -> Constant -> Maybe Constant
-shiftl (I x) (I y) = pure $ I (prim__shl_Int x y)
-shiftl (I8 x) (I8 y) = pure $ I8 (prim__shl_Int8 x y)
-shiftl (I16 x) (I16 y) = pure $ I16 (prim__shl_Int16 x y)
-shiftl (I32 x) (I32 y) = pure $ I32 (prim__shl_Int32 x y)
-shiftl (I64 x) (I64 y) = pure $ I64 (prim__shl_Int64 x y)
-shiftl (BI x) (BI y) = pure $ BI (prim__shl_Integer x y)
-shiftl (B8 x) (B8 y) = pure $ B8 (prim__shl_Bits8 x y)
-shiftl (B16 x) (B16 y) = pure $ B16 (prim__shl_Bits16 x y)
-shiftl (B32 x) (B32 y) = pure $ B32 (prim__shl_Bits32 x y)
-shiftl (B64 x) (B64 y) = pure $ B64 (prim__shl_Bits64 x y)
+shiftl (I x) (I y) = pure $ I (fromInteger (ashS 64 (cast x) (cast y)))
+shiftl (I8 x) (I8 y) = pure $ I8 (fromInteger (ashS 8 (cast x) (cast y)))
+shiftl (I16 x) (I16 y) = pure $ I16 (fromInteger (ashS 16 (cast x) (cast y)))
+shiftl (I32 x) (I32 y) = pure $ I32 (fromInteger (ashS 32 (cast x) (cast y)))
+shiftl (I64 x) (I64 y) = pure $ I64 (fromInteger (ashS 64 (cast x) (cast y)))
+shiftl (BI x) (BI y) = BI <$> ashI x y
+shiftl (B8 x) (B8 y) = pure $ B8 (fromInteger (shlU 8 (cast x) (cast y)))
+shiftl (B16 x) (B16 y) = pure $ B16 (fromInteger (shlU 16 (cast x) (cast y)))
+shiftl (B32 x) (B32 y) = pure $ B32 (fromInteger (shlU 32 (cast x) (cast y)))
+shiftl (B64 x) (B64 y) = pure $ B64 (fromInteger (shlU 64 (cast x) (cast y)))
 shiftl _ _ = Nothing
 
 shiftr : Constant -> Constant -> Maybe Constant
-shiftr (I x) (I y) = pure $ I (prim__shr_Int x y)
-shiftr (I8 x) (I8 y) = pure $ I8 (prim__shr_Int8 x y)
-shiftr (I16 x) (I16 y) = pure $ I16 (prim__shr_Int16 x y)
-shiftr (I32 x) (I32 y) = pure $ I32 (prim__shr_Int32 x y)
-shiftr (I64 x) (I64 y) = pure $ I64 (prim__shr_Int64 x y)
-shiftr (BI x) (BI y) = pure $ BI (prim__shr_Integer x y)
-shiftr (B8 x) (B8 y) = pure $ B8 $ (prim__shr_Bits8 x y)
-shiftr (B16 x) (B16 y) = pure $ B16 (prim__shr_Bits16 x y)
-shiftr (B32 x) (B32 y) = pure $ B32 (prim__shr_Bits32 x y)
-shiftr (B64 x) (B64 y) = pure $ B64 (prim__shr_Bits64 x y)
+shiftr (I x) (I y) = pure $ I (fromInteger (ashS 64 (cast x) (negate (cast y))))
+shiftr (I8 x) (I8 y) = pure $ I8 (fromInteger (ashS 8 (cast x) (negate (cast y))))
+shiftr (I16 x) (I16 y) = pure $ I16 (fromInteger (ashS 16 (cast x) (negate (cast y))))
+shiftr (I32 x) (I32 y) = pure $ I32 (fromInteger (ashS 32 (cast x) (negate (cast y))))
+shiftr (I64 x) (I64 y) = pure $ I64 (fromInteger (ashS 64 (cast x) (negate (cast y))))
+shiftr (BI x) (BI y) = BI <$> ashI x (negate y)
+shiftr (B8 x) (B8 y) = pure $ B8 (fromInteger (shrU 8 (cast x) (cast y)))
+shiftr (B16 x) (B16 y) = pure $ B16 (fromInteger (shrU 16 (cast x) (cast y)))
+shiftr (B32 x) (B32 y) = pure $ B32 (fromInteger (shrU 32 (cast x) (cast y)))
+shiftr (B64 x) (B64 y) = pure $ B64 (fromInteger (shrU 64 (cast x) (cast y)))
 shiftr _ _ = Nothing
 
 band : Constant -> Constant -> Maybe Constant
@@ -355,15 +404,15 @@ bxor _ _ = Nothing
 
 neg : Constant -> Maybe Constant
 neg (BI x) = pure $ BI (-x)
-neg (I x) = pure $ I (-x)
-neg (I8 x) = pure $ I8 (-x)
-neg (I16 x) = pure $ I16 (-x)
-neg (I32 x) = pure $ I32 (-x)
-neg (I64 x) = pure $ I64 (-x)
-neg (B8 x) = pure $ B8 (-x)
-neg (B16 x) = pure $ B16 (-x)
-neg (B32 x) = pure $ B32 (-x)
-neg (B64 x) = pure $ B64 (-x)
+neg (I x) = pure $ I (fromInteger (wrapS 64 (negate (cast x))))
+neg (I8 x) = pure $ I8 (fromInteger (wrapS 8 (negate (cast x))))
+neg (I16 x) = pure $ I16 (fromInteger (wrapS 16 (negate (cast x))))
+neg (I32 x) = pure $ I32 (fromInteger (wrapS 32 (negate (cast x))))
+neg (I64 x) = pure $ I64 (fromInteger (wrapS 64 (negate (cast x))))
+neg (B8 x) = pure $ B8 (fromInteger (wrapU 8 (negate (cast x))))
+neg (B16 x) = pure $ B16 (fromInteger (wrapU 16 (negate (cast x))))
+neg (B32 x) = pure $ B32 (fromInteger (wrapU 32 (negate (cast x))))
+neg (B64 x) = pure $ B64 (fromInteger (wrapU 64 (negate (cast x))))
 neg (Db x) = pure $ Db (-x)
 neg _ = Nothing
 

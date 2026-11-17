@@ -537,7 +537,7 @@ shiftsB32 k =
     vs : List Bits32
     vs = map (\v => fromInteger (v * k)) [1, 4294967295, 2147483651]
     cs : List Bits32
-    cs = map (\v => fromInteger (v * k)) [0, 1, 31, 32, 33, 64, 200]
+    cs = map (\v => fromInteger (v * k)) [0, 1, 31, 32, 33, 64, 200, 4294967295]
 
 castsB32 : Integer -> List String
 castsB32 k = concatMap (\x => ("B32 " ++ show x ++ " char " ++ charOf (VB32 x)) :: casts2 (VB32 x)) vs
@@ -565,7 +565,7 @@ shiftsB64 k =
     vs : List Bits64
     vs = map (\v => fromInteger (v * k)) [1, 18446744073709551615, 9223372036854775811]
     cs : List Bits64
-    cs = map (\v => fromInteger (v * k)) [0, 1, 63, 64, 65, 128, 200]
+    cs = map (\v => fromInteger (v * k)) [0, 1, 63, 64, 65, 128, 200, 18446744073709551615]
 
 castsB64 : Integer -> List String
 castsB64 k = concatMap (\x => ("B64 " ++ show x ++ " char " ++ charOf (VB64 x)) :: casts2 (VB64 x)) vs
@@ -590,18 +590,14 @@ shiftsI8 k =
      [ "I8 " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI8 (prim__shl_Int8 x c)) | x <- vs, c <- cs ]
   ++ [ "I8 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI8 (prim__shr_Int8 x c)) | x <- vs, c <- cs ]
   ++ [ "I8 " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI8 (prim__shl_Int8 x c)) | x <- vs, c <- ns ]
-  ++ [ "I8 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI8 (prim__shr_Int8 x c)) | x <- small, c <- smallNs ]
+  ++ [ "I8 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI8 (prim__shr_Int8 x c)) | x <- vs, c <- ns ]
   where
     vs : List Int8
     vs = map (\v => fromInteger (v * k)) [1, (-5), (-128)]
     cs : List Int8
-    cs = map (\v => fromInteger (v * k)) [0, 1, 7, 8, 9, 16]
+    cs = map (\v => fromInteger (v * k)) [0, 1, 7, 8, 9, 16, 127]
     ns : List Int8
     ns = map (\v => fromInteger (v * k)) [(-128), (-9), (-8), (-7), (-1)]
-    small : List Int8
-    small = map (\v => fromInteger (v * k)) [1, -3]
-    smallNs : List Int8
-    smallNs = map (\v => fromInteger (v * k)) [-1, -2]
 
 castsI8 : Integer -> List String
 castsI8 k = concatMap (\x => ("I8 " ++ show x ++ " char " ++ charOf (VI8 x)) :: casts2 (VI8 x)) vs
@@ -626,18 +622,14 @@ shiftsI16 k =
      [ "I16 " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI16 (prim__shl_Int16 x c)) | x <- vs, c <- cs ]
   ++ [ "I16 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI16 (prim__shr_Int16 x c)) | x <- vs, c <- cs ]
   ++ [ "I16 " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI16 (prim__shl_Int16 x c)) | x <- vs, c <- ns ]
-  ++ [ "I16 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI16 (prim__shr_Int16 x c)) | x <- small, c <- smallNs ]
+  ++ [ "I16 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI16 (prim__shr_Int16 x c)) | x <- vs, c <- ns ]
   where
     vs : List Int16
     vs = map (\v => fromInteger (v * k)) [1, (-5), (-32768)]
     cs : List Int16
-    cs = map (\v => fromInteger (v * k)) [0, 1, 15, 16, 17, 32, 200]
+    cs = map (\v => fromInteger (v * k)) [0, 1, 15, 16, 17, 32, 200, 32767]
     ns : List Int16
     ns = map (\v => fromInteger (v * k)) [(-32768), (-17), (-16), (-15), (-1)]
-    small : List Int16
-    small = map (\v => fromInteger (v * k)) [1, -3]
-    smallNs : List Int16
-    smallNs = map (\v => fromInteger (v * k)) [-1, -2]
 
 castsI16 : Integer -> List String
 castsI16 k = concatMap (\x => ("I16 " ++ show x ++ " char " ++ charOf (VI16 x)) :: casts2 (VI16 x)) vs
@@ -662,18 +654,14 @@ shiftsI32 k =
      [ "I32 " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI32 (prim__shl_Int32 x c)) | x <- vs, c <- cs ]
   ++ [ "I32 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI32 (prim__shr_Int32 x c)) | x <- vs, c <- cs ]
   ++ [ "I32 " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI32 (prim__shl_Int32 x c)) | x <- vs, c <- ns ]
-  ++ [ "I32 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI32 (prim__shr_Int32 x c)) | x <- small, c <- smallNs ]
+  ++ [ "I32 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI32 (prim__shr_Int32 x c)) | x <- vs, c <- ns ]
   where
     vs : List Int32
     vs = map (\v => fromInteger (v * k)) [1, (-5), (-2147483648)]
     cs : List Int32
-    cs = map (\v => fromInteger (v * k)) [0, 1, 31, 32, 33, 64, 200]
+    cs = map (\v => fromInteger (v * k)) [0, 1, 31, 32, 33, 64, 200, 2147483647]
     ns : List Int32
     ns = map (\v => fromInteger (v * k)) [(-2147483648), (-33), (-32), (-31), (-1)]
-    small : List Int32
-    small = map (\v => fromInteger (v * k)) [1, -3]
-    smallNs : List Int32
-    smallNs = map (\v => fromInteger (v * k)) [-1, -2]
 
 castsI32 : Integer -> List String
 castsI32 k = concatMap (\x => ("I32 " ++ show x ++ " char " ++ charOf (VI32 x)) :: casts2 (VI32 x)) vs
@@ -698,18 +686,14 @@ shiftsI64 k =
      [ "I64 " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI64 (prim__shl_Int64 x c)) | x <- vs, c <- cs ]
   ++ [ "I64 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI64 (prim__shr_Int64 x c)) | x <- vs, c <- cs ]
   ++ [ "I64 " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI64 (prim__shl_Int64 x c)) | x <- vs, c <- ns ]
-  ++ [ "I64 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI64 (prim__shr_Int64 x c)) | x <- small, c <- smallNs ]
+  ++ [ "I64 " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI64 (prim__shr_Int64 x c)) | x <- vs, c <- ns ]
   where
     vs : List Int64
     vs = map (\v => fromInteger (v * k)) [1, (-5), (-9223372036854775808)]
     cs : List Int64
-    cs = map (\v => fromInteger (v * k)) [0, 1, 63, 64, 65, 128, 200]
+    cs = map (\v => fromInteger (v * k)) [0, 1, 63, 64, 65, 128, 200, 9223372036854775807]
     ns : List Int64
     ns = map (\v => fromInteger (v * k)) [(-9223372036854775808), (-65), (-64), (-63), (-1)]
-    small : List Int64
-    small = map (\v => fromInteger (v * k)) [1, -3]
-    smallNs : List Int64
-    smallNs = map (\v => fromInteger (v * k)) [-1, -2]
 
 castsI64 : Integer -> List String
 castsI64 k = concatMap (\x => ("I64 " ++ show x ++ " char " ++ charOf (VI64 x)) :: casts2 (VI64 x)) vs
@@ -734,18 +718,14 @@ shiftsI k =
      [ "I " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI (prim__shl_Int x c)) | x <- vs, c <- cs ]
   ++ [ "I " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI (prim__shr_Int x c)) | x <- vs, c <- cs ]
   ++ [ "I " ++ show x ++ " shl " ++ show c ++ " = " ++ convs (VI (prim__shl_Int x c)) | x <- vs, c <- ns ]
-  ++ [ "I " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI (prim__shr_Int x c)) | x <- small, c <- smallNs ]
+  ++ [ "I " ++ show x ++ " shr " ++ show c ++ " = " ++ convs (VI (prim__shr_Int x c)) | x <- vs, c <- ns ]
   where
     vs : List Int
     vs = map (\v => fromInteger (v * k)) [1, (-5), (-9223372036854775808)]
     cs : List Int
-    cs = map (\v => fromInteger (v * k)) [0, 1, 63, 64, 65, 128, 200]
+    cs = map (\v => fromInteger (v * k)) [0, 1, 63, 64, 65, 128, 200, 9223372036854775807]
     ns : List Int
     ns = map (\v => fromInteger (v * k)) [(-9223372036854775808), (-65), (-64), (-63), (-1)]
-    small : List Int
-    small = map (\v => fromInteger (v * k)) [1, -3]
-    smallNs : List Int
-    smallNs = map (\v => fromInteger (v * k)) [-1, -2]
 
 castsI : Integer -> List String
 castsI k = concatMap (\x => ("I " ++ show x ++ " char " ++ charOf (VI x)) :: casts2 (VI x)) vs
@@ -789,6 +769,23 @@ castsBI k = concatMap (\x => ("BI " ++ show x ++ " char " ++ charOf (VBI x)) :: 
     vs : List Integer
     vs = map (\v => fromInteger (v * k)) [0, 200, 255, 32768, 65535, 2147483648, 4294967295, 9223372036854775808, 18446744073709551621, (-1), (-56), (-129), (-32769), (-2147483649), (-9223372036854775809)]
 
+-- The primitive negations, which wrap around (`negate` is `0 - x`)
+negates : Integer -> List String
+negates k =
+     [ "negate B8 " ++ show x ++ " = " ++ convs (VB8 (prim__negate_Bits8 x)) | x <- map fromInteger vs ]
+  ++ [ "negate B16 " ++ show x ++ " = " ++ convs (VB16 (prim__negate_Bits16 x)) | x <- map fromInteger vs ]
+  ++ [ "negate B32 " ++ show x ++ " = " ++ convs (VB32 (prim__negate_Bits32 x)) | x <- map fromInteger vs ]
+  ++ [ "negate B64 " ++ show x ++ " = " ++ convs (VB64 (prim__negate_Bits64 x)) | x <- map fromInteger vs ]
+  ++ [ "negate I8 " ++ show x ++ " = " ++ convs (VI8 (prim__negate_Int8 x)) | x <- map fromInteger vs ]
+  ++ [ "negate I16 " ++ show x ++ " = " ++ convs (VI16 (prim__negate_Int16 x)) | x <- map fromInteger vs ]
+  ++ [ "negate I32 " ++ show x ++ " = " ++ convs (VI32 (prim__negate_Int32 x)) | x <- map fromInteger vs ]
+  ++ [ "negate I64 " ++ show x ++ " = " ++ convs (VI64 (prim__negate_Int64 x)) | x <- map fromInteger vs ]
+  ++ [ "negate I " ++ show x ++ " = " ++ convs (VI (prim__negate_Int x)) | x <- map fromInteger vs ]
+  ++ [ "negate BI " ++ show x ++ " = " ++ convs (VBI (prim__negate_Integer x)) | x <- vs ]
+  where
+    vs : List Integer
+    vs = map (* k) [0, 1, -1, 5, 127, -128, 128, 200, 255, 32767, -32768, 65535, 2147483647, -2147483648, 4294967295, 9223372036854775807, -9223372036854775808, 18446744073709551615]
+
 -- Double to the integer types: truncated, then wrapped around
 doubles : Integer -> List String
 doubles k = map (\d => "Double " ++ show (cast {to = Integer} d) ++ " " ++ dblCasts d) ds
@@ -818,6 +815,19 @@ shrLoop x c acc = if c > 70 then acc else shrLoop x (c + 1) (prim__shr_Int x c :
 shlNegLoop : Int -> Int -> List Int -> List Int
 shlNegLoop x c acc = if c < -70 then acc else shlNegLoop x (c - 1) (prim__shl_Int x c :: acc)
 
+-- (shr by a negative count shifts left)
+shrNegLoop : Int -> Int -> List Int -> List Int
+shrNegLoop x c acc = if c < -70 then acc else shrNegLoop x (c - 1) (prim__shr_Int x c :: acc)
+
+-- (the smallest Int divided by -1 wraps around)
+divLoop : Int -> Int -> List Int -> List Int
+divLoop x d acc
+    = if d > 3 then acc
+         else divLoop x (d + 1) (if d == 0 then acc else x `mod` d :: x `div` d :: acc)
+
+negLoop : Int -> Int -> List Int -> List Int
+negLoop x n acc = if n == 0 then acc else negLoop (x + 1) (n - 1) (prim__negate_Int x :: acc)
+
 arithLoop : Int -> Int -> Int -> List Int -> List Int
 arithLoop x y n acc
     = if n == 0 then acc
@@ -830,6 +840,11 @@ intLoops k =
   , "Int loop shr max: " ++ show (reverse (shrLoop (9223372036854775807 * k) 0 []))
   , "Int loop shr min: " ++ show (reverse (shrLoop (-9223372036854775807 * k - 1) 0 []))
   , "Int loop shl neg: " ++ show (reverse (shlNegLoop (-9223372036854775807 * k - 1) (-1) []))
+  , "Int loop shr neg: " ++ show (reverse (shrNegLoop (3 * k) (-1) []))
+  , "Int loop shr neg min: " ++ show (reverse (shrNegLoop (-9223372036854775807 * k - 1) (-1) []))
+  , "Int loop div min: " ++ show (reverse (divLoop (-9223372036854775807 * k - 1) (-3) []))
+  , "Int loop div -7: " ++ show (reverse (divLoop (-7 * k) (-3) []))
+  , "Int loop negate: " ++ show (reverse (negLoop (-9223372036854775807 * k - 1) 3 []))
   , "Int loop arith: " ++ show (reverse (arithLoop (k * 123456789) (k * 987654321) 40 []))
   ]
 
@@ -843,6 +858,18 @@ folded =
   , show (prim__shl_Int8 1 (-1), prim__shl_Int (-8) (-2), prim__shr_Int8 3 (-2))
   , show (prim__shl_Integer 1024 (-3), prim__shr_Integer 1024 (-3))
   , show (cast {to = Int8} (the Bits8 200), cast {to = Bits8} (the Int8 (-1)))
+  , show (prim__negate_Int8 (-128), prim__negate_Int16 (-32768), prim__negate_Int32 (-2147483648))
+  , show (prim__negate_Int64 (-9223372036854775808), prim__negate_Int (-9223372036854775808), prim__negate_Int8 5)
+  , show (prim__negate_Bits8 200, prim__negate_Bits16 1, prim__negate_Bits32 1)
+  , show (prim__negate_Bits64 1, prim__negate_Bits8 0)
+  , show (prim__shr_Int8 100 (-1), prim__shr_Int16 (-3) (-15), prim__shr_Int32 3 (-31))
+  , show (prim__shr_Int64 3 (-63), prim__shr_Int8 1 (-8), prim__shr_Int8 1 (-128))
+  , show (prim__shl_Int8 100 (-2), prim__shl_Int8 (-100) (-127), prim__shl_Int64 1 9223372036854775807)
+  , show (prim__shr_Int64 (-1) 9223372036854775807, prim__shl_Bits64 1 18446744073709551615, prim__shr_Bits8 255 255)
+  , show (div (the Int8 (-128)) (-1), mod (the Int8 (-128)) (-1), div (the Int (-9223372036854775808)) (-1))
+  , show (div (the Int64 (-9223372036854775808)) (-1), mod (the Int64 (-9223372036854775808)) (-1))
+  , show (div (the Int8 (-7)) 2, mod (the Int8 (-7)) 2, div (the Int8 (-7)) (-2))
+  , show (mod (the Int8 (-7)) (-2), div (the Bits8 255) 7, mod (the Bits8 255) 7)
   ]
 
 -- Shifts of Integers by negative counts go the other way
@@ -880,6 +907,7 @@ main = do
   traverse_ putStrLn (integerShifts k)
   traverse_ putStrLn (doubles k)
   traverse_ putStrLn (chars k)
+  traverse_ putStrLn (negates k)
 
   traverse_ putStrLn (opsB8 k)
   traverse_ putStrLn (shiftsB8 k)
