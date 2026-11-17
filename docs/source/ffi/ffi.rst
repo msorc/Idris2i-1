@@ -25,8 +25,9 @@ example, in C:
     puts : String -> PrimIO Int
 
 It is up to specific code generators to decide how to locate the function and
-the library. In this document, we will assume the default Chez Scheme code
-generator (the examples also work with the Racket or Gambit code generator) and
+the library. In this document, we will assume the Chez Scheme code
+generator, selected with ``--cg chez`` (the examples also work with the default
+RefC code generator, and with the Racket or Gambit ones) and
 that the foreign language is C.
 
 FFI declarations for C functions can also, optionally, take a C header file to

@@ -2,14 +2,15 @@
 Chez Scheme Code Generator
 **************************
 
-The Chez Scheme code generator is the default, or it can be accessed via a REPL
-command:
+The Chez Scheme code generator is not the default one (that is
+:doc:`RefC <refc>`): select it with ``--cg chez`` on the command line,
+with ``IDRIS2_CG=chez`` in the environment, or via a REPL command:
 
 ::
 
     Main> :set cg chez
 
-By default, therefore, to run Idris programs you will need to install
+To run the programs that it generates you will need to install
 `Chez Scheme <https://www.scheme.com/>`_. Chez Scheme is open source, and
 available via most OS package managers.
 
@@ -42,8 +43,7 @@ Again, ``expr`` must have type ``IO ()``. This will generate a temporary
 executable script ``_tmpchez`` in the ``build/exec`` directory, and execute
 that.
 
-Chez Scheme is not the default code generator: select it with ``--cg chez`` or
-``IDRIS2_CG=chez``. Then, if you invoke ``idris2`` with the ``-o execname`` flag, it will generate an executable script
+If you invoke ``idris2 --cg chez`` with the ``-o execname`` flag, it will generate an executable script
 ``build/exec/execname``, again with support files in ``build/exec/execname_app``.
 
 

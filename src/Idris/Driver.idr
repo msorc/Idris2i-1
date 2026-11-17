@@ -152,8 +152,8 @@ stMain cgs opts
          c <- newRef Ctxt ({ options := updated } defs)
          s <- newRef Syn initSyntax
          -- If we give a custom codegen, set that as the default,
-         -- otherwise, use Chez
-         setCG {c} $ maybe Chez (Other . fst) (head' cgs)
+         -- otherwise, keep the default one (RefC, see defaultSession)
+         whenJust (head' cgs) $ \ cg => setCG {c} (Other (fst cg))
          addPrimitives
 
          setWorkingDir "."

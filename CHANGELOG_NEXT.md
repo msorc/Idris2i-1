@@ -40,6 +40,9 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Compiler changes
 
+* RefC is the default code generator of `idris2` itself, not only of the
+  build: `-o`, `:c` and `:exec` compile via C unless another one is chosen
+  with `--cg`, `IDRIS2_CG` or `:set cg` (for instance `--cg chez`).
 * The inlining heuristic also inlines small public definitions that are not
   just a call (up to 12 nodes: nested primitive operations, calls and cases),
   such as `==`, `div` and `mod` on `Int`, and constant folding folds `Int`
@@ -241,6 +244,16 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* `System.Info.os` gives the names of the Scheme backends: `"unix"` (Linux
+  and the BSDs), `"darwin"`, `"windows"` or `"unknown"`, instead of `"Linux"`,
+  `"macOS"`, `"FreeBSD"` and so on.
+* A program with a name that cannot be compiled (a hole, for instance) is
+  compiled, like with the Scheme backends: it stops with the message when it
+  gets to that name.  It used to be an internal error of the compiler.
+* A crash of the compiled code itself (a case without a clause for the
+  value, like `void` applied to a value) prints its message and stops with
+  exit code 1, like with the Scheme backends.  It used to go on silently
+  with a null value.
 * Fixed an issue to do with `alligned_alloc` not existing on older MacOS
   versions, causing builds targeting PowerPC to fail (#3662).  For these
   systems, the compiler will now use `posix_memalign`.

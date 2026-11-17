@@ -16,7 +16,7 @@ Compiling to Executables
 Idris 2 (the language) is designed to be independent of any specific code
 generator. Still, since the point of writing a program is to be able to run it,
 it's important to know how to do so! By default, Idris compiles to executables
-via `Chez Scheme <https://www.scheme.com/>`_.
+via C, with the :doc:`RefC code generator <refc>`.
 
 You can compile to an executable as follows, at the REPL:
 

@@ -47,7 +47,8 @@ compilation if any are missing, and you will see a warning.)
 Therefore, all packages used by the executable must also have been built
 incrementally for the current back end. The ``prelude``, ``base``,
 ``contrib``, ``network`` and ``test`` packages are all built with
-incremental compilation support for Chez by default.
+incremental compilation support for Chez when Idris itself is built with
+``IDRIS2_CG=chez``.
 
 When switching between incremental and whole program compilation, it is
 recommended that you remove the ``build`` directory first. This is
