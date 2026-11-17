@@ -62,12 +62,14 @@ cleandep: clean
 # with
 #   IDRIS2_PREFIX=<prefix> IDRIS2_CPPFLAGS=-DIDRIS2_REFC_NO_POOLS \
 #   IDRIS2_CFLAGS="$(ASAN_FLAGS)" IDRIS2_LDFLAGS="$(ASAN_FLAGS)"
+# The objects are compiled with the usual CFLAGS (-fPIC, the warnings) and
+# then ASAN_FLAGS, whose -O1 wins over the -O2 of CFLAGS.
 ASAN_FLAGS = -g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined
 ASAN_OBJS = $(addprefix asan/,$(OBJS))
 
 asan/%.o: %.c $(wildcard *.h)
 	@mkdir -p asan
-	$(CC) $(CPPFLAGS) -DIDRIS2_REFC_NO_POOLS $(ASAN_FLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DIDRIS2_REFC_NO_POOLS $(CFLAGS) $(ASAN_FLAGS) -c $< -o $@
 
 asan/$(LIBTARGET): $(ASAN_OBJS)
 	$(AR) rc $@ $^

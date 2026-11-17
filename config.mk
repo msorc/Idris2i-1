@@ -52,7 +52,7 @@ ifneq (,$(wildcard ${HOMEBREW_PREFIX}/include/gmp.h))
 endif
 
 ifneq (, $(findstring freebsd, $(MACHINE)))
-	CFLAGS += -I$(shell /sbin/sysctl -n user.localbase)/include
+	CPPFLAGS += -I$(shell /sbin/sysctl -n user.localbase)/include
 	LDFLAGS += -L$(shell /sbin/sysctl -n user.localbase)/lib
 endif
 

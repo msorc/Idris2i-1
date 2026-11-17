@@ -288,6 +288,11 @@ should target this file (`CHANGELOG_NEXT`).
 * The dependency files of the support libraries have a rule for each header
   (`-MP`), so that removing or renaming a header no longer breaks the build of
   `support/` until `make cleandep`.
+* On FreeBSD, the include directory of the packages (for GMP) is in
+  `CPPFLAGS` instead of `CFLAGS`, so that the dependency files of the support
+  libraries and `make bootstrap-c` see it.  The RefC library built for
+  AddressSanitizer (`make install-support-refc-asan`) is compiled with the
+  usual `CFLAGS` too (`-fPIC`, the warnings).
 
 ### Backend changes
 
