@@ -16,9 +16,11 @@ import Data.List1
 import Data.String
 
 import Libraries.Data.List.Extra
-import Libraries.System.Directory.Tree
+import Libraries.Data.StringMap
 import Libraries.Text.PrettyPrint.Prettyprinter.Util
 
+import System.Clock
+import System.Directory
 import System.File
 import Libraries.Utils.Path
 
@@ -328,6 +330,78 @@ pwarning : {auto c : Ref Ctxt Defs} ->
            Warning -> Core (Doc IdrisAnn)
 pwarning wrn = pwarningRaw !(toFullNames wrn)
 
+||| The modules of the TTC files under the build or package directory `dir`,
+||| with the paths of the files. The hint at an import looks at them for each
+||| undefined name, so they are kept in `ttcDirs` while no directory under
+||| `dir` changes (a file appearing in a directory or disappearing from it
+||| changes the directory). The modification time of a directory changes at
+||| the ticks of the clock of the file system, so a listing is kept only if
+||| the directories had not changed for a few seconds when it was made.
+||| The paths are made by appending the names of the entries, as parsing them
+||| as paths took more time than the rest of the listing.
+ttcModules : {auto c : Ref Ctxt Defs} ->
+             String -> Core (List (String, String))
+ttcModules dir
+    = do defs <- get Ctxt
+         let Just known = lookup dir (ttcDirs defs)
+             | Nothing => list
+         if !(allM unchanged (dirs known))
+            then pure (modules known)
+            else list
+  where
+    unchanged : (String, Timestamp) -> Core Bool
+    unchanged (d, time) = pure (!(modTime d) == time)
+
+    sep : String
+    sep = singleton dirSeparator
+
+    moduleName : String -> List String -> String
+    moduleName file ns = joinBy "." (reverse (fst (splitExtensions file) :: ns))
+
+    -- the files and the subdirectories in a directory, each in the reverse
+    -- of the order in which they are read
+    entries : String -> Directory -> List String -> List String ->
+              IO (List String, List String)
+    entries path d files subs
+        = case !(nextDirEntry d) of
+               Right (Just e) =>
+                 if e == "." || e == ".."
+                    then entries path d files subs
+                    else do Right sub <- openDir (path ++ sep ++ e)
+                              | Left _ => entries path d (e :: files) subs
+                            closeDir sub
+                            entries path d files (e :: subs)
+               _ => pure (files, subs)
+
+    -- the directory `path` and the directories under it, each with its
+    -- modification time from before it was read, and the TTC files in them
+    -- with the names of their modules (`ns` is the namespace of `path`,
+    -- reversed)
+    walk : String -> List String ->
+           Core (List (String, Timestamp), List (String, String))
+    walk path ns
+        = do time <- modTime path
+             Right d <- coreLift $ openDir path
+               | Left _ => pure ([(path, time)], [])
+             (files, subs) <- coreLift $ entries path d [] []
+             coreLift $ closeDir d
+             let here = map (\ f => (moduleName f ns, path ++ sep ++ f))
+                            (filter (isSuffixOf ".ttc") files)
+             below <- traverse (\ s => walk (path ++ sep ++ s) (s :: ns)) subs
+             pure ((path, time) :: concatMap fst below,
+                   here ++ concatMap snd below)
+
+    settled : Clock UTC -> (String, Timestamp) -> Bool
+    settled now (_, time) = time.sec > 0 && cast time.sec + 2 < seconds now
+
+    list : Core (List (String, String))
+    list = do (ds, mods) <- walk dir []
+              now <- coreLift $ clockTime UTC
+              update Ctxt { ttcDirs $= if all (settled now) ds
+                                          then insert dir (MkTTCDir ds mods)
+                                          else delete dir }
+              pure mods
+
 ||| The modules in the build directory and in the packages in use that export
 ||| a definition called like the undefined name `n`, with the full names.
 ||| These modules are not loaded (or the name would not be undefined), so this
@@ -356,25 +430,11 @@ importCandidates n
     qualifiedLike (NS q _) _ = False
     qualifiedLike _ _ = True
 
-    ttcFiles : {root : _} -> Tree root -> IO (List String)
-    ttcFiles tree
-        = depthFirst (\f, rest => if isSuffixOf ".ttc" (fileName f)
-                                     then map (toFilePath f ::) (force rest)
-                                     else force rest)
-                     tree (pure [])
-
-    moduleName : String -> String
-    moduleName rel
-        = joinBy "." (forget $ split (== dirSeparator) (dropExtensions rel))
-
     inDir : String -> String -> Core (List (String, List Name))
     inDir root dir
-        = do tree <- coreLift $ explore (parse dir)
-             files <- coreLift $ ttcFiles (toRelative tree)
-             res <- for files $ \rel =>
-                      do ns <- exportedDefsNamed {extra = SyntaxInfo}
-                                                 (dir </> rel) root
-                         pure (moduleName rel, ns)
+        = do res <- for !(ttcModules dir) $ \ (m, file) =>
+                      do ns <- exportedDefsNamed {extra = SyntaxInfo} file root
+                         pure (m, ns)
              pure (filter (not . null . snd) res)
 
 ||| A hint to import a module, for an undefined name that another module

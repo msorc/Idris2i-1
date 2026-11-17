@@ -153,7 +153,13 @@ should target this file (`CHANGELOG_NEXT`).
   only the modules with a matching namespace are.  What these suggestions read
   of the TTC files is kept for the session (also across reloads in the REPL
   and IDE mode) while the files do not change, instead of reading and decoding
-  every TTC file of the packages in use for each undefined name.
+  every TTC file of the packages in use for each undefined name.  The list of
+  the TTC files of each directory is kept too, while none of its directories
+  changes (so a module built later in the session is found), instead of
+  walking the directories and parsing the path of every file for each
+  undefined name.  Checking a file importing modules of `base` and `contrib`
+  takes 1.8 G instructions instead of 3.5 G with five undefined names, and
+  2.7 G instead of 12.6 G with thirty.
 * The "Did you mean" suggestions for an undefined name are much cheaper to
   find, with the same suggestions in the same order: the name was compared to
   every name in the context with a full edit distance (allocating a matrix for

@@ -300,7 +300,8 @@ resetContext : {auto c : Ref Ctxt Defs} ->
 resetContext origin
     = do defs <- get Ctxt
          put Ctxt ({ options := clearNames (options defs),
-                     ttcExports := ttcExports defs } !initDefs)
+                     ttcExports := ttcExports defs,
+                     ttcDirs := ttcDirs defs } !initDefs)
          addPrimitives
          put UST initUState
          put Syn initSyntax

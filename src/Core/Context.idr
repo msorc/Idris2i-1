@@ -1004,6 +1004,17 @@ record TTCExports where
   ||| The exported definitions, for the roots looked up so far
   exported : StringMap (List Name)
 
+||| What the hints at an import for undefined names know of the TTC files
+||| under a build or package directory: the module names and paths of the
+||| files, found when each directory in it had the modification time given
+||| with it. A file appearing in or disappearing from a directory changes the
+||| modification time of the directory.
+public export
+record TTCDir where
+  constructor MkTTCDir
+  dirs : List (String, Timestamp)
+  modules : List (String, String)
+
 public export
 record Defs where
   constructor MkDefs
@@ -1093,6 +1104,11 @@ record Defs where
      -- ^ For the import hints of undefined names, by TTC file. This is kept
      -- when the context is cleared: an entry is used only while its file
      -- has the same modification time.
+  ttcDirs : StringMap TTCDir
+     -- ^ For the import hints of undefined names, the TTC files by build or
+     -- package directory. This is kept when the context is cleared, like
+     -- `ttcExports`: an entry is used only while none of its directories
+     -- changed.
 
 -- Label for context references
 export
@@ -1146,6 +1162,7 @@ initDefs
            , foreignExports = empty
            , defsStack = [<]
            , ttcExports = empty
+           , ttcDirs = empty
            }
 
 -- Reset the context, except for the options
@@ -1156,7 +1173,8 @@ clearCtxt
     = do defs <- get Ctxt
          put Ctxt ({ options := resetElab (options defs),
                      timings := timings defs,
-                     ttcExports := ttcExports defs } !initDefs)
+                     ttcExports := ttcExports defs,
+                     ttcDirs := ttcDirs defs } !initDefs)
   where
     resetElab : Options -> Options
     resetElab opts =
