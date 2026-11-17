@@ -305,6 +305,16 @@ should target this file (`CHANGELOG_NEXT`).
   (`install -p`).  `make test` reinstalls them in `build/env` every time,
   which made the test runner look out of date to the executable stamp and be
   compiled again (about 10 s) on every run.
+* `make bootstrap-c` compiles the C of its first compiler in 16 parts (or
+  `BOOT_PARTS`), `BOOT_JOBS` at a time: the number of processors up to 16,
+  and on Linux no more than one per 1.5 GB of available memory.  It used to
+  make one part per processor, all at once, and the memory that the C
+  compilers need together hardly depends on the number of parts (about 13 GB
+  with GCC at `-O1`): on a machine with few processors and little memory,
+  they could need more than it has.  `IDRIS2_CC_JOBS` of RefC defaults to the number of processors up to
+  16, like `IDRIS2_JOBS`.  A library that `make` builds on its own (as in `make
+  linear`, or the bootstrap libraries) uses all of `IDRIS2_JOBS` instead of
+  half of them.
 
 ### Backend changes
 

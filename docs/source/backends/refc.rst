@@ -81,10 +81,11 @@ Big programs
 
 A program of more than 4MB of C (the Idris 2 compiler itself is 140MB) is
 compiled in units, by C compilers running in parallel: ``IDRIS2_CC_JOBS`` of
-them at once (the number of processors by default).  Besides ``<name>.c``,
-which has the whole program, the compiler writes ``<name>.u<k>.c``, one file
-per unit with the definitions of the unit and only the prototypes and
-constants that they use, and compiles those to ``<name>.u<k>.o``.
+them at once (the number of processors, up to 16, by default).  Besides
+``<name>.c``, which has the whole program, the compiler writes
+``<name>.u<k>.c``, one file per unit with the definitions of the unit and
+only the prototypes and constants that they use, and compiles those to
+``<name>.u<k>.o``.
 
 When the program is compiled again, the object file of a unit is reused if
 nothing that decides it has changed: the text of the unit (it is compared with

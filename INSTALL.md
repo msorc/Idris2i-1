@@ -155,11 +155,13 @@ its own (see `IDRIS2_MAIN_STACK_SIZE` in the RefC documentation), so the
 stack limit of the shell (`ulimit -s`) does not limit it; the launcher script
 `idris2` that runs it raises that limit anyway, as a fallback for when that
 stack cannot be allocated and the program runs on the stack of the process.
-The generated C is compiled in parts by C compilers running in parallel, one per processor;
-set `BOOT_JOBS` to run fewer of them (each needs a few hundred MB of memory),
-and `BOOT_CFLAGS` to change the flags of this first compiler (`-O1`, without
-link time optimisation: it is quick to build, and it only builds the
-libraries and the compiler that is installed). That compiler is built with
+The generated C is compiled in 16 parts (`BOOT_PARTS`) by C compilers
+running in parallel, one per processor up to 16, and on Linux no more than
+one per 1.5 GB of available memory (each needs about 0.9 GB); set `BOOT_JOBS`
+to run fewer of them, and `BOOT_CFLAGS` to change the flags of this first
+compiler (`-O1`, without link time optimisation: it is quick to build, and it
+only builds the libraries and the compiler that is installed). That compiler
+is built with
 `-O2` and link time optimisation (`-flto=auto`, when the C compiler supports
 it), which makes it about 4% faster but takes about twice as long to build:
 `make bootstrap-c LTO=0` builds it with `-O1` and without link time

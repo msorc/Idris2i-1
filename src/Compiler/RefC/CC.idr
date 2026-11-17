@@ -116,11 +116,13 @@ compileCObjectFile {asLibrary} sourceFile objectFile =
      pure (Just objectFile)
 
 -- How many C compilers to run at once: IDRIS2_CC_JOBS, or the number of
--- processors.
+-- processors up to 16 (the limit of the Makefile for IDRIS2_JOBS too): each
+-- C compiler of a unit of the compiler itself needs a few hundred MB, and
+-- more of them gain little.
 findCCJobs : IO Nat
 findCCJobs
   = do Just jobs <- idrisGetEnv "IDRIS2_CC_JOBS"
-         | Nothing => map (fromMaybe 1) getNProcessors
+         | Nothing => map (min 16 . fromMaybe 1) getNProcessors
        pure $ fromMaybe 1 $ parsePositive {a = Nat} jobs
 
 ------------------------------------------------------------------------
@@ -391,7 +393,7 @@ updateUnit u k text =
 
 ||| Compile the units that `updateUnit` says need it (`todo`, with their
 ||| sizes), the biggest first, with at most IDRIS2_CC_JOBS (the number of
-||| processors) C compilers running at once.  `present` are the units of the
+||| processors, up to 16) C compilers running at once.  `present` are the units of the
 ||| program, whose object files are returned: the files of other units, of
 ||| earlier builds, are removed.
 export

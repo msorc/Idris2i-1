@@ -37,7 +37,7 @@ envs = [
     MkEnvDesc "GAMBIT_GSC_BACKEND"   "Gambit backend: arguments passed to gsc.",
     MkEnvDesc "IDRIS2_CC"            "RefC backend: C compiler executable.",
     MkEnvDesc "IDRIS2_CFLAGS"        "RefC backend: C compiler flags.",
-    MkEnvDesc "IDRIS2_CC_JOBS"       "RefC backend: how many C compilers compile a big program in parallel (default: the number of processors).",
+    MkEnvDesc "IDRIS2_CC_JOBS"       "RefC backend: how many C compilers compile a big program in parallel (default: the number of processors, up to 16).",
     MkEnvDesc "IDRIS2_REFC_SPLIT_SIZE" "RefC backend: the size in bytes of C from which a program is compiled in units (default: 4000000).",
     MkEnvDesc "IDRIS2_CPPFLAGS"      "RefC backend: C preprocessor flags.",
     MkEnvDesc "IDRIS2_LDFLAGS"       "RefC backend: C linker flags.",

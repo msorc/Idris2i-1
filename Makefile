@@ -155,15 +155,16 @@ FORCE:
 # only done with the RefC backend: the incremental builds of the Scheme
 # backends write shared files, and fail when run in parallel.  Each of the
 # libraries that run together checks its modules with half of IDRIS2_JOBS
-# processes, so that the machine is not oversubscribed, and make keeps the
-# output of a library together when it can (GNU make 4 and later).  When make
-# runs in parallel already (make -jN), that is left to it.
+# processes, so that the machine is not oversubscribed (when make runs one
+# thing at a time, as in `make linear`, a library has all of them), and make
+# keeps the output of a library together when it can (GNU make 4 and later).
+# When make runs in parallel already (make -jN), that is left to it.
 LIBS_PARALLEL ?= $(if $(filter refc,${IDRIS2_CG}),3,1)
 ifeq (${LIBS_PARALLEL},1)
 LIBS_JOBS_ENV = ${JOBS_ENV}
 LIBS_MAKEFLAGS =
 else
-LIBS_JOBS_ENV = IDRIS2_BUILD_JOBS=$(shell echo $$(( (${IDRIS2_JOBS} + 1) / 2 )))
+LIBS_JOBS_ENV = $(if $(filter-out -j1,$(filter -j%,${MAKEFLAGS})),IDRIS2_BUILD_JOBS=$(shell echo $$(( (${IDRIS2_JOBS} + 1) / 2 ))),${JOBS_ENV})
 LIBS_MAKEFLAGS = $(if $(filter -j%,${MAKEFLAGS}),,-j${LIBS_PARALLEL} $(if $(filter output-sync,${.FEATURES}),--output-sync=target))
 endif
 
@@ -478,6 +479,8 @@ Variables (current value)
                          The code generator the compiler is built with (refc, chez, racket)
   IDRIS2_JOBS=${IDRIS2_JOBS}
                          Modules to build in parallel, 1 for one after the other
+  IDRIS2_CC_JOBS         RefC: C compilers that compile the compiler's C in parallel
+                         (environment, default: the number of processors, up to 16)
   LIBS_PARALLEL=${LIBS_PARALLEL}
                          Libraries to build in parallel, 1 for one after the other
   LIBS_INC_CGS=${LIBS_INC_CGS}
@@ -488,6 +491,9 @@ Variables (current value)
                          slower to build, faster to run (bootstrap-c defaults to 1)
   CFLAGS, IDRIS2_CFLAGS  C flags for the compiler's own C code, in place of the default
   BOOT_CFLAGS            C flags for the first stage of bootstrap-c (environment, default -O1)
+  BOOT_JOBS              C compilers for the first stage of bootstrap-c (environment, default:
+                         the number of processors, up to 16 and 1 per 1.5 GB of available memory)
+  BOOT_PARTS             Parts that BOOT_JOBS compile (environment, default 16 or BOOT_JOBS)
   only=, except=         Limit the tests, e.g. make test only=refc except=refc/doubles
 endef
 

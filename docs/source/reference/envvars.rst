@@ -39,7 +39,10 @@ with their current values):
   bootstrap-c`` leaves for installing.
 * ``BOOT_JOBS`` - ``make bootstrap-c``: how many C compilers compile the
   first compiler of the bootstrap in parallel (default: the number of
-  processors).
+  processors, up to 16, and on Linux up to one per 1.5 GB of available
+  memory).
+* ``BOOT_PARTS`` - ``make bootstrap-c``: how many parts the C of that first
+  compiler is compiled in (default: 16, or ``BOOT_JOBS`` when it is more).
 * ``BOOT_CFLAGS`` - ``make bootstrap-c``: the C flags of that first compiler
   (default: ``-O1``).
 * ``SCHEME`` - ``make bootstrap``: the Chez Scheme executable.
@@ -73,7 +76,7 @@ Both
   parallel (see ``--jobs``).
 * ``IDRIS2_CC`` - RefC backend: location of the C compiler executable.
 * ``IDRIS2_CFLAGS`` - RefC backend: C compiler flags.
-* ``IDRIS2_CC_JOBS`` - RefC backend: how many C compilers compile a big program in parallel (default: the number of processors).
+* ``IDRIS2_CC_JOBS`` - RefC backend: how many C compilers compile a big program in parallel (default: the number of processors, up to 16).
 * ``IDRIS2_REFC_SPLIT_SIZE`` - RefC backend: the size in bytes of C from which a program is compiled in units (default: 4000000); to try the units on small programs. ``--directive refc-split-size=N`` takes precedence.
 * ``IDRIS2_CPPFLAGS`` - RefC backend: C preprocessor flags.
 * ``IDRIS2_LDFLAGS`` - RefC backend: C linker flags.
