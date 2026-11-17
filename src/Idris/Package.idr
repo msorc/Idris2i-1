@@ -704,7 +704,7 @@ installSrcFrom wdir destdir (ns, srcRelPath)
 
 absoluteInstallDir : (relativeInstallDir : String) -> Core String
 absoluteInstallDir relativeInstallDir = do
-  mdestdir <- coreLift $ getEnv "DESTDIR"
+  mdestdir <- coreLift $ idrisGetEnv "DESTDIR"
   let destdir = fromMaybe "" mdestdir
   pure $ destdir ++ relativeInstallDir
 

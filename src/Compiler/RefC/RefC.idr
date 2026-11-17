@@ -12,6 +12,7 @@ import Compiler.Generated
 
 import Core.Directory
 
+import Idris.Env
 import Idris.Syntax
 
 import Libraries.Data.DList
@@ -2640,7 +2641,7 @@ refcDirectResults = pure $ not ("refc-no-direct-results" `elem` !(getDirectives 
 refcSplitSize : {auto c : Ref Ctxt Defs} -> Core (Maybe Nat)
 refcSplitSize
     = do ds <- getDirectives RefC
-         env <- coreLift $ getEnv "IDRIS2_REFC_SPLIT_SIZE"
+         env <- coreLift $ idrisGetEnv "IDRIS2_REFC_SPLIT_SIZE"
          pure $ case mapMaybe (\d => if Data.String.isPrefixOf "refc-split-size=" d
                                         then parsePositive {a = Nat} (substr 16 (length d) d)
                                         else Nothing) ds of

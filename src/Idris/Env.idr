@@ -38,6 +38,7 @@ envs = [
     MkEnvDesc "IDRIS2_CC"            "RefC backend: C compiler executable.",
     MkEnvDesc "IDRIS2_CFLAGS"        "RefC backend: C compiler flags.",
     MkEnvDesc "IDRIS2_CC_JOBS"       "RefC backend: how many C compilers compile a big program in parallel (default: the number of processors).",
+    MkEnvDesc "IDRIS2_REFC_SPLIT_SIZE" "RefC backend: the size in bytes of C from which a program is compiled in units (default: 4000000).",
     MkEnvDesc "IDRIS2_CPPFLAGS"      "RefC backend: C preprocessor flags.",
     MkEnvDesc "IDRIS2_LDFLAGS"       "RefC backend: C linker flags.",
     MkEnvDesc "IDRIS2_LDLIBS"        "RefC backend: C linker library names or flags.",
@@ -48,6 +49,7 @@ envs = [
     MkEnvDesc "LDLIBS"               "RefC backend: C linker library names or flags (IDRIS2_LDLIBS takes precedence).",
     MkEnvDesc "NODE"                 "NodeJS backend: NodeJS executable.",
     MkEnvDesc "PATH"                 "PATH variable is used to search for executables in certain codegens.",
+    MkEnvDesc "DESTDIR"              "Directory prepended to the installation directory by --install (for staged installs).",
     MkEnvDesc "IDRIS2_LINE_EDITING"  "Set to 0 to turn off line editing (history, key bindings and highlighting) in the REPL.",
     MkEnvDesc "IDRIS2_HISTORY_FILE"  "File where the REPL keeps its history (default: ~/.idris2_history). If empty, the history is not saved.",
     MkEnvDesc "NO_COLOR"             "Instruct Idris not to print color to stdout. Passing the --color/--colour option will supersede this env var."]
