@@ -11,8 +11,6 @@ import Parser.Unlit
 import Libraries.Data.Version
 import Libraries.Utils.Path
 
-import Data.SnocList
-
 import System.Directory
 
 %default total
@@ -100,23 +98,6 @@ public export
 listOfExtensionsStr : List String
 listOfExtensionsStr = listOfExtensionsLiterate ++ [".yaff", ".idr"]
 
-||| Applies the following properties of relative directory construction:
-||| X / .  = X
-||| X / .. = .    where X =/= ..
-collapseSpecialDirs : SnocList Body -> SnocList Body
-collapseSpecialDirs path@(xs :< ParentDir) =
-  case collapseSpecialDirs xs of
-    xs :< CurDir   => xs
-    xs :< Normal _ => xs
-    _ => path
-collapseSpecialDirs (xs :< CurDir) = collapseSpecialDirs xs
-collapseSpecialDirs (xs :< Normal n) = collapseSpecialDirs xs :< Normal n
-collapseSpecialDirs [<] = [<]
-
-||| Given a path, removes trailing separators and current directory identifiers, '.'.
-cleanPath : String -> String
-cleanPath = show . the (Path -> Path) { hasTrailSep := False, body $= cast . collapseSpecialDirs . cast } . parse
-
 ||| Return the basename and extension used *if* given filename is a valid idris filename.
 |||
 ||| Extensions are returned with a leading "." separator.
@@ -203,16 +184,16 @@ nsToPath loc ns
          let ttcs = the (List (Lazy String)) $
                       Delay bdir :: map (\p => Delay (p </> show ttcVersion))
                                         (extra_dirs d ++ package_dirs d)
-         Just f <- firstIn (ModuleIdent.toPath ns) ttcs
+         Just f <- firstIn (ModuleIdent.toPath ns <.> "ttc") ttcs
             | Nothing => pure (Left (ModuleNotFound loc ns))
          pure (Right f)
   where
     firstIn : String -> List (Lazy String) -> Core (Maybe String)
-    firstIn fnameBase [] = pure Nothing
-    firstIn fnameBase (p :: ps)
-        = do Nothing <- firstAvailable [cleanPath $ p </> fnameBase <.> "ttc"]
+    firstIn fname [] = pure Nothing
+    firstIn fname (p :: ps)
+        = do Nothing <- firstAvailable [cleanPath $ p </> fname]
                | found => pure found
-             firstIn fnameBase ps
+             firstIn fname ps
 
 -- Given a namespace, return the path to the source module relative
 -- to the working directory, if the module exists.

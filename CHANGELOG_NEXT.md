@@ -277,6 +277,16 @@ should target this file (`CHANGELOG_NEXT`).
   again in every round of transformations: the copy of `nextDirEntry` in the
   compiler (System.Directory, `%spec hio`) had it unrolled 133 times, 15,000
   lines of C nested 266 levels deep, now 530 lines.
+* Reading and putting together paths (`parse`, `</>`, `<.>`, `<..>`,
+  `joinPath` and cleaning a path, in `Libraries.Utils.Path`) no longer runs
+  the lexer and parser of paths on plain POSIX paths (names separated by
+  single `/`, after an optional root or `./`, with no `.` or `..` and no `\`,
+  `:` or `?`): they are read or put together as strings, which gives the
+  same result.  Looking for the TTC file of an import in each search
+  directory parsed several long paths, which was a third of the work of
+  checking a small file importing three modules of `contrib`, and more of a
+  no-op `--build`.  Other paths, and all paths on Windows, still go through
+  the parser.
 
 ### Building/Packaging changes
 

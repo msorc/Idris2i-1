@@ -6,6 +6,7 @@ import Data.List
 import Data.List1
 import Data.Maybe
 import Data.Nat
+import Data.SnocList
 import Data.String
 
 import Libraries.Data.String.Extra
@@ -250,6 +251,99 @@ parsePath =
                 (x::xs) => x :: delete CurDir xs
     pure $ MkPath vol (isJust root) body (isJust trailSep)
 
+--------------------------------------------------------------------------------
+-- Plain paths
+--------------------------------------------------------------------------------
+
+-- Most paths the compiler makes, such as the TTC file of an import in a
+-- search directory, are plain: names separated by single '/'. Parsing them
+-- and showing them again gives them back unchanged on POSIX, so `parse` reads
+-- them without the lexer and the parser, and `</>`, `<.>`, `cleanPath`, ...
+-- put them together as strings, without parsing them at all. Parsing paths
+-- was a large part of the work of loading the imports of a module.
+
+-- How a plain path starts: with the root, with "./" (which `parse` keeps
+-- there, as `CurDir`), or with a name.
+data PlainStart = Root | Here | Relative
+
+-- The shape of a plain path.
+data Plain : Type where
+  MkPlain : (start : PlainStart) -> (trailSep : Bool) -> Plain
+
+-- Whether a name of `n` characters, which are all '.' if `dots` and all
+-- white space if `spaces`, is a plain body: not empty, not only white space
+-- (which `parse` drops), and not "." or "..".
+plainName : (n : Int) -> (dots : Bool) -> (spaces : Bool) -> Bool
+plainName n dots spaces = n > 0 && not spaces && not (dots && n <= 2)
+
+-- Whether a name is a plain body with no character that the lexer of paths
+-- treats specially.
+plainNameChars : List Char -> Bool
+plainNameChars cs = go cs 0 True True
+  where
+    go : List Char -> Int -> (dots : Bool) -> (spaces : Bool) -> Bool
+    go [] n dots spaces = plainName n dots spaces
+    go (c :: cs) n dots spaces
+        = not (c == '/' || c == '\\' || c == ':' || c == '?')
+          && go cs (n + 1) (dots && c == '.') (spaces && isSpace c)
+
+-- `Just` the shape of a path if, on POSIX, it is an optional root or "./",
+-- then one or more plain names separated by single '/', then an optional
+-- '/'. `parse` reads such a path as its names (after `CurDir` for "./"), and
+-- `show` writes it back unchanged. `Nothing` on Windows, where `show` writes
+-- '\\'.
+plainPath : String -> Maybe Plain
+plainPath str
+    = if isWindows then Nothing else
+        case unpack str of
+          ('/' :: cs) => MkPlain Root <$> names cs
+          ('.' :: '/' :: cs) => MkPlain Here <$> names cs
+          cs => MkPlain Relative <$> names cs
+  where
+    -- `Just` whether the names end with a '/'
+    names : List Char -> Maybe Bool
+    names cs = go cs 0 True True
+      where
+        go : List Char -> Int -> (dots : Bool) -> (spaces : Bool) -> Maybe Bool
+        go [] n dots spaces = if plainName n dots spaces then Just False else Nothing
+        go ['/'] n dots spaces = if plainName n dots spaces then Just True else Nothing
+        go ('/' :: cs) n dots spaces
+            = if plainName n dots spaces then go cs 0 True True else Nothing
+        go (c :: cs) n dots spaces
+            = if c == '\\' || c == ':' || c == '?'
+                 then Nothing
+                 else go cs (n + 1) (dots && c == '.') (spaces && isSpace c)
+
+-- `show (parse left /> right)` when both are plain, or `left` is "" or "."
+-- and `right` is plain.
+appendPlain : (left : String) -> (right : String) -> Maybe String
+appendPlain left right
+    = case plainPath right of
+        Nothing => Nothing
+        Just (MkPlain Root _) => Just right
+        Just (MkPlain _ _) =>
+          if left == "" then Just right else
+          if left == "." then Just ("./" ++ right) else
+            case plainPath left of
+              Just (MkPlain _ True) => Just (left ++ right)
+              Just (MkPlain _ False) => Just (left ++ "/" ++ right)
+              Nothing => Nothing
+
+-- `show (setFileName' name (parse path))` when the path is plain and the new
+-- name is a plain body: the path with its last name replaced by `name`, and
+-- without a trailing separator. The function is given the last name of the
+-- path and returns the new name.
+replaceFileNamePlain : (String -> String) -> String -> Maybe String
+replaceFileNamePlain newName path
+    = do MkPlain _ trailSep <- plainPath path
+         let cs = reverse (unpack path)
+         let cs = if trailSep then drop 1 cs else cs
+         let (revName, revDir) = break (== '/') cs
+         let name = newName (pack (reverse revName))
+         if plainNameChars (unpack name)
+            then Just (pack (reverse revDir) ++ name)
+            else Nothing
+
 ||| Parses a String into Path.
 |||
 ||| The string is parsed as much as possible from left to right, and the invalid
@@ -275,9 +369,27 @@ parsePath =
 export
 parse : String -> Path
 parse str =
-  case parse parsePath (lexPath str) of
-    Right (_, path, _) => path
-    _ => emptyPath
+  case parsePlain of
+    Just path => path
+    Nothing =>
+      case parse parsePath (lexPath str) of
+        Right (_, path, _) => path
+        _ => emptyPath
+  where
+    -- what the parser makes of a plain path
+    parsePlain : Maybe Path
+    parsePlain
+        = do MkPlain start trailSep <- plainPath str
+             let cs = unpack str
+             let names = map Normal $ filter (/= "") $ map pack $ forget $
+                           List.split (== '/') $ case start of
+                                              Root => drop 1 cs
+                                              Here => drop 2 cs
+                                              Relative => cs
+             pure $ case start of
+                      Root => MkPath Nothing True names trailSep
+                      Here => MkPath Nothing False (CurDir :: names) trailSep
+                      Relative => MkPath Nothing False names trailSep
 
 --------------------------------------------------------------------------------
 -- Utils
@@ -424,7 +536,8 @@ export
 ||| ```
 export
 (</>) : (left : String) -> (right : String) -> String
-(</>) left right = show $ parse left /> right
+(</>) left right
+    = fromMaybe (show $ parse left /> right) (appendPlain left right)
 
 
 ||| Joins path components into one.
@@ -434,7 +547,12 @@ export
 ||| ```
 export
 joinPath : List String -> String
-joinPath xs = show $ foldl (/>) (parse "") xs
+joinPath xs
+    = fromMaybe (show $ foldl (/>) (parse "") xs) (joinPlain "" xs)
+  where
+    joinPlain : String -> List String -> Maybe String
+    joinPlain acc [] = Just acc
+    joinPlain acc (x :: xs) = joinPlain !(appendPlain acc x) xs
 
 ||| Splits path into components.
 |||
@@ -579,15 +697,17 @@ export
 (<.>) : String -> (extension : String) -> String
 (<.>) path ext =
   let
-    path' = parse path
     ext = pack $ dropWhile (\char => char == '.' || isSpace char) (unpack ext)
     ext = if ext == "" then "" else "." ++ ext
+    newName = \name => fst (splitFileName name) ++ ext
   in
-    case fileName' path' of
-      Just name =>
-        let (stem, _) = splitFileName name in
-          show $ setFileName' (stem ++ ext) path'
-      Nothing => path
+    case replaceFileNamePlain newName path of
+      Just p => p
+      Nothing =>
+        let path' = parse path in
+          case fileName' path' of
+            Just name => show $ setFileName' (newName name) path'
+            Nothing => path
 
 ||| Appends a extension to the path, replacing multiple extensions.
 |||
@@ -603,16 +723,50 @@ export
 (<..>) : String -> (extension : String) -> String
 (<..>) path ext =
   let
-    path' = parse path
     ext = pack $ dropWhile (\char => char == '.' || isSpace char) (unpack ext)
     ext = if ext == "" then "" else "." ++ ext
+    newName = \name => fst (splitExtensions name) ++ ext
   in
-    case fileName' path' of
-      Just name =>
-        let (stem, _) = splitExtensions name in
-          show $ setFileName' (stem ++ ext) path'
-      Nothing => path
+    case replaceFileNamePlain newName path of
+      Just p => p
+      Nothing =>
+        let path' = parse path in
+          case fileName' path' of
+            Just name => show $ setFileName' (newName name) path'
+            Nothing => path
 
+
+||| Applies the following properties of relative directory construction:
+||| X / .  = X
+||| X / .. = .    where X =/= ..
+collapseSpecialDirs : SnocList Body -> SnocList Body
+collapseSpecialDirs path@(xs :< ParentDir) =
+  case collapseSpecialDirs xs of
+    xs :< CurDir   => xs
+    xs :< Normal _ => xs
+    _ => path
+collapseSpecialDirs (xs :< CurDir) = collapseSpecialDirs xs
+collapseSpecialDirs (xs :< Normal n) = collapseSpecialDirs xs :< Normal n
+collapseSpecialDirs [<] = [<]
+
+||| Given a path, removes trailing separators and current directory
+||| identifiers, '.', and collapses "X/.." where X is not "..".
+export
+cleanPath : String -> String
+cleanPath path
+    = case plainPath path of
+        Just (MkPlain start trailSep) =>
+          -- without the "./" and the trailing separator
+          let from : Int = case start of
+                             Here => 2
+                             _ => 0
+              to = if trailSep then strLength path - 1 else strLength path
+          in if from == 0 && not trailSep
+                then path
+                else strSubstr from (to - from) path
+        Nothing => show $ the (Path -> Path)
+                     { hasTrailSep := False
+                     , body $= cast . collapseSpecialDirs . cast } (parse path)
 
 ||| Drops the extension of the path.
 export
