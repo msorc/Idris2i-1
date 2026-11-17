@@ -583,16 +583,38 @@ getIncData file b
     = do ignore $ getImportHashes file b
          fromBuf -- `incData`
 
+-- The fields at the start of a TTC file, up to the incremental data, fit in
+-- this many bytes unless the module has an unusual number of imports.
+headerPrefix : Int
+headerPrefix = 16384
+
+-- Read fields at the start of a TTC file (with one of the functions above)
+-- from its first bytes only, and from the whole file if they are not enough.
+-- The definitions that follow the fields are most of the file, and deciding
+-- whether a module is up to date reads several fields of every module.
+readTTCStart : (fileName : String) -> (Ref Bin Binary -> Core a) -> Core a
+readTTCStart fileName getFields
+    = do Right buffer <- coreLift $ readPrefixFromFile fileName headerPrefix
+            | Left err => throw (FileErr fileName err)
+         b <- newRef Bin buffer
+         catch (getFields b) $ \err =>
+           case err of
+                TTCError (EndOfBuffer _) =>
+                  if used buffer < cast headerPrefix
+                     then throw err -- that was the whole file
+                     else do Right buffer <- coreLift $ readFromFile fileName
+                                | Left err => throw (FileErr fileName err)
+                             b <- newRef Bin buffer
+                             getFields b
+                _ => throw err
+
 ||| The version of the compiler that wrote a TTC file, or Nothing if the file
 ||| cannot be read or has another TTC format.
 export
 readCompilerVersion : (fileName : String) -> Core (Maybe String)
 readCompilerVersion fileName
-    = do Right buffer <- coreLift $ readFromFile fileName
-            | Left err => pure Nothing
-         b <- newRef Bin buffer
-         catch (Just <$> getCompilerVersion fileName b)
-               (\err => pure Nothing)
+    = catch (Just <$> readTTCStart fileName (getCompilerVersion fileName))
+            (\err => pure Nothing)
 
 ||| Whether a TTC file was written by this compiler. A file that cannot be
 ||| read counts as written by another compiler.
@@ -631,40 +653,26 @@ export
 readTotalReq : (fileName : String) -> -- file containing the module
                Core (Maybe TotalReq)
 readTotalReq fileName
-    = do Right buffer <- coreLift $ readFromFile fileName
-            | Left err => pure Nothing
-         b <- newRef Bin buffer
-         catch (Just <$> getTotalReq fileName b)
-               (\err => pure Nothing)
+    = catch (Just <$> readTTCStart fileName (getTotalReq fileName))
+            (\err => pure Nothing)
 
 export
 readHashes : (fileName : String) -> -- file containing the module
                 Core (Maybe String, Int)
 readHashes fileName
-    = do Right buffer <- coreLift $ readFromFile fileName
-            | Left err => pure (Nothing, 0)
-         b <- newRef Bin buffer
-         catch (getHashes fileName b)
-               (\err => pure (Nothing, 0))
+    = catch (readTTCStart fileName (getHashes fileName))
+            (\err => pure (Nothing, 0))
 
 export
 readImportHashes : (fname : String) -> -- file containing the module
                    Core (List (Namespace, Int))
 readImportHashes fname
-    = do Right buffer <- coreLift $ readFromFile fname
-            | Left err => pure []
-         b <- newRef Bin buffer
-         catch (do res <- getImportHashes fname b
-                   pure res)
-               (\err => pure [])
+    = catch (readTTCStart fname (getImportHashes fname))
+            (\err => pure [])
 
 export
 readIncData : (fname : String) -> -- file containing the module
               Core (List (CG, String, List String))
 readIncData fname
-    = do Right buffer <- coreLift $ readFromFile fname
-            | Left err => pure []
-         b <- newRef Bin buffer
-         catch (do res <- getIncData fname b
-                   pure res)
-               (\err => pure [])
+    = catch (readTTCStart fname (getIncData fname))
+            (\err => pure [])

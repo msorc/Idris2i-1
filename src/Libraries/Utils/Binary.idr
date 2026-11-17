@@ -71,3 +71,19 @@ readFromFile fname
          bsize <- rawSize b
          let bsize = cast bsize
          pure (Right (MkBin b 0 bsize bsize))
+
+||| The first `max` bytes of a file, or all of it if it is shorter. Reading
+||| past them fails as at the end of a file.
+export
+readPrefixFromFile : (fname : String) -> (max : Int) -> IO (Either FileError Binary)
+readPrefixFromFile fname max
+    = do Right f <- openFile fname Read
+               | Left err => pure (Left err)
+         Just b <- newBuffer max
+               | Nothing => do closeFile f
+                               pure (Left FileReadError)
+         Right got <- readBufferData f b 0 max
+               | Left err => do closeFile f
+                                pure (Left err)
+         closeFile f
+         pure (Right (MkBin b 0 (cast max) (cast got)))
