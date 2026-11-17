@@ -14,7 +14,13 @@ int idris2_system(const char *command) {
 #ifdef _WIN32
   return status;
 #else
-  return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+  if (status == -1)
+    return -1; // no child process, or no status for it
+  if (WIFEXITED(status))
+    return WEXITSTATUS(status);
+  if (WIFSIGNALED(status))
+    return 128 + WTERMSIG(status);
+  return -1; // `system` waits for termination, so this is not expected
 #endif
 }
 

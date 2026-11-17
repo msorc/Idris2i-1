@@ -212,8 +212,11 @@ unsetEnv var
          supportNode "spawnSync"
 prim__system : String -> PrimIO Int
 
-||| Execute a shell command, returning its termination status or -1 if an error
-||| occurred.
+||| Execute a shell command, returning its exit status as a shell reports it:
+||| the exit code of the command when it exits (127 when the shell can't
+||| find or run it), 128 + the number of the signal when it is killed by a
+||| signal (for instance 143 for `SIGTERM`), or -1 when it could not be run at
+||| all (no process could be created for it).
 %spec hio
 export
 system : {auto hio : HasIO io} -> String -> io Int

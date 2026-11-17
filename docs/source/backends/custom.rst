@@ -51,7 +51,10 @@ Now create a file containing
 
 The function that executes an expression returns the exit code of the
 program it ran (0 when it succeeded): ``idris2 --exec`` exits with it, and
-``:exec`` at the REPL reports it when it is not 0.
+``:exec`` at the REPL reports it when it is not 0.  ``System.system`` of
+``base`` returns it in that form (128 + the number of the signal for a
+program killed by a signal), so an ``execute`` that runs the program with
+``system`` can return its result.
 
 Build it with
 

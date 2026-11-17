@@ -1,5 +1,11 @@
 ZERO
+zero: 0
 SEVENTEEN
+seventeen: 17
+exit 3: 3
+not found: 127
+SIGTERM: 143
+SIGKILL: 137
 Hello "world" $PATH %PATH% \" `echo 'Uh, oh'`
 Hello "world" $PATH %PATH% \" `echo 'Uh, oh'`
 Hello
@@ -7,7 +13,27 @@ world
 Hello
 world
 ZERO
+zero: 0
 SEVENTEEN
+seventeen: 17
+exit 3: 3
+not found: 127
+SIGTERM: 143
+SIGKILL: 137
+Hello "world" $PATH %PATH% \" `echo 'Uh, oh'`
+Hello "world" $PATH %PATH% \" `echo 'Uh, oh'`
+Hello
+world
+Hello
+world
+ZERO
+zero: 0
+SEVENTEEN
+seventeen: 17
+exit 3: 3
+not found: 127
+SIGTERM: 143
+SIGKILL: 137
 Hello "world" $PATH %PATH% \" `echo 'Uh, oh'`
 Hello "world" $PATH %PATH% \" `echo 'Uh, oh'`
 Hello

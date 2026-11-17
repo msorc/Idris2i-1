@@ -721,6 +721,11 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Base
 
+* `system` returns 128 + the number of the signal for a command killed by a
+  signal (143 for `SIGTERM`), as shells report it: it returned -1, which
+  lost the signal (and, with the JavaScript backends, `null`).  It still
+  returns the exit code of a command that exits, and -1 when the command
+  could not be run at all.
 * `sort`, `sortBy` and `mergeBy` of `Data.List` are specialised (`%spec`) on
   their comparison (`sort` on its `Ord` implementation), and `sortBy` splits
   its list without making a closure for every element: sorting a list of

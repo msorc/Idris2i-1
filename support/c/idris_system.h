@@ -1,5 +1,15 @@
 #pragma once
 
+// Run `command` with the shell, wait for it, and return its exit status the
+// way a shell reports it:
+//  - its exit code when it exited, which is 127 when the shell could not be
+//    run or could not find the command;
+//  - 128 + the number of the signal when it was killed by a signal (so 143
+//    for SIGTERM);
+//  - -1 when no process could be created for it, or its status could not be
+//    obtained (the C library's `system` returned -1).
+// On Windows the C library's `system` already returns the exit code, which
+// is returned unchanged.
 int idris2_system(const char *command);
 
 // Start `sh -c command` without waiting for it, and return its process id,

@@ -1,11 +1,12 @@
 . ../../testutils.sh
 
 # @system@ uses primitive functions with definitions for both
-# C (supported by most backends) and Node.
+# C (the RefC and Scheme backends, through the support library) and Node.
+idris2 --cg refc -o test-refc Test.idr
+./build/exec/test-refc
+
 idris2 --cg chez -o test Test.idr
 ./build/exec/test
-
-. ../../testutils.sh
 
 idris2 --cg node -o test.js Test.idr
 node ./build/exec/test.js
