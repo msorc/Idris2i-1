@@ -1,0 +1,27 @@
+Main> 1/1: Building Use (Use.idr)
+Error: While processing right hand side of six. Undefined name tripleIt. 
+
+Use:4:7--4:15
+ 1 | module Use
+ 2 |
+ 3 | six : Nat
+ 4 | six = tripleIt 2
+           ^^^^^^^^
+
+Error(s) building file Use.idr
+Use> 1/1: Building Lib (Lib.idr)
+Loaded file Lib.idr
+Lib> 1/1: Building Use (Use.idr)
+Error: While processing right hand side of six. Undefined name tripleIt. 
+
+Use:4:7--4:15
+ 1 | module Use
+ 2 |
+ 3 | six : Nat
+ 4 | six = tripleIt 2
+           ^^^^^^^^
+Suggestion: Lib exports tripleIt; add import Lib.
+
+Error(s) building file Use.idr
+Use> 
+Bye for now!
