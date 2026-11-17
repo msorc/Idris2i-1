@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+IDRIS2_WORKERS=1 $VALGRIND ./build/exec/main
+# (not under Valgrind, which runs one thread at a time)
+IDRIS2_WORKERS=2 ./build/exec/main
+IDRIS2_WORKERS=8 ./build/exec/main

@@ -506,18 +506,26 @@ void idris2_shareConstants(void) {
 
 Idris2_Value *idris2_makeConstant(Idris2_Constant *c,
                                   Idris2_Value *(*make)(void)) {
-  int64_t me = idris2_threadId(idris2_currentThread());
-  int expected = 0;
-  if (__atomic_compare_exchange_n(&c->state, &expected, 1, 0,
-                                  __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
-    __atomic_store_n(&c->maker, me, __ATOMIC_RELAXED);
+  // A thread claims the constant by writing its identifier (plus one) into
+  // `maker`, in one atomic step, so that a thread that finds the constant
+  // claimed knows by whom.  (Were the claim and the identifier written one
+  // after the other, the main thread, whose identifier is 0, could see the
+  // claim of another thread before its identifier, take itself for the
+  // maker, and evaluate a copy of its own: another IORef, say, than the one
+  // that the other threads get.)
+  int64_t me = idris2_threadId(idris2_currentThread()) + 1;
+  int64_t maker = 0;
+  if (__atomic_compare_exchange_n(&c->maker, &maker, me, 0, __ATOMIC_ACQ_REL,
+                                  __ATOMIC_ACQUIRE)) {
     Idris2_Value *v = idris2_makeImmortal(idris2_trampoline(make()));
     publish_constant(v);
     c->value = v;
     __atomic_store_n(&c->state, 2, __ATOMIC_RELEASE);
     return v;
   }
-  if (expected == 1 && __atomic_load_n(&c->maker, __ATOMIC_RELAXED) == me) {
+  if (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) == 2)
+    return c->value;
+  if (maker == me) {
     // The constant needs itself: evaluate it again, as when constants were
     // not kept.  This value is an ordinary one, owned by the caller (as any
     // result), which releases it once it is done with it: only the value of

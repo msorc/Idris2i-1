@@ -130,10 +130,12 @@ static inline int64_t idris2_extractUInt64(Idris2_Value *v) {
 // (and that value is not kept).
 // ---------------------------------------------------------------------------
 
+// The generated code declares the constants as zero-initialised statics.
 typedef struct {
   Idris2_Value *value;
-  int state;     // 0: not evaluated, 1: being evaluated, 2: evaluated
-  int64_t maker; // the thread that evaluates it
+  int state;     // 2 once evaluated (0 before)
+  int64_t maker; // the identifier plus one of the thread that evaluates it,
+                 // 0 until a thread starts
 } Idris2_Constant;
 
 Idris2_Value *idris2_makeConstant(Idris2_Constant *c,
