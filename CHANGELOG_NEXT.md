@@ -301,6 +301,10 @@ should target this file (`CHANGELOG_NEXT`).
   Scheme, and nothing otherwise (the RefC and Racket backends have no
   incremental builds, `IDRIS2_INC_CGS=refc` was ignored).  `IDRIS2_CG=chez
   make install` is no longer needed after a Chez bootstrap.
+* The support files are installed with their modification times
+  (`install -p`).  `make test` reinstalls them in `build/env` every time,
+  which made the test runner look out of date to the executable stamp and be
+  compiled again (about 10 s) on every run.
 
 ### Backend changes
 

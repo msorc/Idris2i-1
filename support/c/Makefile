@@ -59,6 +59,6 @@ cleandep: clean
 install: build
 	mkdir -p ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/lib
 	mkdir -p ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/c
-	install -m 755 $(DYLIBTARGET) ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/lib
-	install -m 644 $(LIBTARGET)   ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/lib
-	install -m 644 *.h            ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/c
+	install -p -m 755 $(DYLIBTARGET) ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/lib
+	install -p -m 644 $(LIBTARGET)   ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/lib
+	install -p -m 644 *.h            ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/c

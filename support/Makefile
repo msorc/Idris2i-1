@@ -32,19 +32,19 @@ install: install-docs install-racket install-gambit install-js install-c install
 
 install-docs:
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/docs
-	install -m 644 docs/*.css ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/docs
+	install -p -m 644 docs/*.css ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/docs
 
 install-racket:
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/racket
-	install -m 644 racket/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/racket
+	install -p -m 644 racket/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/racket
 
 install-gambit:
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/gambit
-	install -m 644 gambit/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/gambit
+	install -p -m 644 gambit/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/gambit
 
 install-js:
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/js
-	install -m 644 js/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/js
+	install -p -m 644 js/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/js
 
 install-c:
 	@${MAKE} -C c install

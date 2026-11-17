@@ -226,7 +226,10 @@ ${TEST_PREFIX}/${NAME_VERSION} :
 
 # The support libraries that the tests use, installed under TEST_PREFIX.  This
 # always goes through support (which rebuilds what changed) and reinstalls: a
-# check on the installed files would not see a change of the sources.
+# check on the installed files would not see a change of the sources.  The
+# files are installed with their modification times (install -p), so that
+# reinstalling the same files does not make the executables that were built
+# with them, like the test runner, look out of date.
 test-support:
 	${MAKE} install-support PREFIX=${TEST_PREFIX}
 
