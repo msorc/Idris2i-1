@@ -370,7 +370,7 @@ lexTo : Lexer ->
                ( List (WithBounds ())     -- bounds of comments
                , List (WithBounds Token)) -- tokens
 lexTo reject str
-    = case lexTo reject rawTokens str of
+    = case lexToChars reject rawTokens str of
            (toks, (EndInput, l, c, _)) =>
              -- Add the EndInput token so that we'll have a line and column
              -- number to read when storing spans in the file
@@ -379,7 +379,7 @@ lexTo reject str
                    $ partitionEithers
                    $ map spotComment
                    $ filter isNotSpace toks
-           (_, fail) => Left fail
+           (_, (reason, l, c, rest)) => Left (reason, l, c, fastPack rest)
     where
 
       isNotSpace : WithBounds Token -> Bool

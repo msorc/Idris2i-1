@@ -21,11 +21,13 @@ data Tokenizer : (tokenType : Type) -> Type where
                (end : tag -> Lexer) ->
                (mapEnd : String -> tokenType) ->
                Tokenizer tokenType
-     Alt : Tokenizer tokenType -> Lazy (Tokenizer tokenType) -> Tokenizer tokenType
+     -- (strict: a lazy rule would be made again each time that it is tried,
+     -- for each token, as lazy values are not shared)
+     Alt : Tokenizer tokenType -> Tokenizer tokenType -> Tokenizer tokenType
 
 ||| Alternative tokenizer rules.
 export %inline
-(<|>) : Tokenizer t -> Lazy (Tokenizer t) -> Tokenizer t
+(<|>) : Tokenizer t -> Tokenizer t -> Tokenizer t
 (<|>) = Alt
 
 ||| Match on a recogniser and cast the string to a token.
@@ -122,15 +124,28 @@ tokenise reject tokenizer line col acc str
                Left reason@(ComposeNotClosing {}) => Left reason
                Left _ => getFirstMatch t2 acc str
 
+||| As `lexTo`, with the rest of the input as a list of characters, which
+||| is only put back together into a string if it is needed: when the input
+||| is lexed up to some point (the header of a module), the rest is most of
+||| it.
+export
+lexToChars : Lexer ->
+             Tokenizer a ->
+             String ->
+             (List (WithBounds a), (StopReason, Int, Int, List Char))
+lexToChars reject tokenizer str
+    = let (ts, reason, (l, c, str')) =
+              tokenise reject tokenizer 0 0 [<] (fastUnpack str) in
+          (ts <>> [], reason, (l, c, str'))
+
 export
 lexTo : Lexer ->
         Tokenizer a ->
         String ->
         (List (WithBounds a), (StopReason, Int, Int, String))
 lexTo reject tokenizer str
-    = let (ts, reason, (l, c, str')) =
-              tokenise reject tokenizer 0 0 [<] (fastUnpack str) in
-          (ts <>> [], reason, (l, c, fastPack str'))
+    = let (ts, reason, (l, c, str')) = lexToChars reject tokenizer str in
+          (ts, reason, (l, c, fastPack str'))
 
 ||| Given a tokenizer and an input string, return a list of recognised tokens,
 ||| and the line, column, and remainder of the input at the first point in the string
