@@ -20,8 +20,10 @@ hole, and even a basic proof search mechanism. In this
 section, we explain how these features can be exploited by a text
 editor, and specifically how to do so in `Vim
 <https://github.com/edwinb/idris2-vim>`_. An interactive mode
-for `Emacs <https://github.com/idris-hackers/idris-mode>`_ is also
-available, updated for Idris 2 compatibility as of 23 February 2021.
+for `Emacs <https://github.com/idris-hackers/idris-mode>`_, which supports
+Idris 2, is also available.
+
+.. _sect-repl-editing:
 
 Editing at the REPL
 ===================
@@ -54,7 +56,8 @@ environment variable ``IDRIS2_HISTORY_FILE``; if that is empty, it is not
 saved). Setting ``IDRIS2_LINE_EDITING=0`` turns the line editor off, which is
 useful with a wrapper such as `rlwrap <https://linux.die.net/man/1/rlwrap>`_.
 The line editor is not used when the input or the output is not a terminal,
-and not on Windows.
+when the environment variable ``TERM`` is unset or ``dumb``, and not on
+Windows.
 
 The REPL provides a number of commands, which we will describe
 shortly, which generate new program fragments based on the currently
@@ -151,29 +154,6 @@ That is, the pattern variable ``ys`` has been split into one case
 ``[]``, Idris having noticed that the other possible case ``y ::
 ys`` would lead to a unification error.
 
-:addmissing
------------
-
-The ``:addmissing n f`` command, abbreviated ``:am n f``, adds the
-clauses which are required to make the function ``f`` on line ``n``
-cover all inputs. For example, if the code beginning on line 94 is:
-
-.. code-block:: idris
-
-    vzipWith : (a -> b -> c) ->
-               Vect n a -> Vect n b -> Vect n c
-    vzipWith f [] [] = ?vzipWith_rhs_1
-
-then ``:am 96 vzipWith`` gives:
-
-.. code-block:: idris
-
-    vzipWith f (x :: xs) (y :: ys) = ?vzipWith_rhs_2
-
-That is, it notices that there are no cases for empty vectors,
-generates the required clauses, and eliminates the clauses which would
-lead to unification errors.
-
 :proofsearch
 ------------
 
@@ -258,9 +238,6 @@ each of which update the buffer directly:
 
 - ``\c`` case splits the variable at the cursor (using
    ``:casesplit``).
-
-- ``\m`` adds the missing cases for the name at the cursor (using
-   ``:addmissing``).
 
 - ``\w`` adds a ``with`` clause (using ``:makewith``).
 

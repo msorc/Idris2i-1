@@ -43,9 +43,9 @@ At every level we get a simpler representation, closer to machine code, but it
 should be stressed that all the aggressive code optimizations should happen in
 the custom back-ends.
 The quality and readability of the generated back-end code is on the shoulders
-of the implementor of the back-end. Idris erases type information, in the IRs as
-it compiles to scheme by default, and there is no need to keep the type
-information around.
+of the implementor of the back-end. Idris erases type information in the IRs,
+as its own back-ends (C and Scheme) have no use for it, and there is no need
+to keep the type information around.
 With this in mind let's answer the questions above.
 
 The architecture of an Idris back-end
@@ -733,7 +733,7 @@ the implementation of a quick compiler for a dependently typed language.
 One of these hidden features is the concurrency primitives. These are part of the
 different libraries that could be part of the compiler or part of the
 contribution package. If the threading model is different for the host technology
-that the Idris default back-end inherits currently from the Scheme technology it could be a bigger
+that the Idris back-ends inherit from the Scheme and C runtimes it could be a bigger
 piece of work.
 
 IO in Idris is implemented using an abstract ``%World`` value, which serves as token for

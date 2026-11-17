@@ -66,7 +66,8 @@ Alternatively, you can set it via the ``IDRIS2_CG`` environment variable:
 The C compiler it invokes is determined by either the ``IDRIS2_CC`` or ``CC``
 environment variables. If neither is set, it uses ``cc``.
 
-This code generator does not yet support `:exec`, just `:c`.
+Both ``:exec`` and ``:c`` work at the REPL: ``:exec`` compiles the expression
+to a temporary executable in the build directory and runs it.
 
 Also note that, if you link with any dynamic libraries for interfacing with
 C, you will need to arrange for them to be accessible via ``LD_LIBRARY_PATH``

@@ -863,8 +863,9 @@ This is available in the IDE protocol via the ``generate-def`` command.
 Chez Scheme target
 ------------------
 
-The default code generator is, for the moment, `Chez Scheme
-<https://www.scheme.com/>`_. Racket and Gambit code generators are also
+When Idris 2 was first released, its default code generator was `Chez Scheme
+<https://www.scheme.com/>`_. It is now RefC, which compiles via C (see
+:doc:`../backends/refc`); Chez Scheme, Racket and Gambit code generators are also
 available.  Like Idris 1, Idris 2 `supports plug-in code generation
 <https://idris2.readthedocs.io/en/latest/backends/custom.html>`_
 to allow you to write a back end for the platform of your choice.

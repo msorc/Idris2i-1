@@ -30,3 +30,7 @@ Usage: bench.sh [OPTION]...
    -h   shows this message
 
 e.g. `./bench.sh -fbc refc -o myrefcoutput`
+
+Note that the default backend of the script is still chez, while `idris2`
+itself compiles with refc by default: pass `-c` to choose the backend
+explicitly.

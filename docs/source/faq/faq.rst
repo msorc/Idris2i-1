@@ -121,11 +121,17 @@ impact the way you write programs.
 How do I get command history in the Idris2 REPL?
 ================================================
 
-The Idris2 REPL does not support readline in the interest of
-keeping dependencies minimal. A useful work around is to
-install `rlwrap <https://linux.die.net/man/1/rlwrap>`_, this
-utility provides command history simply by invoking the Idris2
-repl as an argument to the utility ``rlwrap idris2``.
+When it runs in a terminal, the REPL has a built-in line editor, which does
+not depend on ``readline`` or any other library: it has the usual readline
+key bindings, completion with ``Tab``, syntax highlighting, and a history
+that is kept between sessions in ``~/.idris2_history`` (or in the file named
+by ``IDRIS2_HISTORY_FILE``). See :ref:`sect-repl-editing` for the details.
+
+The line editor is off when the input or the output is not a terminal, when
+``TERM`` is unset or ``dumb``, or when ``IDRIS2_LINE_EDITING`` is ``0``. If
+you prefer another line editor, such as
+`rlwrap <https://linux.die.net/man/1/rlwrap>`_, turn the built-in one off and
+run the REPL under it: ``IDRIS2_LINE_EDITING=0 rlwrap idris2``.
 
 The goal, eventually, is to use the IDE mode or the Idris API as the basis of
 an implementation of a sophisticated REPL, developed independently from the

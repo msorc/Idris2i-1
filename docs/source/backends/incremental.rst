@@ -13,7 +13,11 @@ modules and executables *incrementally*. To do so, you can either:
 2. Set the ``IDRIS2_INC_CGS`` environment variable with a comma separated list
    of backends to use incrementally.
 
-At the moment, only the Chez backend supports incremental builds.
+At the moment, only the Chez backend supports incremental builds. The RefC
+backend, the default, has no incremental mode, but it saves much of the work
+of compiling a big program again: it compiles it in units, and reuses the
+object file of every unit whose C code did not change (see the section *Big
+programs* of :doc:`refc`).
 
 Building modules incrementally
 ==============================

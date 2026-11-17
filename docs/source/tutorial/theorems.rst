@@ -380,9 +380,6 @@ All functions *after* a ``%default total`` declaration are required to
 be total. Correspondingly, after a ``%default partial`` declaration, the
 requirement is relaxed.
 
-Finally, the compiler flag ``--warnpartial`` causes to print a warning
-for any undeclared partial function.
-
 Totality checking issues
 ------------------------
 
