@@ -93,9 +93,18 @@
 (define (bits64->bits16 x) (logand x (sub1 (ash 1 16))))
 (define (bits64->bits32 x) (logand x (sub1 (ash 1 32))))
 
-(define (blodwen-bits-shl-signed x y bits) (blodwen-toSignedInt (ash x y) bits))
+; (`bits` is the width of the type, minus 1 for the signed types)  A shift
+; by the width of the type or more is computed without making the huge
+; number that `ash` would make (and run out of memory for a huge count).
+(define (blodwen-bits-shl-signed x y bits)
+  (if (> y bits) 0 (blodwen-toSignedInt (ash x y) bits)))
 
-(define (blodwen-bits-shl x y bits) (logand (ash x y) (sub1 (ash 1 bits))))
+; (a shift by a negative count goes the other way, and wraps around)
+(define (blodwen-bits-shr-signed x y bits)
+  (if (< y 0) (blodwen-bits-shl-signed x (- y) bits) (ash x (- y))))
+
+(define (blodwen-bits-shl x y bits)
+  (if (>= y bits) 0 (logand (ash x y) (sub1 (ash 1 bits)))))
 
 (define blodwen-shl (lambda (x y) (ash x y)))
 (define blodwen-shr (lambda (x y) (ash x (- y))))

@@ -81,15 +81,29 @@
 (define (bits64->bits32 x) (bitwise-and x #xffffffff))
 
 (define blodwen-bits-shl-signed
-  (lambda (x y bits) (blodwen-toSignedInt (arithmetic-shift x y) bits)))
+  (lambda (x y bits)
+    (if (> y bits) 0 (blodwen-toSignedInt (arithmetic-shift x y) bits))))
+
+; (a shift by a negative count goes the other way, and wraps around)
+(define blodwen-bits-shr-signed
+  (lambda (x y bits)
+    (if (< y 0)
+        (blodwen-bits-shl-signed x (- y) bits)
+        (arithmetic-shift x (- y)))))
 
 
 (define-macro (blodwen-and . args) `(bitwise-and ,@args))
 (define-macro (blodwen-or . args) `(bitwise-ior ,@args))
 (define-macro (blodwen-xor . args) `(bitwise-xor ,@args))
+; (a shift by the width of the type or more is computed without making a
+; huge number)
 (define-macro (blodwen-bits-shl x y bits)
-                   `(remainder (arithmetic-shift ,x ,y)
-                               (arithmetic-shift 1 ,bits)))
+  (let ((s (gensym)))
+    `(let ((,s ,y))
+       (if (>= ,s ,bits)
+           0
+           (remainder (arithmetic-shift ,x ,s)
+                      (arithmetic-shift 1 ,bits))))))
 (define-macro (blodwen-shl x y) `(arithmetic-shift ,x ,y))
 (define-macro (blodwen-shr x y) `(arithmetic-shift ,x (- ,y)))
 

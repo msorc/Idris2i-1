@@ -95,6 +95,13 @@ shl (Just $ Signed $ P n) x y = op "blodwen-bits-shl-signed"
 shl (Just $ Unsigned n)   x y = op "blodwen-bits-shl" [x, y, showB n]
 shl _                     x y = op "blodwen-shl" [x, y]
 
+-- A right shift of a signed type by a negative count is a left shift, which
+-- wraps around like the other operations of the type.
+shr : Maybe IntKind -> Builder -> Builder -> Builder
+shr (Just $ Signed $ P n) x y = op "blodwen-bits-shr-signed"
+                                   [x, y, showB (n-1)]
+shr _                     x y = op "blodwen-shr" [x, y]
+
 
 constPrimitives : ConstantPrimitives' Builder
 constPrimitives = MkConstantPrimitives {
@@ -145,7 +152,7 @@ schOp (Div ty) [x, y] = pure $ div (intKind ty) x y
 schOp (Mod ty) [x, y] = pure $ op "blodwen-euclidMod" [x, y]
 schOp (Neg ty) [x] = pure $ op "-" [x]
 schOp (ShiftL ty) [x, y] = pure $ shl (intKind ty) x y
-schOp (ShiftR ty) [x, y] = pure $ op "blodwen-shr" [x, y]
+schOp (ShiftR ty) [x, y] = pure $ shr (intKind ty) x y
 schOp (BAnd ty) [x, y] = pure $ op "blodwen-and" [x, y]
 schOp (BOr ty) [x, y] = pure $ op "blodwen-or" [x, y]
 schOp (BXOr ty) [x, y] = pure $ op "blodwen-xor" [x, y]

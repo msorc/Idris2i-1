@@ -648,6 +648,12 @@ should target this file (`CHANGELOG_NEXT`).
   by the whole package: with modules built in parallel, a module could run
   the script of another one, or a half-written one ("variable cs.ss is not
   bound"), which broke `make bootstrap` and `make libs IDRIS2_CG=chez`.
+* `shiftR` of a signed fixed width type (`Int8` to `Int64`, `Int`) by a
+  negative count, which is a left shift, wraps around like the other
+  operations of the type: `prim__shr_Int8 100 (-1)` gave 200, now -56 (as with
+  RefC).  A shift by a huge count (`prim__shl_Int 1 9223372036854775807`)
+  gives 0 instead of running out of memory.  The Racket and Gambit backends
+  share this code and have the same helpers.
 
 ### Library changes
 

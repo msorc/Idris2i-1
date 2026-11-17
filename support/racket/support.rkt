@@ -100,7 +100,11 @@
 (define (bits64->bits16 x) (bitwise-and x #xffff))
 (define (bits64->bits32 x) (bitwise-and x #xffffffff))
 
-(define blodwen-bits-shl (lambda (x y bits) (remainder (arithmetic-shift x y) (arithmetic-shift 1 bits))))
+; (a shift by the width of the type or more is computed without making a
+; huge number)
+(define blodwen-bits-shl
+  (lambda (x y bits)
+    (if (>= y bits) 0 (remainder (arithmetic-shift x y) (arithmetic-shift 1 bits)))))
 (define blodwen-shl (lambda (x y) (arithmetic-shift x y)))
 (define blodwen-shr (lambda (x y) (arithmetic-shift x (- y))))
 (define blodwen-and (lambda (x y) (bitwise-and x y)))
@@ -112,7 +116,15 @@
     (inexact->exact (floor x))))
 
 (define blodwen-bits-shl-signed
-  (lambda (x y bits) (blodwen-toSignedInt (arithmetic-shift x y) bits)))
+  (lambda (x y bits)
+    (if (> y bits) 0 (blodwen-toSignedInt (arithmetic-shift x y) bits))))
+
+; (a shift by a negative count goes the other way, and wraps around)
+(define blodwen-bits-shr-signed
+  (lambda (x y bits)
+    (if (< y 0)
+        (blodwen-bits-shl-signed x (- y) bits)
+        (arithmetic-shift x (- y)))))
 
 (define exact-truncate
   (lambda (x)
