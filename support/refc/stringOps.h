@@ -22,8 +22,8 @@ Idris2_Value *reverse(Idris2_Value *str);
 Idris2_Value *strIndex(Idris2_Value *str, Idris2_Value *i);
 Idris2_Value *strCons(Idris2_Value *c, Idris2_Value *str);
 Idris2_Value *strAppend(Idris2_Value *a, Idris2_Value *b);
-Idris2_Value *strSubstr(Idris2_Value *s, Idris2_Value *start,
-                        Idris2_Value *len);
+Idris2_Value *strSubstr(Idris2_Value *start, Idris2_Value *len,
+                        Idris2_Value *s);
 // The functions of the `RefC` calling convention take and give strings as
 // Idris values (see RefC.idr).
 Idris2_Value *fastPack(Idris2_Value *charList);

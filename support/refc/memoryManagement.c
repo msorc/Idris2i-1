@@ -429,8 +429,10 @@ void idris2_freeValue(Idris2_Value *value) {
 // and is released as any other.
 //
 // The table is shared by the workers, under a lock.  The count of a shared
-// value only moves from or to the overflow under the lock, so that a value
-// that the table counts always has the overflow count.
+// value gets to the overflow by a compare and swap, like any other count,
+// but it only moves away from it under the lock (when the table counts no
+// reference of the value), so that a value that the table counts always has
+// the overflow count.
 // ---------------------------------------------------------------------------
 
 typedef struct {
@@ -1040,7 +1042,7 @@ void idris2_releaseValue(Idris2_Value *elem) {
 }
 
 // /////////////////////////////////////////////////////////////////////////
-// PRE-DEFINED VLAUES
+// PRE-DEFINED VALUES
 
 #define IDRIS2_MK_PREDEFINED_INT_10(t, n)                                      \
   {IDRIS2_STOCKVAL(t), (n + 0)}, {IDRIS2_STOCKVAL(t), (n + 1)},                \

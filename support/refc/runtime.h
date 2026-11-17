@@ -103,8 +103,6 @@ static inline Idris2_Value *idris2_trampoline(Idris2_Value *it) {
 // the reference to the action.
 Idris2_Value *idris2_run_primio(Idris2_Closure *action);
 
-int idris2_extractInt(Idris2_Value *);
-
 // The integer in a value, for a `case` on integer constants.  An unboxed
 // value is a signed (idris2_extractInt64) or an unsigned
 // (idris2_extractUInt64) integer of up to 32 bits; the boxed ones are

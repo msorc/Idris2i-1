@@ -87,9 +87,6 @@ void idris2_threadYield(void);
 // does not block the other green threads.
 void idris2_threadSleep(int64_t microseconds);
 
-// Are several workers running?
-int idris2_threadsInParallel(void);
-
 // The index of the current worker.
 int idris2_workerIndex(void);
 

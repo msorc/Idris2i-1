@@ -943,7 +943,7 @@ hasSelfTailCall self nargs = go
 
 -- When changing this number, also change idris2_dispatch in runtime.c and
 -- IDRIS2_MAX_TAILCALL_ARGS in runtime.h.
--- Increasing this number will worsen stack consumption and increase the codesize of idris2_dispatch_closure.
+-- Increasing this number will worsen stack consumption and increase the codesize of idris2_dispatch.
 -- In C89, the maximum number of arguments is 31, so it should not be larger than 31. 127 is safe in C99, but I do not recommend it.
 MaxExtractFunArgs : Nat
 MaxExtractFunArgs = 16

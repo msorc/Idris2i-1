@@ -85,12 +85,9 @@ Idris2_Value *idris2_crashMsg(const char *msg) {
   exit(1);
 }
 
-//
-//
-//
-// // -----------------------------------
-// //         Array operations
-// // -----------------------------------
+// -----------------------------------
+//         Array operations
+// -----------------------------------
 
 Idris2_Value *idris2_Data_IOArray_Prims_prim__newArray(Idris2_Value *erased,
                                                        Idris2_Value *_length,

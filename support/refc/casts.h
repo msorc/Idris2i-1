@@ -97,7 +97,8 @@ Idris2_Value *idris2_cast_Int64_to_Integer(Idris2_Value *);
 Idris2_Value *idris2_cast_Int64_to_string(Idris2_Value *);
 
 /* Like the Scheme backends, a Double is truncated and then wrapped around to
- * the width of the result.  NaN and the infinities give 0. */
+ * the width of the result.  NaN and the infinities give 0 (the Scheme
+ * backends raise an exception). */
 uint64_t idris2_double_to_wrapped(double d);
 #define idris2_cast_Double_to_Bits8(x)                                         \
   (idris2_mkBits8((uint8_t)idris2_double_to_wrapped(idris2_vp_to_Double(x))))
@@ -107,8 +108,6 @@ uint64_t idris2_double_to_wrapped(double d);
   (idris2_mkBits32((uint32_t)idris2_double_to_wrapped(idris2_vp_to_Double(x))))
 #define idris2_cast_Double_to_Bits64(x)                                        \
   (idris2_mkBits64(idris2_double_to_wrapped(idris2_vp_to_Double(x))))
-#define idris2_cast_Double_to_Int(x)                                           \
-  (idris2_mkInt8((int8_t)idris2_double_to_wrapped(idris2_vp_to_Double(x))))
 #define idris2_cast_Double_to_Int8(x)                                          \
   (idris2_mkInt8((int8_t)idris2_double_to_wrapped(idris2_vp_to_Double(x))))
 #define idris2_cast_Double_to_Int16(x)                                         \

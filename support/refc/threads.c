@@ -404,10 +404,6 @@ int idris2_workerCount(void) {
 
 Idris2_Worker *idris2_workerAt(int i) { return workers[i]->worker; }
 
-int idris2_threadsInParallel(void) {
-  return __atomic_load_n(&n_workers, __ATOMIC_RELAXED) > 1;
-}
-
 int idris2_workerIndex(void) { return self()->index; }
 
 

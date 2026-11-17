@@ -2,25 +2,7 @@
 #include "memoryManagement.h"
 #include "runtime.h"
 
-/* add */
-
-/* sub */
-
-/* negate */
-
-/* mul */
-
-/* div, mod: see mathFunctions.h */
-
-/* shiftl */
-
-/* shiftr */
-
-/* and */
-
-/* or */
-
-/* xor */
+/* The operations on the fixed width types are in mathFunctions.h. */
 
 double idris2_flonumUnitRoundoff(void) { return DBL_EPSILON / 2; }
 double idris2_flonumEpsilon(void) { return DBL_EPSILON; }

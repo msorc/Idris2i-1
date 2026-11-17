@@ -469,28 +469,6 @@ int64_t idris2_extractInt64Boxed(Idris2_Value *v) {
   }
 }
 
-int idris2_extractInt(Idris2_Value *v) {
-  if (idris2_vp_is_unboxed(v))
-    return (int)((uintptr_t)(v) >> idris2_vp_int_shift);
-
-  switch (v->header.tag) {
-  case BITS32_TAG:
-    return (int)idris2_vp_to_Bits32(v);
-  case BITS64_TAG:
-    return (int)idris2_vp_to_Bits64(v);
-  case INT32_TAG:
-    return (int)idris2_vp_to_Bits32(v);
-  case INT64_TAG:
-    return (int)idris2_vp_to_Int64(v);
-  case INTEGER_TAG:
-    return (int)mpz_get_si(((Idris2_Integer *)v)->i);
-  case DOUBLE_TAG:
-    return (int)idris2_vp_to_Double(v);
-  default:
-    return -1;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Constants of the program (see runtime.h)
 // ---------------------------------------------------------------------------

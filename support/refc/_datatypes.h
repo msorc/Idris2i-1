@@ -100,8 +100,8 @@ flag.
        : ((int32_t)((uintptr_t)(p) >> idris2_vp_int_shift)))
 
 #elif UINTPTR_WIDTH >= 64
-// NOTE: We stole two bits from pointer. So, even if we have 64-bit CPU,
-//  Int64/Bits654 are not unboxable.
+// The Bits32 and Int32 values are always unboxed, in the upper half of the
+// pointer.
 #define idris2_vp_to_Bits32(p)                                                 \
   ((uint32_t)((uintptr_t)(p) >> idris2_vp_int_shift))
 #define idris2_vp_to_Int32(p) ((int32_t)((uintptr_t)(p) >> idris2_vp_int_shift))
@@ -264,7 +264,7 @@ typedef struct {
 
 typedef struct {
   Idris2_header header;
-  // function type depends on arity, see idris2_dispatch_closure
+  // function type depends on arity, see idris2_dispatch
   void *f;
   uint8_t arity;
   uint8_t filled; // length of args.
