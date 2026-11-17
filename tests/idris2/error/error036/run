@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+# Many misspelt names: the suggestions, and their order, for each
+check Typos.idr

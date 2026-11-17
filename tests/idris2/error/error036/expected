@@ -1,0 +1,283 @@
+1/1: Building Typos (Typos.idr)
+Error: While processing right hand side of g01. Undefined name lenght. 
+
+Typos:21:10--21:16
+ 17 | myFunction : Nat -> Nat
+ 18 | myFunction = S
+ 19 |
+ 20 | g01 : List Nat -> Nat
+ 21 | g01 xs = lenght xs
+               ^^^^^^
+Did you mean: length?
+Error: While processing right hand side of g02. Undefined name mapp. 
+
+Typos:23:7--23:11
+ 19 |
+ 20 | g01 : List Nat -> Nat
+ 21 | g01 xs = lenght xs
+ 22 | g02 : List Nat -> List Nat
+ 23 | g02 = mapp S
+            ^^^^
+Did you mean: map?
+Error: While processing right hand side of g03. Undefined name wrods. 
+
+Typos:25:7--25:12
+ 21 | g01 xs = lenght xs
+ 22 | g02 : List Nat -> List Nat
+ 23 | g02 = mapp S
+ 24 | g03 : String -> List String
+ 25 | g03 = wrods
+            ^^^^^
+
+Error: While processing right hand side of g04. Undefined name keyss. 
+
+Typos:27:9--27:14
+ 23 | g02 = mapp S
+ 24 | g03 : String -> List String
+ 25 | g03 = wrods
+ 26 | g04 : SortedMap String Nat -> List String
+ 27 | g04 m = keyss m
+              ^^^^^
+Did you mean: keys?
+Error: While processing right hand side of g05. Undefined name modfy. 
+
+Typos:29:9--29:14
+ 25 | g03 = wrods
+ 26 | g04 : SortedMap String Nat -> List String
+ 27 | g04 m = keyss m
+ 28 | g05 : Nat -> State Nat ()
+ 29 | g05 n = modfy (+ n)
+              ^^^^^
+Did you mean: modify?
+Error: While processing right hand side of g06. Undefined name privateThin. 
+
+Typos:31:7--31:18
+ 27 | g04 m = keyss m
+ 28 | g05 : Nat -> State Nat ()
+ 29 | g05 n = modfy (+ n)
+ 30 | g06 : Nat
+ 31 | g06 = privateThin
+            ^^^^^^^^^^^
+Did you mean: privateThing?
+Error: While processing right hand side of g07. Undefined name myFuncton. 
+
+Typos:33:7--33:16
+ 29 | g05 n = modfy (+ n)
+ 30 | g06 : Nat
+ 31 | g06 = privateThin
+ 32 | g07 : Nat -> Nat
+ 33 | g07 = myFuncton
+            ^^^^^^^^^
+Did you mean any of: myFunction, Functor, or MkFunctor?
+Error: While processing right hand side of g08. Undefined name .xCord. 
+
+Typos:35:10--35:16
+ 31 | g06 = privateThin
+ 32 | g07 : Nat -> Nat
+ 33 | g07 = myFuncton
+ 34 | g08 : Point -> Nat
+ 35 | g08 p = p.xCord
+               ^^^^^^
+Did you mean any of: xCoord (not exported), or yCoord (not exported)?
+Error: While processing right hand side of g09. Undefined name yCord. 
+
+Typos:37:9--37:14
+ 33 | g07 = myFuncton
+ 34 | g08 : Point -> Nat
+ 35 | g08 p = p.xCord
+ 36 | g09 : Point -> Nat
+ 37 | g09 p = yCord p
+              ^^^^^
+Did you mean: yCoord (not exported)?
+Error: Unknown operator '<+'
+
+Typos:39:13--39:15
+ 35 | g08 p = p.xCord
+ 36 | g09 : Point -> Nat
+ 37 | g09 p = yCord p
+ 38 | g10 : List Nat -> List Nat
+ 39 | g10 xs = xs <+ xs
+                  ^^
+
+Error: Unknown operator '>>=='
+
+Typos:41:13--41:17
+ 37 | g09 p = yCord p
+ 38 | g10 : List Nat -> List Nat
+ 39 | g10 xs = xs <+ xs
+ 40 | g11 : Maybe Nat -> (Nat -> Maybe Nat) -> Maybe Nat
+ 41 | g11 m f = m >>== f
+                  ^^^^
+
+Error: While processing right hand side of g12. Ambiguous elaboration. Possible results:
+    [1, 2]
+    [1, 2]
+
+Typos:43:19--43:20
+ 39 | g10 xs = xs <+ xs
+ 40 | g11 : Maybe Nat -> (Nat -> Maybe Nat) -> Maybe Nat
+ 41 | g11 m f = m >>== f
+ 42 | g12 : Nat
+ 43 | g12 = foldl (+) 0 [1,2]
+                        ^
+
+Error: While processing right hand side of g14. Undefined name replicat. 
+
+Typos:47:7--47:15
+ 43 | g12 = foldl (+) 0 [1,2]
+ 44 | g13 : List Nat -> Nat
+ 45 | g13 = sum'
+ 46 | g14 : Vect 2 Nat
+ 47 | g14 = replicat 2 0
+            ^^^^^^^^
+Did you mean: replicate?
+Error: While processing right hand side of g15. Undefined name id'. 
+
+Typos:49:7--49:10
+ 45 | g13 = sum'
+ 46 | g14 : Vect 2 Nat
+ 47 | g14 = replicat 2 0
+ 48 | g15 : Nat -> Nat
+ 49 | g15 = id'
+            ^^^
+Did you mean: id?
+Error: While processing right hand side of g16. Undefined name lengt. 
+
+Typos:51:7--51:12
+ 47 | g14 = replicat 2 0
+ 48 | g15 : Nat -> Nat
+ 49 | g15 = id'
+ 50 | g16 : String -> Nat
+ 51 | g16 = lengt
+            ^^^^^
+Did you mean: length?
+Error: While processing right hand side of g17. Undefined name fold. 
+
+Typos:53:7--53:11
+ 49 | g15 = id'
+ 50 | g16 : String -> Nat
+ 51 | g16 = lengt
+ 52 | g17 : Nat
+ 53 | g17 = fold (+) 0 [1]
+            ^^^^
+Did you mean any of: foldl, or foldr?
+Error: While processing right hand side of g18. Undefined name revers. 
+
+Typos:55:7--55:13
+ 51 | g16 = lengt
+ 52 | g17 : Nat
+ 53 | g17 = fold (+) 0 [1]
+ 54 | g18 : List a -> List a
+ 55 | g18 = revers
+            ^^^^^^
+Did you mean any of: reverse, or Reverse?
+Error: While processing right hand side of g19. Undefined name Tru. 
+
+Typos:57:7--57:10
+ 53 | g17 = fold (+) 0 [1]
+ 54 | g18 : List a -> List a
+ 55 | g18 = revers
+ 56 | g19 : Bool
+ 57 | g19 = Tru
+            ^^^
+Did you mean: True?
+Error: While processing right hand side of g20. Undefined name Nill. 
+
+Typos:59:7--59:11
+ 55 | g18 = revers
+ 56 | g19 : Bool
+ 57 | g19 = Tru
+ 58 | g20 : List Nat
+ 59 | g20 = Nill
+            ^^^^
+Did you mean: Nil?
+Error: While processing right hand side of g22. Undefined name trimm. 
+
+Typos:61:7--61:12
+ 57 | g19 = Tru
+ 58 | g20 : List Nat
+ 59 | g20 = Nill
+ 60 | g22 : String -> String
+ 61 | g22 = trimm
+            ^^^^^
+Did you mean: trim?
+Error: While processing right hand side of g23. Undefined name λx. 
+
+Typos:63:7--63:9
+ 59 | g20 = Nill
+ 60 | g22 : String -> String
+ 61 | g22 = trimm
+ 62 | g23 : Nat
+ 63 | g23 = λx
+            ^^
+
+Error: While processing right hand side of g24. Undefined name pred'. 
+
+Typos:65:7--65:12
+ 61 | g22 = trimm
+ 62 | g23 : Nat
+ 63 | g23 = λx
+ 64 | g24 : Nat -> Nat
+ 65 | g24 = pred'
+            ^^^^^
+Did you mean: pred?
+Error: While processing right hand side of g25. Undefined name Jus. 
+
+Typos:67:7--67:10
+ 63 | g23 = λx
+ 64 | g24 : Nat -> Nat
+ 65 | g24 = pred'
+ 66 | g25 : Maybe Nat
+ 67 | g25 = Jus 1
+            ^^^
+Did you mean: Just?
+Error: While processing right hand side of g26. Undefined name hed'. 
+
+Typos:69:7--69:11
+ 65 | g24 = pred'
+ 66 | g25 : Maybe Nat
+ 67 | g25 = Jus 1
+ 68 | g26 : List Nat -> Maybe Nat
+ 69 | g26 = hed'
+            ^^^^
+Did you mean: head'?
+Error: While processing right hand side of g27. Undefined name sortt. 
+
+Typos:71:7--71:12
+ 67 | g25 = Jus 1
+ 68 | g26 : List Nat -> Maybe Nat
+ 69 | g26 = hed'
+ 70 | g27 : List Nat -> List Nat
+ 71 | g27 = sortt
+            ^^^^^
+Did you mean: sort?
+Error: While processing right hand side of g28. Undefined name unpak. 
+
+Typos:73:7--73:12
+ 69 | g26 = hed'
+ 70 | g27 : List Nat -> List Nat
+ 71 | g27 = sortt
+ 72 | g28 : String -> List Char
+ 73 | g28 = unpak
+            ^^^^^
+Did you mean: unpack?
+Error: While processing right hand side of g29. Undefined name x. 
+
+Typos:75:7--75:8
+ 71 | g27 = sortt
+ 72 | g28 : String -> List Char
+ 73 | g28 = unpak
+ 74 | g29 : Nat
+ 75 | g29 = x
+            ^
+
+Error: While processing right hand side of g30. Undefined name plsu. 
+
+Typos:77:7--77:11
+ 73 | g28 = unpak
+ 74 | g29 : Nat
+ 75 | g29 = x
+ 76 | g30 : Nat -> Nat -> Nat
+ 77 | g30 = plsu
+            ^^^^
+
