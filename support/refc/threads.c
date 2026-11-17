@@ -770,6 +770,11 @@ static void wakep(void) {
 // A deadline was set that is earlier than the others: make sure that a
 // parked worker waits for it.
 static void timer_kick(void) {
+  // A worker that parks writes n_parked, then reads next_deadline; we wrote
+  // next_deadline, and read n_parked: without the fence (park has one too),
+  // both could read the old value, and the worker would wait without the new
+  // deadline while nobody wakes it up.
+  __atomic_thread_fence(__ATOMIC_SEQ_CST);
   if (__atomic_load_n(&n_parked, __ATOMIC_RELAXED) == 0) {
     return;
   }
