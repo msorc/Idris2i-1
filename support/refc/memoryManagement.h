@@ -231,8 +231,8 @@ idris2_newNamedConstructor(int total, char const *name) {
 // argument, so that applying a closure that nobody else refers to can store
 // the argument in place (see idris2_tailcall_apply_closure).
 static inline Idris2_Closure *idris2_mkClosure(Idris2_Value *(*f)(),
-                                               uint8_t arity, uint8_t filled) {
-  uint8_t room = arity > filled ? arity : filled;
+                                               uint16_t arity, uint16_t filled) {
+  int room = arity > filled ? arity : filled;
   Idris2_Closure *retVal = (Idris2_Closure *)idris2_newValue(
       sizeof(Idris2_Closure) + sizeof(Idris2_Value *) * room);
   retVal->header.tag = CLOSURE_TAG;

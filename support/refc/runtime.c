@@ -79,7 +79,7 @@ typedef Idris2_Value *(*const FUNStar)(Idris2_Value **);
 
 // Call the function `f` of the given arity with the arguments in xs.
 // (Inlined into its callers, which saves a call per closure application.)
-IDRIS2_INLINE Idris2_Value *idris2_dispatch(void *f, uint8_t arity,
+IDRIS2_INLINE Idris2_Value *idris2_dispatch(void *f, int arity,
                                             Idris2_Value **const xs) {
   switch (arity) {
   default:
@@ -150,7 +150,7 @@ static Idris2_Value *idris2_call_shared_closure(Idris2_Closure *clos, int n,
     xs = malloc(sizeof(Idris2_Value *) * clos->arity);
     IDRIS2_REFC_VERIFY(xs, "malloc failed");
   }
-  uint8_t filled = clos->filled;
+  int filled = clos->filled;
   for (int i = 0; i < filled; ++i)
     xs[i] = idris2_newReference(clos->args[i]);
   if (n >= 1)
@@ -158,7 +158,7 @@ static Idris2_Value *idris2_call_shared_closure(Idris2_Closure *clos, int n,
   if (n == 2)
     xs[filled + 1] = arg2;
   void *f = clos->f;
-  uint8_t arity = clos->arity;
+  int arity = clos->arity;
   idris2_removeReference((Idris2_Value *)clos);
   Idris2_Value *r = idris2_dispatch(f, arity, xs);
   if (xs != small)
@@ -232,10 +232,10 @@ Idris2_Value *idris2_run_primio(Idris2_Closure *action) {
 #define IDRIS2_JUMP_MAX_ARGS 6
 #define IDRIS2_JUMP_TO_CLOSURE(clos, n, arg1, arg2)                           \
   do {                                                                         \
-    uint8_t arity_ = (clos)->arity;                                            \
+    int arity_ = (clos)->arity;                                                \
     if (arity_ <= IDRIS2_JUMP_MAX_ARGS && !idris2_isShared(clos)) {            \
       IDRIS2_SAFEPOINT();                                                      \
-      uint8_t filled_ = (clos)->filled;                                        \
+      int filled_ = (clos)->filled;                                            \
       Idris2_Value *a_[IDRIS2_JUMP_MAX_ARGS + 2];                              \
       int unique_ = (clos)->header.refCounter == 1;                            \
       for (int i_ = 0; i_ < filled_; ++i_)                                     \
@@ -274,7 +274,7 @@ Idris2_Value *idris2_run_primio(Idris2_Closure *action) {
 Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
                                             Idris2_Value *arg) {
   Idris2_Closure *clos = (Idris2_Closure *)_clos;
-  uint8_t filled = clos->filled;
+  int filled = clos->filled;
   if (filled + 1 == clos->arity) {
 #if defined(IDRIS2_MUSTTAIL)
     IDRIS2_JUMP_TO_CLOSURE(clos, 1, arg, NULL);
@@ -331,7 +331,7 @@ Idris2_Value *idris2_tailcall_apply_closure(Idris2_Value *_clos,
 IDRIS2_INLINE Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
                                                 Idris2_Value *arg1,
                                                 Idris2_Value *arg2, int n) {
-  uint8_t filled = clos->filled;
+  int filled = clos->filled;
   if (filled == 0) {
     // Nothing to take from the closure (which has no room for arguments when
     // it is static, see IDRIS2_STATIC_CLOSURE): the arguments are passed as

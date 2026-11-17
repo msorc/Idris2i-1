@@ -1,0 +1,5 @@
+. ../../testutils.sh
+
+# More than 255 arguments: the arity of a closure does not fit in a byte.
+idris2 -o main Main.idr
+$VALGRIND ./build/exec/main

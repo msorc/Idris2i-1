@@ -320,6 +320,10 @@ should target this file (`CHANGELOG_NEXT`).
   of every backend, `Network.Socket.recv` no longer writes a byte past its
   buffer when it fills it, `fGetChars` stops with a message when it runs out
   of memory, and the messages of failed assertions show their arguments.
+* Functions and closures of more than 255 arguments compile (the C compiler
+  rejected the arity of their closures, which was 8 bits; it is 16 bits now,
+  in a closure of the same size).  The compiler reports a function of more
+  than 65535 arguments, or a constructor of more than 65535 fields.
 * Nested functions (`where`) of the same name in the same namespace of two
   modules (the module `A.B`, and a `namespace B` in the module `A`) could get
   the same C name, and the C compiler rejected the program.

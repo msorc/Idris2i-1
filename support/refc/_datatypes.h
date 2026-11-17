@@ -266,8 +266,11 @@ typedef struct {
   Idris2_header header;
   // function type depends on arity, see idris2_dispatch
   void *f;
-  uint8_t arity;
-  uint8_t filled; // length of args.
+  // (16 bits each, as many arguments as Idris2_Constructor has fields: they
+  // fit in the room that the alignment of args leaves, the closure is not
+  // bigger than with 8 bits.)
+  uint16_t arity;
+  uint16_t filled; // length of args.
   Idris2_Value *args[];
 } Idris2_Closure;
 

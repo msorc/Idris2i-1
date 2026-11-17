@@ -2668,6 +2668,23 @@ groupUnits n defs
                           insert k (d :: fromMaybe [] (lookup k m)) m in
           map reverse (foldl place empty defs)
 
+||| The number of arguments of a closure, and of fields of a constructor, is
+||| 16 bits at run time (see Idris2_Closure and Idris2_Constructor).
+maxArity : Nat
+maxArity = 65535
+
+checkArity : {auto c : Ref Ctxt Defs} -> Name -> ANFDef -> Core ()
+checkArity n d
+    = let k = case d of
+                   MkAFun args _ => length args
+                   MkACon _ arity _ => arity
+                   MkAForeign _ fargs _ => length fargs
+                   MkAError _ => the Nat 0 in
+          when (k > maxArity) $ do
+            fn <- toFullNames n
+            throw $ GenericMsg EmptyFC
+              "\{show fn} has \{show k} arguments, and the RefC backend supports at most \{show maxArity}"
+
 ||| Do the functions borrow parameters (see Compiler.RefC.Borrow)?  Not with
 ||| `--directive refc-no-borrow`, a kill switch for comparisons.
 ||| `--directive refc-no-direct-results` traverses the results of every call
@@ -2724,6 +2741,7 @@ generateCSourceFileParts defs0 outn =
      -- Compiler.RefC.Borrow).
      foreigns <- get Foreigns
      let named = map (\(cn, (n, d)) => (cName cn, n, d)) (zip canons defs)
+     traverse_ (\(_, n, d) => checkArity n d) named
      unboxed <- fromList <$> traverse (\(cn, n, d) =>
                   case d of
                        MkAFun args anf => pure (cn, !(unboxedOf foreigns n cn args anf))

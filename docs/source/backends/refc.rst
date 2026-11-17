@@ -162,6 +162,9 @@ The count of references of a value is 16 bits; the references beyond that are
 counted in a table on the side, so a value with very many references is still
 freed in the end.
 
+A function, and so a closure, has at most 65535 arguments, and a constructor at
+most 65535 fields: the compiler reports a program with a bigger one.
+
 Ownership through the FFI
 -------------------------
 
