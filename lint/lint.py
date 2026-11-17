@@ -3,6 +3,7 @@
 # Lint Idris source files.
 
 import os
+import subprocess
 import sys
 
 
@@ -22,18 +23,32 @@ def _lint_file(path):
     return ok
 
 
+def _idr_files():
+    """The .idr files of the repository: those that git tracks, so that
+    untracked files (scratch files, build directories) are left alone.
+    Outside of a git checkout, every .idr file under the current directory."""
+    try:
+        out = subprocess.run(
+            ["git", "ls-files", "-z", "--", "*.idr"],
+            check=True, capture_output=True,
+        ).stdout
+        return [f for f in out.decode().split("\0") if f]
+    except (OSError, subprocess.CalledProcessError):
+        return [
+            os.path.relpath(os.path.join(dirpath, filename))
+            for (dirpath, dirnames, filenames) in os.walk(".")
+            for filename in filenames
+            if filename.endswith(".idr")
+        ]
+
+
 def main():
     ok = True
     count = 0
-    for (dirpath, dirnames, filenames) in os.walk("."):
-        for filename in filenames:
-            if not filename.endswith(".idr"):
-                continue
-            count += 1
-            assert dirpath.startswith("./")
-            full = f"{dirpath[2:]}/{filename}"
-            if not _lint_file(full):
-                ok = False
+    for full in _idr_files():
+        count += 1
+        if not _lint_file(full):
+            ok = False
 
     # Sanity check
     assert count
