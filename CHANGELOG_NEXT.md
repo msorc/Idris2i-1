@@ -654,6 +654,11 @@ should target this file (`CHANGELOG_NEXT`).
   RefC).  A shift by a huge count (`prim__shl_Int 1 9223372036854775807`)
   gives 0 instead of running out of memory.  The Racket and Gambit backends
   share this code and have the same helpers.
+* `prim__negate_Int8` to `prim__negate_Int64`, `prim__negate_Int` and
+  `prim__negate_Bits8` to `prim__negate_Bits64` wrap around: the negation of
+  -128 as an `Int8` is -128 (it was 128), that of 200 as a `Bits8` is 56 (it
+  was -200).  (`negate` of the `Num` implementations, which is `0 - x`, was
+  right.)  The same for the Racket, Gambit and JavaScript backends.
 
 ### Library changes
 

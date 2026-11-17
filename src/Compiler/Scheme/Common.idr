@@ -83,6 +83,13 @@ mul (Just $ Signed $ P n)   x y = op "bs*" [x, y, showB (n-1)]
 mul (Just $ Unsigned n)     x y = op "bu*" [x, y, showB n]
 mul _                       x y = op "*" [x, y]
 
+-- (wraps around: the negation of the smallest value of a signed type is
+-- itself, and that of an unsigned value is 2^n minus it)
+neg : Maybe IntKind -> Builder -> Builder
+neg (Just $ Signed $ P n)   x = op "bs-" ["0", x, showB (n-1)]
+neg (Just $ Unsigned n)     x = op "bu-" ["0", x, showB n]
+neg _                       x = op "-" [x]
+
 div : Maybe IntKind -> Builder -> Builder -> Builder
 div (Just $ Signed Unlimited) x y = op "blodwen-euclidDiv" [x, y]
 div (Just $ Signed $ P n)     x y = op "bs/" [x, y, showB (n-1)]
@@ -150,7 +157,7 @@ schOp (Sub ty) [x, y] = pure $ sub (intKind ty) x y
 schOp (Mul ty) [x, y] = pure $ mul (intKind ty) x y
 schOp (Div ty) [x, y] = pure $ div (intKind ty) x y
 schOp (Mod ty) [x, y] = pure $ op "blodwen-euclidMod" [x, y]
-schOp (Neg ty) [x] = pure $ op "-" [x]
+schOp (Neg ty) [x] = pure $ neg (intKind ty) x
 schOp (ShiftL ty) [x, y] = pure $ shl (intKind ty) x y
 schOp (ShiftR ty) [x, y] = pure $ shr (intKind ty) x y
 schOp (BAnd ty) [x, y] = pure $ op "blodwen-and" [x, y]

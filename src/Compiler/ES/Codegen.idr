@@ -428,7 +428,14 @@ jsOp (Mul ty) [x, y] = pure $ arithOp (jsIntKind ty) "*" "mul" x y
 jsOp (Div DoubleType) [x, y] = pure $ binOp "/" x y
 jsOp (Div ty) [x, y] = pure $ arithOp (jsIntKind ty) ""  "div" x y
 jsOp (Mod ty) [x, y] = pure $ jsMod ty x y
-jsOp (Neg ty) [x] = pure $ "(-(" <+> x <+> "))"
+-- (the bounded types wrap around: `0 - x`)
+jsOp (Neg ty) [x] = pure $ case jsIntKind ty of
+  Just (Signed (P n)) => boundedIntOp n "sub" (zero n) x
+  Just (Unsigned n)   => boundedUIntOp n "sub" (zero n) x
+  _                   => "(-(" <+> x <+> "))"
+  where
+    zero : Int -> Doc
+    zero n = if useBigInt' n then "0n" else "0"
 jsOp (ShiftL Int32Type) [x, y] = pure $ binOp "<<" x y
 jsOp (ShiftL IntType) [x, y] = pure $ binOp "<<" x y
 jsOp (ShiftL ty) [x, y] = pure $ arithOp (jsIntKind ty) "<<" "shl" x y
