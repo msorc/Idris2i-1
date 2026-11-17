@@ -299,6 +299,20 @@ should target this file (`CHANGELOG_NEXT`).
   with a null value.
 * `:exec` runs the compiled program also when the path of the build
   directory has spaces or other characters that the shell would take.
+* The fixed width integer types give the results of the Scheme backends.
+  The results of `+`, `-` and `*` on `Bits8` and `Bits16` were not wrapped
+  around in the value, so that a cast to a wider type (`cast {to = Bits16}
+  (x + 200)`) or a `case` on literals saw the value before the wrap; the
+  casts from `Int8` to `Bits8`, from `Bits8` to `Int8` (and the other casts
+  that kept the value as it was) did not convert it.  A shift by the width
+  of the type or more gives 0 (or -1), instead of what the C compiler makes
+  of an undefined behaviour, and a shift of a signed type (or an `Integer`)
+  by a negative count goes the other way.  `negate` on the `Bits` types
+  compiles.  The headers compile for 32 bit targets when `UINTPTR_WIDTH` is
+  defined (C23), and the casts to `Int32` give an `Int32` there.  As the
+  compiler built with RefC folds constants with these primitives, this also
+  fixes the folding of such constant expressions (`prim__shl_Bits32 1 32`
+  was folded to 1) for every backend.
 * Fixed an issue to do with `alligned_alloc` not existing on older MacOS
   versions, causing builds targeting PowerPC to fail (#3662).  For these
   systems, the compiler will now use `posix_memalign`.

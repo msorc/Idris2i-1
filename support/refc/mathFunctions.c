@@ -88,16 +88,27 @@ IDRIS2_INTEGER_OP2(idris2_mod_IntegerSlow,
                    if (b != 0) return idris2_mkIntegerFromInt64(
                        idris2_euclidRem(a, b));,
                    mpz_mod(retVal->i, ma, mb))
+// (a shift by a negative count goes the other way, like `ash`; the right
+// shift is arithmetic: the floor of the division)
+#define IDRIS2_INTEGER_SHIFT(dst, x, n, left)                                  \
+  do {                                                                         \
+    if ((mpz_sgn(n) >= 0) == (left))                                           \
+      mpz_mul_2exp(dst, x, (mp_bitcnt_t)mpz_get_ui(n));                        \
+    else                                                                       \
+      mpz_fdiv_q_2exp(dst, x, (mp_bitcnt_t)mpz_get_ui(n));                     \
+  } while (0)
 IDRIS2_INTEGER_OP2(
     idris2_shiftl_Integer,
     if (b >= 0 && b < 32) return idris2_mkIntegerFromInt64(a * ((int64_t)1 << b));
-    , mpz_mul_2exp(retVal->i, ma, (mp_bitcnt_t)mpz_get_ui(mb)))
-// (an arithmetic shift of a signed integer: the floor of the division)
+    if (b < 0) return idris2_mkIntegerFromInt64(b <= -63 ? (a < 0 ? -1 : 0)
+                                                          : a >> -b);
+    , IDRIS2_INTEGER_SHIFT(retVal->i, ma, mb, 1))
 IDRIS2_INTEGER_OP2(
     idris2_shiftr_Integer,
     if (b >= 0) return idris2_mkIntegerFromInt64(b >= 63 ? (a < 0 ? -1 : 0)
                                                          : a >> b);
-    , mpz_fdiv_q_2exp(retVal->i, ma, (mp_bitcnt_t)mpz_get_ui(mb)))
+    if (b > -32) return idris2_mkIntegerFromInt64(a * ((int64_t)1 << -b));
+    , IDRIS2_INTEGER_SHIFT(retVal->i, ma, mb, 0))
 
 Idris2_Value *idris2_negate_Integer(Idris2_Value *x) {
   if (idris2_isSmallInteger(x))

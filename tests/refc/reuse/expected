@@ -60,7 +60,7 @@ Idris2_Value *Main_insert
         }
         Idris2_Value * var_19 = tmp_3;
         Idris2_Value *tmp_4 = NULL;
-        switch (idris2_vp_to_Bits16(var_19)) {
+        switch (idris2_vp_to_Bits8(var_19)) {
         case UINT8_C(1): {
              // constructor Main.Node                        // Main:8:42--8:46
             if (! constructor_2) {                           // Main:8:42--8:46

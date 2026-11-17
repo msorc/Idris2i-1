@@ -242,41 +242,40 @@ static inline Idris2_Closure *idris2_mkClosure(Idris2_Value *(*f)(),
   return retVal;
 }
 
-#define idris2_mkChar(x)                                                       \
-  ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1))
-#define idris2_mkBits8(x)                                                      \
-  ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1))
-#define idris2_mkBits16(x)                                                     \
-  ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1))
+// The unboxed values: the integer is shifted into the bits of the pointer
+// above the tag.  It is first converted to its type (truncated, and sign
+// extended for the signed types), so that every value has a single
+// representation, whatever the C expression that computed it (C promotes
+// `uint8_t` to `int` in `x + y`, for example): the casts between types that
+// have the same representation, and the `case`s, rely on it.
+#define idris2_mkUnboxed(ty, x)                                                \
+  ((Idris2_Value *)(((uintptr_t)(ty)(x) << idris2_vp_int_shift) + 1))
+#define idris2_mkChar(x) idris2_mkUnboxed(uint32_t, x)
+#define idris2_mkBits8(x) idris2_mkUnboxed(uint8_t, x)
+#define idris2_mkBits16(x) idris2_mkUnboxed(uint16_t, x)
 
 #if !defined(UINTPTR_WIDTH)
 #define idris2_mkBits32(x)                                                     \
-  ((idris2_vp_int_shift == 16)                                                 \
-       ? (idris2_mkBits32_Boxed(x))                                            \
-       : ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1)))
+  ((idris2_vp_int_shift == 16) ? (idris2_mkBits32_Boxed(x))                    \
+                               : idris2_mkUnboxed(uint32_t, x))
 #define idris2_mkInt32(x)                                                      \
-  ((idris2_vp_int_shift == 16)                                                 \
-       ? (idris2_mkInt32_Boxed(x))                                             \
-       : ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1)))
+  ((idris2_vp_int_shift == 16) ? (idris2_mkInt32_Boxed(x))                     \
+                               : idris2_mkUnboxed(int32_t, x))
 
 #elif UINTPTR_WIDTH >= 64
-#define idris2_mkBits32(x)                                                     \
-  ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1))
-#define idris2_mkInt32(x)                                                      \
-  ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1))
+#define idris2_mkBits32(x) idris2_mkUnboxed(uint32_t, x)
+#define idris2_mkInt32(x) idris2_mkUnboxed(int32_t, x)
 
 #elif UINTPTR_WIDTH >= 32
 #define idris2_mkBits32(x) (idris2_mkBits32_Boxed(x))
-#define idris2_mkInt32(x) (idris2_mkInt32_Boxed(x)))
+#define idris2_mkInt32(x) (idris2_mkInt32_Boxed(x))
 
 #else
 #error "unsupported uintptr_t width"
 #endif
 
-#define idris2_mkInt8(x)                                                       \
-  ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1))
-#define idris2_mkInt16(x)                                                      \
-  ((Idris2_Value *)(((uintptr_t)(x) << idris2_vp_int_shift) + 1))
+#define idris2_mkInt8(x) idris2_mkUnboxed(int8_t, x)
+#define idris2_mkInt16(x) idris2_mkUnboxed(int16_t, x)
 #define idris2_mkBool(x) (idris2_mkInt8(x))
 
 Idris2_Value *idris2_mkBits32_Boxed(uint32_t i);

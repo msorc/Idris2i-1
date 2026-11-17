@@ -28,6 +28,13 @@ static inline int idris2_eqIntegerSmall(Idris2_Value *x, int64_t n) {
 #define idris2_binop(ty, op, l, r)                                             \
   ((Idris2_Value *)idris2_mk##ty(idris2_vp_to_##ty(l) op idris2_vp_to_##ty(r)))
 
+/* The unsigned types wrap around: the constructors (idris2_mkBits8, ...)
+   truncate the result.  The small ones are computed on `uint32_t` instead of
+   the `int` that C promotes them to, which could overflow (`65535 * 65535`). */
+#define idris2_uop(ty, op, l, r)                                               \
+  ((Idris2_Value *)idris2_mk##ty((uint32_t)idris2_vp_to_##ty(l)                \
+                                     op(uint32_t) idris2_vp_to_##ty(r)))
+
 /* Signed fixed size integers wrap around, like in the other backends.  In C
    an overflow of a signed type is undefined behaviour (which the C compiler
    may assume never happens), so the arithmetic is done on unsigned integers
@@ -44,8 +51,8 @@ static inline int idris2_eqIntegerSmall(Idris2_Value *x, int64_t n) {
   idris2_wrapop(Int64, int64_t, uint64_t, op, l, r)
 
 /* add */
-#define idris2_add_Bits8(l, r) (idris2_binop(Bits8, +, l, r))
-#define idris2_add_Bits16(l, r) (idris2_binop(Bits16, +, l, r))
+#define idris2_add_Bits8(l, r) (idris2_uop(Bits8, +, l, r))
+#define idris2_add_Bits16(l, r) (idris2_uop(Bits16, +, l, r))
 #define idris2_add_Bits32(l, r) (idris2_binop(Bits32, +, l, r))
 #define idris2_add_Bits64(l, r) (idris2_binop(Bits64, +, l, r))
 #define idris2_add_Int8(l, r) (idris2_wrapop8(+, l, r))
@@ -64,8 +71,8 @@ static inline Idris2_Value *idris2_add_Integer(Idris2_Value *x,
 #define idris2_add_Double(l, r) (idris2_binop(Double, +, l, r))
 
 /* sub */
-#define idris2_sub_Bits8(l, r) (idris2_binop(Bits8, -, l, r))
-#define idris2_sub_Bits16(l, r) (idris2_binop(Bits16, -, l, r))
+#define idris2_sub_Bits8(l, r) (idris2_uop(Bits8, -, l, r))
+#define idris2_sub_Bits16(l, r) (idris2_uop(Bits16, -, l, r))
 #define idris2_sub_Bits32(l, r) (idris2_binop(Bits32, -, l, r))
 #define idris2_sub_Bits64(l, r) (idris2_binop(Bits64, -, l, r))
 #define idris2_sub_Int8(l, r) (idris2_wrapop8(-, l, r))
@@ -84,6 +91,14 @@ static inline Idris2_Value *idris2_sub_Integer(Idris2_Value *x,
 #define idris2_sub_Double(l, r) (idris2_binop(Double, -, l, r))
 
 /* negate */
+#define idris2_negate_Bits8(x)                                                 \
+  (idris2_mkBits8(0u - (uint32_t)idris2_vp_to_Bits8(x)))
+#define idris2_negate_Bits16(x)                                                \
+  (idris2_mkBits16(0u - (uint32_t)idris2_vp_to_Bits16(x)))
+#define idris2_negate_Bits32(x)                                                \
+  (idris2_mkBits32(0u - (uint32_t)idris2_vp_to_Bits32(x)))
+#define idris2_negate_Bits64(x)                                                \
+  (idris2_mkBits64(0u - (uint64_t)idris2_vp_to_Bits64(x)))
 #define idris2_negate_Int8(x)                                                 \
   (idris2_mkInt8((int8_t)(0u - (uint32_t)idris2_vp_to_Int8(x))))
 #define idris2_negate_Int16(x)                                                 \
@@ -96,8 +111,8 @@ Idris2_Value *idris2_negate_Integer(Idris2_Value *x);
 #define idris2_negate_Double(x) (idris2_mkDouble(-(idris2_vp_to_Double(x))))
 
 /* mul */
-#define idris2_mul_Bits8(l, r) (idris2_binop(Bits8, *, l, r))
-#define idris2_mul_Bits16(l, r) (idris2_binop(Bits16, *, l, r))
+#define idris2_mul_Bits8(l, r) (idris2_uop(Bits8, *, l, r))
+#define idris2_mul_Bits16(l, r) (idris2_uop(Bits16, *, l, r))
 #define idris2_mul_Bits32(l, r) (idris2_binop(Bits32, *, l, r))
 #define idris2_mul_Bits64(l, r) (idris2_binop(Bits64, *, l, r))
 #define idris2_mul_Int8(l, r) (idris2_wrapop8(*, l, r))
@@ -202,26 +217,72 @@ static inline Idris2_Value *idris2_mod_Integer(Idris2_Value *x,
   return idris2_mod_IntegerSlow(x, y);
 }
 
-/* shiftl */
-#define idris2_shiftl_Bits8(l, r) (idris2_binop(Bits8, <<, l, r))
-#define idris2_shiftl_Bits16(l, r) (idris2_binop(Bits16, <<, l, r))
-#define idris2_shiftl_Bits32(l, r) (idris2_binop(Bits32, <<, l, r))
-#define idris2_shiftl_Bits64(l, r) (idris2_binop(Bits64, <<, l, r))
-#define idris2_shiftl_Int8(l, r) (idris2_wrapop8(<<, l, r))
-#define idris2_shiftl_Int16(l, r) (idris2_wrapop16(<<, l, r))
-#define idris2_shiftl_Int32(l, r) (idris2_wrapop32(<<, l, r))
-#define idris2_shiftl_Int64(l, r) (idris2_wrapop64(<<, l, r))
-Idris2_Value *idris2_shiftl_Integer(Idris2_Value *x, Idris2_Value *y);
+/* shiftl, shiftr
 
-/* shiftr */
-#define idris2_shiftr_Bits8(l, r) (idris2_binop(Bits8, >>, l, r))
-#define idris2_shiftr_Bits16(l, r) (idris2_binop(Bits16, >>, l, r))
-#define idris2_shiftr_Bits32(l, r) (idris2_binop(Bits32, >>, l, r))
-#define idris2_shiftr_Bits64(l, r) (idris2_binop(Bits64, >>, l, r))
-#define idris2_shiftr_Int8(l, r) (idris2_binop(Int8, >>, l, r))
-#define idris2_shiftr_Int16(l, r) (idris2_binop(Int16, >>, l, r))
-#define idris2_shiftr_Int32(l, r) (idris2_binop(Int32, >>, l, r))
-#define idris2_shiftr_Int64(l, r) (idris2_binop(Int64, >>, l, r))
+   Like the Scheme backends (`ash`, then the result wraps around): a shift by
+   the width of the type or more gives 0 (or -1, for a right shift of a
+   negative number), where it is undefined behaviour in C.  A shift of a
+   signed type by a negative count goes the other way.
+   idris2_shiftLeft_Int64 and idris2_shiftRight_Int64 work on C integers: the
+   code generator uses them on the Ints that it keeps unboxed. */
+#define IDRIS2_SHIFTS_UNSIGNED(ty, cty, uty, bits)                             \
+  static inline cty idris2_shiftLeft_##ty(cty x, cty n) {                      \
+    return n >= (bits) ? 0 : (cty)((uty)x << n);                               \
+  }                                                                            \
+  static inline cty idris2_shiftRight_##ty(cty x, cty n) {                     \
+    return n >= (bits) ? 0 : (cty)(x >> n);                                    \
+  }                                                                            \
+  static inline Idris2_Value *idris2_shiftl_##ty(Idris2_Value *x,              \
+                                                 Idris2_Value *n) {            \
+    return idris2_mk##ty(                                                      \
+        idris2_shiftLeft_##ty(idris2_vp_to_##ty(x), idris2_vp_to_##ty(n)));    \
+  }                                                                            \
+  static inline Idris2_Value *idris2_shiftr_##ty(Idris2_Value *x,              \
+                                                 Idris2_Value *n) {            \
+    return idris2_mk##ty(                                                      \
+        idris2_shiftRight_##ty(idris2_vp_to_##ty(x), idris2_vp_to_##ty(n)));   \
+  }
+IDRIS2_SHIFTS_UNSIGNED(Bits8, uint8_t, uint32_t, 8)
+IDRIS2_SHIFTS_UNSIGNED(Bits16, uint16_t, uint32_t, 16)
+IDRIS2_SHIFTS_UNSIGNED(Bits32, uint32_t, uint32_t, 32)
+IDRIS2_SHIFTS_UNSIGNED(Bits64, uint64_t, uint64_t, 64)
+
+// (the left shifts are done on unsigned integers, where an overflow is not
+// undefined behaviour; the right shift of a negative number on its
+// complement, which is not negative)
+#define IDRIS2_SHIFTS_SIGNED(ty, cty, uty, bits)                               \
+  static inline cty idris2_arithShiftRight_##ty(cty x, uint64_t n) {           \
+    if (n >= (bits))                                                           \
+      return x < 0 ? -1 : 0;                                                   \
+    return x < 0 ? (cty)~((cty)~x >> n) : (cty)(x >> n);                       \
+  }                                                                            \
+  static inline cty idris2_logicShiftLeft_##ty(cty x, uint64_t n) {            \
+    return n >= (bits) ? 0 : (cty)((uty)x << n);                               \
+  }                                                                            \
+  static inline cty idris2_shiftLeft_##ty(cty x, cty n) {                      \
+    return n >= 0 ? idris2_logicShiftLeft_##ty(x, (uint64_t)n)                 \
+                  : idris2_arithShiftRight_##ty(x, 0u - (uint64_t)n);          \
+  }                                                                            \
+  static inline cty idris2_shiftRight_##ty(cty x, cty n) {                     \
+    return n >= 0 ? idris2_arithShiftRight_##ty(x, (uint64_t)n)                \
+                  : idris2_logicShiftLeft_##ty(x, 0u - (uint64_t)n);           \
+  }                                                                            \
+  static inline Idris2_Value *idris2_shiftl_##ty(Idris2_Value *x,              \
+                                                 Idris2_Value *n) {            \
+    return idris2_mk##ty(                                                      \
+        idris2_shiftLeft_##ty(idris2_vp_to_##ty(x), idris2_vp_to_##ty(n)));    \
+  }                                                                            \
+  static inline Idris2_Value *idris2_shiftr_##ty(Idris2_Value *x,              \
+                                                 Idris2_Value *n) {            \
+    return idris2_mk##ty(                                                      \
+        idris2_shiftRight_##ty(idris2_vp_to_##ty(x), idris2_vp_to_##ty(n)));   \
+  }
+IDRIS2_SHIFTS_SIGNED(Int8, int8_t, uint32_t, 8)
+IDRIS2_SHIFTS_SIGNED(Int16, int16_t, uint32_t, 16)
+IDRIS2_SHIFTS_SIGNED(Int32, int32_t, uint32_t, 32)
+IDRIS2_SHIFTS_SIGNED(Int64, int64_t, uint64_t, 64)
+
+Idris2_Value *idris2_shiftl_Integer(Idris2_Value *x, Idris2_Value *y);
 Idris2_Value *idris2_shiftr_Integer(Idris2_Value *x, Idris2_Value *y);
 
 /* and */

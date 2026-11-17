@@ -972,9 +972,9 @@ unboxConst c v = case c of
     -- (the scrutinee may not have the type of the constants: comparisons
     -- give unboxed Bools for example)
     -- The values of the small types are never boxed (see `alwaysUnboxed`).
-    B8 _  => "idris2_vp_to_Bits16(\{v})"
+    B8 _  => "idris2_vp_to_Bits8(\{v})"
     B16 _ => "idris2_vp_to_Bits16(\{v})"
-    I8 _  => "idris2_vp_to_Int16(\{v})"
+    I8 _  => "idris2_vp_to_Int8(\{v})"
     I16 _ => "idris2_vp_to_Int16(\{v})"
     B32 _ => "idris2_extractUInt64(\{v})"
     Ch _  => "idris2_extractUInt64(\{v})"

@@ -83,8 +83,8 @@ wrapping op x y = "((int64_t)((uint64_t)(\{x}) \{op} (uint64_t)(\{y})))"
 
 ||| The C expression of an operation on `Int`s (see `intOp`), of C integers.
 ||| It computes what the macros of mathFunctions.h compute on values: the
-||| arithmetic wraps around (it is done on unsigned integers), and `div` and
-||| `mod` are Euclidean.
+||| arithmetic wraps around (it is done on unsigned integers), `div` and
+||| `mod` are Euclidean, and the shifts are those of the Scheme backends.
 export
 intOpC : PrimFn arity -> Vect arity String -> String
 intOpC (Add _) [x, y] = wrapping "+" x y
@@ -93,8 +93,8 @@ intOpC (Mul _) [x, y] = wrapping "*" x y
 intOpC (Div _) [x, y] = "idris2_euclidDiv_Int64(\{x}, \{y})"
 intOpC (Mod _) [x, y] = "idris2_euclidMod_Int64(\{x}, \{y})"
 intOpC (Neg _) [x] = "((int64_t)(0u - (uint64_t)(\{x})))"
-intOpC (ShiftL _) [x, y] = wrapping "<<" x y
-intOpC (ShiftR _) [x, y] = "((\{x}) >> (\{y}))"
+intOpC (ShiftL _) [x, y] = "idris2_shiftLeft_Int64(\{x}, \{y})"
+intOpC (ShiftR _) [x, y] = "idris2_shiftRight_Int64(\{x}, \{y})"
 intOpC (BAnd _) [x, y] = "((\{x}) & (\{y}))"
 intOpC (BOr _) [x, y] = "((\{x}) | (\{y}))"
 intOpC (BXOr _) [x, y] = "((\{x}) ^ (\{y}))"
