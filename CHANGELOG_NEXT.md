@@ -285,6 +285,9 @@ should target this file (`CHANGELOG_NEXT`).
 * `make bootstrap-c` stops with an error when `xz` is missing or cannot
   decompress `bootstrap/idris2_app/idris2.c.xz`.  It used to go on with an
   empty or truncated C file, and fail later with an unrelated error.
+* The dependency files of the support libraries have a rule for each header
+  (`-MP`), so that removing or renaming a header no longer breaks the build of
+  `support/` until `make cleandep`.
 
 ### Backend changes
 

@@ -33,12 +33,14 @@ $(LIBTARGET): $(OBJS)
 
 # Which headers each object file depends on.  The dependency file depends on
 # them too, so that it is made again when a header starts to include another.
+# -MP adds an empty rule for each header, so that a header that is removed or
+# renamed makes the files that included it be made again, instead of an error.
 ifeq (,$(filter clean cleandep,$(MAKECMDGOALS)))
 -include $(DEPS)
 endif
 
 %.d: %.c
-	@$(CPP) $(CPPFLAGS) $< -MM -MT "$(@:.d=.o) $@" >$@.tmp && mv -f $@.tmp $@ || { $(RM) $@.tmp; false; }
+	@$(CPP) $(CPPFLAGS) $< -MM -MP -MT "$(@:.d=.o) $@" >$@.tmp && mv -f $@.tmp $@ || { $(RM) $@.tmp; false; }
 
 
 .PHONY: clean
