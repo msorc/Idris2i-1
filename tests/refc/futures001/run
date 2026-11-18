@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+idris2 -p contrib -o refc_futures001 Main.idr
+$VALGRIND ./build/exec/refc_futures001
+IDRIS2_WORKERS=1 ./build/exec/refc_futures001
+# (not under Valgrind: the leak check looks at the pages)
+IDRIS2_REFC_LEAKCHECK=1 ./build/exec/refc_futures001 2>&1 >/dev/null | sed 's/,.*//'

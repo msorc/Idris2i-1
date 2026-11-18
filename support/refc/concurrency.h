@@ -51,6 +51,11 @@ void *refc_channelGetWithTimeout(Idris2_Value *erased, Idris2_Value *channel,
 void refc_channelPut(Idris2_Value *erased, Idris2_Value *channel,
                      Idris2_Value *value);
 
+// Futures (System.Future of contrib)
+
+void *refc_makeFuture(Idris2_Value *erased, Idris2_Closure *work);
+void *refc_awaitFuture(Idris2_Value *erased, Idris2_Value *future);
+
 // Thread identifiers and thread local data are declared in threads.h.
 
 // Sleeping.  Unlike the system calls, these do not block the other green

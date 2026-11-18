@@ -1,0 +1,51 @@
+String
+top-level indeed
+5000050000
+10000100000
+21463137500
+[(1, "1"), (2, "4"), (3, "9"), (4, "16"), (5, "25")]
+5
+5000050001
+5000050002
+10000100000
+"nested"
+9
+40
+()
+5
+5
+(True, True)
+first
+second
+third
+fourth
+This is printed by the main thread
+This is printed
+'x'
+[45000150001, 45000150001, 45000150001, 45000150001]
+String
+top-level indeed
+5000050000
+10000100000
+21463137500
+[(1, "1"), (2, "4"), (3, "9"), (4, "16"), (5, "25")]
+5
+5000050001
+5000050002
+10000100000
+"nested"
+9
+40
+()
+5
+5
+(True, True)
+first
+second
+third
+fourth
+This is printed by the main thread
+This is printed
+'x'
+[45000150001, 45000150001, 45000150001, 45000150001]
+RefC leak check: 0 leaked values

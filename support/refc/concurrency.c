@@ -15,6 +15,8 @@
 
 #include "concurrency.h"
 #include "memoryManagement.h"
+#include "prim.h"
+#include "runtime.h"
 #include "threads.h"
 
 #include <stdio.h>
@@ -397,6 +399,68 @@ void *refc_channelGetWithTimeout(Idris2_Value *erased, Idris2_Value *channel,
   Idris2_Value *value = full ? channel_take(c) : NULL;
   idris2_spinUnlock(&c->lock);
   return full ? make_just(value) : NULL;
+}
+
+// ---------------------------------------------------------------------------
+// Futures
+//
+// Like in the Chez backend, a future is a thread that starts at once to
+// compute a value, which `await` waits for and gives, as many times as it is
+// called.  It is made of what the runtime already has: a constructor with
+// the handle of the thread and an IORef, where the thread stores the value
+// before it finishes.  `await` waits for the thread, as `threadWait` does,
+// and reads the IORef.  The IORef is captured by the action of the thread,
+// so it is shared (see memoryManagement.h) when threads run in parallel,
+// and so is the value once it is written there.
+//
+// On the platforms without green threads the value is computed by
+// `refc_makeFuture` itself, before it returns.
+// ---------------------------------------------------------------------------
+
+// The action of the thread of a future, a `PrimIO ()` once it has its first
+// two arguments: `work` is the `() -> a` function to call, `cell` the IORef
+// for its result.  Like the functions of the generated code, it takes its
+// arguments over.
+static Idris2_Value *future_run(Idris2_Value *work, Idris2_Value *cell,
+                                Idris2_Value *world) {
+  (void)world;
+  // (the unit value is not looked at; this consumes `work`)
+  Idris2_Value *result = idris2_apply_closure(work, NULL);
+  idris2_Data_IORef_prim__writeIORef(NULL, cell, result, NULL);
+  idris2_removeReference(result);
+  idris2_removeReference(cell);
+  return NULL;
+}
+
+void *refc_makeFuture(Idris2_Value *erased, Idris2_Closure *work) {
+  (void)erased;
+  Idris2_Value *cell = idris2_Data_IORef_prim__newIORef(NULL, NULL, NULL);
+  Idris2_Value *handle = NULL;
+  idris2_newReference((Idris2_Value *)work);
+  idris2_newReference(cell);
+#if IDRIS2_GREEN_THREADS
+  Idris2_Closure *action =
+      idris2_mkClosure((Idris2_Value * (*)()) future_run, 3, 2);
+  action->args[0] = (Idris2_Value *)work;
+  action->args[1] = cell;
+  // The thread gets a reference of its own to the action.
+  handle = (Idris2_Value *)refc_fork(action);
+  idris2_removeReference((Idris2_Value *)action);
+#else
+  future_run((Idris2_Value *)work, cell, NULL);
+#endif
+  Idris2_Constructor *future = idris2_newConstructor(2, 0);
+  future->args[0] = handle;
+  future->args[1] = cell;
+  return future;
+}
+
+void *refc_awaitFuture(Idris2_Value *erased, Idris2_Value *future) {
+  (void)erased;
+  Idris2_Constructor *f = (Idris2_Constructor *)future;
+  // (returns at once when the thread is done, or when there is none)
+  refc_threadWait(f->args[0]);
+  return idris2_readIORef(f->args[1]);
 }
 
 // ---------------------------------------------------------------------------
