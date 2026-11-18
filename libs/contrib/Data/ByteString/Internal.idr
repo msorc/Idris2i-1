@@ -122,6 +122,12 @@ export
 unsafeCopyTo : ByteString -> (dst : Buffer) -> (dstOffset : Int) -> IO ()
 unsafeCopyTo (BS b o n) dst at = copyData b o n dst at
 
+-- Stop the program: a buffer that was asked for could not be allocated.  It
+-- has any result type, so that it can be used where a value is expected.
+outOfMemory : Int -> a
+outOfMemory n = assert_total $ idris_crash
+  ("Data.ByteString: out of memory (could not allocate a buffer of " ++ show n ++ " bytes)")
+
 ||| Make a byte string of `n` bytes by running a function that fills a fresh
 ||| zeroed buffer of that size.  A size of 0 or less gives the empty byte
 ||| string without running the function.
@@ -129,27 +135,35 @@ unsafeCopyTo (BS b o n) dst at = copyData b o n dst at
 ||| The function must write the buffer only within `[0, n)`, must not keep
 ||| a reference to it (a later write would change the byte string) and must
 ||| write the same bytes whenever it is run.
+|||
+||| A pure function has no way to report that the memory is not there, so
+||| when the buffer cannot be allocated the program stops with the message
+||| "out of memory" rather than build a byte string that claims bytes it does
+||| not have.  (With every back end an allocation that fails stops the program
+||| already, in its own way: `newBuffer` returns `Nothing` only for a negative
+||| size, which `n > 0` excludes, so the check below is for the invariant and
+||| is not expected to run.)
 export
 unsafeCreate : (n : Int) -> (fill : Buffer -> IO ()) -> ByteString
 unsafeCreate n fill =
   if n <= 0
      then unsafePerformIO (do b <- emptyBuffer; pure (BS b 0 0))
      else unsafePerformIO $ do
-            b <- fresh n
+            Just b <- newBuffer n
+              | Nothing => outOfMemory n
             fill b
             pure (BS b 0 n)
-  where
-    -- `newBuffer` only fails for a negative size, which `n > 0` excludes.
-    fresh : Int -> IO Buffer
-    fresh k = do Just b <- newBuffer k
-                   | Nothing => emptyBuffer
-                 pure b
 
 ||| Like `unsafeCreate`, for an action in any `HasIO` monad that tells how
 ||| many of the `n` bytes it wrote (from the start), or fails with an error:
 ||| the byte string is just those bytes.  The same rules apply: the action
 ||| must not keep the buffer.  If it reports more than `n` or less than 0,
 ||| the result is clamped to that range.  Used to read from files.
+|||
+||| The error type `e` is the caller's, so it cannot say that the buffer
+||| could not be allocated; the program stops with the message
+||| "out of memory" in that case, as `unsafeCreate` does (see there for why it
+||| is not expected to happen).
 export
 createIO : HasIO io => (n : Int) -> (fill : Buffer -> io (Either e Int)) ->
            io (Either e ByteString)
@@ -158,8 +172,7 @@ createIO n fill =
      then do b <- emptyBuffer
              pure (Right (BS b 0 0))
      else do Just b <- newBuffer n
-               | Nothing => do e <- emptyBuffer
-                               pure (Right (BS e 0 0))
+               | Nothing => outOfMemory n
              Right used <- fill b
                | Left err => pure (Left err)
              pure (Right (BS b 0 (if used < 0 then 0 else if used > n then n else used)))
