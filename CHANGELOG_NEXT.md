@@ -381,7 +381,7 @@ should target this file (`CHANGELOG_NEXT`).
   (implicits and quantities shown, names in full), the constructors of public
   data types, record fields, interfaces with their methods, and
   implementations.  It does not depend on source positions, paths, build order
-  or machine generated names.  The API of `prelude` and `base` is committed in
+  or machine generated names.  The API of `prelude`, `base` and `contrib` is committed in
   `libs/api`: `make api-check` (and the test `idris2/mkdoc/apidump002-libs`)
   fails with the difference when it changes, `make api-snapshots` writes it
   again.  See "Detecting changes to the API of a package" in the package

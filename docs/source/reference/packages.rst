@@ -260,7 +260,7 @@ the header of its hunk.  When a change is intended, write the file again and
 commit it with the change.
 
 The libraries of Idris 2 are checked this way: ``libs/api`` has the API of
-``prelude`` and ``base``, ``make api-check`` (and the test
+``prelude``, ``base`` and ``contrib``, ``make api-check`` (and the test
 ``idris2/mkdoc/apidump002-libs``) fails with the difference when it changed,
 and ``make api-snapshots`` writes the files again (the variable ``API_LIBS``
 says which libraries).

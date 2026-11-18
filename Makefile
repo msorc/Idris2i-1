@@ -223,7 +223,7 @@ libdocs:
 # these files again from the libraries as they are now (built by `make libs`);
 # `api-check` fails, showing the difference, when a library's API is no longer
 # the one of its file.
-API_LIBS ?= prelude base
+API_LIBS ?= prelude base contrib
 API_DIR = ${IDRIS2_CURDIR}/libs/api
 API_BUILD_DIR = ${IDRIS2_CURDIR}/build/api
 
