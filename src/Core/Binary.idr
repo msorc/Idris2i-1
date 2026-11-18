@@ -365,14 +365,14 @@ addGlobalDef : {auto c : Ref Ctxt Defs} ->
 addGlobalDef modns filens asm (n, def)
     = do defs <- get Ctxt
          codedentry <- lookupContextEntry n (gamma defs)
-         -- Don't update the coded entry because some names might not be
-         -- resolved yet
-         entry <- maybe (pure Nothing)
-                        (\ p => do x <- decode (gamma defs) (fst p) False (snd p)
-                                   pure (Just x))
-                        codedentry
-         unless (completeDef entry) $
-           ignore $ addContextEntry filens n def
+         case codedentry of
+              -- Already read from this module (which is read again when it
+              -- is imported again, say publicly this time), and not used
+              -- since: this is the same definition, nothing to do. (Decoding
+              -- it to look at it would cost more than all the rest.)
+              Just (_, Coded ns _) =>
+                  unless (ns == filens) $ addIfIncomplete codedentry
+              _ => addIfIncomplete codedentry
 
          whenJust asm $ \ as => addContextAlias (asName modns as n) n
 
@@ -387,6 +387,18 @@ addGlobalDef modns filens asm (n, def)
                None => False
                Hole {} => False
                _ => True
+
+    addIfIncomplete : Maybe (Int, ContextEntry) -> Core ()
+    addIfIncomplete codedentry
+        = do defs <- get Ctxt
+             -- Don't update the coded entry because some names might not be
+             -- resolved yet
+             entry <- maybe (pure Nothing)
+                            (\ p => do x <- decode (gamma defs) (fst p) False (snd p)
+                                       pure (Just x))
+                            codedentry
+             unless (completeDef entry) $
+               ignore $ addContextEntry filens n def
 
 addTypeHint : {auto c : Ref Ctxt Defs} ->
               FC -> (Name, Name, Bool) -> Core ()
