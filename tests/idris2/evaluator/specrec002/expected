@@ -1,0 +1,10 @@
+      1 Tree.1:go
+      1 Tree.case block in insert
+      1 Tree.countBelow
+      1 Tree.insert
+      1 Tree.sort
+      1 Tree.toTree
+[1, 2, 3, 4, 5]
+3
+Tree.Leaf
+Tree.Node

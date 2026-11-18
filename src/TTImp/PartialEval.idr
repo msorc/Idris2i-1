@@ -1072,10 +1072,24 @@ mutual
                 | Nothing => do args' <- quoteArgsWithFC q defs bound env args
                                 pure $ applyStackWithFC (Ref fc Func fn) args'
            args' <- quoteArgsWithFC q defs bound env args
-           (specs, _) <- specArgsOf True fc fn gdef
+           (specs, isAuto) <- specArgsOf True fc fn gdef
            let False = NatSet.isEmpty specs
                | _ => pure $ applyStackWithFC (Ref fc Func fn) args'
-           Just r <- specialise True False fc (extendEnv bound env) gdef fn args'
+           -- The implementations that --spec-interfaces specialises by are
+           -- taken as they are given, not reduced (if they do not need to
+           -- be reduced to be closed): they are not normalised either (see
+           -- specialise), and in a copy, which reduces the implementations
+           -- it is given once, a recursive call would take its
+           -- implementation reduced a bit more than the copy did, and so
+           -- make another copy, and so on, until the implementation does
+           -- not reduce any more (four copies of `toTree` of the treeInt
+           -- benchmark, one in another, by `Ord Int`).  Given as they
+           -- are, they are the same as in the call that made the copy, so
+           -- the recursive call is to the copy.
+           stk <- if not isAuto then pure args' else
+                    do empty <- clearDefs defs
+                       staticAsGiven empty bound specs 0 args args'
+           Just r <- specialise True False fc (extendEnv bound env) gdef fn stk
                 | Nothing =>
                      -- can't specialise, keep the arguments
                      -- unreduced
@@ -1084,6 +1098,20 @@ mutual
                         pure $ applyStackWithFC (Ref fc Func fn) args'
            pure r
      where
+       staticAsGiven : {bs : _} ->
+                       Defs -> Bounds bs -> NatSet -> Nat ->
+                       List (FC, Closure vars) ->
+                       List (FC, Term (bs ++ vars)) ->
+                       Core (List (FC, Term (bs ++ vars)))
+       staticAsGiven empty bnds specs i ((_, c) :: cs) (a :: as)
+           = do rest <- staticAsGiven empty bnds specs (S i) cs as
+                if not (i `elem` specs) then pure (a :: rest) else do
+                  given <- quoteGenNF q empty bnds env !(evalClosure empty c)
+                  pure $ if isJust (shrink given none)
+                            then (fst a, given) :: rest
+                            else a :: rest
+       staticAsGiven _ _ _ _ _ as = pure as
+
        extendEnv : Bounds bs -> Env Term vs -> Env Term (bs ++ vs)
        extendEnv None env = env
        extendEnv (Add x n bs) env
