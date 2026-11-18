@@ -461,8 +461,18 @@ The backends differ in how long that pointer stays valid:
   the program (about 350 bytes for an ``Int -> Int`` with Chez 10 on x86-64),
   and a callback that is only used during the call (the comparison of
   ``qsort``) leaks it at every call. Register a long lived
-  callback once (when the window is made, not at every event), and avoid
-  calling a foreign function that takes a function in a loop.
+  callback once (when the window is made, not at every event). For a
+  function that only calls its callbacks before it returns, use the
+  ``C__scoped_callbacks`` convention, which frees them after the call, with a
+  ``C`` specifier for the other backends:
+
+  .. code-block:: idris
+
+      %foreign "C__scoped_callbacks:qsort,libc" "C:qsort,libc"
+      prim__qsort : AnyPtr -> Bits64 -> Bits64 -> (AnyPtr -> AnyPtr -> Int) -> PrimIO ()
+
+  A function bound this way must not keep a callback: calling it after the
+  call returns would run code that has been freed.
 * With Racket, nothing refers to it once the foreign function has returned,
   so a C library that keeps the pointer and calls it later may call code that
   has been collected. Only use callbacks during the call with Racket.

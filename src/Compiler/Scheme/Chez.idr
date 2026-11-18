@@ -237,16 +237,17 @@ cCall : {auto c : Ref Ctxt Defs}
      -> List (Name, CFType)
      -> CFType
      -> (collectSafe : Bool)
+     -> (scoped : Bool) -- the callbacks are only called during the call
      -> Core (Maybe String, Builder)
-cCall fc cfn clib args (CFIORes CFGCPtr) _
+cCall fc cfn clib args (CFIORes CFGCPtr) _ _
     = throw (GenericMsg fc "Can't return GCPtr from a foreign function")
-cCall fc cfn clib args CFGCPtr _
+cCall fc cfn clib args CFGCPtr _ _
     = throw (GenericMsg fc "Can't return GCPtr from a foreign function")
-cCall fc cfn clib args (CFIORes CFBuffer) _
+cCall fc cfn clib args (CFIORes CFBuffer) _ _
     = throw (GenericMsg fc "Can't return Buffer from a foreign function")
-cCall fc cfn clib args CFBuffer _
+cCall fc cfn clib args CFBuffer _ _
     = throw (GenericMsg fc "Can't return Buffer from a foreign function")
-cCall fc cfn clib args ret collectSafe
+cCall fc cfn clib args ret collectSafe scoped
     = do loaded <- get Loaded
          lib <- if clib `elem` loaded
                    then pure Nothing
@@ -255,7 +256,8 @@ cCall fc cfn clib args ret collectSafe
          argTypes <- traverse (argTySpec . snd) args
          retType <- cftySpec fc ret
          let callConv : Builder = if collectSafe then " __collect_safe" else ""
-         let call = pinArgs $
+         pins <- traverse pinned args
+         let call = pinArgs (catMaybes pins) $
                       "((foreign-procedure" ++ callConv ++ " " ++ showB cfn ++ " ("
                       ++ sepBy " " argTypes ++ ") " ++ retType ++ ") "
                       ++ sepBy " " !(traverse buildArg args) ++ ")"
@@ -264,24 +266,13 @@ cCall fc cfn clib args ret collectSafe
                          CFIORes _ => handleRet ret call
                          _ => call)
   where
-    -- A `String` or `Buffer` argument is passed as the address of a
-    -- bytevector in the Scheme heap.  A collection during the call (in a
-    -- callback into Idris, or in another thread during a __collect_safe
-    -- call) could move or free it while C still uses it, so the bytevector
-    -- is locked until the call returns.  A `String` is converted first, as
-    -- the `string` type of `foreign-procedure` does, into `c-<arg>`.
-    pinned : (Name, CFType) -> Maybe (Builder, Maybe Builder)
-    pinned (n, CFString) = Just ("c-" ++ schName n, Just (schName n))
-    pinned (n, CFBuffer) = Just (schName n, Nothing)
-    pinned _ = Nothing
-
     argTySpec : CFType -> Core Builder
     argTySpec CFString = pure "u8*"
     argTySpec ty = cftySpec fc ty
 
-    pinArgs : Builder -> Builder
-    pinArgs call
-        = case mapMaybe pinned args of
+    pinArgs : List (Builder, Maybe Builder) -> Builder -> Builder
+    pinArgs ps call
+        = case ps of
                [] => call
                ps => "(let (" ++ concat (map convert ps) ++ ") "
                        ++ concat (map (\p => "(lock-object " ++ fst p ++ ") ") ps)
@@ -290,7 +281,7 @@ cCall fc cfn clib args ret collectSafe
                        ++ "c-res))"
       where
         convert : (Builder, Maybe Builder) -> Builder
-        convert (c, Just s) = "[" ++ c ++ " (blodwen-string->c " ++ s ++ ")]"
+        convert (c, Just s) = "[" ++ c ++ " " ++ s ++ "]"
         convert _ = ""
 
     mkNs : Int -> List CFType -> List (Maybe Builder)
@@ -316,20 +307,51 @@ cCall fc cfn clib args ret collectSafe
     notWorld CFWorld = False
     notWorld _ = True
 
-    callback : Builder -> List CFType -> CFType -> Core Builder
-    callback n args (CFFun s t) = callback n (s :: args) t
-    callback n args_rev retty
+    -- The code object of a C function that calls the Idris function `n`
+    callable : Builder -> List CFType -> CFType -> Core Builder
+    callable n args (CFFun s t) = callable n (s :: args) t
+    callable n args_rev retty
         = do let args = reverse args_rev
              argTypes <- traverse (cftySpec fc) (filter notWorld args)
              retType <- cftySpec fc retty
-             pure $
-                 "(let ([c-code (foreign-callable #f " ++
-                       mkFun args retty n ++
-                       " (" ++ sepBy " " argTypes ++ ") " ++ retType ++ ")])" ++
-                       " (lock-object c-code) (foreign-callable-entry-point c-code))"
+             pure $ "(foreign-callable #f " ++ mkFun args retty n ++
+                    " (" ++ sepBy " " argTypes ++ ") " ++ retType ++ ")"
+
+    -- The address of a C function that calls `n`, locked for ever: C may
+    -- keep it and call it after the call
+    callback : Builder -> List CFType -> CFType -> Core Builder
+    callback n args retty
+        = pure $ "(let ([c-code " ++ !(callable n args retty) ++ "])" ++
+                 " (lock-object c-code) (foreign-callable-entry-point c-code))"
+
+    -- A `String` or `Buffer` argument is passed as the address of a
+    -- bytevector in the Scheme heap.  A collection during the call (in a
+    -- callback into Idris, or in another thread during a __collect_safe
+    -- call) could move or free it while C still uses it, so the bytevector
+    -- is locked until the call returns.  A `String` is converted first, as
+    -- the `string` type of `foreign-procedure` does, into `c-<arg>`.
+    -- With `scoped`, the code of a callback (`cb-<arg>`) is locked during
+    -- the call only, and then freed by the collector; otherwise it is locked
+    -- for ever, as C may keep it (see `callback`).
+    -- Each one is the variable to lock and, if it is bound for the call, the
+    -- expression that it is bound to.
+    pinned : (Name, CFType) -> Core (Maybe (Builder, Maybe Builder))
+    pinned (n, CFString)
+        = pure $ Just ("c-" ++ schName n,
+                       Just ("(blodwen-string->c " ++ schName n ++ ")"))
+    pinned (n, CFBuffer) = pure $ Just (schName n, Nothing)
+    pinned (n, CFFun s t)
+        = if scoped
+             then pure $ Just ("cb-" ++ schName n,
+                               Just !(callable (schName n) [s] t))
+             else pure Nothing
+    pinned _ = pure Nothing
 
     buildArg : (Name, CFType) -> Core Builder
-    buildArg (n, CFFun s t) = callback (schName n) [s] t
+    buildArg (n, CFFun s t)
+        = if scoped
+             then pure $ "(foreign-callable-entry-point cb-" ++ schName n ++ ")"
+             else callback (schName n) [s] t
     buildArg (n, CFGCPtr) = pure $ "(car " ++ schName n ++ ")"
     buildArg (n, CFString) = pure $ "c-" ++ schName n
     buildArg (n, _) = pure $ schName n
@@ -350,7 +372,8 @@ useCC : {auto c : Ref Ctxt Defs} ->
         FC -> List String -> List (Name, CFType) -> CFType ->
         Maybe Version -> Core (Maybe String, Builder)
 useCC fc ccs args ret version
-    = case parseCC ["scheme,chez", "scheme", "C__collect_safe", "C"] ccs of
+    = case parseCC ["scheme,chez", "scheme", "C__collect_safe",
+                    "C__scoped_callbacks", "C"] ccs of
            Just ("scheme,chez", [sfn]) =>
                do body <- schemeCall fc sfn (map fst args) ret
                   pure (Nothing, body)
@@ -359,10 +382,12 @@ useCC fc ccs args ret version
                   pure (Nothing, body)
            Just ("C__collect_safe", (cfn :: clib :: _)) => do
              if unsupportedCallingConvention version
-               then cCall fc cfn clib args ret False
-               else cCall fc cfn clib args ret True
+               then cCall fc cfn clib args ret False False
+               else cCall fc cfn clib args ret True False
+           Just ("C__scoped_callbacks", (cfn :: clib :: _)) =>
+             cCall fc cfn clib args ret False True
            Just ("C", (cfn :: clib :: _)) =>
-             cCall fc cfn clib args ret False
+             cCall fc cfn clib args ret False False
            _ => throw (NoForeignCC fc ccs)
 
 -- For every foreign arg type, return a name, and whether to pass it to the

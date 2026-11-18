@@ -900,6 +900,14 @@ should target this file (`CHANGELOG_NEXT`).
   of `strlen` from an Idris loop takes 450ns instead of 350ns on a 16 byte
   string, and 3% more on a 1KB one.
   The test `chez/ffiPin001` collects in a callback.
+* The calling convention `C__scoped_callbacks` (`%foreign
+  "C__scoped_callbacks:qsort,libc" "C:qsort,libc"`) is for a C function that
+  only calls its callbacks before it returns: the code made for each callback
+  is freed after the call.  With `C`, it is locked for ever, since C may keep
+  the callback, so each call of a function that takes one kept about 400
+  bytes (20,000 calls of the test `chez/ffiScoped001` keep 8MB with `C`,
+  nothing with `C__scoped_callbacks`).  The other backends take the `C`
+  specifier.
 
 ### Library changes
 

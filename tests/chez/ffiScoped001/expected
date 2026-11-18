@@ -1,0 +1,4 @@
+sum with collections in the callback: 30
+sum of 10 calls: 225
+scoped callbacks keep less than 100KB: True
+C callbacks keep more than 1MB: True
