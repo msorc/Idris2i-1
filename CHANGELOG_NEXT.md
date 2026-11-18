@@ -471,6 +471,22 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* Backtraces: a program that dies of a fatal error (`idris_crash`, a missing
+  case in `partial` code, a division by zero, a missing foreign function, or
+  `SIGSEGV`, `SIGBUS`, `SIGFPE`, `SIGILL` or `SIGABRT` from foreign code or a
+  stack overflow) can print the functions of the thread that died on stderr,
+  after the message.  `--directive refc-backtrace` puts the Idris names of
+  the functions and where they are defined in the program (and compiles them
+  with `noinline`) and turns the backtraces on; `IDRIS2_REFC_BACKTRACE=1` or
+  `0` turns them on or off when the program runs.  The stack is walked by the
+  unwinder of the C compiler only when the error happens: a program runs the
+  same code with or without them.  With `IDRIS2_REFC_DEMANGLE=1`, a program
+  compiled with the directive replaces the C names of its functions in its
+  input by their Idris names (for the output of `perf`), see "Backtraces" and
+  "Profiling with perf" in the RefC documentation.  `idris_crash` is
+  declared `noreturn` in the runtime, so that the C compiler does not make its
+  call a jump (which hid the frame of the function that crashed).
+
 * A foreign function that returns a function (`PrimIO (Int -> Int)`) is a
   compile error, which says that the RefC backend does not support it: the
   generated C called a `makeFunction` that does not exist.

@@ -297,6 +297,115 @@ compile time (the compiler builds 2.6 times slower with it), and makes a big
 difference for code that uses ``compare`` or ``(<)`` of a known type a lot (a
 tree sort of ``Integer``\ s runs with 38% fewer instructions).
 
+Backtraces
+==========
+
+A program that dies of a fatal error can print the functions that it was
+in, the innermost first, on the standard error after the message of the error.
+This works for ``idris_crash``, a missing case in ``partial`` code, a division
+by zero, a missing foreign function, and the signals ``SIGSEGV``, ``SIGBUS``,
+``SIGFPE``, ``SIGILL`` and ``SIGABRT`` (raised by foreign code, or by a stack
+overflow), on any green thread:
+
+::
+
+    $ idris2 --directive refc-backtrace -o prog Main.idr
+    $ ./build/exec/prog
+    ERROR: Unhandled input for Main.name at Main:13:1--13:17
+    Backtrace of the main thread, innermost call first:
+      Main.name (Main:11:1)
+      Main.describe (Main:16:1)
+      Main.main (Main:33:1)
+
+A program killed by a signal prints what caused it first, and still dies of
+the signal (here a profile of the ``mergeInt`` benchmark, interrupted by a
+``kill -SEGV``):
+
+::
+
+    RefC: segmentation fault (SIGSEGV)
+    Backtrace of the main thread, innermost call first:
+      Prelude.Types.List.reverseOnto (Prelude.Types:553:3)
+      Data.List.7787:8508:splitRec (Data.List:760:5)
+      _PE.PE_sortBy_ac12a6c39c600e8e, 13 frames
+      Main.doSort (mergeInt:17:1)
+      Main.{doSort:3} (mergeInt:17:1)
+
+- ``--directive refc-backtrace`` puts a table of the functions of the program
+  in it: their C names, their Idris names and where they are defined (where
+  their declaration begins, pragmas included), and turns the backtraces on by
+  default.  It also compiles every function with ``noinline``, so that every
+  call that is not in tail position has a frame of its own.
+- The environment variable ``IDRIS2_REFC_BACKTRACE`` turns them on (``1``) or
+  off (``0``) when the program runs, with or without the directive.  Without
+  it, the frames show the C names of the functions (``Main_describe``).
+
+The stack is walked by the unwinder of the C compiler (with the ``.eh_frame``
+tables that GCC and Clang write in every binary), and the return addresses are
+looked up in the symbol table of the executable, which the program reads from
+``/proc/self/exe``: none of this costs anything until a fatal error happens,
+and a program runs the same code with backtraces on or off.  A program whose
+symbols were removed (``strip``) only shows its exported functions.  What a
+backtrace does not show:
+
+- the calls in tail position: a jump (with GCC 15 or later) or a call made by
+  the trampoline of the caller leaves no frame;
+- without the directive, the functions that the C compiler inlined (the
+  ``noinline`` of the directive made no measurable difference to the
+  benchmarks of ``benchmark/``: within 0.04% of their instructions); and, with
+  or without it, the functions that the Idris compiler inlined (``%noinline``
+  keeps a function);
+- where in a function the call is: only the line where the function is
+  defined.
+
+The frames of foreign C functions show their C names, and those of shared
+libraries the name of the library (``malloc [libc.so.6]``); the frames of the
+runtime are left out.  A deep stack (that of a stack overflow) shows its 48
+innermost frames and its 12 outermost ones, with consecutive frames of the same
+function on one line (``Main.depth (Main:8:1), 48 frames``); the stack is not
+walked beyond 5 million frames (which takes about a second).  A stack overflow
+is reported on an alternate signal stack, which every OS thread of the program
+gets when backtraces are on; the program then dies of the signal, as it would
+without the backtrace.
+
+On Linux, the backtrace is printed without allocating memory, by functions
+that can be called in a signal handler, but for the unwinder (which glibc's own
+``backtrace(3)`` relies on too, and which is called once at startup so that it
+is ready) and ``dladdr(3)`` for the frames of shared libraries (which takes a
+lock of the dynamic loader: a crash in ``dlopen`` would hang).  On macOS and
+the BSDs, only the exported functions of the executable are found (with
+``dladdr``); on Windows and WebAssembly there are no backtraces.
+
+Profiling with perf
+-------------------
+
+``perf`` profiles RefC programs well, as they are C programs: the functions of
+the program are those of the Idris program, with their C names.  Compile it
+with ``--directive refc-backtrace`` to see their Idris names (the
+``noinline`` of the directive also keeps the functions apart in the profile,
+at the cost of a few percent), and with ``-g`` in ``IDRIS2_CFLAGS`` for
+``perf annotate`` to show the C source:
+
+::
+
+    $ IDRIS2_CFLAGS=-g idris2 --directive refc-backtrace -o prog Main.idr
+    $ perf record -g ./build/exec/prog
+    $ perf report --stdio --no-children | IDRIS2_REFC_DEMANGLE=1 ./build/exec/prog
+
+With ``IDRIS2_REFC_DEMANGLE`` set, the program does not run: it copies its
+standard input to its standard output, with every C name of one of its
+functions replaced by the Idris name (``Main_describe`` and
+``Main_describe.cold``, a part of it that GCC moved away, become
+``Main.describe`` and ``Main.describe.cold``).  This works on the output of
+``perf report``, ``perf script`` or ``perf annotate``, and of any other
+tool that prints C names.  The C names are mostly readable by themselves: the
+namespace and the name are joined by ``_`` (``Data_List_sortBy``), and the
+characters that C does not allow are spelt out (``Prelude_EqOrd__eq_eq_Eq_Int``
+is ``==`` of ``Eq Int``); ``Main_f_0`` is ``Main.{f:0}``, a function that the
+compiler made of a part of ``Main.f`` (a lambda, a ``where`` block),
+``n__...`` nested functions and ``case__...`` case blocks.  The functions of
+the runtime begin with ``idris2_``.
+
 Building Idris 2 with RefC
 ==========================
 
