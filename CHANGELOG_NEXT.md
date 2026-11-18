@@ -358,6 +358,19 @@ should target this file (`CHANGELOG_NEXT`).
   checking a small file importing three modules of `contrib`, and more of a
   no-op `--build`.  Other paths, and all paths on Windows, still go through
   the parser.
+* Checking modules takes 7% to 38% fewer instructions (libs/base: 11%,
+  modules of the compiler: 12% to 38%), from a profile of the type checker:
+  sorting the implicit bindings of a clause compared the metavariables of
+  every binding again at every step, and the case builder made an
+  environment as long as the scope for every pattern; proof search looked up
+  the full name of every hint (decoding its definition) to check that it was
+  not hidden, also when nothing was; checking that a name is visible
+  reversed lists of identifiers for every visible namespace; the interval
+  maps of the metadata for the IDE compared positions through the instances
+  of pairs, and were rebuilt element by element when read or written; the
+  position in a TTC buffer was an `Integer`; and a module imported a second
+  time had each of its definitions decoded again.  The TTC and `.ttm` files
+  are the same as before.
 
 ### Building/Packaging changes
 
