@@ -150,6 +150,24 @@ should target this file (`CHANGELOG_NEXT`).
   parent's (`xs` in `show'` of `Show (List a)`) can be specialised: its copy
   did not elaborate ("Non linear pattern variable"), and the generic function
   was called.
+* The specialised copy of a recursive `%spec` function calls itself where
+  its case blocks or local functions recurse: the local functions of a
+  `%spec` function are specialised by its `%spec` arguments too, as its
+  case blocks are, and both by the pattern variables that are these
+  arguments, not by the names of the arguments in its type (`insertAt` of
+  `Data.HashMap` binds `k`, the name of its type argument, to the key, so
+  its case blocks were specialised by the key, which is never known, and
+  its copy called the generic function).  Lookups and deletions in a hash
+  map take 7% to 8% fewer instructions with the RefC backend.
+* With `--spec-interfaces`, a recursive function is copied once by an
+  implementation: the recursive call in the copy took the implementation
+  reduced a bit more each time, and made another copy (four copies of
+  `toTree` of the treeInt benchmark, one in another).  Checking the
+  compiler with the option takes 2.4% fewer instructions, and its TTC files
+  are 3.8% smaller.
+* RefC: a call in tail position that passes an erased argument to a
+  borrowed parameter is a tail call (a specialised copy that calls itself
+  recursed on the C stack).
 * Fixed ill-typed program where a typed lambda would not have its type checked #3771
 * Fixed missing handling of dotted patterns See
   [#3669](https://github.com/idris-lang/Idris2/issues/3669),
