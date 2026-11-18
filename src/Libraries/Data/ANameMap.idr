@@ -108,3 +108,18 @@ merge (MkANameMap exact hier) ctxt
     insertFrom [] ctxt = ctxt
     insertFrom ((n, val) :: cs) ctxt
         = insertFrom cs (addName n val ctxt)
+
+||| Add the entries of the list to the map, with the entries of the list
+||| overriding those of the map, as `merge` does, but leave alone the names
+||| that the map already has with an equal value: the result is the same map,
+||| and looking a name up costs much less than adding it. (A module's imports
+||| bring in many of the same entries, the fixities of the Prelude say.)
+export
+mergeChanged : Eq a => List (Name, a) -> ANameMap a -> ANameMap a
+mergeChanged [] ctxt = ctxt
+mergeChanged ((n, val) :: cs) ctxt
+    = case lookupExact n ctxt of
+           Just old => if old == val
+                          then mergeChanged cs ctxt
+                          else mergeChanged cs (addName n val ctxt)
+           Nothing => mergeChanged cs (addName n val ctxt)

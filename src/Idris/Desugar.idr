@@ -82,17 +82,24 @@ extendSyn newsyn
          -- private fixities from the one we are importing.
          -- We keep the local private fixities since they are visible in the
          -- current file.
-         let filteredFixities = removePrivate (fixities newsyn)
-         put Syn ({ fixities $= merge filteredFixities,
+         -- (Each TTC file has the fixities of all that its module imports,
+         -- so most of them are in `syn` already: `mergeChanged` skips those.
+         -- The maps of module documentation have an entry for each module
+         -- read, so the new entries are added to the old ones rather than
+         -- the other way round, which is the same map.)
+         let filteredFixities = filter ((/= Private) . vis . snd)
+                                       (ANameMap.toList (fixities newsyn))
+         put Syn ({ fixities $= mergeChanged filteredFixities,
                     ifaces $= merge (ifaces newsyn),
-                    modDocstrings $= mergeLeft (modDocstrings newsyn),
-                    modDocexports $= mergeLeft (modDocexports newsyn),
-                    defDocstrings $= merge (defDocstrings newsyn),
+                    modDocstrings $= addAll (modDocstrings newsyn),
+                    modDocexports $= addAll (modDocexports newsyn),
+                    defDocstrings $= mergeChanged (ANameMap.toList (defDocstrings newsyn)),
                     bracketholes $= sortedNub . ((bracketholes newsyn) ++) }
                   syn)
   where
-    removePrivate : ANameMap FixityInfo -> ANameMap FixityInfo
-    removePrivate = fromList . filter ((/= Private) . vis . snd) . toList
+    -- the same as `mergeLeft new`
+    addAll : SortedMap k v -> SortedMap k v -> SortedMap k v
+    addAll new old = foldl (\ m, (k, v) => insert k v m) old (SortedMap.toList new)
 
 mkPrec : Fixity -> Nat -> OpPrec
 mkPrec InfixL = AssocL
