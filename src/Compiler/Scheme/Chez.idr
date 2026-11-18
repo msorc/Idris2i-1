@@ -252,10 +252,11 @@ cCall fc cfn clib args ret collectSafe
                    then pure Nothing
                    else do put Loaded (clib :: loaded)
                            pure (Just clib)
-         argTypes <- traverse (cftySpec fc . snd) args
+         argTypes <- traverse (argTySpec . snd) args
          retType <- cftySpec fc ret
          let callConv : Builder = if collectSafe then " __collect_safe" else ""
-         let call = "((foreign-procedure" ++ callConv ++ " " ++ showB cfn ++ " ("
+         let call = pinArgs $
+                      "((foreign-procedure" ++ callConv ++ " " ++ showB cfn ++ " ("
                       ++ sepBy " " argTypes ++ ") " ++ retType ++ ") "
                       ++ sepBy " " !(traverse buildArg args) ++ ")"
 
@@ -263,6 +264,35 @@ cCall fc cfn clib args ret collectSafe
                          CFIORes _ => handleRet ret call
                          _ => call)
   where
+    -- A `String` or `Buffer` argument is passed as the address of a
+    -- bytevector in the Scheme heap.  A collection during the call (in a
+    -- callback into Idris, or in another thread during a __collect_safe
+    -- call) could move or free it while C still uses it, so the bytevector
+    -- is locked until the call returns.  A `String` is converted first, as
+    -- the `string` type of `foreign-procedure` does, into `c-<arg>`.
+    pinned : (Name, CFType) -> Maybe (Builder, Maybe Builder)
+    pinned (n, CFString) = Just ("c-" ++ schName n, Just (schName n))
+    pinned (n, CFBuffer) = Just (schName n, Nothing)
+    pinned _ = Nothing
+
+    argTySpec : CFType -> Core Builder
+    argTySpec CFString = pure "u8*"
+    argTySpec ty = cftySpec fc ty
+
+    pinArgs : Builder -> Builder
+    pinArgs call
+        = case mapMaybe pinned args of
+               [] => call
+               ps => "(let (" ++ concat (map convert ps) ++ ") "
+                       ++ concat (map (\p => "(lock-object " ++ fst p ++ ") ") ps)
+                       ++ "(let ([c-res " ++ call ++ "]) "
+                       ++ concat (map (\p => "(unlock-object " ++ fst p ++ ") ") ps)
+                       ++ "c-res))"
+      where
+        convert : (Builder, Maybe Builder) -> Builder
+        convert (c, Just s) = "[" ++ c ++ " (blodwen-string->c " ++ s ++ ")]"
+        convert _ = ""
+
     mkNs : Int -> List CFType -> List (Maybe Builder)
     mkNs i [] = []
     mkNs i (CFWorld :: xs) = Nothing :: mkNs i xs
@@ -301,6 +331,7 @@ cCall fc cfn clib args ret collectSafe
     buildArg : (Name, CFType) -> Core Builder
     buildArg (n, CFFun s t) = callback (schName n) [s] t
     buildArg (n, CFGCPtr) = pure $ "(car " ++ schName n ++ ")"
+    buildArg (n, CFString) = pure $ "c-" ++ schName n
     buildArg (n, _) = pure $ schName n
 
 schemeCall : FC -> (sfn : String) ->

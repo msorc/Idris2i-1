@@ -870,6 +870,15 @@ should target this file (`CHANGELOG_NEXT`).
   freed.  It now gives it in a buffer of the thread, valid until the next
   call (the previous line is freed).  The Racket and Gambit backends, and the
   checked-in bootstrap code, use the same function.
+* A `String` or `Buffer` argument of a C function no longer moves while the
+  function runs.  Chez passed it as the address of a bytevector in the Scheme
+  heap, which a collection could move or free when the C function called back
+  into Idris (or, for `__collect_safe`, when another thread collected), so C
+  then read another object or crashed.  The bytevector is now locked during
+  the call.  It costs about 100ns per call with a `String` argument: a call
+  of `strlen` from an Idris loop takes 450ns instead of 350ns on a 16 byte
+  string, and 3% more on a 1KB one.
+  The test `chez/ffiPin001` collects in a callback.
 
 ### Library changes
 

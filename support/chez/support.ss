@@ -228,6 +228,13 @@
                 chr))
         void))
 
+;; The UTF-8 bytes of a String, followed by a 0, for a foreign call; the
+;; caller locks them during the call.  This is what the `string` argument
+;; type of foreign-procedure passes, by the same conversion when it exists.
+(define blodwen-string->c
+  (guard (e [#t (lambda (s) (string->utf8 (string-append s "\x0;")))])
+    (eval '($primitive $fp-string->utf8))))
+
 ;; Buffers
 
 (define (blodwen-new-buffer size)

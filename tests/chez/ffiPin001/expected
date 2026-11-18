@@ -1,0 +1,6 @@
+String of 16 bytes: intact
+String of 1024 bytes: intact
+String of 65536 bytes: intact
+Buffer of 16 bytes: intact
+Buffer of 1024 bytes: intact
+Buffer of 65536 bytes: intact

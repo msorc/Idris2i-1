@@ -270,7 +270,11 @@ So, when passing ``String`` to and from C, remember the following:
 * A ``String`` passed to a C function is a ``char*`` that is only valid until
   the function returns, and that the function must not change or free. A
   function that keeps the string for later must copy it (``strdup``), not
-  store the pointer.
+  store the pointer. It stays valid while the function calls back into Idris
+  (with Chez the bytes are locked during the call, so that a collection does
+  not move them; the same holds for a ``Buffer``). The Racket backend does not
+  lock them: there, a C function that calls back into Idris may find that a
+  ``String`` or ``Buffer`` argument has moved.
 
 When using ``Ptr String``, the value will be passed as a ``void*``, and
 therefore not accessible directly by Idris code. This is to protect against
