@@ -790,6 +790,13 @@ should target this file (`CHANGELOG_NEXT`).
   function of its own, which reads short lines into a buffer on the stack.
   Reading 200,000 short lines takes 15 MB instead of 816 MB, and 0.03 s
   instead of 0.57 s.
+* `System.Random` and `System.Future` of `contrib` work with the RefC backend
+  (they failed to compile with `FFI not found`).  The random numbers come
+  from a xoshiro256** generator of the support library, shared by the
+  threads of the program and seeded from the clock unless the program calls
+  `srand`.  A future is a green thread, which runs in parallel with the
+  others; on the platforms without green threads, its value is computed
+  when it is made.
 
 #### Chez Backend
 

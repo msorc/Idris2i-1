@@ -393,6 +393,17 @@ are never preempted.  This has a few consequences:
   the thread starts.  Write ``fork (do pure (); channelPut ch (work x))`` to
   do it in the new thread.
 
+The futures of ``System.Future`` (in ``contrib``) are green threads too:
+``fork`` starts a thread that computes the value, and ``await`` waits for
+it, like ``threadWait``.  On the platforms without green threads, the value
+of a future is computed when the future is made.
+
+The random numbers of ``System.Random`` (in ``contrib``) come from a
+generator of the support library (xoshiro256**) that the threads of the
+program share.  It is seeded from the clock the first time that it is used,
+unless the program called ``srand``; after ``srand``, a program that draws
+its numbers from a single thread gets the same ones every time.
+
 Values are reference counted.  A value that only one thread can see is
 counted with plain increments and decrements; once a value is handed over to
 another thread (it is captured by the action of ``fork``, put in a channel,
