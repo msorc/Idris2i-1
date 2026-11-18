@@ -1,0 +1,16 @@
+. ../../../testutils.sh
+
+# The API of prelude and base must be the one committed in libs/api. When a
+# change to the API is intended, run `make api-snapshots` and commit libs/api.
+libs=../../../../libs
+mkdir -p build
+for lib in prelude base; do
+  (cd "$libs/$lib" && idris2_no_clean --dump-api "$lib.ipkg") > "build/$lib.api"
+  if diff -u -F "^module " -L "libs/api/$lib.api" -L "$lib now" "$libs/api/$lib.api" "build/$lib.api"; then
+    echo "$lib: the API is the one of libs/api/$lib.api"
+  else
+    echo "$lib: the API is no longer the one of libs/api/$lib.api (- before, + now)."
+    echo "If the change is intended, run \`make api-snapshots\` and commit libs/api."
+  fi
+done
+rm -rf build

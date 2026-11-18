@@ -85,6 +85,7 @@ export SCHEME
 
 .PHONY: all idris2-exec libdocs testenv testenv-clean support clean-support clean FORCE
 .PHONY: libs libs-core libs-rest prelude base linear contrib network test-lib papers
+.PHONY: api-snapshots api-check
 
 all:
 	${MAKE} ${TARGET}
@@ -216,6 +217,38 @@ libdocs:
 	${JOBS_ENV} ${MAKE} -C libs/network docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 	${JOBS_ENV} ${MAKE} -C libs/test docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 	${JOBS_ENV} ${MAKE} -C libs/linear docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+
+# The public API of the libraries in API_LIBS, as printed by `idris2
+# --dump-api`, is committed in libs/api/<lib>.api.  `api-snapshots` writes
+# these files again from the libraries as they are now (built by `make libs`);
+# `api-check` fails, showing the difference, when a library's API is no longer
+# the one of its file.
+API_LIBS ?= prelude base
+API_DIR = ${IDRIS2_CURDIR}/libs/api
+API_BUILD_DIR = ${IDRIS2_CURDIR}/build/api
+
+api-snapshots:
+	@mkdir -p ${API_DIR}
+	@for lib in ${API_LIBS}; do \
+	  echo "Writing libs/api/$$lib.api"; \
+	  ( cd libs/$$lib && IDRIS2_PATH=${IDRIS2_BOOT_PATH} ${TARGET} --dump-api $$lib.ipkg ) > ${API_DIR}/$$lib.api.new \
+	    && mv ${API_DIR}/$$lib.api.new ${API_DIR}/$$lib.api \
+	    || { cat ${API_DIR}/$$lib.api.new; rm -f ${API_DIR}/$$lib.api.new; exit 1; }; \
+	done
+
+api-check:
+	@mkdir -p ${API_BUILD_DIR}
+	@status=0; for lib in ${API_LIBS}; do \
+	  ( cd libs/$$lib && IDRIS2_PATH=${IDRIS2_BOOT_PATH} ${TARGET} --dump-api $$lib.ipkg ) > ${API_BUILD_DIR}/$$lib.api \
+	    || { cat ${API_BUILD_DIR}/$$lib.api; exit 1; }; \
+	  if diff -u -F "^module " -L libs/api/$$lib.api -L "$$lib now" ${API_DIR}/$$lib.api ${API_BUILD_DIR}/$$lib.api; then \
+	    echo "$$lib: the API is the one of libs/api/$$lib.api"; \
+	  else \
+	    echo "$$lib: the API is no longer the one of libs/api/$$lib.api (- before, + now)."; \
+	    echo "If the change is intended, run \`${MAKE} api-snapshots\` and commit libs/api."; \
+	    status=1; \
+	  fi; \
+	done; exit $$status
 
 ${TEST_PREFIX}/${NAME_VERSION} :
 	${LINK_CMD} ${IDRIS2_CURDIR}/libs/prelude/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/prelude-${IDRIS2_VERSION}
@@ -445,6 +478,7 @@ Build
   libs                   The libraries, with the compiler in build/exec
   support                The C support libraries
   libdocs                The documentation of the libraries
+  api-snapshots          Write the public API of the libraries in API_LIBS to libs/api
 
 Bootstrap, without an existing Idris 2 (see INSTALL.md)
   bootstrap-c            With a C compiler only, from bootstrap/idris2_app/idris2.c.xz
@@ -456,6 +490,7 @@ Test
   test                   Run the tests (does not rebuild the compiler or the libraries)
   retest                 Run the tests that failed the last time
   test-installed         Run the tests with the installed compiler
+  api-check              Fail when the API of a library in API_LIBS is not the one in libs/api
 
 Install, under PREFIX
   install                The compiler, the support libraries and the libraries
@@ -495,6 +530,8 @@ Variables (current value)
   BOOT_JOBS              C compilers for the first stage of bootstrap-c (environment, default:
                          the number of processors, up to 16 and 1 per 1.5 GB of available memory)
   BOOT_PARTS             Parts that BOOT_JOBS compile (environment, default 16 or BOOT_JOBS)
+  API_LIBS=${API_LIBS}
+                         The libraries whose API api-snapshots and api-check compare
   only=, except=         Limit the tests, e.g. make test only=refc except=refc/doubles
 endef
 

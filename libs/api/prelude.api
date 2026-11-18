@@ -1,0 +1,895 @@
+package prelude
+
+module Builtin
+  export infixr 5 (#)
+  export infix 6 (===)
+  export infix 6 (~=~)
+  public export total (===) : {0 a : Type} -> a -> a -> Type
+  public export total (~=~) : {0 b : Type} -> {0 a : Type} -> a -> b -> Type
+  public export record DPair.DPair : (a : Type) -> (a -> Type) -> Type
+    constructor DPair.MkDPair : {0 a : Type} -> {0 p : a -> Type} -> (fst : a) -> p fst -> Builtin.DPair.DPair a p
+    field fst : {0 a : Type} -> {0 p : a -> Type} -> Builtin.DPair.DPair a p -> a
+    field snd : {0 a : Type} -> {0 p : a -> Type} -> (rec : Builtin.DPair.DPair a p) -> p (Builtin.DPair.DPair.fst {a} {p} rec)
+  public export data DPair.Res : (a : Type) -> (a -> Type) -> Type
+    constructor DPair.(#) : {0 a : Type} -> {0 t : a -> Type} -> (val : a) -> (1 _ : t val) -> Builtin.DPair.Res a t
+  public export data Equal : {0 a : Type} -> {0 b : Type} -> a -> b -> Type
+    constructor Refl : {0 a : Type} -> {0 x : a} -> Builtin.Equal {a} {b = a} x x
+  public export interface FromChar : Type -> Type
+    parameters ty
+    constructor MkFromChar : {0 ty : Type} -> (Char -> ty) -> Builtin.FromChar ty
+    method fromChar : {0 ty : Type} -> Builtin.FromChar ty => Char -> ty
+  public export interface FromDouble : Type -> Type
+    parameters ty
+    constructor MkFromDouble : {0 ty : Type} -> (Double -> ty) -> Builtin.FromDouble ty
+    method fromDouble : {0 ty : Type} -> Builtin.FromDouble ty => Double -> ty
+  public export interface FromString : Type -> Type
+    parameters ty
+    constructor MkFromString : {0 ty : Type} -> (String -> ty) -> Builtin.FromString ty
+    method fromString : {0 ty : Type} -> Builtin.FromString ty => String -> ty
+  public export data LPair : Type -> Type -> Type
+    constructor (#) : {0 b : Type} -> {0 a : Type} -> (1 _ : a) -> (1 _ : b) -> Builtin.LPair a b
+  public export data Pair : Type -> Type -> Type
+    constructor MkPair : {0 a : Type} -> {0 b : Type} -> a -> b -> (a, b)
+  public export data Unit : Type
+    constructor MkUnit : Builtin.Unit
+  public export data Void : Type
+  public export total assert_linear : {0 b : Type} -> {0 a : Type} -> (1 _ : (a -> b)) -> (1 _ : a) -> b
+  public export total assert_smaller : {0 b : Type} -> {0 a : Type} -> (0 _ : a) -> (1 _ : b) -> b
+  public export total assert_total : {0 a : Type} -> (1 _ : a) -> a
+  public export total believe_me : {0 b : Type} -> {0 a : Type} -> a -> b
+  public export total delay : {0 a : Type} -> a -> Lazy a
+  public export total force : {0 a : Type} -> Lazy a -> a
+  public export total fst : {0 a : Type} -> {0 b : Type} -> (a, b) -> a
+  export partial idris_crash : {0 a : Type} -> String -> a
+  export total mkDPairInjectiveFst : {0 a : Type} -> {0 p : a -> Type} -> {0 a : a} -> {0 pa : p a} -> {0 b : a} -> {0 qb : p b} -> Builtin.(===) {a = Builtin.DPair.DPair a p} (Builtin.DPair.MkDPair {a} {p} a pa) (Builtin.DPair.MkDPair {a} {p} b qb) -> Builtin.(===) {a} a b
+  export total mkDPairInjectiveSnd : {0 a : Type} -> {0 p : a -> Type} -> {0 a : a} -> {0 pa : p a} -> {0 qa : p a} -> Builtin.(===) {a = Builtin.DPair.DPair a p} (Builtin.DPair.MkDPair {a} {p} a pa) (Builtin.DPair.MkDPair {a} {p} a qa) -> Builtin.(===) {a = p a} pa qa
+  public export total replace : {0 _ : Type} -> {0 x : _} -> {0 y : _} -> {0 p : _ -> Type} -> (0 _ : Builtin.(===) {a = _} x y) -> (1 _ : p x) -> p y
+  public export total rewrite__impl : {0 a : Type} -> {0 x : a} -> {0 y : a} -> (0 p : (a -> Type)) -> (0 _ : Builtin.(===) {a} x y) -> (1 _ : p y) -> p x
+  public export total snd : {0 a : Type} -> {0 b : Type} -> (a, b) -> b
+  public export total swap : {0 b : Type} -> {0 a : Type} -> (a, b) -> (b, a)
+  public export total sym : {0 b : Type} -> {0 a : Type} -> {0 x : a} -> {0 y : b} -> (0 _ : Builtin.(~=~) {b} {a} x y) -> Builtin.(~=~) {b = a} {a = b} y x
+  public export total trans : {0 _ : Type} -> {0 a : _} -> {0 b : _} -> {0 c : _} -> (0 _ : Builtin.(===) {a = _} a b) -> (0 _ : Builtin.(===) {a = _} b c) -> Builtin.(===) {a = _} a c
+  public export implementation : Builtin.FromChar Char
+  public export implementation [defaultChar] : Builtin.FromChar Char
+  public export implementation : Builtin.FromDouble Double
+  public export implementation [defaultDouble] : Builtin.FromDouble Double
+  public export implementation : Builtin.FromString String
+  public export implementation [defaultString] : Builtin.FromString String
+
+module Prelude
+  import public Builtin
+  import public Prelude.Basics as Prelude
+  import public Prelude.Cast as Prelude
+  import public Prelude.EqOrd as Prelude
+  import public Prelude.IO as Prelude
+  import public Prelude.Interfaces as Prelude
+  import public Prelude.Interpolation as Prelude
+  import public Prelude.Num as Prelude
+  import public Prelude.Ops as Prelude
+  import public Prelude.Show as Prelude
+  import public Prelude.Types as Prelude
+  import public Prelude.Uninhabited as Prelude
+  import public PrimIO
+
+module Prelude.Basics
+  export infixl 0 on
+  public export total ($) : {0 a : Type} -> {0 b : a -> Type} -> ((x : a) -> b x) -> (x : a) -> b x
+  public export total (&&) : Prelude.Basics.Bool -> Lazy Prelude.Basics.Bool -> Prelude.Basics.Bool
+  public export total (.) : {0 a : Type} -> {0 c : Type} -> {0 b : Type} -> (b -> c) -> (a -> b) -> a -> c
+  public export total (.:) : {0 b : Type} -> {0 a : Type} -> {0 d : Type} -> {0 c : Type} -> (c -> d) -> (a -> b -> c) -> a -> b -> d
+  public export total (<|) : {0 b : Type} -> {0 a : Type} -> (a -> b) -> a -> b
+  public export total (|>) : {0 b : Type} -> {0 a : Type} -> a -> (a -> b) -> b
+  public export total (||) : Prelude.Basics.Bool -> Lazy Prelude.Basics.Bool -> Prelude.Basics.Bool
+  public export data Bool : Type
+    constructor False : Prelude.Basics.Bool
+    constructor True : Prelude.Basics.Bool
+  public export data List : Type -> Type
+    constructor Nil : {0 a : Type} -> Prelude.Basics.List a
+    constructor (::) : {0 a : Type} -> a -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export total Not : Type -> Type
+  public export data SnocList : Type -> Type
+    constructor Lin : {0 a : Type} -> Prelude.Basics.SnocList a
+    constructor (:<) : {0 a : Type} -> Prelude.Basics.SnocList a -> a -> Prelude.Basics.SnocList a
+  public export total apply : {0 b : Type} -> {0 a : Type} -> (a -> b) -> a -> b
+  public export total cong : {0 t : Type} -> {0 a : t} -> {0 b : t} -> {0 u : Type} -> (0 f : (t -> u)) -> (0 _ : Builtin.(===) {a = t} a b) -> Builtin.(===) {a = u} (f a) (f b)
+  export total cong2 : {0 t2 : Type} -> {0 c : t2} -> {0 d : t2} -> {0 t1 : Type} -> {0 a : t1} -> {0 b : t1} -> {0 u : Type} -> (0 f : (t1 -> t2 -> u)) -> (0 _ : Builtin.(===) {a = t1} a b) -> (0 _ : Builtin.(===) {a = t2} c d) -> Builtin.(===) {a = u} (f a c) (f b d)
+  public export total const : {0 b : Type} -> {0 a : Type} -> a -> b -> a
+  public export total curry : {0 c : Type} -> {0 b : Type} -> {0 a : Type} -> ((a, b) -> c) -> a -> b -> c
+  public export total depCong : {0 a : Type} -> {0 p : a -> Type} -> (0 f : ((x : a) -> p x)) -> {0 x1 : a} -> {0 x2 : a} -> Builtin.(===) {a} x1 x2 -> Builtin.(~=~) {b = p x2} {a = p x1} (f x1) (f x2)
+  public export total depCong2 : {0 a : Type} -> {0 p : a -> Type} -> {0 q : (x : a) -> p x -> Type} -> (0 f : ((x : a) -> (y : p x) -> q x y)) -> {0 x1 : a} -> {0 x2 : a} -> Builtin.(===) {a} x1 x2 -> {0 y1 : p x1} -> {y2 : p x2} -> Builtin.(~=~) {b = p x2} {a = p x1} y1 y2 -> Builtin.(~=~) {b = q x2 y2} {a = q x1 y1} (f x1 y1) (f x2 y2)
+  public export total dup : {0 a : Type} -> a -> (a, a)
+  public export total flip : {0 c : Type} -> {0 b : Type} -> {0 a : Type} -> (a -> b -> c) -> b -> a -> c
+  public export total id : {0 a : Type} -> a -> a
+  public export total ifThenElse : {0 a : Type} -> Prelude.Basics.Bool -> Lazy a -> Lazy a -> a
+  public export total intToBool : Int -> Prelude.Basics.Bool
+  export total irrelevantEq : {0 b : Type} -> {0 a : Type} -> {0 a : a} -> {0 b : b} -> (0 _ : Builtin.(~=~) {b} {a} a b) -> Builtin.(~=~) {b} {a} a b
+  public export total not : Prelude.Basics.Bool -> Prelude.Basics.Bool
+  public export total on : {0 a : Type} -> {0 c : Type} -> {0 b : Type} -> (b -> b -> c) -> (a -> b) -> a -> a -> c
+  public export total the : (0 a : Type) -> (1 _ : a) -> a
+  public export total uncurry : {0 c : Type} -> {0 b : Type} -> {0 a : Type} -> (a -> b -> c) -> (a, b) -> c
+
+module Prelude.Cast
+  public export interface Cast : Type -> Type -> Type
+    parameters from to
+    constructor MkCast : {0 from : Type} -> {0 to : Type} -> (from -> to) -> Prelude.Cast.Cast from to
+    method cast : {0 from : Type} -> {0 to : Type} -> Prelude.Cast.Cast from to => from -> to
+  export implementation : Prelude.Cast.Cast Bits16 Bits32
+  export implementation : Prelude.Cast.Cast Bits16 Bits64
+  export implementation : Prelude.Cast.Cast Bits16 Bits8
+  export implementation : Prelude.Cast.Cast Bits16 Char
+  export implementation : Prelude.Cast.Cast Bits16 Double
+  export implementation : Prelude.Cast.Cast Bits16 Int
+  export implementation : Prelude.Cast.Cast Bits16 Int16
+  export implementation : Prelude.Cast.Cast Bits16 Int32
+  export implementation : Prelude.Cast.Cast Bits16 Int64
+  export implementation : Prelude.Cast.Cast Bits16 Int8
+  export implementation : Prelude.Cast.Cast Bits16 Integer
+  export implementation : Prelude.Cast.Cast Bits16 Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Bits16 String
+  export implementation : Prelude.Cast.Cast Bits32 Bits16
+  export implementation : Prelude.Cast.Cast Bits32 Bits64
+  export implementation : Prelude.Cast.Cast Bits32 Bits8
+  export implementation : Prelude.Cast.Cast Bits32 Char
+  export implementation : Prelude.Cast.Cast Bits32 Double
+  export implementation : Prelude.Cast.Cast Bits32 Int
+  export implementation : Prelude.Cast.Cast Bits32 Int16
+  export implementation : Prelude.Cast.Cast Bits32 Int32
+  export implementation : Prelude.Cast.Cast Bits32 Int64
+  export implementation : Prelude.Cast.Cast Bits32 Int8
+  export implementation : Prelude.Cast.Cast Bits32 Integer
+  export implementation : Prelude.Cast.Cast Bits32 Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Bits32 String
+  export implementation : Prelude.Cast.Cast Bits64 Bits16
+  export implementation : Prelude.Cast.Cast Bits64 Bits32
+  export implementation : Prelude.Cast.Cast Bits64 Bits8
+  export implementation : Prelude.Cast.Cast Bits64 Char
+  export implementation : Prelude.Cast.Cast Bits64 Double
+  export implementation : Prelude.Cast.Cast Bits64 Int
+  export implementation : Prelude.Cast.Cast Bits64 Int16
+  export implementation : Prelude.Cast.Cast Bits64 Int32
+  export implementation : Prelude.Cast.Cast Bits64 Int64
+  export implementation : Prelude.Cast.Cast Bits64 Int8
+  export implementation : Prelude.Cast.Cast Bits64 Integer
+  export implementation : Prelude.Cast.Cast Bits64 Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Bits64 String
+  export implementation : Prelude.Cast.Cast Bits8 Bits16
+  export implementation : Prelude.Cast.Cast Bits8 Bits32
+  export implementation : Prelude.Cast.Cast Bits8 Bits64
+  export implementation : Prelude.Cast.Cast Bits8 Char
+  export implementation : Prelude.Cast.Cast Bits8 Double
+  export implementation : Prelude.Cast.Cast Bits8 Int
+  export implementation : Prelude.Cast.Cast Bits8 Int16
+  export implementation : Prelude.Cast.Cast Bits8 Int32
+  export implementation : Prelude.Cast.Cast Bits8 Int64
+  export implementation : Prelude.Cast.Cast Bits8 Int8
+  export implementation : Prelude.Cast.Cast Bits8 Integer
+  export implementation : Prelude.Cast.Cast Bits8 Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Bits8 String
+  export implementation : Prelude.Cast.Cast Char Bits16
+  export implementation : Prelude.Cast.Cast Char Bits32
+  export implementation : Prelude.Cast.Cast Char Bits64
+  export implementation : Prelude.Cast.Cast Char Bits8
+  export implementation : Prelude.Cast.Cast Char Int
+  export implementation : Prelude.Cast.Cast Char Int16
+  export implementation : Prelude.Cast.Cast Char Int32
+  export implementation : Prelude.Cast.Cast Char Int64
+  export implementation : Prelude.Cast.Cast Char Int8
+  export implementation : Prelude.Cast.Cast Char Integer
+  export implementation : Prelude.Cast.Cast Char Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Char String
+  export implementation : Prelude.Cast.Cast Double Bits16
+  export implementation : Prelude.Cast.Cast Double Bits32
+  export implementation : Prelude.Cast.Cast Double Bits64
+  export implementation : Prelude.Cast.Cast Double Bits8
+  export implementation : Prelude.Cast.Cast Double Int
+  export implementation : Prelude.Cast.Cast Double Int16
+  export implementation : Prelude.Cast.Cast Double Int32
+  export implementation : Prelude.Cast.Cast Double Int64
+  export implementation : Prelude.Cast.Cast Double Int8
+  export implementation : Prelude.Cast.Cast Double Integer
+  export implementation : Prelude.Cast.Cast Double Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Double String
+  export implementation : Prelude.Cast.Cast Int Bits16
+  export implementation : Prelude.Cast.Cast Int Bits32
+  export implementation : Prelude.Cast.Cast Int Bits64
+  export implementation : Prelude.Cast.Cast Int Bits8
+  export implementation : Prelude.Cast.Cast Int Char
+  export implementation : Prelude.Cast.Cast Int Double
+  export implementation : Prelude.Cast.Cast Int Int16
+  export implementation : Prelude.Cast.Cast Int Int32
+  export implementation : Prelude.Cast.Cast Int Int64
+  export implementation : Prelude.Cast.Cast Int Int8
+  export implementation : Prelude.Cast.Cast Int Integer
+  export implementation : Prelude.Cast.Cast Int Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Int String
+  export implementation : Prelude.Cast.Cast Int16 Bits16
+  export implementation : Prelude.Cast.Cast Int16 Bits32
+  export implementation : Prelude.Cast.Cast Int16 Bits64
+  export implementation : Prelude.Cast.Cast Int16 Bits8
+  export implementation : Prelude.Cast.Cast Int16 Char
+  export implementation : Prelude.Cast.Cast Int16 Double
+  export implementation : Prelude.Cast.Cast Int16 Int
+  export implementation : Prelude.Cast.Cast Int16 Int32
+  export implementation : Prelude.Cast.Cast Int16 Int64
+  export implementation : Prelude.Cast.Cast Int16 Int8
+  export implementation : Prelude.Cast.Cast Int16 Integer
+  export implementation : Prelude.Cast.Cast Int16 Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Int16 String
+  export implementation : Prelude.Cast.Cast Int32 Bits16
+  export implementation : Prelude.Cast.Cast Int32 Bits32
+  export implementation : Prelude.Cast.Cast Int32 Bits64
+  export implementation : Prelude.Cast.Cast Int32 Bits8
+  export implementation : Prelude.Cast.Cast Int32 Char
+  export implementation : Prelude.Cast.Cast Int32 Double
+  export implementation : Prelude.Cast.Cast Int32 Int
+  export implementation : Prelude.Cast.Cast Int32 Int16
+  export implementation : Prelude.Cast.Cast Int32 Int64
+  export implementation : Prelude.Cast.Cast Int32 Int8
+  export implementation : Prelude.Cast.Cast Int32 Integer
+  export implementation : Prelude.Cast.Cast Int32 Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Int32 String
+  export implementation : Prelude.Cast.Cast Int64 Bits16
+  export implementation : Prelude.Cast.Cast Int64 Bits32
+  export implementation : Prelude.Cast.Cast Int64 Bits64
+  export implementation : Prelude.Cast.Cast Int64 Bits8
+  export implementation : Prelude.Cast.Cast Int64 Char
+  export implementation : Prelude.Cast.Cast Int64 Double
+  export implementation : Prelude.Cast.Cast Int64 Int
+  export implementation : Prelude.Cast.Cast Int64 Int16
+  export implementation : Prelude.Cast.Cast Int64 Int32
+  export implementation : Prelude.Cast.Cast Int64 Int8
+  export implementation : Prelude.Cast.Cast Int64 Integer
+  export implementation : Prelude.Cast.Cast Int64 Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Int64 String
+  export implementation : Prelude.Cast.Cast Int8 Bits16
+  export implementation : Prelude.Cast.Cast Int8 Bits32
+  export implementation : Prelude.Cast.Cast Int8 Bits64
+  export implementation : Prelude.Cast.Cast Int8 Bits8
+  export implementation : Prelude.Cast.Cast Int8 Char
+  export implementation : Prelude.Cast.Cast Int8 Double
+  export implementation : Prelude.Cast.Cast Int8 Int
+  export implementation : Prelude.Cast.Cast Int8 Int16
+  export implementation : Prelude.Cast.Cast Int8 Int32
+  export implementation : Prelude.Cast.Cast Int8 Int64
+  export implementation : Prelude.Cast.Cast Int8 Integer
+  export implementation : Prelude.Cast.Cast Int8 Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Int8 String
+  export implementation : Prelude.Cast.Cast Integer Bits16
+  export implementation : Prelude.Cast.Cast Integer Bits32
+  export implementation : Prelude.Cast.Cast Integer Bits64
+  export implementation : Prelude.Cast.Cast Integer Bits8
+  export implementation : Prelude.Cast.Cast Integer Char
+  export implementation : Prelude.Cast.Cast Integer Double
+  export implementation : Prelude.Cast.Cast Integer Int
+  export implementation : Prelude.Cast.Cast Integer Int16
+  export implementation : Prelude.Cast.Cast Integer Int32
+  export implementation : Prelude.Cast.Cast Integer Int64
+  export implementation : Prelude.Cast.Cast Integer Int8
+  export implementation : Prelude.Cast.Cast Integer Prelude.Types.Nat
+  export implementation : Prelude.Cast.Cast Integer String
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Bits16
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Bits32
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Bits64
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Bits8
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Char
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Double
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Int
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Int16
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Int32
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Int64
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Int8
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat Integer
+  export implementation : Prelude.Cast.Cast Prelude.Types.Nat String
+  export implementation : Prelude.Cast.Cast String Bits16
+  export implementation : Prelude.Cast.Cast String Bits32
+  export implementation : Prelude.Cast.Cast String Bits64
+  export implementation : Prelude.Cast.Cast String Bits8
+  export implementation : Prelude.Cast.Cast String Double
+  export implementation : Prelude.Cast.Cast String Int
+  export implementation : Prelude.Cast.Cast String Int16
+  export implementation : Prelude.Cast.Cast String Int32
+  export implementation : Prelude.Cast.Cast String Int64
+  export implementation : Prelude.Cast.Cast String Int8
+  export implementation : Prelude.Cast.Cast String Integer
+  export implementation : Prelude.Cast.Cast String Prelude.Types.Nat
+  export implementation : {0 a : Type} -> Prelude.Cast.Cast a a
+
+module Prelude.EqOrd
+  public export interface Eq : Type -> Type
+    parameters ty
+    constructor MkEq : {0 ty : Type} -> (ty -> ty -> Prelude.Basics.Bool) -> (ty -> ty -> Prelude.Basics.Bool) -> Prelude.EqOrd.Eq ty
+    method (==) : {0 ty : Type} -> Prelude.EqOrd.Eq ty => ty -> ty -> Prelude.Basics.Bool
+    method (/=) : {0 ty : Type} -> Prelude.EqOrd.Eq ty => ty -> ty -> Prelude.Basics.Bool
+  public export interface Ord : Type -> Type
+    parameters ty
+    constructor MkOrd : {0 ty : Type} -> Prelude.EqOrd.Eq ty => (ty -> ty -> Prelude.EqOrd.Ordering) -> (ty -> ty -> Prelude.Basics.Bool) -> (ty -> ty -> Prelude.Basics.Bool) -> (ty -> ty -> Prelude.Basics.Bool) -> (ty -> ty -> Prelude.Basics.Bool) -> (ty -> ty -> ty) -> (ty -> ty -> ty) -> Prelude.EqOrd.Ord ty
+    method compare : {0 ty : Type} -> Prelude.EqOrd.Ord ty => ty -> ty -> Prelude.EqOrd.Ordering
+    method (<) : {0 ty : Type} -> Prelude.EqOrd.Ord ty => ty -> ty -> Prelude.Basics.Bool
+    method (>) : {0 ty : Type} -> Prelude.EqOrd.Ord ty => ty -> ty -> Prelude.Basics.Bool
+    method (<=) : {0 ty : Type} -> Prelude.EqOrd.Ord ty => ty -> ty -> Prelude.Basics.Bool
+    method (>=) : {0 ty : Type} -> Prelude.EqOrd.Ord ty => ty -> ty -> Prelude.Basics.Bool
+    method max : {0 ty : Type} -> Prelude.EqOrd.Ord ty => ty -> ty -> ty
+    method min : {0 ty : Type} -> Prelude.EqOrd.Ord ty => ty -> ty -> ty
+  public export data Ordering : Type
+    constructor LT : Prelude.EqOrd.Ordering
+    constructor EQ : Prelude.EqOrd.Ordering
+    constructor GT : Prelude.EqOrd.Ordering
+  public export total compareInteger : Integer -> Integer -> Prelude.EqOrd.Ordering
+  export total comparing : {0 b : Type} -> {0 a : Type} -> Prelude.EqOrd.Ord a => (b -> a) -> b -> b -> Prelude.EqOrd.Ordering
+  public export total contra : Prelude.EqOrd.Ordering -> Prelude.EqOrd.Ordering
+  public export implementation : Prelude.EqOrd.Eq Bits16
+  public export implementation : Prelude.EqOrd.Eq Bits32
+  public export implementation : Prelude.EqOrd.Eq Bits64
+  public export implementation : Prelude.EqOrd.Eq Bits8
+  public export implementation : Prelude.EqOrd.Eq Builtin.Unit
+  public export implementation : Prelude.EqOrd.Eq Builtin.Void
+  public export implementation : Prelude.EqOrd.Eq Char
+  public export implementation : Prelude.EqOrd.Eq Double
+  public export implementation : Prelude.EqOrd.Eq Int
+  public export implementation : Prelude.EqOrd.Eq Int16
+  public export implementation : Prelude.EqOrd.Eq Int32
+  public export implementation : Prelude.EqOrd.Eq Int64
+  public export implementation : Prelude.EqOrd.Eq Int8
+  public export implementation : Prelude.EqOrd.Eq Integer
+  public export implementation : Prelude.EqOrd.Eq Prelude.Basics.Bool
+  public export implementation : Prelude.EqOrd.Eq Prelude.EqOrd.Ordering
+  public export implementation : Prelude.EqOrd.Eq String
+  public export implementation : Prelude.EqOrd.Ord Bits16
+  public export implementation : Prelude.EqOrd.Ord Bits32
+  public export implementation : Prelude.EqOrd.Ord Bits64
+  public export implementation : Prelude.EqOrd.Ord Bits8
+  public export implementation : Prelude.EqOrd.Ord Builtin.Unit
+  public export implementation : Prelude.EqOrd.Ord Builtin.Void
+  public export implementation : Prelude.EqOrd.Ord Char
+  public export implementation : Prelude.EqOrd.Ord Double
+  public export implementation : Prelude.EqOrd.Ord Int
+  public export implementation : Prelude.EqOrd.Ord Int16
+  public export implementation : Prelude.EqOrd.Ord Int32
+  public export implementation : Prelude.EqOrd.Ord Int64
+  public export implementation : Prelude.EqOrd.Ord Int8
+  public export implementation : Prelude.EqOrd.Ord Integer
+  public export implementation : Prelude.EqOrd.Ord Prelude.Basics.Bool
+  public export implementation : Prelude.EqOrd.Ord String
+  public export implementation [Reverse] : {0 a : Type} -> Prelude.EqOrd.Ord a => Prelude.EqOrd.Ord a
+  public export implementation : {0 b : Type} -> {0 a : Type} -> Prelude.EqOrd.Eq a => Prelude.EqOrd.Eq b => Prelude.EqOrd.Eq (a, b)
+  public export implementation : {0 b : Type} -> {0 a : Type} -> Prelude.EqOrd.Ord a => Prelude.EqOrd.Ord b => Prelude.EqOrd.Ord (a, b)
+
+module Prelude.IO
+  public export interface HasIO : (Type -> Type) -> Type
+    parameters io
+    constructor MkHasIO : {0 io : Type -> Type} -> Prelude.Interfaces.Monad io => ({0 a : Type} -> PrimIO.IO a -> io a) -> Prelude.IO.HasIO io
+    method liftIO : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => PrimIO.IO a -> io a
+  public export interface HasLinearIO : (Type -> Type) -> Type
+    parameters io
+    constructor MkHasLinearIO : {0 io : Type -> Type} -> Prelude.Interfaces.Monad io => ({0 a : Type} -> (1 _ : PrimIO.IO a) -> io a) -> Prelude.IO.HasLinearIO io
+    method liftIO1 : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasLinearIO io => (1 _ : PrimIO.IO a) -> io a
+  export total fork : (1 _ : PrimIO.IO Builtin.Unit) -> PrimIO.IO PrimIO.ThreadID
+  export total getChar : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io Char
+  export total getLine : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io String
+  export total onCollect : {0 t : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => PrimIO.Ptr t -> (PrimIO.Ptr t -> PrimIO.IO Builtin.Unit) -> io (PrimIO.GCPtr t)
+  export total onCollectAny : {0 io : Type -> Type} -> Prelude.IO.HasIO io => PrimIO.AnyPtr -> (PrimIO.AnyPtr -> PrimIO.IO Builtin.Unit) -> io PrimIO.GCAnyPtr
+  export total primIO : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => ((1 _ : %World) -> PrimIO.IORes a) -> io a
+  export total primIO1 : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasLinearIO io => (1 _ : ((1 _ : %World) -> PrimIO.IORes a)) -> io a
+  export total prim__fork : (1 _ : PrimIO.PrimIO Builtin.Unit) -> PrimIO.PrimIO PrimIO.ThreadID
+  export total prim__getString : PrimIO.Ptr String -> String
+  export total prim__threadWait : (1 _ : PrimIO.ThreadID) -> PrimIO.PrimIO Builtin.Unit
+  export total print : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Prelude.Show.Show a => a -> io Builtin.Unit
+  export total printLn : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Prelude.Show.Show a => a -> io Builtin.Unit
+  export total putChar : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Char -> io Builtin.Unit
+  export total putCharLn : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Char -> io Builtin.Unit
+  export total putStr : {0 io : Type -> Type} -> Prelude.IO.HasIO io => String -> io Builtin.Unit
+  export total putStrLn : {0 io : Type -> Type} -> Prelude.IO.HasIO io => String -> io Builtin.Unit
+  export total threadWait : (1 _ : PrimIO.ThreadID) -> PrimIO.IO Builtin.Unit
+  public export implementation : Prelude.IO.HasLinearIO PrimIO.IO
+  public export implementation : Prelude.Interfaces.Applicative PrimIO.IO
+  public export implementation : Prelude.Interfaces.Functor PrimIO.IO
+  public export implementation : Prelude.Interfaces.Monad PrimIO.IO
+  public export implementation : {0 io : Type -> Type} -> Prelude.IO.HasLinearIO io => Prelude.IO.HasIO io
+
+module Prelude.Interfaces
+  public export total ($>) : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => f a -> b -> f b
+  public export total (*>) : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => f a -> f b -> f b
+  public export total (<$) : {0 a : Type} -> {0 b : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => b -> f a -> f b
+  public export total (<$>) : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => (a -> b) -> f a -> f b
+  public export total (<&>) : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => f a -> (a -> b) -> f b
+  public export total (<*) : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => f a -> f b -> f a
+  public export total (<=<) : {0 a : Type} -> {0 c : Type} -> {0 b : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => (b -> m c) -> (a -> m b) -> a -> m c
+  public export total (=<<) : {0 b : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => (a -> m b) -> m a -> m b
+  public export total (>=>) : {0 c : Type} -> {0 b : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => (a -> m b) -> (b -> m c) -> a -> m c
+  public export total (>>) : {0 b : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => m Builtin.Unit -> Lazy (m b) -> m b
+  public export interface Alternative : (Type -> Type) -> Type
+    parameters f
+    constructor MkAlternative : {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => ({0 a : Type} -> f a) -> ({0 a : Type} -> f a -> Lazy (f a) -> f a) -> Prelude.Interfaces.Alternative f
+    method empty : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => f a
+    method (<|>) : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => f a -> Lazy (f a) -> f a
+  public export interface Applicative : (Type -> Type) -> Type
+    parameters f
+    constructor MkApplicative : {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => ({0 a : Type} -> a -> f a) -> ({0 b : Type} -> {0 a : Type} -> f (a -> b) -> f a -> f b) -> Prelude.Interfaces.Applicative f
+    method pure : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => a -> f a
+    method (<*>) : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => f (a -> b) -> f a -> f b
+  public export interface Bifoldable : (Type -> Type -> Type) -> Type
+    parameters p
+    constructor MkBifoldable : {0 p : Type -> Type -> Type} -> ({0 b : Type} -> {0 acc : Type} -> {0 a : Type} -> (a -> acc -> acc) -> (b -> acc -> acc) -> acc -> p a b -> acc) -> ({0 b : Type} -> {0 a : Type} -> {0 acc : Type} -> (acc -> a -> acc) -> (acc -> b -> acc) -> acc -> p a b -> acc) -> ({0 b : Type} -> {0 a : Type} -> p a b -> Prelude.Basics.Bool) -> Prelude.Interfaces.Bifoldable p
+    method bifoldr : {0 b : Type} -> {0 acc : Type} -> {0 a : Type} -> {0 p : Type -> Type -> Type} -> Prelude.Interfaces.Bifoldable p => (a -> acc -> acc) -> (b -> acc -> acc) -> acc -> p a b -> acc
+    method bifoldl : {0 b : Type} -> {0 a : Type} -> {0 acc : Type} -> {0 p : Type -> Type -> Type} -> Prelude.Interfaces.Bifoldable p => (acc -> a -> acc) -> (acc -> b -> acc) -> acc -> p a b -> acc
+    method binull : {0 b : Type} -> {0 a : Type} -> {0 p : Type -> Type -> Type} -> Prelude.Interfaces.Bifoldable p => p a b -> Prelude.Basics.Bool
+  public export interface Bifunctor : (Type -> Type -> Type) -> Type
+    parameters f
+    constructor MkBifunctor : {0 f : Type -> Type -> Type} -> ({0 d : Type} -> {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> (a -> c) -> (b -> d) -> f a b -> f c d) -> ({0 b : Type} -> {0 c : Type} -> {0 a : Type} -> (a -> c) -> f a b -> f c b) -> ({0 a : Type} -> {0 d : Type} -> {0 b : Type} -> (b -> d) -> f a b -> f a d) -> Prelude.Interfaces.Bifunctor f
+    method bimap : {0 d : Type} -> {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> {0 f : Type -> Type -> Type} -> Prelude.Interfaces.Bifunctor f => (a -> c) -> (b -> d) -> f a b -> f c d
+    method mapFst : {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> {0 f : Type -> Type -> Type} -> Prelude.Interfaces.Bifunctor f => (a -> c) -> f a b -> f c b
+    method mapSnd : {0 a : Type} -> {0 d : Type} -> {0 b : Type} -> {0 f : Type -> Type -> Type} -> Prelude.Interfaces.Bifunctor f => (b -> d) -> f a b -> f a d
+  public export interface Bitraversable : (Type -> Type -> Type) -> Type
+    parameters p
+    constructor MkBitraversable : {0 p : Type -> Type -> Type} -> Prelude.Interfaces.Bifunctor p => Prelude.Interfaces.Bifoldable p => ({0 d : Type} -> {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => (a -> f c) -> (b -> f d) -> p a b -> f (p c d)) -> Prelude.Interfaces.Bitraversable p
+    method bitraverse : {0 d : Type} -> {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> {0 p : Type -> Type -> Type} -> Prelude.Interfaces.Bitraversable p => Prelude.Interfaces.Applicative f => (a -> f c) -> (b -> f d) -> p a b -> f (p c d)
+  public export interface Foldable : (Type -> Type) -> Type
+    parameters t
+    constructor MkFoldable : {0 t : Type -> Type} -> ({0 acc : Type} -> {0 elem : Type} -> (elem -> acc -> acc) -> acc -> t elem -> acc) -> ({0 elem : Type} -> {0 acc : Type} -> (acc -> elem -> acc) -> acc -> t elem -> acc) -> ({0 elem : Type} -> t elem -> Prelude.Basics.Bool) -> ({0 elem : Type} -> {0 acc : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => (acc -> elem -> m acc) -> acc -> t elem -> m acc) -> ({0 elem : Type} -> t elem -> Prelude.Basics.List elem) -> ({0 a : Type} -> {0 m : Type} -> Prelude.Interfaces.Monoid m => (a -> m) -> t a -> m) -> Prelude.Interfaces.Foldable t
+    method foldr : {0 acc : Type} -> {0 elem : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => (elem -> acc -> acc) -> acc -> t elem -> acc
+    method foldl : {0 elem : Type} -> {0 acc : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => (acc -> elem -> acc) -> acc -> t elem -> acc
+    method null : {0 elem : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => t elem -> Prelude.Basics.Bool
+    method foldlM : {0 elem : Type} -> {0 acc : Type} -> {0 m : Type -> Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => Prelude.Interfaces.Monad m => (acc -> elem -> m acc) -> acc -> t elem -> m acc
+    method toList : {0 elem : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => t elem -> Prelude.Basics.List elem
+    method foldMap : {0 a : Type} -> {0 m : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => Prelude.Interfaces.Monoid m => (a -> m) -> t a -> m
+  public export interface Functor : (Type -> Type) -> Type
+    parameters f
+    constructor MkFunctor : {0 f : Type -> Type} -> ({0 b : Type} -> {0 a : Type} -> (a -> b) -> f a -> f b) -> Prelude.Interfaces.Functor f
+    method map : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => (a -> b) -> f a -> f b
+  public export interface Monad : (Type -> Type) -> Type
+    parameters m
+    constructor MkMonad : {0 m : Type -> Type} -> Prelude.Interfaces.Applicative m => ({0 b : Type} -> {0 a : Type} -> m a -> (a -> m b) -> m b) -> ({0 a : Type} -> m (m a) -> m a) -> Prelude.Interfaces.Monad m
+    method (>>=) : {0 b : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => m a -> (a -> m b) -> m b
+    method join : {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => m (m a) -> m a
+  public export interface Monoid : Type -> Type
+    parameters ty
+    constructor MkMonoid : {0 ty : Type} -> Prelude.Interfaces.Semigroup ty => ty -> Prelude.Interfaces.Monoid ty
+    method neutral : {0 ty : Type} -> Prelude.Interfaces.Monoid ty => ty
+  public export interface Semigroup : Type -> Type
+    parameters ty
+    constructor MkSemigroup : {0 ty : Type} -> (ty -> ty -> ty) -> Prelude.Interfaces.Semigroup ty
+    method (<+>) : {0 ty : Type} -> Prelude.Interfaces.Semigroup ty => ty -> ty -> ty
+  public export interface Traversable : (Type -> Type) -> Type
+    parameters t
+    constructor MkTraversable : {0 t : Type -> Type} -> Prelude.Interfaces.Functor t => Prelude.Interfaces.Foldable t => ({0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => (a -> f b) -> t a -> f (t b)) -> Prelude.Interfaces.Traversable t
+    method traverse : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Traversable t => Prelude.Interfaces.Applicative f => (a -> f b) -> t a -> f (t b)
+  public export total all : {0 a : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => (a -> Prelude.Basics.Bool) -> t a -> Prelude.Basics.Bool
+  public export total and : {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => t (Lazy Prelude.Basics.Bool) -> Prelude.Basics.Bool
+  public export total any : {0 a : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => (a -> Prelude.Basics.Bool) -> t a -> Prelude.Basics.Bool
+  public export total bifoldMap : {0 b : Type} -> {0 a : Type} -> {0 p : Type -> Type -> Type} -> {0 acc : Type} -> Prelude.Interfaces.Monoid acc => Prelude.Interfaces.Bifoldable p => (a -> acc) -> (b -> acc) -> p a b -> acc
+  public export total bifoldMapFst : {0 b : Type} -> {0 a : Type} -> {0 p : Type -> Type -> Type} -> {0 acc : Type} -> Prelude.Interfaces.Monoid acc => Prelude.Interfaces.Bifoldable p => (a -> acc) -> p a b -> acc
+  public export total bifor : {0 d : Type} -> {0 c : Type} -> {0 b : Type} -> {0 a : Type} -> {0 p : Type -> Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Bitraversable p => p a b -> (a -> f c) -> (b -> f d) -> f (p c d)
+  public export total bisequence : {0 b : Type} -> {0 a : Type} -> {0 p : Type -> Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Bitraversable p => p (f a) (f b) -> f (p a b)
+  public export total choice : {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => Prelude.Interfaces.Foldable t => t (Lazy (f a)) -> f a
+  public export total choiceMap : {0 b : Type} -> {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => Prelude.Interfaces.Foldable t => (a -> f b) -> t a -> f b
+  public export total concat : {0 t : Type -> Type} -> {0 a : Type} -> Prelude.Interfaces.Monoid a => Prelude.Interfaces.Foldable t => t a -> a
+  public export total concatMap : {0 a : Type} -> {0 t : Type -> Type} -> {0 m : Type} -> Prelude.Interfaces.Monoid m => Prelude.Interfaces.Foldable t => (a -> m) -> t a -> m
+  public export total for : {0 b : Type} -> {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Traversable t => t a -> (a -> f b) -> f (t b)
+  public export total for_ : {0 b : Type} -> {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Foldable t => t a -> (a -> f b) -> f Builtin.Unit
+  public export total guard : {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => Prelude.Basics.Bool -> f Builtin.Unit
+  public export total ignore : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => f a -> f Builtin.Unit
+  public export total mapHom : {0 b : Type} -> {0 a : Type} -> {0 f : Type -> Type -> Type} -> Prelude.Interfaces.Bifunctor f => (a -> b) -> f a a -> f b b
+  public export total or : {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => t (Lazy Prelude.Basics.Bool) -> Prelude.Basics.Bool
+  public export total product : {0 t : Type -> Type} -> {0 a : Type} -> Prelude.Num.Num a => Prelude.Interfaces.Foldable t => t a -> a
+  export total product' : {0 t : Type -> Type} -> {0 a : Type} -> Prelude.Num.Num a => Prelude.Interfaces.Foldable t => t a -> a
+  public export total sequence : {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Traversable t => t (f a) -> f (t a)
+  public export total sequence_ : {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Foldable t => t (f a) -> f Builtin.Unit
+  public export total sum : {0 t : Type -> Type} -> {0 a : Type} -> Prelude.Num.Num a => Prelude.Interfaces.Foldable t => t a -> a
+  export total sum' : {0 t : Type -> Type} -> {0 a : Type} -> Prelude.Num.Num a => Prelude.Interfaces.Foldable t => t a -> a
+  public export total traverse_ : {0 b : Type} -> {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Foldable t => (a -> f b) -> t a -> f Builtin.Unit
+  public export total unless : {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Basics.Bool -> Lazy (f Builtin.Unit) -> f Builtin.Unit
+  public export total when : {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Basics.Bool -> Lazy (f Builtin.Unit) -> f Builtin.Unit
+  public export implementation [Bool.Lazy.Monoid.All] : Prelude.Interfaces.Monoid (Lazy Prelude.Basics.Bool)
+  public export implementation [Bool.Lazy.Monoid.Any] : Prelude.Interfaces.Monoid (Lazy Prelude.Basics.Bool)
+  public export implementation : Prelude.Interfaces.Monoid Builtin.Unit
+  public export implementation [Bool.Monoid.All] : Prelude.Interfaces.Monoid Prelude.Basics.Bool
+  public export implementation [Bool.Monoid.Any] : Prelude.Interfaces.Monoid Prelude.Basics.Bool
+  public export implementation : Prelude.Interfaces.Monoid Prelude.EqOrd.Ordering
+  public export implementation [Bool.Lazy.Semigroup.All] : Prelude.Interfaces.Semigroup (Lazy Prelude.Basics.Bool)
+  public export implementation [Bool.Lazy.Semigroup.Any] : Prelude.Interfaces.Semigroup (Lazy Prelude.Basics.Bool)
+  public export implementation : Prelude.Interfaces.Semigroup Builtin.Unit
+  public export implementation [Bool.Semigroup.All] : Prelude.Interfaces.Semigroup Prelude.Basics.Bool
+  public export implementation [Bool.Semigroup.Any] : Prelude.Interfaces.Semigroup Prelude.Basics.Bool
+  public export implementation : Prelude.Interfaces.Semigroup Prelude.EqOrd.Ordering
+  public export implementation [Num.Monoid.Additive] : {0 a : Type} -> Prelude.Num.Num a => Prelude.Interfaces.Monoid a
+  public export implementation [Num.Monoid.Multiplicative] : {0 a : Type} -> Prelude.Num.Num a => Prelude.Interfaces.Monoid a
+  public export implementation [Num.Semigroup.Additive] : {0 a : Type} -> Prelude.Num.Num a => Prelude.Interfaces.Semigroup a
+  public export implementation [Num.Semigroup.Multiplicative] : {0 a : Type} -> Prelude.Num.Num a => Prelude.Interfaces.Semigroup a
+  public export implementation : {0 a : Type} -> {0 b : Type} -> Prelude.Interfaces.Monoid b => Prelude.Interfaces.Monoid (a -> b)
+  public export implementation : {0 a : Type} -> {0 b : Type} -> Prelude.Interfaces.Semigroup b => Prelude.Interfaces.Semigroup (a -> b)
+  public export implementation [Lazy.MonoidAlternative] : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => Prelude.Interfaces.Monoid (Lazy (f a))
+  public export implementation [MonoidAlternative] : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => Prelude.Interfaces.Monoid (f a)
+  public export implementation [Lazy.SemigroupAlternative] : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => Prelude.Interfaces.Semigroup (Lazy (f a))
+  public export implementation [SemigroupAlternative] : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => Prelude.Interfaces.Semigroup (f a)
+  public export implementation [MonoidApplicative] : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Monoid a => Prelude.Interfaces.Monoid (f a)
+  public export implementation [SemigroupApplicative] : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Semigroup a => Prelude.Interfaces.Semigroup (f a)
+  public export implementation : {0 b : Type} -> {0 a : Type} -> Prelude.Interfaces.Monoid a => Prelude.Interfaces.Monoid b => Prelude.Interfaces.Monoid (a, b)
+  public export implementation : {0 b : Type} -> {0 a : Type} -> Prelude.Interfaces.Semigroup a => Prelude.Interfaces.Semigroup b => Prelude.Interfaces.Semigroup (a, b)
+  public export implementation [Foldable.Compose] : {0 f : Type -> Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => Prelude.Interfaces.Foldable f => Prelude.Interfaces.Foldable (Prelude.Basics.(.) {a = Type} {c = Type} {b = Type} t f)
+  public export implementation [Traversable.Compose] : {0 f : Type -> Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Traversable t => Prelude.Interfaces.Traversable f => Prelude.Interfaces.Traversable (Prelude.Basics.(.) {a = Type} {c = Type} {b = Type} t f)
+  public export implementation [Bifunctor.Compose] : {0 g : Type -> Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => Prelude.Interfaces.Bifunctor g => Prelude.Interfaces.Bifunctor (Prelude.Basics.(.:) {b = Type} {a = Type} {d = Type} {c = Type} f g)
+  public export implementation [Applicative.Compose] : {0 g : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Applicative g => Prelude.Interfaces.Applicative (Prelude.Basics.(.) {a = Type} {c = Type} {b = Type} f g)
+  public export implementation [Functor.Compose] : {0 g : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Functor f => Prelude.Interfaces.Functor g => Prelude.Interfaces.Functor (Prelude.Basics.(.) {a = Type} {c = Type} {b = Type} f g)
+  public export implementation [Bifoldable.Compose] : {0 p : Type -> Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Foldable f => Prelude.Interfaces.Bifoldable p => Prelude.Interfaces.Bifoldable (Prelude.Basics.(.:) {b = Type} {a = Type} {d = Type} {c = Type} f p)
+  public export implementation [Bitraversable.Compose] : {0 p : Type -> Type -> Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Traversable t => Prelude.Interfaces.Bitraversable p => Prelude.Interfaces.Bitraversable (Prelude.Basics.(.:) {b = Type} {a = Type} {d = Type} {c = Type} t p)
+  public export implementation [Monad.Compose] : {0 t : Type -> Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => Prelude.Interfaces.Monad t => Prelude.Interfaces.Traversable t => Prelude.Interfaces.Monad (Prelude.Basics.(.) {a = Type} {c = Type} {b = Type} m t)
+
+module Prelude.Interpolation
+  public export interface Interpolation : Type -> Type
+    parameters a
+    constructor MkInterpolation : {0 a : Type} -> (a -> String) -> Prelude.Interpolation.Interpolation a
+    method interpolate : {0 a : Type} -> Prelude.Interpolation.Interpolation a => a -> String
+  export implementation : Prelude.Interpolation.Interpolation Builtin.Void
+  export implementation : Prelude.Interpolation.Interpolation String
+
+module Prelude.Num
+  public export interface Abs : Type -> Type
+    parameters ty
+    constructor MkAbs : {0 ty : Type} -> Prelude.Num.Num ty => (ty -> ty) -> Prelude.Num.Abs ty
+    method abs : {0 ty : Type} -> Prelude.Num.Abs ty => ty -> ty
+  public export interface Fractional : Type -> Type
+    parameters ty
+    constructor MkFractional : {0 ty : Type} -> Prelude.Num.Num ty => (ty -> ty -> ty) -> (ty -> ty) -> Prelude.Num.Fractional ty
+    method (/) : {0 ty : Type} -> Prelude.Num.Fractional ty => ty -> ty -> ty
+    method recip : {0 ty : Type} -> Prelude.Num.Fractional ty => ty -> ty
+  public export interface Integral : Type -> Type
+    parameters ty
+    constructor MkIntegral : {0 ty : Type} -> Prelude.Num.Num ty => (ty -> ty -> ty) -> (ty -> ty -> ty) -> Prelude.Num.Integral ty
+    method div : {0 ty : Type} -> Prelude.Num.Integral ty => ty -> ty -> ty
+    method mod : {0 ty : Type} -> Prelude.Num.Integral ty => ty -> ty -> ty
+  public export interface Neg : Type -> Type
+    parameters ty
+    constructor MkNeg : {0 ty : Type} -> Prelude.Num.Num ty => (ty -> ty) -> (ty -> ty -> ty) -> Prelude.Num.Neg ty
+    method negate : {0 ty : Type} -> Prelude.Num.Neg ty => ty -> ty
+    method (-) : {0 ty : Type} -> Prelude.Num.Neg ty => ty -> ty -> ty
+  public export interface Num : Type -> Type
+    parameters ty
+    constructor MkNum : {0 ty : Type} -> (ty -> ty -> ty) -> (ty -> ty -> ty) -> (Integer -> ty) -> Prelude.Num.Num ty
+    method (+) : {0 ty : Type} -> Prelude.Num.Num ty => ty -> ty -> ty
+    method (*) : {0 ty : Type} -> Prelude.Num.Num ty => ty -> ty -> ty
+    method fromInteger : {0 ty : Type} -> Prelude.Num.Num ty => Integer -> ty
+  export total subtract : {0 ty : Type} -> Prelude.Num.Neg ty => ty -> ty -> ty
+  public export implementation : Prelude.Num.Abs Bits16
+  public export implementation : Prelude.Num.Abs Bits32
+  public export implementation : Prelude.Num.Abs Bits64
+  public export implementation : Prelude.Num.Abs Bits8
+  public export implementation : Prelude.Num.Abs Double
+  public export implementation : Prelude.Num.Abs Int
+  public export implementation : Prelude.Num.Abs Int16
+  public export implementation : Prelude.Num.Abs Int32
+  public export implementation : Prelude.Num.Abs Int64
+  public export implementation : Prelude.Num.Abs Int8
+  public export implementation : Prelude.Num.Abs Integer
+  public export implementation : Prelude.Num.Fractional Double
+  public export implementation : Prelude.Num.Integral Bits16
+  public export implementation : Prelude.Num.Integral Bits32
+  public export implementation : Prelude.Num.Integral Bits64
+  public export implementation : Prelude.Num.Integral Bits8
+  public export implementation : Prelude.Num.Integral Int
+  public export implementation : Prelude.Num.Integral Int16
+  public export implementation : Prelude.Num.Integral Int32
+  public export implementation : Prelude.Num.Integral Int64
+  public export implementation : Prelude.Num.Integral Int8
+  public export implementation : Prelude.Num.Integral Integer
+  public export implementation : Prelude.Num.Neg Bits16
+  public export implementation : Prelude.Num.Neg Bits32
+  public export implementation : Prelude.Num.Neg Bits64
+  public export implementation : Prelude.Num.Neg Bits8
+  public export implementation : Prelude.Num.Neg Double
+  public export implementation : Prelude.Num.Neg Int
+  public export implementation : Prelude.Num.Neg Int16
+  public export implementation : Prelude.Num.Neg Int32
+  public export implementation : Prelude.Num.Neg Int64
+  public export implementation : Prelude.Num.Neg Int8
+  public export implementation : Prelude.Num.Neg Integer
+  public export implementation : Prelude.Num.Num Bits16
+  public export implementation : Prelude.Num.Num Bits32
+  public export implementation : Prelude.Num.Num Bits64
+  public export implementation : Prelude.Num.Num Bits8
+  public export implementation : Prelude.Num.Num Double
+  public export implementation : Prelude.Num.Num Int
+  public export implementation : Prelude.Num.Num Int16
+  public export implementation : Prelude.Num.Num Int32
+  public export implementation : Prelude.Num.Num Int64
+  public export implementation : Prelude.Num.Num Int8
+  public export implementation : Prelude.Num.Num Integer
+  public export implementation [defaultInteger] : Prelude.Num.Num Integer
+
+module Prelude.Ops
+  export infixr 0 ($)
+  export infixr 4 ($>)
+  export infixr 5 (&&)
+  export infixl 9 (*)
+  export infixl 3 (*>)
+  export infixl 8 (+)
+  export infixr 7 (++)
+  export infixl 8 (-)
+  export infixr 9 (.)
+  export infixr 9 (.:)
+  export infixl 9 (/)
+  export infix 6 (/=)
+  export infixr 7 (::)
+  export infixl 7 (:<)
+  export infixr 4 (<$)
+  export infixr 4 (<$>)
+  export infixl 1 (<&>)
+  export infix 6 (<)
+  export infixl 3 (<*)
+  export infixl 3 (<*>)
+  export infixl 8 (<+>)
+  export infix 6 (<=)
+  export infixl 1 (<=<)
+  export infix 0 (<=>)
+  export infixr 0 (<|)
+  export infixr 2 (<|>)
+  export infixl 1 (=<<)
+  export infix 6 (==)
+  export infix 6 (>)
+  export infix 6 (>=)
+  export infixl 1 (>=>)
+  export infixl 1 (>>)
+  export infixl 1 (>>=)
+  export infixl 0 (|>)
+  export infixr 4 (||)
+  export infixl 9 div
+  export infixl 9 mod
+
+module Prelude.Show
+  public export data Prec : Type
+    constructor Open : Prelude.Show.Prec
+    constructor Equal : Prelude.Show.Prec
+    constructor Dollar : Prelude.Show.Prec
+    constructor Backtick : Prelude.Show.Prec
+    constructor User : Prelude.Types.Nat -> Prelude.Show.Prec
+    constructor PrefixMinus : Prelude.Show.Prec
+    constructor App : Prelude.Show.Prec
+  public export interface Show : Type -> Type
+    parameters ty
+    constructor MkShow : {0 ty : Type} -> (ty -> String) -> (Prelude.Show.Prec -> ty -> String) -> Prelude.Show.Show ty
+    method show : {0 ty : Type} -> Prelude.Show.Show ty => ty -> String
+    method showPrec : {0 ty : Type} -> Prelude.Show.Show ty => Prelude.Show.Prec -> ty -> String
+  public export total precCon : Prelude.Show.Prec -> Integer
+  public export total showArg : {0 a : Type} -> Prelude.Show.Show a => a -> String
+  public export total showCon : Prelude.Show.Prec -> String -> String -> String
+  public export total showParens : Prelude.Basics.Bool -> String -> String
+  export implementation : Prelude.EqOrd.Eq Prelude.Show.Prec
+  export implementation : Prelude.EqOrd.Ord Prelude.Show.Prec
+  export implementation : Prelude.Show.Show Bits16
+  export implementation : Prelude.Show.Show Bits32
+  export implementation : Prelude.Show.Show Bits64
+  export implementation : Prelude.Show.Show Bits8
+  export implementation : Prelude.Show.Show Builtin.Unit
+  export implementation : Prelude.Show.Show Builtin.Void
+  export implementation : Prelude.Show.Show Char
+  export implementation : Prelude.Show.Show Double
+  export implementation : Prelude.Show.Show Int
+  export implementation : Prelude.Show.Show Int16
+  export implementation : Prelude.Show.Show Int32
+  export implementation : Prelude.Show.Show Int64
+  export implementation : Prelude.Show.Show Int8
+  export implementation : Prelude.Show.Show Integer
+  export implementation : Prelude.Show.Show Prelude.Basics.Bool
+  export implementation : Prelude.Show.Show Prelude.EqOrd.Ordering
+  export implementation : Prelude.Show.Show Prelude.Types.Nat
+  export implementation : Prelude.Show.Show String
+  export implementation : {0 a : Type} -> Prelude.Show.Show a => Prelude.Show.Show (Prelude.Basics.List a)
+  export implementation : {0 a : Type} -> Prelude.Show.Show a => Prelude.Show.Show (Prelude.Types.Maybe a)
+  export implementation : {0 a : Type} -> {0 p : a -> Type} -> (Prelude.Show.Show a, {y : a} -> Prelude.Show.Show (p y)) => Prelude.Show.Show (Builtin.DPair.DPair a p)
+  export implementation : {0 b : Type} -> {0 a : Type} -> (Prelude.Show.Show a, Prelude.Show.Show b) => Prelude.Show.Show (Prelude.Types.Either a b)
+  export implementation : {0 b : Type} -> {0 a : Type} -> (Prelude.Show.Show a, Prelude.Show.Show b) => Prelude.Show.Show (a, b)
+
+module Prelude.Types
+  export infixl 7 (<><)
+  export infixr 6 (<>>)
+  public export record (<=>) : Type -> Type -> Type
+    constructor MkEquivalence : {0 a : Type} -> {0 b : Type} -> (a -> b) -> (b -> a) -> a Prelude.(<=>) b
+    field leftToRight : {0 a : Type} -> {0 b : Type} -> a Prelude.(<=>) b -> a -> b
+    field rightToLeft : {0 a : Type} -> {0 b : Type} -> a Prelude.(<=>) b -> b -> a
+  public export data Dec : Type -> Type
+    constructor Yes : {0 prop : Type} -> prop -> Prelude.Types.Dec prop
+    constructor No : {0 prop : Type} -> Prelude.Basics.Not prop -> Prelude.Types.Dec prop
+  public export data Either : Type -> Type -> Type
+    constructor Left : {0 a : Type} -> {0 b : Type} -> a -> Prelude.Types.Either a b
+    constructor Right : {0 a : Type} -> {0 b : Type} -> b -> Prelude.Types.Either a b
+  public export total List.(++) : {0 a : Type} -> Prelude.Basics.List a -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export total List.filter : {0 a : Type} -> (a -> Prelude.Basics.Bool) -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export total List.filterAppend : {0 a : Type} -> Prelude.Basics.SnocList a -> (a -> Prelude.Basics.Bool) -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export total List.filterTR : {0 a : Type} -> (a -> Prelude.Basics.Bool) -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export total List.length : {0 a : Type} -> Prelude.Basics.List a -> Prelude.Types.Nat
+  public export total List.lengthPlus : {0 a : Type} -> Prelude.Types.Nat -> Prelude.Basics.List a -> Prelude.Types.Nat
+  public export total List.lengthTR : {0 a : Type} -> Prelude.Basics.List a -> Prelude.Types.Nat
+  public export total List.mapAppend : {0 a : Type} -> {0 b : Type} -> Prelude.Basics.SnocList b -> (a -> b) -> Prelude.Basics.List a -> Prelude.Basics.List b
+  public export total List.mapImpl : {0 b : Type} -> {0 a : Type} -> (a -> b) -> Prelude.Basics.List a -> Prelude.Basics.List b
+  public export total List.mapMaybe : {0 b : Type} -> {0 a : Type} -> (a -> Prelude.Types.Maybe b) -> Prelude.Basics.List a -> Prelude.Basics.List b
+  public export total List.mapMaybeAppend : {0 a : Type} -> {0 b : Type} -> Prelude.Basics.SnocList b -> (a -> Prelude.Types.Maybe b) -> Prelude.Basics.List a -> Prelude.Basics.List b
+  public export total List.mapMaybeTR : {0 b : Type} -> {0 a : Type} -> (a -> Prelude.Types.Maybe b) -> Prelude.Basics.List a -> Prelude.Basics.List b
+  public export total List.mapTR : {0 b : Type} -> {0 a : Type} -> (a -> b) -> Prelude.Basics.List a -> Prelude.Basics.List b
+  public export total List.reverse : {0 a : Type} -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export total List.reverseOnto : {0 a : Type} -> Prelude.Basics.List a -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export total List.tailRecAppend : {0 a : Type} -> Prelude.Basics.List a -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export data Maybe : Type -> Type
+    constructor Nothing : {0 ty : Type} -> Prelude.Types.Maybe ty
+    constructor Just : {0 ty : Type} -> ty -> Prelude.Types.Maybe ty
+  public export data Nat : Type
+    constructor Z : Prelude.Types.Nat
+    constructor S : Prelude.Types.Nat -> Prelude.Types.Nat
+  public export interface Range : Type -> Type
+    parameters a
+    constructor MkRange : {0 a : Type} -> (a -> a -> Prelude.Basics.List a) -> (a -> a -> a -> Prelude.Basics.List a) -> (a -> Prelude.Types.Stream.Stream a) -> (a -> a -> Prelude.Types.Stream.Stream a) -> Prelude.Types.Range a
+    method rangeFromTo : {0 a : Type} -> Prelude.Types.Range a => a -> a -> Prelude.Basics.List a
+    method rangeFromThenTo : {0 a : Type} -> Prelude.Types.Range a => a -> a -> a -> Prelude.Basics.List a
+    method rangeFrom : {0 a : Type} -> Prelude.Types.Range a => a -> Prelude.Types.Stream.Stream a
+    method rangeFromThen : {0 a : Type} -> Prelude.Types.Range a => a -> a -> Prelude.Types.Stream.Stream a
+  public export total SnocList.(++) : {0 a : Type} -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a
+  public export total SnocList.(<><) : {0 a : Type} -> Prelude.Basics.SnocList a -> Prelude.Basics.List a -> Prelude.Basics.SnocList a
+  public export total SnocList.(<>>) : {0 a : Type} -> Prelude.Basics.SnocList a -> Prelude.Basics.List a -> Prelude.Basics.List a
+  public export total SnocList.filter : {0 a : Type} -> (a -> Prelude.Basics.Bool) -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a
+  public export total SnocList.filterAppend : {0 a : Type} -> Prelude.Basics.List a -> (a -> Prelude.Basics.Bool) -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a
+  public export total SnocList.filterTR : {0 a : Type} -> (a -> Prelude.Basics.Bool) -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a
+  public export total SnocList.length : {0 a : Type} -> Prelude.Basics.SnocList a -> Prelude.Types.Nat
+  public export total SnocList.lengthPlus : {0 a : Type} -> Prelude.Types.Nat -> Prelude.Basics.SnocList a -> Prelude.Types.Nat
+  public export total SnocList.lengthTR : {0 a : Type} -> Prelude.Basics.SnocList a -> Prelude.Types.Nat
+  public export total SnocList.mapMaybe : {0 b : Type} -> {0 a : Type} -> (a -> Prelude.Types.Maybe b) -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList b
+  public export total SnocList.mapMaybeAppend : {0 a : Type} -> {0 b : Type} -> Prelude.Basics.List b -> (a -> Prelude.Types.Maybe b) -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList b
+  public export total SnocList.mapMaybeTR : {0 b : Type} -> {0 a : Type} -> (a -> Prelude.Types.Maybe b) -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList b
+  public export total SnocList.reverse : {0 a : Type} -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a
+  public export total SnocList.reverseOnto : {0 a : Type} -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a
+  public export total SnocList.tailRecAppend : {0 a : Type} -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a -> Prelude.Basics.SnocList a
+  public export data Stream.Stream : Type -> Type
+    constructor Stream.(::) : {0 a : Type} -> a -> Inf (Prelude.Types.Stream.Stream a) -> Prelude.Types.Stream.Stream a
+  public export total String.(++) : String -> String -> String
+  public export total String.length : String -> Prelude.Types.Nat
+  public export total acos : Double -> Double
+  public export total asin : Double -> Double
+  public export total atan : Double -> Double
+  public export total ceiling : Double -> Double
+  public export total chr : Int -> Char
+  public export total compareNat : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.EqOrd.Ordering
+  public export total cos : Double -> Double
+  public export total cosh : Double -> Double
+  public export total count : {0 a : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => (a -> Prelude.Basics.Bool) -> t a -> Prelude.Types.Nat
+  public export total countFrom : {0 n : Type} -> n -> (n -> n) -> Prelude.Types.Stream.Stream n
+  public export total either : {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> Lazy (a -> c) -> Lazy (b -> c) -> Prelude.Types.Either a b -> c
+  public export total elem : {0 a : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => Prelude.EqOrd.Eq a => a -> t a -> Prelude.Basics.Bool
+  public export total elemBy : {0 a : Type} -> {0 t : Type -> Type} -> Prelude.Interfaces.Foldable t => (a -> a -> Prelude.Basics.Bool) -> a -> t a -> Prelude.Basics.Bool
+  public export total equalNat : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Basics.Bool
+  public export total euler : Double
+  public export total exp : Double -> Double
+  export total fastConcat : Prelude.Basics.List String -> String
+  export total fastPack : Prelude.Basics.List Char -> String
+  export total fastUnpack : String -> Prelude.Basics.List Char
+  public export total floor : Double -> Double
+  export total getAt : {0 a : Type} -> Prelude.Types.Nat -> Prelude.Basics.List a -> Prelude.Types.Maybe a
+  public export total head : {0 a : Type} -> Prelude.Types.Stream.Stream a -> a
+  public export total integerToNat : Integer -> Prelude.Types.Nat
+  public export total isAlpha : Char -> Prelude.Basics.Bool
+  public export total isAlphaNum : Char -> Prelude.Basics.Bool
+  public export total isControl : Char -> Prelude.Basics.Bool
+  public export total isDigit : Char -> Prelude.Basics.Bool
+  public export total isHexDigit : Char -> Prelude.Basics.Bool
+  public export total isLower : Char -> Prelude.Basics.Bool
+  public export total isNL : Char -> Prelude.Basics.Bool
+  public export total isOctDigit : Char -> Prelude.Basics.Bool
+  public export total isSpace : Char -> Prelude.Basics.Bool
+  public export total isUpper : Char -> Prelude.Basics.Bool
+  public export total listBind : {0 b : Type} -> {0 a : Type} -> Prelude.Basics.List a -> (a -> Prelude.Basics.List b) -> Prelude.Basics.List b
+  public export total listBindOnto : {0 b : Type} -> {0 a : Type} -> (a -> Prelude.Basics.List b) -> Prelude.Basics.List b -> Prelude.Basics.List a -> Prelude.Basics.List b
+  public export total log : Double -> Double
+  public export total maybe : {0 a : Type} -> {0 b : Type} -> Lazy b -> Lazy (a -> b) -> Prelude.Types.Maybe a -> b
+  public export total minus : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
+  public export total mult : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
+  public export total natToInteger : Prelude.Types.Nat -> Integer
+  public export total ord : Char -> Int
+  public export total pack : Prelude.Basics.List Char -> String
+  public export total pi : Double
+  public export total plus : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
+  public export total pow : Double -> Double -> Double
+  public export total reverse : String -> String
+  public export total sin : Double -> Double
+  public export total sinh : Double -> Double
+  public export total sqrt : Double -> Double
+  public export total strCons : Char -> String -> String
+  public export total strUncons : String -> Prelude.Types.Maybe (Char, String)
+  public export total substr : Prelude.Types.Nat -> Prelude.Types.Nat -> String -> String
+  public export total tail : {0 a : Type} -> Prelude.Types.Stream.Stream a -> Prelude.Types.Stream.Stream a
+  public export total take : {0 a : Type} -> Prelude.Types.Nat -> Prelude.Types.Stream.Stream a -> Prelude.Basics.List a
+  public export covering takeBefore : {0 n : Type} -> (n -> Prelude.Basics.Bool) -> Prelude.Types.Stream.Stream n -> Prelude.Basics.List n
+  public export covering takeUntil : {0 n : Type} -> (n -> Prelude.Basics.Bool) -> Prelude.Types.Stream.Stream n -> Prelude.Basics.List n
+  public export total tan : Double -> Double
+  public export total tanh : Double -> Double
+  public export total toLower : Char -> Char
+  public export total toUpper : Char -> Char
+  public export total unpack : String -> Prelude.Basics.List Char
+  public export total viaEquivalence : {0 b : Type} -> {0 a : Type} -> a Prelude.(<=>) b -> Prelude.Types.Dec a -> Prelude.Types.Dec b
+  public export total whenJust : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Types.Maybe a -> (a -> f Builtin.Unit) -> f Builtin.Unit
+  public export implementation : Prelude.EqOrd.Eq Prelude.Types.Nat
+  public export implementation : Prelude.EqOrd.Ord Prelude.Types.Nat
+  public export implementation : Prelude.Interfaces.Alternative Prelude.Basics.List
+  public export implementation : Prelude.Interfaces.Alternative Prelude.Types.Maybe
+  public export implementation : Prelude.Interfaces.Applicative Prelude.Basics.List
+  public export implementation : Prelude.Interfaces.Applicative Prelude.Types.Maybe
+  public export implementation : Prelude.Interfaces.Bifoldable Builtin.Pair
+  public export implementation : Prelude.Interfaces.Bifoldable Prelude.Types.Either
+  public export implementation : Prelude.Interfaces.Bifunctor Builtin.Pair
+  public export implementation : Prelude.Interfaces.Bifunctor Prelude.Types.Either
+  public export implementation : Prelude.Interfaces.Bitraversable Builtin.Pair
+  public export implementation : Prelude.Interfaces.Bitraversable Prelude.Types.Either
+  public export implementation : Prelude.Interfaces.Foldable Prelude.Basics.List
+  public export implementation : Prelude.Interfaces.Foldable Prelude.Types.Maybe
+  public export implementation : Prelude.Interfaces.Functor Prelude.Basics.List
+  public export implementation : Prelude.Interfaces.Functor Prelude.Types.Maybe
+  public export implementation : Prelude.Interfaces.Functor Prelude.Types.Stream.Stream
+  public export implementation : Prelude.Interfaces.Monad Prelude.Basics.List
+  public export implementation : Prelude.Interfaces.Monad Prelude.Types.Maybe
+  public export implementation : Prelude.Interfaces.Monoid String
+  public export implementation : Prelude.Interfaces.Semigroup String
+  public export implementation : Prelude.Interfaces.Traversable Prelude.Basics.List
+  public export implementation : Prelude.Interfaces.Traversable Prelude.Types.Maybe
+  public export implementation : Prelude.Num.Num Prelude.Types.Nat
+  public export implementation : Prelude.Types.Range Char
+  public export implementation : Prelude.Types.Range Prelude.Types.Nat
+  public export implementation : {0 a : Type} -> (Prelude.Num.Integral a, (Prelude.EqOrd.Ord a, Prelude.Num.Neg a)) => Prelude.Types.Range a
+  public export implementation : {0 a : Type} -> Prelude.EqOrd.Eq a => Prelude.EqOrd.Eq (Prelude.Basics.List a)
+  public export implementation : {0 a : Type} -> Prelude.EqOrd.Eq a => Prelude.EqOrd.Eq (Prelude.Basics.SnocList a)
+  public export implementation : {0 a : Type} -> Prelude.EqOrd.Eq a => Prelude.EqOrd.Eq (Prelude.Types.Maybe a)
+  public export implementation : {0 a : Type} -> Prelude.EqOrd.Ord a => Prelude.EqOrd.Ord (Prelude.Basics.List a)
+  public export implementation : {0 a : Type} -> Prelude.EqOrd.Ord a => Prelude.EqOrd.Ord (Prelude.Basics.SnocList a)
+  public export implementation : {0 a : Type} -> Prelude.EqOrd.Ord a => Prelude.EqOrd.Ord (Prelude.Types.Maybe a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Foldable (Builtin.Pair a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Functor (Builtin.Pair a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Monoid (Prelude.Basics.List a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Monoid (Prelude.Types.Maybe a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Monoid a => Prelude.Interfaces.Applicative (Builtin.Pair a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Monoid a => Prelude.Interfaces.Monad (Builtin.Pair a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Semigroup (Prelude.Basics.List a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Semigroup (Prelude.Types.Maybe a)
+  public export implementation : {0 a : Type} -> Prelude.Interfaces.Traversable (Builtin.Pair a)
+  export implementation : {0 a : Type} -> {0 b : Type} -> {0 p : a} -> {0 q : b} -> Prelude.Uninhabited.Uninhabited (Builtin.(===) {a = Prelude.Types.Either a b} (Prelude.Types.Left {a} {b} p) (Prelude.Types.Right {a} {b} q))
+  export implementation : {0 a : Type} -> {0 b : Type} -> {0 p : b} -> {0 q : a} -> Prelude.Uninhabited.Uninhabited (Builtin.(===) {a = Prelude.Types.Either a b} (Prelude.Types.Right {a} {b} p) (Prelude.Types.Left {a} {b} q))
+  public export implementation : {0 b : Type} -> {0 a : Type} -> (Prelude.EqOrd.Eq a, Prelude.EqOrd.Eq b) => Prelude.EqOrd.Eq (Prelude.Types.Either a b)
+  public export implementation : {0 b : Type} -> {0 a : Type} -> (Prelude.EqOrd.Ord a, Prelude.EqOrd.Ord b) => Prelude.EqOrd.Ord (Prelude.Types.Either a b)
+  export implementation : {0 b : Type} -> {0 a : Type} -> Prelude.Types.Either (Prelude.Uninhabited.Uninhabited a) (Prelude.Uninhabited.Uninhabited b) => Prelude.Uninhabited.Uninhabited (a, b)
+  export implementation : {0 b : Type} -> {0 a : Type} -> Prelude.Uninhabited.Uninhabited a => Prelude.Uninhabited.Uninhabited b => Prelude.Uninhabited.Uninhabited (Prelude.Types.Either a b)
+  public export implementation : {0 e : Type} -> Prelude.Interfaces.Applicative (Prelude.Types.Either e)
+  public export implementation : {0 e : Type} -> Prelude.Interfaces.Foldable (Prelude.Types.Either e)
+  public export implementation : {0 e : Type} -> Prelude.Interfaces.Functor (Prelude.Types.Either e)
+  public export implementation : {0 e : Type} -> Prelude.Interfaces.Monad (Prelude.Types.Either e)
+  public export implementation : {0 e : Type} -> Prelude.Interfaces.Traversable (Prelude.Types.Either e)
+  export implementation : {0 prop : Type} -> {0 p : Prelude.Basics.Not prop} -> {0 q : prop} -> Prelude.Uninhabited.Uninhabited (Builtin.(===) {a = Prelude.Types.Dec prop} (Prelude.Types.No {prop} p) (Prelude.Types.Yes {prop} q))
+  export implementation : {0 prop : Type} -> {0 p : prop} -> {0 q : Prelude.Basics.Not prop} -> Prelude.Uninhabited.Uninhabited (Builtin.(===) {a = Prelude.Types.Dec prop} (Prelude.Types.Yes {prop} p) (Prelude.Types.No {prop} q))
+  public export implementation : {0 ty : Type} -> {0 x : ty} -> Prelude.Uninhabited.Uninhabited (Builtin.(===) {a = Prelude.Types.Maybe ty} (Prelude.Types.Just {ty} x) (Prelude.Types.Nothing {ty}))
+  public export implementation : {0 ty : Type} -> {0 x : ty} -> Prelude.Uninhabited.Uninhabited (Builtin.(===) {a = Prelude.Types.Maybe ty} (Prelude.Types.Nothing {ty}) (Prelude.Types.Just {ty} x))
+
+module Prelude.Uninhabited
+  public export interface Uninhabited : Type -> Type
+    parameters t
+    constructor MkUninhabited : {0 t : Type} -> (t -> Builtin.Void) -> Prelude.Uninhabited.Uninhabited t
+    method uninhabited : {0 t : Type} -> Prelude.Uninhabited.Uninhabited t => t -> Builtin.Void
+  public export total absurd : {0 a : Type} -> {0 t : Type} -> Prelude.Uninhabited.Uninhabited t => t -> a
+  public export total void : {0 a : Type} -> (0 _ : Builtin.Void) -> a
+  public export implementation : Prelude.Uninhabited.Uninhabited (Builtin.(===) {a = Prelude.Basics.Bool} Prelude.Basics.False Prelude.Basics.True)
+  public export implementation : Prelude.Uninhabited.Uninhabited (Builtin.(===) {a = Prelude.Basics.Bool} Prelude.Basics.True Prelude.Basics.False)
+  export implementation : Prelude.Uninhabited.Uninhabited Builtin.Void
+
+module PrimIO
+  public export data AnyPtr : Type
+  public export data GCAnyPtr : Type
+  public export data GCPtr : Type -> Type
+  export data IO : Type -> Type
+  public export data IORes : Type -> Type
+    constructor MkIORes : {0 a : Type} -> a -> (1 _ : %World) -> PrimIO.IORes a
+  public export total PrimIO : Type -> Type
+  public export data Ptr : Type -> Type
+  public export data ThreadID : Type
+  export total fromPrim : {0 a : Type} -> (1 _ : ((1 _ : %World) -> PrimIO.IORes a)) -> PrimIO.IO a
+  export total io_bind : {0 b : Type} -> {0 a : Type} -> (1 _ : PrimIO.IO a) -> (1 _ : (a -> PrimIO.IO b)) -> PrimIO.IO b
+  export total io_pure : {0 a : Type} -> a -> PrimIO.IO a
+  export total prim__castPtr : {0 t : Type} -> PrimIO.AnyPtr -> PrimIO.Ptr t
+  export total prim__forgetPtr : {0 t : Type} -> PrimIO.Ptr t -> PrimIO.AnyPtr
+  export total prim__getNullAnyPtr : PrimIO.AnyPtr
+  export total prim__io_bind : {0 b : Type} -> {0 a : Type} -> (1 _ : PrimIO.PrimIO a) -> (1 _ : (a -> PrimIO.PrimIO b)) -> PrimIO.PrimIO b
+  export total prim__io_pure : {0 a : Type} -> a -> PrimIO.PrimIO a
+  export total prim__nullAnyPtr : PrimIO.AnyPtr -> Int
+  export total prim__nullPtr : {0 t : Type} -> PrimIO.Ptr t -> Int
+  export total toPrim : {0 a : Type} -> (1 _ : PrimIO.IO a) -> PrimIO.PrimIO a
+  export total unsafePerformIO : {0 a : Type} -> PrimIO.IO a -> a
