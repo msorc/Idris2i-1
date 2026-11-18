@@ -703,9 +703,12 @@ eraseInferred tm
                    let argsE = NatSet.overwrite (Erased fc Placeholder) (inferrable gdef) args
                    argsE' <- traverse eraseInferred argsE
                    pure (apply fc (Ref fc Func n) argsE')
-           (f, args) =>
-                do args' <- traverse eraseInferred args
-                   pure (apply (getLoc f) f args)
+           -- (the arguments of another head, a constructor or a local
+           -- variable, are left as they are, as they always were: they used
+           -- to be traversed, and the result dropped.  Erasing in them too
+           -- would change the arguments that the copies are made by, and
+           -- elaborated with, everywhere.)
+           _ => pure tm
 
 -- The arguments that a function is specialised by, and whether that is
 -- because of --spec-interfaces.
