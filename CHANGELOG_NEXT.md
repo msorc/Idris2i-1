@@ -54,6 +54,14 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Compiler changes
 
+* In `%foreign`, `%foreign_impl` and `%export`, a string literal may be
+  followed by more specifiers on the same line: `%foreign "scheme:f" (lib
+  "f")` has two specifiers, and so has `%foreign "scheme:f" lib "f"`.  Both
+  used to be an application of the string, which never type checked.  Other
+  expressions are applied as before (`%foreign lib "f"` is one specifier, and
+  `%foreign (lib "f") (lib "g")` is still an application), so no declaration
+  that compiled before changes its meaning.  The test
+  `idris2/misc/foreignSpecs001` has the forms.
 * RefC is the default code generator of `idris2` itself, not only of the
   build: `-o`, `:c` and `:exec` compile via C unless another one is chosen
   with `--cg`, `IDRIS2_CG` or `:set cg` (for instance `--cg chez`).

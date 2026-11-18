@@ -220,6 +220,36 @@ fnOpt fname
       = do x <- totalityOpt fname
            pure $ IFnOpt (Totality x)
 
+||| The specifiers of `%foreign`, `%foreign_impl` and `%export`, from the
+||| expressions of their block.  On one line, `"C:f,lib" (spec "f")` is parsed
+||| as an application of a string literal, which can't be a specifier: it is
+||| that string followed by the specifiers of the rest of the line.
+foreignSpecifiers : List PTerm -> List PTerm
+foreignSpecifiers = concatMap splitSpec
+  where
+    isString : PTerm -> Bool
+    isString (PString _ _ _) = True
+    isString (PPrimVal _ (Str _)) = True
+    isString _ = False
+
+    spine : PTerm -> List PTerm -> (PTerm, List PTerm)
+    spine (PApp _ f a) args = spine f (a :: args)
+    spine f args = (f, args)
+
+    apply : PTerm -> List PTerm -> PTerm
+    apply f [] = f
+    apply f (a :: as)
+        = let fc = fromMaybe (getPTermLoc a) $
+                     mergeFC (getPTermLoc f) (getPTermLoc a) in
+              apply (PApp fc f a) as
+
+    splitSpec : PTerm -> List PTerm
+    splitSpec tm = case spine tm [] of
+        (f, a :: as) => if isString f
+                           then f :: splitSpec (assert_smaller tm (apply a as))
+                           else [tm]
+        _ => [tm]
+
 mutual
   appExpr : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
   appExpr q fname indents
@@ -1200,12 +1230,12 @@ mutual
            pure $ IFnOpt (SpecArgs ns)
     <|> do decoratedPragma fname "foreign"
            cs <- block (expr pdef fname)
-           pure $ PForeign cs
+           pure $ PForeign (foreignSpecifiers cs)
     <|> do (decoratedPragma fname "export"
             <|> withWarning noMangleWarning
                 (decoratedPragma fname "nomangle"))
            cs <- block (expr pdef fname)
-           pure $ PForeignExport cs
+           pure $ PForeignExport (foreignSpecifiers cs)
     where
       noMangleWarning : String
       noMangleWarning = """
@@ -1509,7 +1539,7 @@ directive
          n <- name
          cs <- block (expr pdef fname)
          atEnd indents
-         pure (ForeignImpl n cs)
+         pure (ForeignImpl n (foreignSpecifiers cs))
 --   <|> do pragma "hide_export"
 --          n <- name
 --          atEnd indents

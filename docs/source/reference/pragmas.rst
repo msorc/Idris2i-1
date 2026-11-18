@@ -307,7 +307,10 @@ shows the decisions.
 --------------------
 
 Declare a foreign function.  It is followed by an indented block of expressions
-that evaluate to strings. See :ref:`ffi-overview` for more details.
+that evaluate to strings, the specifiers.  A string literal may be followed by
+more specifiers on the same line (``%foreign "scheme:f" (lib "f")``); this also
+holds for ``%foreign_impl`` and ``%export``.  See :ref:`ffi-overview` for more
+details.
 
 
 ``%foreign_impl``

@@ -1,0 +1,16 @@
+[1, 2, 3, 4, 5]
+1/1: Building Apply (Apply.idr)
+Error: When unifying:
+    String
+and:
+    String -> String
+Mismatch between: String and String -> String.
+
+Apply:5:11--5:21
+ 1 | libc : String -> String
+ 2 | libc fn = "C:" ++ fn ++ ",libc"
+ 3 |
+ 4 | -- Not a list of specifiers: an application of `libc "abs"`, as anywhere else
+ 5 | %foreign (libc "abs") (libc "abs")
+               ^^^^^^^^^^
+

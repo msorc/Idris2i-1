@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+run Specs.idr
+check Apply.idr

@@ -220,6 +220,23 @@ use that instead:
     %foreign (libsmall "addWithMessage")
     prim__addWithMessage : String -> Int -> Int -> PrimIO Int
 
+Each specifier is an expression, so several specifiers are written as a block,
+one per line, lined up with each other:
+
+.. code-block:: idris
+
+    %foreign (libsmall "add")
+             "scheme:+"
+    add : Int -> Int -> Int
+
+A string literal may also be followed by more specifiers on the same line:
+``%foreign "scheme:+" (libsmall "add")`` and ``%foreign "scheme:+" libsmall
+"add"`` both have two specifiers. Other expressions are applied as anywhere
+else, so ``%foreign (libsmall "add") "scheme:+"`` is one specifier, the
+application of ``libsmall "add"`` to ``"scheme:+"``, which does not type
+check: put such specifiers on lines of their own, or start the line with a
+literal.
+
 .. _sect-ffi-string:
 
 Primitive FFI Types
