@@ -83,12 +83,12 @@ Foldable HashSet where
 
 ||| Keeps the elements for which the predicate holds.
 export
-filter : Eq a => (a -> Bool) -> HashSet a -> HashSet a
+filter : (a -> Bool) -> HashSet a -> HashSet a
 filter p (MkHashSet m) = MkHashSet (filterWithKey (\k, _ => p k) m)
 
 ||| Set union.
 export
-union : Eq a => HashSet a -> HashSet a -> HashSet a
+union : Hashable a => HashSet a -> HashSet a -> HashSet a
 union (MkHashSet x) (MkHashSet y) = MkHashSet (mergeLeft x y)
 
 ||| Set difference: the elements of the first set that are not in the second.
@@ -138,12 +138,12 @@ intersectionMap m s = filterWithKey (\k, _ => contains k s) m
 
 ||| `<+>` is the union.
 export
-Eq a => Semigroup (HashSet a) where
+Hashable a => Semigroup (HashSet a) where
   (<+>) = union
 
 ||| The neutral element is the empty set.
 export
-Eq a => Monoid (HashSet a) where
+Hashable a => Monoid (HashSet a) where
   neutral = empty
 
 ||| Two sets are equal if they have the same elements.
