@@ -1,0 +1,22 @@
+--- --build
+exit code: 1
+Now compiling the executable: exe
+Error: Compiling the executable exe failed
+
+--- --build
+exit code: 1
+Now compiling the executable: exe
+Error: Compiling the executable exe failed
+
+--- --install
+exit code: 1
+Now compiling the executable: exe
+Error: Compiling the executable exe failed
+
+--- with the header
+--- --build
+exit code: 0
+postbuild ran
+Now compiling the executable: exe
+there is an executable
+42

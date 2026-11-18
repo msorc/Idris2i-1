@@ -1,0 +1,6 @@
+package exe
+modules = Main
+main = Main
+executable = exe
+postbuild = "echo postbuild ran"
+postinstall = "echo postinstall ran"

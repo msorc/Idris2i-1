@@ -586,26 +586,39 @@ build {jobsFrom} pkg opts
          [] <- prepareCompilation {jobsFrom} pkg opts
             | errs => pure errs
 
-         whenJust (executable pkg) $ \ exec =>
-           do let Just (mainNS, mainFile) = mainmod pkg
-                 | Nothing => throw (GenericMsg emptyFC "No main module given")
-              let mainName = NS (miAsNamespace mainNS) (UN $ Basic "main")
-              -- Compiling the executable takes as long as the first time,
-              -- whether or not something changed: skip it when the
-              -- executable is certainly what it would make (see ExecStamp)
-              skip <- upToDate exec mainNS mainFile
-              if skip
-                 then coreLift $ putStrLn "The executable \{exec} is up to date, not compiling it again"
-                 else do
-                   coreLift $ putStrLn "Now compiling the executable: \{exec}"
-                   -- no stamp stays, if it fails half way
-                   removeStamp exec
-                   started <- compilationStart
-                   compiled <- compileMain mainName mainFile exec
-                   when compiled $ writeStamp exec mainNS mainFile started
+         [] <- buildExecutable (executable pkg)
+            | errs => pure errs
 
          runScript (postbuild pkg)
          pure []
+  where
+    -- An executable that could not be made (the C compiler failed, say) is
+    -- an error of the build like those of the modules: `--build` must not
+    -- exit with 0, nor go on to the postbuild script or to installing.
+    buildExecutable : Maybe String -> Core (List Error)
+    buildExecutable Nothing = pure []
+    buildExecutable (Just exec)
+        = do let Just (mainNS, mainFile) = mainmod pkg
+                | Nothing => throw (GenericMsg emptyFC "No main module given")
+             let mainName = NS (miAsNamespace mainNS) (UN $ Basic "main")
+             -- Compiling the executable takes as long as the first time,
+             -- whether or not something changed: skip it when the
+             -- executable is certainly what it would make (see ExecStamp)
+             skip <- upToDate exec mainNS mainFile
+             if skip
+                then do coreLift $ putStrLn "The executable \{exec} is up to date, not compiling it again"
+                        pure []
+                else do
+                  coreLift $ putStrLn "Now compiling the executable: \{exec}"
+                  -- no stamp stays, if it fails half way
+                  removeStamp exec
+                  started <- compilationStart
+                  True <- compileMain mainName mainFile exec
+                     | False => do let err = GenericMsg emptyFC "Compiling the executable \{exec} failed"
+                                   emitError err
+                                   pure [err]
+                  writeStamp exec mainNS mainFile started
+                  pure []
 
 installBuildArtifactFrom : String -> String -> String -> ModuleIdent -> Core ()
 

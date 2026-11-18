@@ -53,6 +53,13 @@ should target this file (`CHANGELOG_NEXT`).
   command of `--client` fails, and when `-o` or `--exec` can't compile: it
   used to exit with 0 then.  `--exec` no longer goes on to run the
   expression when the file can't be read.
+* `idris2 --build` exits with code 1 when the executable of the package
+  can't be compiled (the C compiler fails, for instance): it printed the
+  errors and exited with 0
+  ([#3767](https://github.com/idris-lang/Idris2/issues/3767)).  It says
+  `Error: Compiling the executable <name> failed` and does not run the
+  `postbuild` script then, and `--install`, `--install-with-src` and
+  `--repl` stop there too instead of going on after the failed build.
 * `idris2 --exec` exits with the exit code of the program it runs (it
   always exited with 0 when the program ran, whatever its exit code), and
   `:exec` at the REPL says when the program exits with a code other than 0

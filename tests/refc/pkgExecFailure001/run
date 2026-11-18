@@ -1,0 +1,32 @@
+. ../../testutils.sh
+
+# When the executable of a package can't be made, `--build` fails: it exits
+# with a code other than 0, does not run the postbuild script, and compiles
+# the executable again the next time.  `--install` builds
+# first, and installs nothing then.
+#
+# The C compiler fails here because it does not find answer.h, which is in
+# hdr: its messages (on stderr) depend on the compiler and are left out.
+
+# (the output goes to a file: `$?` of a pipeline is that of its last command;
+# the tests install in ./prefix, see testutils.sh)
+pkg() {
+  echo "--- $*"
+  idris2_no_clean "$@" exe.ipkg > pkg.log 2> /dev/null
+  echo "exit code: $?"
+  # (a module may be reported as built when it is only checked)
+  grep -v "^Installing\|Building" pkg.log
+  test -e build/exec/exe && echo "there is an executable"
+}
+
+pkg --build
+pkg --build
+pkg --install
+ls prefix 2> /dev/null
+
+echo "--- with the header"
+export CFLAGS="-I./hdr ${CFLAGS}"
+pkg --build
+./build/exec/exe
+
+rm -rf pkg.log prefix
