@@ -1838,10 +1838,14 @@ getSearchData fc defaults target
   where
     ||| We don't want hidden (by `%hide`) names to appear in the search.
     ||| Lookup has to be done by a full qualified name, not a resolved ID.
+    -- Most modules hide nothing: then there is no need to look up the full
+    -- name of every hint at every search.
     notHidden : forall a. (Name, a) -> Context -> Core Bool
-    notHidden (n, _) ctxt = do
-      fulln <- toFullNames n
-      pure $ not (isHidden fulln ctxt)
+    notHidden (n, _) ctxt
+      = if null (hidden ctxt)
+           then pure True
+           else do fulln <- toFullNames n
+                   pure $ not (isHidden fulln ctxt)
 
     isDefault : (Name, Bool) -> Bool
     isDefault = snd
