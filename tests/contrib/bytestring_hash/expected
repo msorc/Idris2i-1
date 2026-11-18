@@ -1,0 +1,29 @@
+-- hashes (the same on every back end)
+0
+344178578
+1290645602
+310880267
+567739271
+586619197
+-- equal byte strings
+slices are ==: ok
+slices hash alike: ok
+slices hash alike with a salt: ok
+empty slices: ok
+big slices: ok
+big take: ok
+-- different byte strings
+different hashes: ok
+different salts: ok
+31 bits: ok
+-- hash maps
+301
+lookup: ok
+lookup by slice: ok
+lookup missing: ok
+[("abc", "copy")]
+one entry for equal keys: ok
+201
+deleted: ok
+[("brown", 1), ("dog", 1), ("end", 1), ("fox", 1), ("jumps", 1), ("lazy", 1), ("over", 1), ("quick", 1), ("the", 3)]
+(9, (True, False))

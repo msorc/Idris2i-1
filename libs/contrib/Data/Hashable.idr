@@ -286,6 +286,30 @@ Hashable String where
   hashWithSalt = hashString
   hash str = wordOf (hashStringFrom 0 str)
 
+-- The steps of `hashString`, for the instances of other modules that hash a
+-- sequence of small numbers (such as the bytes of a `ByteString`) in the same
+-- way: `fnvFinish (loop (fnvStart salt))`, where the loop applies `fnvStep` to
+-- the state and each number.  (A state of 0 stays 0 for the number 0, so a
+-- sequence that can have zeros should mix in its length too.)
+
+||| The initial state of a hash of a sequence of small numbers: the salt xor
+||| the FNV offset basis (the state is a number of 31 bits).
+export %inline
+fnvStart : (salt : Bits64) -> Int
+fnvStart s = prim__xor_Int (saltInt s) basis
+
+||| One step of FNV-1a on 31 bits: `(state `xor` word) * 16777619 mod 2^31`.
+||| The word must be a number below 2^31 (a byte, a character).
+export %inline
+fnvStep : (state : Int) -> (word : Int) -> Int
+fnvStep h w = mask31 (prim__mul_Int (prim__xor_Int h w) 16777619)
+
+||| The hash of a sequence of small numbers from the state after the last
+||| `fnvStep` (the finaliser that all the instances of this module use).
+export %inline
+fnvFinish : (state : Int) -> Bits64
+fnvFinish h = wordOf (fin31 h)
+
 ||| Doubles are hashed by their integral part and by the first 52 bits of their
 ||| fractional part, because Idris has no portable way to read the bits of a
 ||| `Double`.  Numbers that are `==` have the same hash (in particular `0.0` and

@@ -1079,7 +1079,10 @@ should target this file (`CHANGELOG_NEXT`).
   `Int` arithmetic, so that it stays on machine words on RefC and in fixnums
   on Chez, and they are the same on the Chez, RefC and JavaScript back ends,
   apart from `Int`, which has 32 bits on JavaScript, and strings with
-  characters outside the Basic Multilingual Plane there), `Data.HashMap` (a
+  characters outside the Basic Multilingual Plane there; `Data.ByteString` has
+  the instance for `ByteString`, which hashes the bytes and the length and is
+  the same on every back end, and `Data.Hashable` does not depend on it),
+  `Data.HashMap` (a
   persistent hash trie of eight-way nodes with collision buckets, with the
   interface of `Data.SortedMap`: `insert`, `insertWith`, `lookup`, `delete`,
   `update`, `fromList`, `foldrWithKey`, `mapWithKey`, `filter`, `mergeWith`,

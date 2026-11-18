@@ -28,6 +28,7 @@ import Data.ByteString.Internal
 import Data.Bits
 import Data.Buffer
 import Data.Fin
+import Data.Hashable
 import Data.List
 import Data.List1
 import Data.String
@@ -493,6 +494,29 @@ Eq ByteString where
 export
 Ord ByteString where
   compare = compareBytes
+
+-- FNV-1a over the bytes of the slice, as `hashString` does over characters,
+-- and then the length (low 31 bits) as one more word.  The length keeps the
+-- byte strings of zeros apart: a zero byte leaves the state 0 as it is, so
+-- without it all of them would hash alike when the state starts at 0.
+hashBytes : Int -> ByteString -> Int
+hashBytes h0 bs = fnvStep (go (fuel (lengthInt bs)) 0 h0) (prim__and_Int (lengthInt bs) 0x7fffffff)
+  where
+    go : Nat -> Int -> Int -> Int
+    go Z _ h = h
+    go (S k) i h = go k (i + 1) (fnvStep h (cast (unsafeIndex bs i)))
+
+||| Hashed by its bytes only, with FNV-1a over the bytes and then the length,
+||| and the finaliser of the other instances of `Data.Hashable`, in time
+||| linear in the length.  Byte strings that are `==` have the same hash,
+||| whatever buffers and offsets they are slices of, and the hash is the
+||| same with every back end.
+|||
+||| This instance is in this module, which imports `Data.Hashable` (a small
+||| module), so that `Data.Hashable` does not depend on `Data.ByteString`.
+export
+Hashable ByteString where
+  hashWithSalt s bs = fnvFinish (hashBytes (fnvStart s) bs)
 
 ||| The bytes as the characters of Latin-1, escaped as a Haskell/Idris
 ||| string literal: `show (pack [104, 105, 10, 200])` is `"\"hi\\n\\200\""`.
