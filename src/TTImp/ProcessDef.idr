@@ -802,10 +802,15 @@ compileRunTime : {auto c : Ref Ctxt Defs} ->
                  FC -> Name -> Core ()
 compileRunTime fc atotal
     = do defs <- get Ctxt
-         traverse_ (mkRunTime fc) (toCompileCase defs)
-         traverse_ (calcRefs True atotal) (toCompileCase defs)
-
+         -- The list is emptied first: making the run time definitions can
+         -- elaborate more definitions (the copies of specialised functions),
+         -- and so call this again, which must only compile those, not the
+         -- names that are being compiled already (that compiled them again
+         -- for every copy, and made their copies again).
+         let names = toCompileCase defs
          update Ctxt { toCompileCase := [] }
+         traverse_ (mkRunTime fc) names
+         traverse_ (calcRefs True atotal) names
 
 toPats : Clause -> (vs ** (Env Term vs, Term vs, Term vs))
 toPats (MkClause {vars} env lhs rhs)
