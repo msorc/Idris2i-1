@@ -75,7 +75,7 @@ Both
 * ``IDRIS2_BUILD_JOBS`` - How many processes build the modules of a package in
   parallel (see ``--jobs``).
 * ``IDRIS2_TTC_CACHE_MB`` - How many megabytes of TTC files a process keeps,
-  once it has read them, for the modules it checks next (default: 64; ``0``
+  once it has read them, for the modules it checks next (default: 32; ``0``
   keeps none). A process that checks several modules (a build without
   ``--jobs``, the REPL) then reads each import once instead of once for every
   module that imports it. A file is read again when it changes.

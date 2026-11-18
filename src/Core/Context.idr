@@ -1075,7 +1075,7 @@ record TTCCache where
 ||| The bytes of TTC files that `ttcCache` keeps at most
 export
 ttcCacheLimit : Int
-ttcCacheLimit = 64 * 1024 * 1024
+ttcCacheLimit = 32 * 1024 * 1024
 
 public export
 record Defs where
