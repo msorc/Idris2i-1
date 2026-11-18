@@ -389,6 +389,27 @@ should target this file (`CHANGELOG_NEXT`).
   position in a TTC buffer was an `Integer`; and a module imported a second
   time had each of its definitions decoded again.  The TTC and `.ttm` files
   are the same as before.
+* Bringing the imports of a module into scope costs less:
+  + A process that checks several modules (a build without `--jobs`, the
+    REPL, the IDE mode) keeps what it read of each TTC file for the next
+    modules that import it, instead of reading and decoding the file again
+    for each of them (the definitions are still decoded only when they are
+    used).  A file is read again once it has changed (its size or times
+    differ).  The files kept are at most 32 MB, or as many megabytes as the
+    new environment variable `IDRIS2_TTC_CACHE_MB` says (`0` keeps none).
+  + `--check` no longer reads the checked module again, with everything it
+    imports transitively, once it is built: that is for the REPL, and for
+    `--exec`, `-o` and `--client`, which still do it.
+  + The fixities that each imported TTC file has (all those of its own
+    imports) are only added when they are not there already, and the
+    documentation of the modules read so far is no longer copied for each
+    import.
+
+  `--typecheck` of libs/base in one process takes 6% fewer instructions,
+  of the whole compiler 4.5% fewer (with a peak memory 8% to 13% higher);
+  `--check` of a module takes 6% to 21% fewer (Idris.REPL of the compiler:
+  21%, Data.Nat.Factor of contrib: 13%).  The TTC and `.ttm` files are the
+  same as before.
 
 ### Building/Packaging changes
 
