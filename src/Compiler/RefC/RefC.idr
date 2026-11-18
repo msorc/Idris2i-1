@@ -2234,6 +2234,8 @@ record RefCOptions where
   optTrmc : Bool
   ||| not `--directive refc-no-static` (see `StaticVal`)
   optStatics : Bool
+  ||| `--directive refc-backtrace` (see `backtraceTable`)
+  optBacktrace : Bool
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
@@ -2242,6 +2244,7 @@ refcOptions = do
     pure $ MkRefCOptions ("refc-size-reuse" `elem` ds)
                          (not ("refc-no-trmc" `elem` ds))
                          (not ("refc-no-static" `elem` ds))
+                         ("refc-backtrace" `elem` ds)
 
 ||| The variables of the function `n` (C name `cn`) that are C integers (see
 ||| Compiler.RefC.Unbox).
@@ -2360,9 +2363,12 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
     -- first time that it is needed, like the top level constants of the
     -- Scheme backends: its body is in a function of its own, and its value is
     -- kept for good (it is immortal).
+    -- (with `--directive refc-backtrace`, the C compiler keeps the frame of
+    -- every function, see `backtraceTable`)
+    let noinline = if opts.optBacktrace then "IDRIS2_BT_NOINLINE " else ""
     let body = if nargs == 0
-                  then "static Idris2_Value *\{cafName cn}" ++ params
-                  else fn
+                  then "\{noinline}static Idris2_Value *\{cafName cn}" ++ params
+                  else noinline ++ fn
 
     -- The parameters that the function borrows (see Compiler.RefC.Borrow):
     -- the caller keeps them alive, so they are neither owned nor released.
@@ -2581,11 +2587,60 @@ declarations protos constants
     = ["\n// function definitions\n"] ++ protos
       ++ ["\n// constant value definitions\n"] ++ constants
 
+||| Where a definition is, as the start of its FC (`Main:12:1`), for the
+||| backtraces.  A function that the compiler made of a part of another one
+||| (`{f:0}`, a lambda say) is where that one is.
+defLocation : {auto c : Ref Ctxt Defs} -> Name -> Core (Maybe String)
+defLocation n
+    = do Nothing <- here n
+           | loc => pure loc
+         case n of
+              NS ns (MN s _) => here (NS ns (UN (Basic s)))
+              _ => pure Nothing
+  where
+    here : Name -> Core (Maybe String)
+    here m = do defs <- get Ctxt
+                Just gdef <- lookupCtxtExact m (gamma defs)
+                  | Nothing => pure Nothing
+                pure $ map (\fc => show (origin fc) ++ ":" ++ showPos (startPos fc))
+                           (isConcreteFC gdef.location)
+
+||| With `--directive refc-backtrace`, the program has a table of its
+||| functions: their C names, sorted (as strcmp does, they are ASCII), their
+||| Idris names, and where they are defined.  The runtime prints the Idris
+||| names in the backtrace of a fatal error, and replaces the C names of its
+||| input by them with IDRIS2_REFC_DEMANGLE (see support/refc/backtrace.c).
+||| The functions are also compiled with `noinline`, so that a backtrace
+||| shows every call that is not in tail position.
+backtraceTable : {auto c : Ref Ctxt Defs}
+              -> List (String, Name, ANFDef) -> Core (List String)
+backtraceTable named
+    = do entries <- traverse entry (filter isFunction named)
+         let sorted = sortBy (\a, b => compare (fst a) (fst b)) entries
+         pure $ [ "// The functions of the program, for backtraces (see backtrace.h)"
+                , "static Idris2_BacktraceName const idris2_backtrace_names[] = {" ]
+                ++ map line sorted ++ ["};"]
+  where
+    isFunction : (String, Name, ANFDef) -> Bool
+    isFunction (_, _, MkACon _ _ _) = False
+    isFunction _ = True
+
+    entry : (String, Name, ANFDef) -> Core (String, String, Maybe String)
+    entry (cn, n, _)
+        = do fn <- getFullName n
+             pure (cn, show fn, !(defLocation fn))
+
+    line : (String, String, Maybe String) -> String
+    line (cn, n, loc)
+        = "    {\{cStringQuoted cn}, \{cStringQuoted n}, \{maybe "NULL" cStringQuoted loc}},"
+
 footer : {auto il : Ref IndentLevel Nat}
       -> {auto f : Ref OutfileText Output}
       -> {auto h : Ref HeaderFiles (SortedSet String)}
+      -> (backtraceNames : Maybe (List String))
       -> Core ()
-footer = do
+footer backtraceNames = do
+    traverse_ (emit EmptyFC) (fromMaybe [] backtraceNames)
     emit EmptyFC """
 
       // main function
@@ -2593,6 +2648,10 @@ footer = do
       {
           \{ ifThenElse (contains "idris_support.h" !(get HeaderFiles))
                         "idris2_setArgs(argc, argv);"
+                        ""
+          }
+          \{ ifThenElse (isJust backtraceNames)
+                        "idris2_backtraceNames(idris2_backtrace_names, sizeof(idris2_backtrace_names) / sizeof(idris2_backtrace_names[0]));"
                         ""
           }
           // The main expression is run as the first green thread, so that
@@ -3030,7 +3089,7 @@ generateCSourceFileParts defs0 outn =
                                    (moduleOf canonN) cn (Prelude.toList refs)
                                    (Prelude.toList tbl.constUses))) (zip named canons)
      put OutfileText DList.Nil
-     footer
+     footer !(if opts.optBacktrace then Just <$> backtraceTable named else pure Nothing)
      footerLines <- reify <$> get OutfileText
      protos <- get FunctionDefinitions
      consts <- constantTexts <$> get ConstDef

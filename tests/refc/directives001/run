@@ -9,7 +9,7 @@
 #   borrow001: borrowed arguments, reuse of constructors
 #   localClosures001: partial applications that are calls
 programs="trmc001 borrow001 localClosures001"
-directives="refc-no-trmc refc-no-borrow refc-no-local-closures refc-no-direct-results refc-no-lazy-constants refc-no-static refc-size-reuse"
+directives="refc-no-trmc refc-no-borrow refc-no-local-closures refc-no-direct-results refc-no-lazy-constants refc-no-static refc-size-reuse refc-backtrace"
 
 # (trmc001 nests a million calls without TRMC: give it a big stack)
 export IDRIS2_THREAD_STACK_SIZE=1073741824

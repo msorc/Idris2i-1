@@ -8,3 +8,4 @@ refc-no-direct-results: other code
 refc-no-lazy-constants: other code
 refc-no-static: other code
 refc-size-reuse: other code
+refc-backtrace: other code
