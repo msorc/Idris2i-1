@@ -1105,18 +1105,43 @@ interface Range a where
 
 -- Idris 1 went to great lengths to prove that these were total. I don't really
 -- think it's worth going to those lengths! Let's keep it simple and assert.
+-- The ranges are built by loops, as `takeUntil` and `takeBefore` (which are
+-- not tail recursive) would need a stack as deep as the range is long on the
+-- JavaScript backends.  A range with a step of one is built from its last
+-- element down to the first, so it needs a single pass.
+
+||| `[x, x + 1 .. y]` (`x < y`), built from `y` down: `rangeUpOnto x acc i` is
+||| `[x, x + 1 .. i] ++ acc`, for `x <= i`.
+public export covering
+rangeUpOnto : Ord n => (prev : n -> n) -> (x : n) -> List n -> n -> List n
+rangeUpOnto prev x acc i
+    = if i <= x then x :: acc else rangeUpOnto prev x (i :: acc) (prev i)
+
+||| `[x, x - 1 .. y]` (`x > y`), built from `y` up: `rangeDownOnto x acc i` is
+||| `[x, x - 1 .. i] ++ acc`, for `x >= i`.
+public export covering
+rangeDownOnto : Ord n => (next : n -> n) -> (x : n) -> List n -> n -> List n
+rangeDownOnto next x acc i
+    = if i >= x then x :: acc else rangeDownOnto next x (i :: acc) (next i)
+
+||| `takeBefore p (countFrom i next)`, appended to the elements in `sx`.
+public export covering
+rangeStepOnto : (p : n -> Bool) -> (next : n -> n) -> SnocList n -> n -> List n
+rangeStepOnto p next sx i
+    = if p i then sx <>> [] else rangeStepOnto p next (sx :< i) (next i)
+
 public export
 Range Nat where
   rangeFromTo x y = case compare x y of
-    LT => assert_total $ takeUntil (>= y) (countFrom x S)
+    LT => assert_total $ rangeUpOnto (\n => minus n 1) x [] y
     EQ => pure x
-    GT => assert_total $ takeUntil (<= y) (countFrom x (\n => minus n 1))
+    GT => assert_total $ rangeDownOnto S x [] y
   rangeFromThenTo x y z = case compare x y of
     LT => if z >= x
-             then assert_total $ takeBefore (> z) (countFrom x (plus (minus y x)))
+             then assert_total $ rangeStepOnto (> z) (plus (minus y x)) [<] x
              else Nil
     EQ => if x == z then pure x else Nil
-    GT => assert_total $ takeBefore (< z) (countFrom x (\n => minus n (minus x y)))
+    GT => assert_total $ rangeStepOnto (< z) (\n => minus n (minus x y)) [<] x
   rangeFrom x = countFrom x S
   rangeFromThen x y
       = if y > x
@@ -1126,16 +1151,16 @@ Range Nat where
 public export
 (Integral a, Ord a, Neg a) => Range a where
   rangeFromTo x y = case compare x y of
-    LT => assert_total $ takeUntil (>= y) (countFrom x (+1))
+    LT => assert_total $ rangeUpOnto (\x => x-1) x [] y
     EQ => pure x
-    GT => assert_total $ takeUntil (<= y) (countFrom x (\x => x-1))
+    GT => assert_total $ rangeDownOnto (+1) x [] y
   rangeFromThenTo x y z = case compare (z - x) (z - y) of
     -- Go down
-    LT => assert_total $ takeBefore (< z) (countFrom x (\n => n - (x - y)))
+    LT => assert_total $ rangeStepOnto (< z) (\n => n - (x - y)) [<] x
     -- Meaningless
     EQ => if x == y && y == z then pure x else Nil
     -- Go up
-    GT => assert_total $ takeBefore (> z) (countFrom x (+ (y-x)))
+    GT => assert_total $ rangeStepOnto (> z) (+ (y-x)) [<] x
   rangeFrom x = countFrom x (1+)
   rangeFromThen x y
       = if y > x

@@ -366,6 +366,7 @@ module Prelude.IO
   export total fork : (1 _ : PrimIO.IO Builtin.Unit) -> PrimIO.IO PrimIO.ThreadID
   export total getChar : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io Char
   export total getLine : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io String
+  public export total ioTraverseList_ : {0 b : Type} -> {0 a : Type} -> (a -> PrimIO.IO b) -> Prelude.Basics.List a -> PrimIO.IO Builtin.Unit
   export total onCollect : {0 t : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => PrimIO.Ptr t -> (PrimIO.Ptr t -> PrimIO.IO Builtin.Unit) -> io (PrimIO.GCPtr t)
   export total onCollectAny : {0 io : Type -> Type} -> Prelude.IO.HasIO io => PrimIO.AnyPtr -> (PrimIO.AnyPtr -> PrimIO.IO Builtin.Unit) -> io PrimIO.GCAnyPtr
   export total primIO : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => ((1 _ : %World) -> PrimIO.IORes a) -> io a
@@ -784,6 +785,9 @@ module Prelude.Types
   public export total pi : Double
   public export total plus : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   public export total pow : Double -> Double -> Double
+  public export covering rangeDownOnto : {0 n : Type} -> Prelude.EqOrd.Ord n => (n -> n) -> n -> Prelude.Basics.List n -> n -> Prelude.Basics.List n
+  public export covering rangeStepOnto : {0 n : Type} -> (n -> Prelude.Basics.Bool) -> (n -> n) -> Prelude.Basics.SnocList n -> n -> Prelude.Basics.List n
+  public export covering rangeUpOnto : {0 n : Type} -> Prelude.EqOrd.Ord n => (n -> n) -> n -> Prelude.Basics.List n -> n -> Prelude.Basics.List n
   public export total reverse : String -> String
   public export total sin : Double -> Double
   public export total sinh : Double -> Double

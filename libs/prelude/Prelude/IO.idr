@@ -5,6 +5,7 @@ import PrimIO
 import Prelude.Basics
 import Prelude.Interfaces
 import Prelude.Show
+import Prelude.Types
 
 %default total
 
@@ -29,6 +30,24 @@ Applicative IO where
 public export
 Monad IO where
   b >>= k = io_bind b k
+
+||| `traverse_` on a list in `IO`, as a loop.  `traverse_` builds a chain of
+||| `*>` as long as the list and then runs it, which needs a stack as deep as
+||| the list on the JavaScript backends; this passes the world on from one
+||| action to the next instead.  Uses of `traverse_`, `for_` and `sequence_` on
+||| lists in `IO` are transformed to this.
+public export
+ioTraverseList_ : (a -> IO b) -> List a -> IO ()
+ioTraverseList_ f xs = fromPrim (go xs)
+  where
+    go : List a -> (1 w : %World) -> IORes ()
+    go [] w = MkIORes () w
+    go (x :: xs) w = case toPrim (f x) w of
+                          MkIORes _ w' => go xs w'
+
+%transform "ioTraverseList_" traverse_ {t = List} {f = IO} = ioTraverseList_
+%transform "ioForList_" for_ {t = List} {f = IO} xs f = ioTraverseList_ f xs
+%transform "ioSequenceList_" sequence_ {t = List} {f = IO} {a} xs = ioTraverseList_ {a = IO a} {b = a} id xs
 
 public export
 interface Monad io => HasIO io where
