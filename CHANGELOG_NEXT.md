@@ -949,6 +949,21 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Chez Backend
 
+* Backtraces: a program that dies of a fatal error (`idris_crash`, a missing
+  case in `partial` code, or an error that Chez raises and nothing handles)
+  can print the Idris
+  functions of its continuation on stderr, after the message, in the same
+  form as with RefC.  `--directive chez-backtrace` puts the Idris names of the
+  functions and where they are defined in the program, keeps Chez from
+  inlining them (2% to 18% more instructions on `benchmark/`), and turns the
+  backtraces on; `IDRIS2_CHEZ_BACKTRACE=1` or `0` turns them on or off when
+  the program runs.  Without the directive, the code of the program is the
+  same with them on or off; the continuation is only walked when the error
+  happens.  See "Backtraces" in the Chez documentation.
+* A crash (`idris_crash`, a missing case) on a thread other than the main one
+  ends the program with exit code 1, as on the main thread: `exit` of Chez
+  only ended that thread, and the program went on, or waited for it for ever.
+
 * In incremental builds, every module has its own script to compile its
   Scheme code (next to its `.ss` file) instead of a `compileChez` file shared
   by the whole package: with modules built in parallel, a module could run
