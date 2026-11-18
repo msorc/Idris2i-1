@@ -14,32 +14,33 @@ public export
 record Binary where
   constructor MkBin
   buf : Buffer
-  loc : Integer
-  size : Integer -- Capacity
-  used : Integer -- Amount used
+  -- (Int, not Integer: these are updated at every byte read or written)
+  loc : Int
+  size : Int -- Capacity
+  used : Int -- Amount used
 
 export
-newBinary : Buffer -> Integer -> Binary
+newBinary : Buffer -> Int -> Binary
 newBinary b s = MkBin b 0 s 0
 
 %inline export
 blockSize : Int
 blockSize = 655360
 
-export
-avail : Binary -> Integer
+%inline export
+avail : Binary -> Int
 avail c = (size c - loc c) - 1
 
-export
-toRead : Binary -> Integer
+%inline export
+toRead : Binary -> Int
 toRead c = used c - loc c
 
-export
-appended : Integer -> Binary -> Binary
+%inline export
+appended : Int -> Binary -> Binary
 appended i (MkBin b loc s used) = MkBin b (loc+i) s (used + i)
 
-export
-incLoc : Integer -> Binary -> Binary
+%inline export
+incLoc : Int -> Binary -> Binary
 incLoc i c = { loc $= (+i) } c
 
 export
@@ -53,7 +54,6 @@ export
 fromBuffer : Buffer -> IO Binary
 fromBuffer buf
     = do len <- rawSize buf
-         let len = cast len
          pure (MkBin buf 0 len len)
 
 export
@@ -69,7 +69,6 @@ readFromFile fname
     = do Right b <- createBufferFromFile fname
                | Left err => pure (Left err)
          bsize <- rawSize b
-         let bsize = cast bsize
          pure (Right (MkBin b 0 bsize bsize))
 
 ||| The first `max` bytes of a file, or all of it if it is shorter. Reading
@@ -86,4 +85,4 @@ readPrefixFromFile fname max
                | Left err => do closeFile f
                                 pure (Left err)
          closeFile f
-         pure (Right (MkBin b 0 (cast max) (cast got)))
+         pure (Right (MkBin b 0 max got))

@@ -49,7 +49,7 @@ initBinaryS s
              | Nothing => throw (InternalError "Buffer creation failed")
          newRef Bin (newBinary buf (cast s))
 
-extendBinary : Integer -> Binary -> Core Binary
+extendBinary : Int -> Binary -> Core Binary
 extendBinary need (MkBin buf l s u)
     = do let newsize = s * 2
          let s' = if (newsize - l) < need
@@ -71,10 +71,10 @@ tag {b} val
     = do chunk <- get Bin
          if avail chunk >= 1
             then
-              do coreLift $ setBits8 (buf chunk) (cast $ loc chunk) $ cast val
+              do coreLift $ setBits8 (buf chunk) (loc chunk) $ cast val
                  put Bin (appended 1 chunk)
             else do chunk' <- extendBinary 1 chunk
-                    coreLift $ setBits8 (buf chunk') (cast $ loc chunk') $ cast val
+                    coreLift $ setBits8 (buf chunk') (loc chunk') $ cast val
                     put Bin (appended 1 chunk')
 
 export
@@ -83,7 +83,7 @@ getTag {b}
     = do chunk <- get Bin
          if toRead chunk >= 1
             then
-              do val <- coreLift $ getBits8 (buf chunk) (cast $ loc chunk)
+              do val <- coreLift $ getBits8 (buf chunk) (loc chunk)
                  put Bin (incLoc 1 chunk)
                  pure $ cast val
               else throw (TTCError (EndOfBuffer "Bits8"))
@@ -99,17 +99,17 @@ export
     = do chunk <- get Bin
          if avail chunk >= 8
             then
-              do coreLift $ setInt (buf chunk) (cast $ loc chunk) val
+              do coreLift $ setInt (buf chunk) (loc chunk) val
                  put Bin (appended 8 chunk)
             else do chunk' <- extendBinary 8 chunk
-                    coreLift $ setInt (buf chunk') (cast $ loc chunk') val
+                    coreLift $ setInt (buf chunk') (loc chunk') val
                     put Bin (appended 8 chunk')
 
   fromBuf
     = do chunk <- get Bin
          if toRead chunk >= 8
             then
-              do val <- coreLift $ getInt (buf chunk) (cast $ loc chunk)
+              do val <- coreLift $ getInt (buf chunk) (loc chunk)
                  put Bin (incLoc 8 chunk)
                  pure val
               else throw (TTCError (EndOfBuffer ("Int " ++ show (loc chunk, Binary.size chunk))))
@@ -123,10 +123,10 @@ TTC Int where
                  chunk <- get Bin
                  if avail chunk >= 8
                     then
-                      do coreLift $ setInt (buf chunk) (cast $ loc chunk) val
+                      do coreLift $ setInt (buf chunk) (loc chunk) val
                          put Bin (appended 8 chunk)
                     else do chunk' <- extendBinary 8 chunk
-                            coreLift $ setInt (buf chunk') (cast $ loc chunk') val
+                            coreLift $ setInt (buf chunk') (loc chunk') val
                             put Bin (appended 8 chunk')
 
   fromBuf
@@ -134,7 +134,7 @@ TTC Int where
            255 => do chunk <- get Bin
                      if toRead chunk >= 8
                        then
-                         do val <- coreLift $ getInt (buf chunk) (cast $ loc chunk)
+                         do val <- coreLift $ getInt (buf chunk) (loc chunk)
                             put Bin (incLoc 8 chunk)
                             pure val
                        else throw (TTCError (EndOfBuffer ("Int " ++ show (loc chunk, Binary.size chunk))))
@@ -146,25 +146,25 @@ TTC String where
       -- To support UTF-8 strings, this has to get the length of the string
       -- in bytes, not the length in characters.
       = do let ireq = stringByteLength val
-           let req : Integer = cast ireq
+           let req = ireq
            toBuf ireq
            chunk <- get Bin
            if avail chunk >= req
               then
-                do coreLift $ setString (buf chunk) (cast $ loc chunk) val
+                do coreLift $ setString (buf chunk) (loc chunk) val
                    put Bin (appended req chunk)
               else do chunk' <- extendBinary req chunk
-                      coreLift $ setString (buf chunk') (cast $ loc chunk') val
+                      coreLift $ setString (buf chunk') (loc chunk') val
                       put Bin (appended req chunk')
 
   fromBuf
       = do ilen <- fromBuf {a = Int}
            chunk <- get Bin
-           let len = cast ilen
+           let len = ilen
            when (len < 0) $ corrupt "String"
            if toRead chunk >= len
               then
-                do val <- coreLift $ getString (buf chunk) (cast $ loc chunk) ilen
+                do val <- coreLift $ getString (buf chunk) (loc chunk) ilen
                    put Bin (incLoc len chunk)
                    pure val
               else throw (TTCError (EndOfBuffer ("String length " ++ show len ++
@@ -174,28 +174,28 @@ export
 TTC Binary where
   toBuf val
     = do let len = used val
-         let ilen : Int = cast len
+         let ilen = len
          toBuf ilen
          chunk <- get Bin
          if avail chunk >= len
             then
               do coreLift $ copyData (buf val) 0 ilen
-                                     (buf chunk) (cast $ loc chunk)
+                                     (buf chunk) (loc chunk)
                  put Bin (appended len chunk)
             else do chunk' <- extendBinary len chunk
                     coreLift $ copyData (buf val) 0 ilen
-                                        (buf chunk') (cast $ loc chunk')
+                                        (buf chunk') (loc chunk')
                     put Bin (appended len chunk')
 
   fromBuf
     = do ilen <- fromBuf
-         let len : Integer = cast ilen
+         let len = ilen
          chunk <- get Bin
          if toRead chunk >= len
             then
               do Just newbuf <- coreLift $ newBuffer ilen
                       | Nothing => corrupt "Binary"
-                 coreLift $ copyData (buf chunk) (cast $ loc chunk) ilen
+                 coreLift $ copyData (buf chunk) (loc chunk) ilen
                                      newbuf 0
                  put Bin (incLoc len chunk)
                  pure (MkBin newbuf 0 len len)
@@ -224,17 +224,17 @@ TTC Double where
     = do chunk <- get Bin
          if avail chunk >= 8
             then
-              do coreLift $ setDouble (buf chunk) (cast $ loc chunk) val
+              do coreLift $ setDouble (buf chunk) (loc chunk) val
                  put Bin (appended 8 chunk)
             else do chunk' <- extendBinary 8 chunk
-                    coreLift $ setDouble (buf chunk') (cast $ loc chunk') val
+                    coreLift $ setDouble (buf chunk') (loc chunk') val
                     put Bin (appended 8 chunk')
 
   fromBuf
     = do chunk <- get Bin
          if toRead chunk >= 8
             then
-              do val <- coreLift $ getDouble (buf chunk) (cast $ loc chunk)
+              do val <- coreLift $ getDouble (buf chunk) (loc chunk)
                  put Bin (incLoc 8 chunk)
                  pure val
               else throw (TTCError (EndOfBuffer "Double"))
