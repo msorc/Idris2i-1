@@ -250,15 +250,27 @@ Handling ``String`` leads to some complications, for a number of reasons:
 * Strings can have multiple encodings. In the Idris run time, Strings are
   encoded as UTF-8, but C makes no assumptions.
 * It is not always clear who is responsible for freeing a ``String`` allocated
-  by a C function.
+  by a C function, and Idris cannot know.
 * In C, strings can be ``NULL``, but Idris strings always have a value.
 
 So, when passing ``String`` to and from C, remember the following:
 
-* A ``char*`` returned by a C function will be copied to the Idris heap, and
-  the Idris run time immediately calls ``free`` with the returned ``char*``.
+* A ``char*`` returned by a C function with the result type ``String`` is
+  copied to the Idris heap, and the Idris run time never frees the returned
+  ``char*``. So ``String`` is the right result type for a function that returns
+  a string which it keeps: a literal, a static buffer, a field of a ``struct``,
+  the result of ``getenv`` or ``strerror``. Such a function may be declared to
+  return a ``const char*``.
+* If the caller is responsible for freeing the returned ``char*`` (it comes
+  from ``malloc`` or ``strdup``, say), do not use ``String``: each call would
+  leak the string. Use ``Ptr String``, convert it, and then free it, as shown
+  below.
 * If a ``char*`` might be ``NULL`` in ``C``, use ``Ptr String`` rather than
   ``String``.
+* A ``String`` passed to a C function is a ``char*`` that is only valid until
+  the function returns, and that the function must not change or free. A
+  function that keeps the string for later must copy it (``strdup``), not
+  store the pointer.
 
 When using ``Ptr String``, the value will be passed as a ``void*``, and
 therefore not accessible directly by Idris code. This is to protect against
@@ -281,6 +293,58 @@ form:
     }
 
 For an example, see the sample :ref:`sect-readline` bindings.
+
+Returning a string that the caller frees
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Suppose that a C library has a function which returns a new string, that the
+caller must free:
+
+::
+
+    char* greeting(const char* name) {
+        size_t size = strlen(name) + 9;
+        char* str = malloc(size);
+        if (str != NULL)
+            snprintf(str, size, "Hello, %s!", name);
+        return str;
+    }
+
+    void freeGreeting(char* str) {
+        free(str);
+    }
+
+Declared with the result type ``String``, each call of ``greeting`` would leak
+its result, with every backend. Instead, bind it with the result type
+``Ptr String``, copy the string to an Idris ``String``, and free the pointer:
+
+.. code-block:: idris
+
+    %foreign "C:greeting,libgreet"
+    prim__greeting : String -> PrimIO (Ptr String)
+
+    %foreign "C:freeGreeting,libgreet"
+    prim__freeGreeting : Ptr String -> PrimIO ()
+
+    %foreign "C:idris2_getString, libidris2_support, idris_support.h"
+    prim__copyString : Ptr String -> PrimIO String
+
+    greeting : HasIO io => String -> io (Maybe String)
+    greeting name
+        = do ptr <- primIO (prim__greeting name)
+             if prim__nullPtr ptr /= 0
+                then pure Nothing
+                else do str <- primIO (prim__copyString ptr)
+                        primIO (prim__freeGreeting ptr)
+                        pure (Just str)
+
+``idris2_getString`` is the function ``getString`` above, from the support
+library of Idris; the Prelude has it as ``prim__getString : Ptr String ->
+String``. It is declared here as an ``IO`` action so that the string is surely
+copied before it is freed: nothing orders the evaluation of a pure function
+and the call of ``freeGreeting``. When the library has no function to free
+its strings, ``free`` from ``System.FFI`` calls the ``free`` of C (use
+``prim__forgetPtr`` to pass it a ``Ptr String``).
 
 Additionally, foreign functions can take *callbacks*, and take and return
 C ``struct`` pointers.

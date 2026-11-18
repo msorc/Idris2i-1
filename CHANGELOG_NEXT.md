@@ -43,6 +43,15 @@ should target this file (`CHANGELOG_NEXT`).
     and made `make` in `docs/` treat Sphinx warnings as errors
     (`SPHINXOPTS` defaults to `-W --keep-going`).
 
+  + The FFI overview no longer says that the run time frees the `char*` that
+    a C function returns as a `String`: no backend does (measured with Chez
+    and RefC), it is copied and left alone, so that a function may return a
+    string that it keeps (`getenv`, a literal).  The overview now says so,
+    shows how to bind a function whose result the caller must free (a
+    `Ptr String` that is converted and then freed) without leaking it, and
+    says that a `String` argument is only valid until the C function returns.
+    [#2455](https://github.com/idris-lang/Idris2/issues/2455)
+
 ### Compiler changes
 
 * RefC is the default code generator of `idris2` itself, not only of the

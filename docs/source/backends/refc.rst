@@ -141,9 +141,12 @@ read back as the same number (``0.1``, ``1e-10``, ``+inf.0``).
 
 The ``C`` and ``RefC`` calling conventions pass strings differently.  With
 ``%foreign "C:f"``, a ``String`` argument is a ``char *``, and a ``String``
-result is a ``char *`` that the generated code copies and leaves to the
-function (so it may be a literal or a static buffer, like the result of
-``getenv``).  With ``%foreign "RefC:f"``, a ``String`` is an Idris value
+result is a ``char *`` (or a ``const char *``) that the generated code copies
+and never frees, as in the other backends (so it may be a literal or a static
+buffer, like the result of ``getenv``; a string that the caller must free is
+leaked, see below).  The ``char *`` of an argument points into the Idris
+string: it is only valid until the function returns, and must not be changed.
+With ``%foreign "RefC:f"``, a ``String`` is an Idris value
 (``Idris2_Value *``, an ``Idris2_String`` with its length ``len`` and its
 bytes ``str``), like ``Integer`` and foreign objects: the arguments are
 borrowed, a result is a new reference (``idris2_mkStringN`` makes one).
@@ -177,12 +180,18 @@ Ownership through the FFI
 -------------------------
 
 A plain ``Ptr`` is not managed: free what it points to, or use a ``GCPtr``
-(``onCollect``).  A C function that returns a string from ``malloc`` should go
-through a ``RefC`` wrapper that calls ``idris2_mkStringOwned``, which frees it.
+(``onCollect``).  A C function that returns a string from ``malloc`` must not
+be given the result type ``String``, which copies the string and leaves the
+buffer alone: declare its result as a ``Ptr String``, convert it and free it
+(the way that works with every backend, see "Returning a string that the
+caller frees" in :ref:`sect-ffi-string`), or go through a ``RefC`` wrapper that
+calls ``idris2_mkStringOwned``, which copies the string and frees it.
 A foreign function is called without taking a reference to its arguments (they
 are *borrowed*): C code that keeps an argument beyond the call, in a data
 structure of its own say, takes a reference with ``idris2_newReference`` and
-releases it with ``idris2_removeReference``.  The same holds for the Idris
+releases it with ``idris2_removeReference``.  That is for the Idris values of
+the ``RefC`` calling convention; the ``char *`` of a ``String`` argument of the
+``C`` convention has no reference to take, so C code that keeps it copies it.  The same holds for the Idris
 functions that the compiler found to only look at some of their arguments
 (see below), which matters for C code that calls the generated functions
 directly.
