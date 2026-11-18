@@ -270,6 +270,14 @@ should target this file (`CHANGELOG_NEXT`).
   positively (`Arr d r` with `Arr` defined by matching on `d`; also #2297),
   where it used to be either rejected outright or, when passed through a
   parameter, accepted without looking.
+  The positivity of the parameters of each type constructor is recorded in
+  the TTC of its module (as a flag), so that a module that imports it needs
+  neither its constructors nor the types they mention: a module does not
+  load the modules that its imports import privately, and the check failed
+  on their types ("Data.IOArray.IOArray not a data type" for
+  `data Rose = Node Int (IArray Rose)` in a module that imports only
+  `Data.Linear.Array`).  A type with no constructors, such as the external
+  `ArrayData`, uses its parameters strictly positively.
 * A totality error that comes from a path of calls ("possibly not
   terminating due to recursive path ...", or "due to function ... being
   reachable via ...") lists the calls of the path with their locations, under

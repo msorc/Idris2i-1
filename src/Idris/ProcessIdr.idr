@@ -16,6 +16,7 @@ import Core.Directory
 import Core.Env
 import Core.Hash
 import Core.Metadata
+import Core.Termination.Positivity
 import Core.Unify
 
 import Parser.Unlit
@@ -468,6 +469,8 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
                 let errs = errs ++ totErrs
 --                 coreLift $ gc
 
+                when (isNil errs) $
+                   logTime 3 "Record positive parameters" $ recordPositiveParams
                 when (isNil errs) $
                    logTime 2 "Compile defs" $ compileAndInlineAll
 

@@ -233,6 +233,12 @@ data DefFlag
     | Identity Nat
          -- Is it the identity function at runtime?
          -- The nat represents which argument the function evaluates to
+    | PositiveParams NatSet
+         -- For a type constructor: the parameters that its constructors use
+         -- strictly positively (see Core.Termination.Positivity).  Recorded
+         -- when the module that defines it is complete, so that a module
+         -- that imports it can check its uses without the constructors, and
+         -- without the types that they mention, which it may not load.
 %name DefFlag dflag
 
 export
@@ -250,6 +256,7 @@ Eq DefFlag where
     (==) AllGuarded AllGuarded = True
     (==) (ConType x) (ConType y) = x == y
     (==) (Identity x) (Identity y) = x == y
+    (==) (PositiveParams x) (PositiveParams y) = toList x == toList y
     (==) _ _ = False
 
 export
@@ -267,6 +274,7 @@ Show DefFlag where
   show AllGuarded = "allguarded"
   show (ConType ci) = "contype " ++ show ci
   show (Identity x) = "identity " ++ show x
+  show (PositiveParams x) = "positiveparams " ++ show (toList x)
 
 public export
 record SCCall where

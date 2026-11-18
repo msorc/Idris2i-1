@@ -9,6 +9,7 @@ import Core.Termination.References
 
 import Data.String
 
+import Libraries.Data.NameMap
 import Libraries.Data.NatSet
 
 %default covering
@@ -70,6 +71,13 @@ paramPositive : {auto c : Ref Ctxt Defs} ->
 fnArgPositive : {auto c : Ref Ctxt Defs} ->
                 Defs -> List (Name, Nat) -> Name -> Nat -> Core Bool
 
+-- The positivity of the parameters of a type constructor, recorded by
+-- recordPositiveParams in the module that defines it
+recorded : List DefFlag -> Maybe NatSet
+recorded [] = Nothing
+recorded (PositiveParams ps :: _) = Just ps
+recorded (_ :: fs) = recorded fs
+
 numbered : Nat -> List a -> List (Nat, a)
 numbered i [] = []
 numbered i (x :: xs) = (i, x) :: numbered (S i) xs
@@ -80,7 +88,9 @@ numbered i (x :: xs) = (i, x) :: numbered (S i) xs
 -- `MkBad : Neg Bad -> Bad` with `MkNeg : (a -> Void) -> Neg a` is accepted.
 posArg defs seen tyns nf@(NTCon loc tc _ args) =
   do logNF "totality.positivity" 50 "Found a type constructor" Env.empty nf
-     Just (TCon _ params _ _ _ _ _) <- lookupDefExact tc (gamma defs)
+     Just def <- lookupDefExact tc (gamma defs)
+       | Nothing => notLoaded
+     let TCon _ params _ _ _ _ _ = def
        | _ => throw (GenericMsg loc (show tc ++ " not a data type"))
      log "totality.positivity" 50 $
        unwords [show tc, "has", show (size params), "parameters"]
@@ -102,6 +112,18 @@ posArg defs seen tyns nf@(NTCon loc tc _ args) =
                           | err => pure err
                         checkArgs params rest
              checkArgs params rest
+
+    -- A type constructor whose definition is not loaded: nothing is known
+    -- about how it uses its arguments, so none of them may mention the
+    -- types being checked.  (This happens only when a type in the context
+    -- normalises to one from a module that it does not load; a type
+    -- constructor that it loads carries the positivity of its parameters,
+    -- see `recordPositiveParams`, and that is all paramPositive needs.)
+    notLoaded : Core Terminating
+    notLoaded
+        = do log "totality.positivity" 30 $
+               "The definition of " ++ show tc ++ " is not loaded"
+             checkArgs NatSet.empty (numbered 0 (map snd args))
 -- a tyn can not appear as part of ty
 posArg defs seen tyns nf@(NBind fc x (Pi _ _ e ty) sc)
   = do logNF "totality.positivity" 50 "Found a Pi-type" Env.empty nf
@@ -162,10 +184,21 @@ posArg defs seen tyn nf
 
 paramPositive defs seen tc i
     = if (tc, i) `elem` seen then pure True else
-      do Just (TCon _ _ _ _ _ mcons _) <- lookupDefExact tc (gamma defs)
-           | _ => pure False
-         let cons = fromMaybe [] mcons
-         allM conOK cons
+      do Just gdef <- lookupCtxtExact tc (gamma defs)
+           | Nothing => pure False -- not loaded: nothing is known about it
+         case recorded (flags gdef) of
+           Just ps => pure (i `elem` ps)
+           Nothing => do
+             let TCon _ _ _ _ _ mcons _ = definition gdef
+               | _ => pure False
+             -- A type with no constructors (an external type such as
+             -- `ArrayData`, or an empty or abstract one) uses its parameters
+             -- strictly positively: Idris code has no way to make one of
+             -- its values, so none can hold a function of the parameter,
+             -- and the primitives that make values of external types are
+             -- trusted, as all primitives are.
+             let cons = fromMaybe [] mcons
+             allM conOK cons
   where
     -- Replace every binder by a distinct placeholder, collecting the
     -- argument types, until the return type `tc ...` is reached.
@@ -357,6 +390,40 @@ blockingAssertTotal loc ma
        pure a
 
 -- Calculate whether a type satisfies the strict positivity condition, and
+||| Record, as a flag of every type constructor of the current module, which
+||| of its parameters its constructors use strictly positively.  A module that
+||| imports the type constructor then needs neither its constructors nor the
+||| types that they mention, which it may not load (those of a module that
+||| the module of the type constructor imports privately): without this, a
+||| parameter used negatively through a type of such a module could not be
+||| told from a positive one.  Called when the module is complete, so that the
+||| constructors of all its types (mutual ones too) are known.
+export
+recordPositiveParams : {auto c : Ref Ctxt Defs} -> Core ()
+recordPositiveParams
+    = do defs <- get Ctxt
+         traverse_ recordFor (keys (toSave defs))
+  where
+    recordFor : Name -> Core ()
+    recordFor n
+        = do defs <- get Ctxt
+             Just gdef <- lookupCtxtExact n (gamma defs)
+               | Nothing => pure ()
+             let TCon _ params _ _ _ _ _ = definition gdef
+               | _ => pure ()
+             let Nothing = recorded (flags gdef)
+               | Just _ => pure ()
+             -- (nothing to record without parameters)
+             let False = isEmpty params
+               | True => pure ()
+             -- (paramPositive compares with the names in the types, which
+             -- are resolved)
+             rn <- toResolvedNames n
+             pos <- filterM (paramPositive defs [] rn) (toList params)
+             logC "totality.positivity" 10 $
+               pure $ "Positive parameters of " ++ show !(toFullNames n) ++ ": " ++ show pos
+             setFlag emptyFC n (PositiveParams (foldr insert NatSet.empty pos))
+
 -- return whether it's terminating, along with its data constructors
 export
 calcPositive : {auto c : Ref Ctxt Defs} ->

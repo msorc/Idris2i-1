@@ -1,0 +1,9 @@
+. ../../../testutils.sh
+
+# The parameter types come from modules that the checked module does not
+# load, because the modules it imports import them privately: the positivity
+# of their parameters is recorded in the TTC of the module that defines them.
+check NegC.idr || true
+check NegE.idr || true
+check PosC.idr
+check -p contrib Arrays.idr
