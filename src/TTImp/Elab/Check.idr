@@ -4,6 +4,7 @@ module TTImp.Elab.Check
 -- reading and writing elaboration state
 
 import Core.Env
+import Core.UniverseCheck
 import Core.Metadata
 import Core.Normalise
 import Core.Unify
@@ -458,7 +459,8 @@ searchVar fc rig depth def env nest n ty
                  | Nothing => pure (vs ** (f, env'))
              let nt = getDefNameType ndef
              let app = tmf fc nt
-             let tyenv = useVars (getArgs app) (embed (type ndef))
+             ndefty <- freshenLevels (type ndef)
+             let tyenv = useVars (getArgs app) (embed ndefty)
              let binder = Let fc top (weakenNs (mkSizeOf vs) app)
                                      (weakenNs (mkSizeOf vs) tyenv)
              varn <- toFullNames n'

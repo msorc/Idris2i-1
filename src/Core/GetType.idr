@@ -1,6 +1,7 @@
 module Core.GetType
 
 import Core.Context
+import Core.UniverseCheck
 import Core.Env
 import Core.Normalise
 import Core.Value
@@ -22,7 +23,7 @@ mutual
       = pure $ gnf env (binderType (getBinder p env))
   chk env (Ref fc nt n)
       = do defs <- get Ctxt
-           Just ty <- lookupTyExact n (gamma defs)
+           Just ty <- lookupTyFresh n (gamma defs)
                | Nothing => undefinedName fc n
            pure $ gnf env (embed ty)
   chk env (Meta fc n i args)

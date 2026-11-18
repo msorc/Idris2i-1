@@ -4,6 +4,7 @@ import Core.Env
 import Core.Metadata
 import Core.Normalise
 import Core.Unify
+import Core.UniverseCheck
 import Core.Value
 
 import Idris.REPL.Opts
@@ -45,6 +46,7 @@ onLHS _ = False
 getNameType : {vars : _} ->
               {auto c : Ref Ctxt Defs} ->
               {auto m : Ref MD Metadata} ->
+              {auto u : Ref UST UState} ->
               {auto e : Ref EST (EState vars)} ->
               ElabMode ->
               RigCount -> Env Term vars ->
@@ -91,7 +93,8 @@ getNameType elabMode rigc env fc x
                        $ "getNameType is adding " ++ show decor ++ ": " ++ show def.fullname
                      addSemanticDecorations [(nfc, decor, Just def.fullname)]
 
-                 pure (Ref fc nt (Resolved i), gnf env (embed (type def)))
+                 ty <- freshenLevels (type def)
+                 pure (Ref fc nt (Resolved i), gnf env (embed ty))
   where
     rigSafe : RigCount -> RigCount -> Core ()
     -- The order is partial (quantity variables): what the context needs
@@ -110,6 +113,7 @@ getNameType elabMode rigc env fc x
 -- Get the type of a variable, looking it up in the nested names first.
 getVarType : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
+             {auto u : Ref UST UState} ->
              {auto m : Ref MD Metadata} ->
              {auto e : Ref EST (EState vars)} ->
              ElabMode ->
@@ -126,11 +130,11 @@ getVarType elabMode rigc nest env fc x
                  let n' = fromMaybe x nestn
                  case !(lookupCtxtExact n' (gamma defs)) of
                       Nothing => undefinedName fc n'
-                      Just ndef =>
+                      Just ndef => freshenLevels (type ndef) >>= \ ndefty =>
                          let nt = getDefNameType ndef
                              tm = tmf fc nt
                              tyenv = useVars (getArgs tm)
-                                             (embed (type ndef)) in
+                                             (embed ndefty) in
                              do checkVisibleNS fc (fullname ndef) (collapseDefault $ visibility ndef)
                                 logTerm "elab" 5 ("Type of " ++ show n') tyenv
                                 logTerm "elab" 5 ("Expands to") tm

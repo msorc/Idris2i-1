@@ -4,6 +4,7 @@ import Core.Context.Log
 import Core.Env
 import Core.Normalise
 import Core.Unify
+import Core.UniverseCheck
 import Core.Value
 
 import Data.Either
@@ -626,7 +627,7 @@ searchName fc rigc defaults trying depth def top env heads target (n, ndef)
          when (BlockedHint `elem` flags ndef) $
             throw (CantSolveGoal fc (gamma defs) Env.empty top Nothing)
 
-         let ty = type ndef
+         ty <- freshenLevels (type ndef)
          when (isErased ty) $
             throw (CantSolveGoal fc (gamma defs) [] top Nothing)
 

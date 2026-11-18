@@ -1,6 +1,7 @@
 module Core.Unify
 
 import Core.Case.CaseTree
+import Core.UniverseCheck
 import Core.Context.Log
 import Core.Env
 import Core.GetType
@@ -759,11 +760,11 @@ mutual
                  Core UnifyResult
   unifyHoleApp swap mode loc env mname mref margs margs' (NTCon nfc n a args')
       = do defs <- get Ctxt
-           mty <- lookupTyExact n (gamma defs)
+           mty <- lookupTyFresh n (gamma defs)
            unifyInvertible swap (lower mode) loc env mname mref margs margs' mty (NTCon nfc n a) args'
   unifyHoleApp swap mode loc env mname mref margs margs' (NDCon nfc n t a args')
       = do defs <- get Ctxt
-           mty <- lookupTyExact n (gamma defs)
+           mty <- lookupTyFresh n (gamma defs)
            unifyInvertible swap (lower mode) loc env mname mref margs margs' mty (NDCon nfc n t a) args'
   unifyHoleApp swap mode loc env mname mref margs margs' (NApp nfc (NLocal r idx p) args')
       = unifyInvertible swap (lower mode) loc env mname mref margs margs' Nothing

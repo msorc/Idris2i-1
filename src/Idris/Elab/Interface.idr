@@ -1,6 +1,7 @@
 module Idris.Elab.Interface
 
 import Core.Env
+import Core.UniverseCheck
 import Core.Metadata
 import Core.Unify
 
@@ -306,7 +307,7 @@ elabInterface {vars} ifc def_vis env nest constraints iname params dets mcon bod
          ns_meths <- traverse (\mt => do n <- traverse inCurrentNS mt.name
                                          pure ({ name := n } mt)) meth_decls
          defs <- get Ctxt
-         Just ty <- lookupTyExact ns_iname (gamma defs)
+         Just ty <- lookupTyFresh ns_iname (gamma defs)
               | Nothing => undefinedName ifc iname
          let implParams = getImplParams ty
 

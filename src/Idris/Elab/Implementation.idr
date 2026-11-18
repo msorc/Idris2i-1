@@ -3,6 +3,7 @@ module Idris.Elab.Implementation
 import Core.Coverage
 import Core.Coverage.Methods
 import Core.Env
+import Core.UniverseCheck
 import Core.Metadata
 import Core.Unify
 
@@ -147,9 +148,9 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
          let cn : Name = fst cndata
          let cdata : IFaceInfo = snd cndata
 
-         Just ity <- lookupTyExact cn (gamma defs)
+         Just ity <- lookupTyFresh cn (gamma defs)
               | Nothing => undefinedName vfc cn
-         Just conty <- lookupTyExact (iconstructor cdata) (gamma defs)
+         Just conty <- lookupTyFresh (iconstructor cdata) (gamma defs)
               | Nothing => undefinedName vfc (iconstructor cdata)
 
          let impsp = nub (concatMap findIBinds ps ++

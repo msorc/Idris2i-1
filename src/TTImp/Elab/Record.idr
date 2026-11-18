@@ -1,6 +1,7 @@
 module TTImp.Elab.Record
 
 import Core.Env
+import Core.UniverseCheck
 import Core.Metadata
 import Core.Unify
 import Core.Value
@@ -80,7 +81,7 @@ findFieldsAndTypeArgs : {auto c : Ref Ctxt Defs} ->
                         Defs -> Name ->
                         Core $ Maybe (List (String, Maybe Name, Maybe Name), SortedSet Name)
 findFieldsAndTypeArgs defs con
-    = case !(lookupTyExact con (gamma defs)) of
+    = case !(lookupTyFresh con (gamma defs)) of
            Just t => pure (Just !(getExpNames empty [] !(nf defs Env.empty t)))
            _ => pure Nothing
   where

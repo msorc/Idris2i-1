@@ -1,6 +1,7 @@
 module TTImp.Elab.Ambiguity
 
 import Core.Env
+import Core.UniverseCheck
 import Core.Metadata
 import Core.Unify
 import Core.Value
@@ -241,7 +242,7 @@ couldBeName : {auto c : Ref Ctxt Defs} ->
               {vars : _} ->
               Defs -> NF vars -> Name -> Core TypeMatch
 couldBeName defs target n
-    = case !(lookupTyExact n (gamma defs)) of
+    = case !(lookupTyFresh n (gamma defs)) of
            Nothing => pure Poly -- could be a local name, don't rule it out
            Just ty => mightMatchD defs target !(nf defs Env.empty ty)
 
