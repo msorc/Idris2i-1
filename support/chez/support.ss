@@ -220,7 +220,15 @@
   (lambda (msg)
     (display msg)
     (newline)
-    (exit 1)))
+    (call/cc (lambda (k) (blodwen-backtrace k)))
+    (if (= (get-thread-id) 0)
+        (exit 1)
+        ;; (`exit` only ends a thread other than the main one, and the
+        ;; program went on, or waited for it for ever)
+        (begin
+          (flush-output-port (current-output-port))
+          (flush-output-port (current-error-port))
+          ((foreign-procedure "exit" (int) void) 1)))))
 
 (define (blodwen-get-line p)
     (if (port? p)
@@ -705,3 +713,265 @@
   (symbol->string sym))
 
 (define (blodwen-id x) x)
+
+;; Backtraces of a fatal error (see docs/source/backends/chez.rst)
+;;
+;; When they are on (IDRIS2_CHEZ_BACKTRACE=1, or by default in a program
+;; compiled with `--directive chez-backtrace`), a program that dies of
+;; `idris_crash` or of a missing case in partial code (`blodwen-error-quit`),
+;; or of an error that Chez raises and nobody handles (the base exception
+;; handler), prints the Idris functions of the continuation of the error on
+;; stderr, after the message of the error, the innermost first.
+;;
+;; The frames are those of the continuation, walked with the inspector: the
+;; name of the code of a return point is the Scheme name of its function.
+;; The calls in tail position leave no frame.  The directive gives the
+;; program's table of the Idris names of its functions and where they are
+;; defined to `blodwen-backtrace-names`, and keeps Chez from inlining them
+;; (see Compiler.Scheme.Chez); without it, the Scheme names are turned back
+;; into Idris names as well as they can be.
+;;
+;; Nothing of this runs before a fatal error, but for reading the variable
+;; when the program starts.
+;;
+;; (boxes: the variables of the library of support-sep.ss cannot be assigned)
+
+;; #t with the directive
+(define blodwen-bt-default (box #f))
+;; #(scheme-name idris-name location) for every function, from the directive
+;; (whole programs only)
+(define blodwen-bt-names (box #f))
+
+;; An identity that Chez does not see through: a function bound to its
+;; result is not inlined (with the directive).
+(define blodwen-bt-keep
+  (let ([keep (lambda (f) f)])
+    (set! keep keep)
+    keep))
+
+(define (blodwen-bt-on?)
+  (let ([e (getenv "IDRIS2_CHEZ_BACKTRACE")])
+    (if (and e (not (string=? e "")))
+        (not (string=? e "0"))
+        (unbox blodwen-bt-default))))
+
+;; Print the Idris functions of the continuation k on the port p.
+(define (blodwen-bt-print k p)
+  (blodwen-bt-printer (unbox blodwen-bt-names) k p))
+
+;; Print the backtrace of the continuation k, if backtraces are on.
+(define (blodwen-backtrace k)
+  (when (blodwen-bt-on?)
+    (flush-output-port (current-output-port))
+    (let ([p (current-error-port)])
+      (blodwen-bt-print k p)
+      (flush-output-port p))))
+
+;; Errors that Chez raises and that nobody handles: the message, as the
+;; default handler prints it, then the backtrace, then what the default
+;; handler does (the program, or the thread, ends).
+(define (blodwen-bt-handler old)
+  (lambda (c)
+    (if (and (serious-condition? c) (blodwen-bt-on?))
+        (let ([p (console-error-port)])
+          (flush-output-port (console-output-port))
+          (display-condition c p)
+          (newline p)
+          ;; (the handler runs in the continuation of the error; that of
+          ;; the condition, if any, is empty after a signal)
+          (blodwen-bt-print (call/cc (lambda (k) k)) p)
+          (flush-output-port p)
+          (reset))
+        (old c))))
+
+(define blodwen-bt-started (box #f))
+
+(define (blodwen-bt-start)
+  (when (and (not (unbox blodwen-bt-started)) (blodwen-bt-on?))
+    (set-box! blodwen-bt-started #t)
+    (base-exception-handler (blodwen-bt-handler (base-exception-handler)))))
+
+;; Called by a program compiled with `--directive chez-backtrace`, with the
+;; Scheme names of its functions, their Idris names and where they are (or
+;; #f, in an incremental build).
+(define (blodwen-backtrace-names names)
+  (set-box! blodwen-bt-default #t)
+  (set-box! blodwen-bt-names names)
+  (blodwen-bt-start))
+
+;; Print the Idris functions of the continuation k on the port p, with the
+;; table of names (or #f).
+(define blodwen-bt-printer
+  (lambda (names k p)
+     (letrec*
+       (;; the innermost frames, and the outermost ones of a deep
+        ;; continuation, which is not walked beyond 5 million frames
+        [head-size 48]
+        [tail-size 12]
+        [limit 5000000]
+        [table
+         (and names
+              (let ([t (make-hashtable string-hash string=?)])
+                (vector-for-each
+                  (lambda (e) (hashtable-set! t (vector-ref e 0) e))
+                  names)
+                t))]
+        ;; The Idris name of a Scheme name made by
+        ;; Compiler.Scheme.Common.schName, or #f if it is not one (a
+        ;; function of the support code, or of Chez).  The names of the
+        ;; namespaces begin with a capital letter, or `_` (`_PE`), and are
+        ;; followed by `-`; a character other than a letter, a digit or `_`
+        ;; is written `C-` and its code.
+        [demangle
+         (lambda (s)
+           (letrec*
+             ([n (string-length s)]
+              ;; the end of the escape `C-NN` at i (before j), or #f
+              [escape-end
+               (lambda (i j)
+                 (and (< (+ i 2) j)
+                      (char=? (string-ref s i) #\C)
+                      (char=? (string-ref s (+ i 1)) #\-)
+                      (char-numeric? (string-ref s (+ i 2)))
+                      (let loop ([e (+ i 2)])
+                        (if (and (< e j) (char-numeric? (string-ref s e)))
+                            (loop (+ e 1))
+                            e))))]
+              ;; the characters from i to j, with the escapes decoded
+              [decode
+               (lambda (i j)
+                 (let loop ([i i] [acc '()])
+                   (cond
+                     [(>= i j) (list->string (reverse acc))]
+                     [(escape-end i j)
+                      => (lambda (e)
+                           (loop e (cons (integer->char
+                                           (string->number (substring s (+ i 2) e)))
+                                         acc)))]
+                     [else (loop (+ i 1) (cons (string-ref s i) acc))])))]
+              ;; the position of the first `-` from i not in an escape
+              [separator
+               (lambda (i)
+                 (cond
+                   [(>= i n) #f]
+                   [(escape-end i n) => separator]
+                   [(char=? (string-ref s i) #\-) i]
+                   [else (separator (+ i 1))]))]
+              [prefix?
+               (lambda (x i)
+                 (let ([m (string-length x)])
+                   (and (<= (+ i m) n) (string=? (substring s i (+ i m)) x))))]
+              [digits?
+               (lambda (i)
+                 (and (< i n)
+                      (let loop ([j i])
+                        (or (= j n)
+                            (and (char-numeric? (string-ref s j)) (loop (+ j 1)))))))]
+              ;; a case or with block: the name of its function, `-`, a number
+              [block
+               (lambda (what i)
+                 (let loop ([j (- n 1)])
+                   (cond
+                     [(<= j i) (string-append what (decode i n))]
+                     [(char=? (string-ref s j) #\-)
+                      (string-append what (decode i j))]
+                     [else (loop (- j 1))])))]
+              ;; a name without its namespace, from i
+              [name
+               (lambda (i)
+                 (cond
+                   [(prefix? "u--" i) (decode (+ i 3) n)]
+                   [(prefix? "rf--" i) (decode (+ i 4) n)]
+                   [(prefix? "pat--" i) (name (+ i 5))]
+                   [(prefix? "fn--" i) (decode (+ i 4) n)]
+                   [(prefix? "case--" i) (block "case block in " (+ i 6))]
+                   [(prefix? "with--" i) (block "with block in " (+ i 6))]
+                   [(prefix? "n--" i)
+                    ;; Nested (x, y) m is `x:y:m`
+                    (let* ([a (separator (+ i 3))]
+                           [b (and a (separator (+ a 1)))])
+                      (if b
+                          (string-append (substring s (+ i 3) a) ":"
+                                         (substring s (+ a 1) b) ":" (name (+ b 1)))
+                          (decode i n)))]
+                   [else
+                    ;; `f-0` is the machine name {f:0}
+                    (let ([d (separator i)])
+                      (if (and d (digits? (+ d 1)))
+                          (string-append "{" (decode i d) ":" (substring s (+ d 1) n) "}")
+                          (decode i n)))]))])
+             (and (> n 0)
+                  (let ([c (string-ref s 0)])
+                    (cond
+                      [(or (char-upper-case? c) (char=? c #\_))
+                       ;; the namespace, whose parts are separated by `-`
+                       ;; (escaped)
+                       (let ([d (separator 0)])
+                         (and d
+                              (string-append
+                                (list->string
+                                  (map (lambda (c) (if (char=? c #\-) #\. c))
+                                       (string->list (decode 0 d))))
+                                "." (name (+ d 1)))))]
+                      [(or (prefix? "u--" 0) (prefix? "n--" 0)
+                           (prefix? "case--" 0) (prefix? "with--" 0))
+                       (name 0)]
+                      [else #f])))))]
+        ;; the line of the frame of the code named s, or #f
+        [frame
+         (lambda (s)
+           (and (string? s)
+                (if table
+                    (let ([e (hashtable-ref table s #f)])
+                      (and e
+                           (if (vector-ref e 2)
+                               (string-append (vector-ref e 1) " (" (vector-ref e 2) ")")
+                               (vector-ref e 1))))
+                    (demangle s))))]
+        [tail (make-vector tail-size #f)]
+        ;; consecutive frames of the same function make one line
+        [line #f]
+        [count 0]
+        [end-line
+         (lambda ()
+           (when line
+             (if (> count 1)
+                 (fprintf p "  ~a, ~a frames~%" line count)
+                 (fprintf p "  ~a~%" line))
+             (set! line #f)))]
+        [add-line
+         (lambda (f)
+           (if (and line (string=? f line))
+               (set! count (+ count 1))
+               (begin (end-line) (set! line f) (set! count 1))))])
+       (let walk ([o (inspect/object k)] [walked 0] [n 0] [head '()])
+         (if (and (eq? (o 'type) 'continuation) (< walked limit))
+             (let ([f (frame ((o 'code) 'name))])
+               (if f
+                   (begin
+                     (vector-set! tail (modulo n tail-size) f)
+                     (walk (o 'link) (+ walked 1) (+ n 1)
+                           (if (< n head-size) (cons f head) head)))
+                   (walk (o 'link) (+ walked 1) n head)))
+             (let ([id (get-thread-id)])
+               (if (= id 0)
+                   (fprintf p "Backtrace of the main thread, innermost call first:~%")
+                   (fprintf p "Backtrace of thread ~a, innermost call first:~%" id))
+               (for-each add-line (reverse head))
+               (cond
+                 [(= n 0)
+                  (fprintf p "  (no frames of Idris functions)~%")]
+                 [(eq? (o 'type) 'continuation)
+                  (end-line)
+                  (fprintf p "  ... and more than ~a more frames~%"
+                           (- limit head-size))]
+                 [(> n head-size)
+                  (end-line)
+                  (let ([first (max head-size (- n tail-size))])
+                    (when (> first head-size)
+                      (fprintf p "  ... ~a more frames ...~%" (- first head-size)))
+                    (do ([i first (+ i 1)]) ((= i n))
+                      (add-line (vector-ref tail (modulo i tail-size)))))])
+               (end-line)))))))
+
+(define blodwen-bt-startup (blodwen-bt-start))
