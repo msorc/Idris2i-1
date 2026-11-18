@@ -151,6 +151,7 @@ compileToSS c chez appdir tm = do
   let ctm = forget (mainExpr cdata)
   let ndefs = namedDefs cdata
   let cui = getCompilationUnits ndefs
+  let bt = chezBacktrace ds
 
   -- copy the support library
   support <- readDataFile "chez/support-sep.ss"
@@ -173,7 +174,8 @@ compileToSS c chez appdir tm = do
 
     -- check if the hash has changed
     -- TODO: also check that the .so file exists
-    let cuHash = show (hash cu)
+    -- (the code of a unit is not the same with `--directive chez-backtrace`)
+    let cuHash = show (hash cu) ++ (if bt then "-backtrace" else "")
     hashChanged <-
       coreLift (readFile (appdir </> chezLib <.> "hash")) >>= \case
         Left err       => pure True
@@ -209,7 +211,9 @@ compileToSS c chez appdir tm = do
       let footer = ")"
 
       fgndefs <- traverse (Chez.getFgnCall version) cu.definitions
-      compdefs <- traverse (getScheme empty (Chez.chezExtPrim empty defaultLaziness) Chez.chezString defaultLaziness) cu.definitions
+      let ext = Chez.chezExtPrim empty defaultLaziness
+      compdefs <- traverse (if bt then getSchemeBacktrace empty ext defaultLaziness
+                                  else getScheme empty ext Chez.chezString defaultLaziness) cu.definitions
       loadlibs <- traverse (map fromString . loadLib appdir) (mapMaybe fst fgndefs)
 
       -- write the files
@@ -227,8 +231,10 @@ compileToSS c chez appdir tm = do
 
   -- main module
   main <- schExp empty (Chez.chezExtPrim empty defaultLaziness) Chez.chezString defaultLaziness 0 ctm
+  btTable <- if bt then backtraceTable ndefs else pure ""
   Core.writeFile (appdir </> "mainprog.ss") $ build $ sepBy "\n"
     [ schHeader (map snd libs) [lib.name | lib <- chezLibs]
+    , btTable
     , collectRequestHandler
     , main
     , schFooter

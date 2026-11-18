@@ -13,6 +13,7 @@ import Libraries.Data.String.Builder
 
 import Data.Maybe
 import Data.SortedSet
+import Data.Vect
 import Data.String
 
 import Idris.Env
@@ -136,6 +137,11 @@ getFArgs (NmCon fc _ _ (Just 0) _) = pure []
 getFArgs (NmCon fc _ _ (Just 1) [ty, val, rest]) = pure $ (ty, val) :: !(getFArgs rest)
 getFArgs arg = throw (GenericMsg (getFC arg) ("Badly formed c call argument list " ++ show arg))
 
+||| An external primitive that runs its argument, not in tail position (see
+||| `nonTailCrash`).
+nonTailPrim : Name
+nonTailPrim = NS (mkNamespace "Chez") (UN (Basic "backtraceNonTail"))
+
 export
 chezExtPrim : SortedSet Name -> LazyExprProc -> Nat -> ExtPrim -> List NamedCExp -> Core Builder
 chezExtPrim cs schLazy i GetField [NmPrimVal _ (Str s), _, _, struct,
@@ -163,6 +169,12 @@ chezExtPrim cs schLazy i OnCollectAny [p, c, world]
     = do p' <- schExp cs (chezExtPrim cs schLazy) chezString schLazy 0 p
          c' <- schExp cs (chezExtPrim cs schLazy) chezString schLazy 0 c
          pure $ mkWorld $ "(blodwen-register-object " ++ p' ++ " " ++ c' ++ ")"
+chezExtPrim cs schLazy i (Unknown n) [e]
+    = if n == nonTailPrim
+         -- (a crash, with `--directive chez-backtrace`: see `nonTailCrash`)
+         then do e' <- schExp cs (chezExtPrim cs schLazy) chezString schLazy i e
+                 pure $ "(begin " ++ e' ++ " (void))"
+         else schExtCommon cs (chezExtPrim cs schLazy) chezString schLazy i (Unknown n) [e]
 chezExtPrim cs schLazy i prim args
     = schExtCommon cs (chezExtPrim cs schLazy) chezString schLazy i prim args
 
@@ -531,6 +543,114 @@ collectRequestHandler = """
                    gen]))))]))))
   """
 
+-- Backtraces (`--directive chez-backtrace`, see `blodwen-backtrace` in
+-- support/chez/support.ss).  The continuation of a fatal error shows the
+-- functions whose calls are not in tail position; with the directive:
+--   - Chez does not inline the functions of the program: each one is bound
+--     to the result of `blodwen-bt-keep`, an identity that Chez does not see
+--     through (under a `let` of its own name, which is the name of its code);
+--   - a crash (a missing case, `idris_crash`) is not a tail call, so that the
+--     function where it happens is in the backtrace;
+--   - the program has a table of the Scheme names of its functions, their
+--     Idris names and where they are defined.
+
+export
+chezBacktrace : List String -> Bool
+chezBacktrace = elem "chez-backtrace"
+
+-- The crashes of an expression in non tail position (see `nonTailPrim`).
+mutual
+  nonTailCrash : NamedCExp -> NamedCExp
+  nonTailCrash e@(NmCrash fc _) = NmExtPrim fc nonTailPrim [e]
+  nonTailCrash (NmOp fc Crash args) = NmExtPrim fc nonTailPrim [NmOp fc Crash (map nonTailCrash args)]
+  nonTailCrash (NmLam fc x sc) = NmLam fc x (nonTailCrash sc)
+  nonTailCrash (NmLet fc x val sc) = NmLet fc x (nonTailCrash val) (nonTailCrash sc)
+  nonTailCrash (NmApp fc f args) = NmApp fc (nonTailCrash f) (map nonTailCrash args)
+  nonTailCrash (NmCon fc n ci t args) = NmCon fc n ci t (map nonTailCrash args)
+  nonTailCrash (NmOp fc op args) = NmOp fc op (map nonTailCrash args)
+  nonTailCrash (NmExtPrim fc p args) = NmExtPrim fc p (map nonTailCrash args)
+  nonTailCrash (NmForce fc r t) = NmForce fc r (nonTailCrash t)
+  nonTailCrash (NmDelay fc r t) = NmDelay fc r (nonTailCrash t)
+  nonTailCrash (NmConCase fc sc alts def)
+      = NmConCase fc (nonTailCrash sc) (map conAlt alts) (map nonTailCrash def)
+  nonTailCrash (NmConstCase fc sc alts def)
+      = NmConstCase fc (nonTailCrash sc) (map constAlt alts) (map nonTailCrash def)
+  nonTailCrash e = e
+
+  conAlt : NamedConAlt -> NamedConAlt
+  conAlt (MkNConAlt n ci t args sc) = MkNConAlt n ci t args (nonTailCrash sc)
+
+  constAlt : NamedConstAlt -> NamedConstAlt
+  constAlt (MkNConstAlt c sc) = MkNConstAlt c (nonTailCrash sc)
+
+||| With the directive: the definition of a function, which Chez does not
+||| inline, and whose crashes are not tail calls.
+export
+getSchemeBacktrace : {auto c : Ref Ctxt Defs} ->
+                     (constants : SortedSet Name) ->
+                     (schExtPrim : Nat -> ExtPrim -> List NamedCExp -> Core Builder) ->
+                     (schLazy : LazyExprProc) ->
+                     (Name, FC, NamedDef) -> Core Builder
+getSchemeBacktrace constants ext schLazy (n, fc, MkNmFun args exp)
+    = case (args, exp) of
+           ([], NmDelay {}) => plain
+           ([], _) => if contains n constants then plain else fun
+           _ => fun
+  where
+    plain : Core Builder
+    plain = getScheme constants ext chezString schLazy (n, fc, MkNmFun args (nonTailCrash exp))
+
+    fun : Core Builder
+    fun = do nm <- schName <$> getFullName n
+             body <- schExp constants ext chezString schLazy 0 (nonTailCrash exp)
+             pure $ "(define " ++ nm ++ " (blodwen-bt-keep (let ([" ++ nm
+                    ++ " (lambda (" ++ schArglist args ++ ") " ++ body ++ ")]) "
+                    ++ nm ++ ")))\n"
+getSchemeBacktrace constants ext schLazy (n, fc, MkNmError exp)
+    = getScheme constants ext chezString schLazy (n, fc, MkNmError (nonTailCrash exp))
+getSchemeBacktrace constants ext schLazy def
+    = getScheme constants ext chezString schLazy def
+
+||| Where a definition is, as the start of its FC (`Main:12:1`).  A function
+||| that the compiler made of a part of another one (`{f:0}`, a lambda say)
+||| is where that one is.  (As for RefC, see Compiler.RefC.RefC.)
+defLocation : {auto c : Ref Ctxt Defs} -> Name -> Core (Maybe String)
+defLocation n
+    = do Nothing <- here n
+           | loc => pure loc
+         case n of
+              NS ns (MN s _) => here (NS ns (UN (Basic s)))
+              _ => pure Nothing
+  where
+    here : Name -> Core (Maybe String)
+    here m = do defs <- get Ctxt
+                Just gdef <- lookupCtxtExact m (gamma defs)
+                  | Nothing => pure Nothing
+                pure $ map (\fc => show (origin fc) ++ ":" ++ showPos (startPos fc))
+                           (isConcreteFC gdef.location)
+
+||| With the directive: the table of the functions of the program, given to
+||| `blodwen-backtrace-names`, which turns the backtraces on by default (an
+||| expression).
+export
+backtraceTable : {auto c : Ref Ctxt Defs} ->
+                 List (Name, FC, NamedDef) -> Core Builder
+backtraceTable defs
+    = do entries <- traverse entry (filter isCode defs)
+         pure $ "(blodwen-backtrace-names '#(\n" ++ sepBy "\n" entries ++ "))"
+  where
+    isCode : (Name, FC, NamedDef) -> Bool
+    isCode (_, _, MkNmCon {}) = False
+    isCode _ = True
+
+    entry : (Name, FC, NamedDef) -> Core Builder
+    entry (n, _, _)
+        = do fn <- getFullName n
+             loc <- defLocation fn
+             pure $ "#(" ++ chezString (build (schName fn)) ++ " "
+                    ++ chezString (show fn) ++ " "
+                    ++ maybe "#f" chezString loc ++ ")"
+
 ||| Compile a TT expression to Chez Scheme
 compileToSS : Ref Ctxt Defs ->
               Bool -> -- profiling
@@ -554,8 +674,14 @@ compileToSS c prof appdir tm outfile
          let schLazy = if getWeakMemoLazy ds then weakMemoLaziness else defaultLaziness
 
          (sortedDefs, constants) <- sortDefs ndefs
-         compdefs <- logTime 3 "Print as scheme" $ traverse (getScheme constants (chezExtPrim constants schLazy) chezString schLazy) sortedDefs
-         let code = concat (map snd fgndefs) ++ concat compdefs
+         let bt = chezBacktrace ds
+         let ext = chezExtPrim constants schLazy
+         compdefs <- logTime 3 "Print as scheme" $
+                       traverse (if bt then getSchemeBacktrace constants ext schLazy
+                                       else getScheme constants ext chezString schLazy) sortedDefs
+         btTable <- if bt then (\t => "(define blodwen-bt-program " ++ t ++ ")\n") <$> backtraceTable ndefs
+                          else pure (the Builder "")
+         let code = concat (map snd fgndefs) ++ concat compdefs ++ btTable
          main <- schExp constants (chezExtPrim constants schLazy) chezString schLazy 0 ctm
          support <- readDataFile "chez/support.ss"
          extraRuntime <- getExtraRuntime ds
@@ -606,11 +732,15 @@ compileToSSInc c mods libs appdir tm outfile
 
          main <- schExp empty (chezExtPrim empty defaultLaziness) chezString defaultLaziness 0 ctm
          support <- readDataFile "chez/support.ss"
+         -- (the modules were compiled without the directive, and without a
+         -- table of names: it only turns the backtraces on)
+         bt <- chezBacktrace <$> getDirectives Chez
 
          let scm = schHeader chez [] False ++
                    fromString support ++
                    concat loadlibs ++
                    concat loadsos ++
+                   (if bt then "(blodwen-backtrace-names #f)\n" else "") ++
                    collectRequestHandler ++ "\n" ++
                    main ++ schFooter False False
 
