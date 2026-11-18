@@ -172,6 +172,7 @@ jobs:
       || contains(needs.initialise.outputs.commit_message, '[ci: macos]')
       || contains(needs.initialise.outputs.commit_message, '[ci: chez]')
     env:
+      IDRIS2_CG: chez
       SCHEME: chez
     steps:
       - name: Checkout
@@ -205,7 +206,12 @@ jobs:
       || contains(needs.initialise.outputs.commit_message, '[ci: windows]')
       || contains(needs.initialise.outputs.commit_message, '[ci: chez]')
       || contains(needs.initialise.outputs.commit_message, '[ci: racket]')
+    # Pinned to Chez: the RefC layout (a launcher script next to
+    # idris2_app/idris2, see the Makefile and bootstrap/idris2-refc.sh) does
+    # not know about Windows yet (idris2.exe, no Windows branch in the
+    # launcher, unlike bootstrap/idris2-boot.sh).
     env:
+      IDRIS2_CG: chez
       MSYSTEM: MINGW64
       MSYS2_PATH_TYPE: inherit
       SCHEME: scheme
@@ -248,6 +254,9 @@ jobs:
           name: windows-installed-bootstrapped-idris2-chez
           path: ${{ env.IDRIS_PREFIX }}
 
+  # The nix flake bootstraps a compiler with Chez (nix/package.nix with
+  # idris2Bootstrap = null), builds the default package with it, which uses
+  # RefC like a plain `make`, and runs the tests with that one.
   nix-bootstrap-chez:
     needs: [initialise, quick-check]
     runs-on: ubuntu-latest
@@ -260,7 +269,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
           fetch-depth: 0
-    - uses: cachix/install-nix-action@v18
+    - uses: cachix/install-nix-action@v31
     - name: Test with nix
       env:
         NIX_CONFIG: "experimental-features = nix-command flakes"
@@ -325,6 +334,48 @@ jobs:
         run: make bootstrap-c && make install
       - name: Test the RefC backend with the bootstrapped compiler
         run: make test only=refc INTERACTIVE=''
+      - name: Artifact Bootstrapped Idris2
+        uses: actions/upload-artifact@v4
+        with:
+          include-hidden-files: true
+          name: ubuntu-installed-bootstrapped-idris2-refc
+          path: ~/.idris2/
+
+  # The bootstrap from C on macOS, with the defaults of the Makefile (RefC),
+  # and the whole test suite.  GMP comes from Homebrew, whose include and lib
+  # directories are not searched by default: CPPFLAGS and LDFLAGS name them
+  # (config.mk adds them as well from HOMEBREW_PREFIX), and the compiler
+  # passes them on when it compiles C.
+
+  macos-bootstrap-c:
+    needs: [initialise, quick-check]
+    runs-on: macos-latest
+    timeout-minutes: 90
+    if: |
+      !contains(needs.initialise.outputs.commit_message, '[ci:')
+      || contains(needs.initialise.outputs.commit_message, '[ci: macos]')
+      || contains(needs.initialise.outputs.commit_message, '[ci: refc]')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          brew install gmp xz coreutils
+          BREW_PREFIX="$(brew --prefix)"
+          {
+            echo "HOMEBREW_PREFIX=$BREW_PREFIX"
+            echo "CPPFLAGS=-I$BREW_PREFIX/include"
+            echo "LDFLAGS=-L$BREW_PREFIX/lib"
+          } >> "$GITHUB_ENV"
+          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+      - name: Make bootstrap folder readonly
+        run: chmod -R a-w bootstrap
+      - name: Build Idris 2 from bootstrap
+        run: make bootstrap-c && make install
+        shell: bash
+      - name: Test
+        run: make ci-macos-test INTERACTIVE=''
+        shell: bash
 
   ######################################################################
   # Self-hosting builds and testing
@@ -363,6 +414,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 45
     env:
+      IDRIS2_CG: chez
       SCHEME: chez
     steps:
       - name: Checkout
@@ -387,6 +439,35 @@ jobs:
       - name: Test self-hosted
         run: make ci-macos-test INTERACTIVE=''
         shell: bash
+
+  # C (RefC)
+  #
+  # The build of a user: no IDRIS2_CG, so the defaults of the Makefile and of
+  # the compiler (RefC), with the compiler that was bootstrapped from C.  Chez
+  # is installed so that the tests of the Chez backend run too.
+
+  ubuntu-self-host-refc:
+    needs: ubuntu-bootstrap-c
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download Idris2 Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ubuntu-installed-bootstrapped-idris2-refc
+          path: ~/.idris2/
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgmp-dev chezscheme
+          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+          chmod +x "$HOME/.idris2/bin/idris2" "$HOME/.idris2/bin/idris2_app/"*
+      - name: Build self-hosted
+        run: make all IDRIS2_BOOT="idris2 -Werror" && make install
+      - name: Test self-hosted
+        run: make ci-ubuntu-test INTERACTIVE=''
 
   # RACKET
 
@@ -820,7 +901,7 @@ jobs:
           cp -r www/html/* .github/scripts/html/
           cp www/source/idris-logo-base.png .github/scripts/html/
       - name: Deploy HTML
-        uses: JamesIves/github-pages-deploy-action@v4.4.3
+        uses: JamesIves/github-pages-deploy-action@v4
         if: ${{ success() && env.IDRIS2_DEPLOY }}
 
         with:
@@ -832,6 +913,9 @@ jobs:
     needs:
       [ ubuntu-bootstrap-racket # ubuntu-self-host-racket
       , macos-self-host-chez
+      , macos-bootstrap-c
+      , ubuntu-bootstrap-c
+      , ubuntu-self-host-refc
       , ub-pack-test-lsp
       , ub-pack-test-pack
       , ub-test-collie

@@ -8,7 +8,10 @@
 #
 # It runs when one of the inputs of the bootstraps changes: the
 # generated code (bootstrap/idris2_app/idris2.ss, idris2.rkt and
-# idris2.c.xz), the scripts that build from it and the rest of bootstrap/.
+# idris2.c.xz), the scripts that build from it and the rest of bootstrap/,
+# the support libraries (the checked-in C is compiled against the headers
+# of support/refc and support/c as they are now, and every bootstrap links
+# libidris2_support), and the Makefile and config.mk that drive them.
 #
 # Note that we are *not* running on ubuntu-latest so this needs manual
 # upgrades if we want to jump on a newer github actions environment.
@@ -21,11 +24,17 @@ on:
     paths:
       - 'bootstrap/**'
       - 'bootstrap*.sh'
+      - 'support/**'
+      - 'Makefile'
+      - 'config.mk'
       - '.github/workflows/ci-bootstrap.yml'
   pull_request:
     paths:
       - 'bootstrap/**'
       - 'bootstrap*.sh'
+      - 'support/**'
+      - 'Makefile'
+      - 'config.mk'
       - '.github/workflows/ci-bootstrap.yml'
   workflow_dispatch:
 

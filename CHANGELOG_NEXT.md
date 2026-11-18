@@ -424,6 +424,15 @@ should target this file (`CHANGELOG_NEXT`).
   16, like `IDRIS2_JOBS`.  A library that `make` builds on its own (as in `make
   linear`, or the bootstrap libraries) uses all of `IDRIS2_JOBS` instead of
   half of them.
+* The nix package (`nix build`, the default package of the flake) follows the
+  switch of `make` to RefC: the compiler, built with RefC from a compiler
+  bootstrapped with Chez, is `bin/idris2_app/idris2` with a wrapper that lifts
+  the stack limit like the launcher of `make` does.  Its wrapper, and that of
+  the Chez bootstrap package, give the compiler a C compiler (`IDRIS2_CC`,
+  else `CC`, else the one of nixpkgs) and GMP (added to `IDRIS2_CPPFLAGS` and
+  `IDRIS2_LDFLAGS`), which the RefC backend needs to compile programs; `CHEZ`
+  is still set for `--cg chez`.  `buildIdris` installs the executable of RefC
+  without its C sources and objects.
 
 ### Backend changes
 

@@ -19,9 +19,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     - name: Build docs
+      # The versions pinned in docs/uv.lock, in an environment of their own:
+      # a system-wide pip install is refused on recent Ubuntu runners, and
+      # the build fails on any warning (docs/Makefile passes -W).
       run: |
-        sudo apt-get update
-        sudo apt-get install -y python3-sphinx
-        pip3 install -r docs/requirements.txt
+        pipx install uv
         cd docs
-        make html
+        uv run --frozen make html

@@ -94,7 +94,19 @@ let
         mkdir -p $out/bin
         scheme_app="$(find ./build/exec -name '*_app')"
         if [ "$scheme_app" = ''' ]; then
-          mv -- build/exec/* $out/bin/
+          # A backend whose executable is a single file: RefC (the default
+          # code generator) or JavaScript.  RefC leaves its C sources and
+          # objects (name.c, name.o, the units name.uN.c and name.uN.o and
+          # their name.ukey) next to the executable, and the build leaves a
+          # stamp (name.stamp): they are not installed.  The executable of
+          # RefC links the support library statically and finds GMP through
+          # its RPATH (see the wrapper of idris2 in package.nix).
+          for file in build/exec/*; do
+            case "$file" in
+              *.c|*.h|*.o|*.ukey|*.stamp) ;;
+              *) mv -- "$file" $out/bin/ ;;
+            esac
+          done
         else
           bin_name="$(idris2 --dump-ipkg-json ${ipkgFileName} | jq -r '.executable')"
 
