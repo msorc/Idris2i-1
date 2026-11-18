@@ -1,0 +1,62 @@
+package apifix
+
+module ApiFix.Basic
+  public export infixr 5 (:::)
+  export infixl 6 (<+>)
+  export typebind infixr 0 (=@)
+  export total (<+>) : {0 a : Type} -> Prelude.Basics.List a -> Prelude.Basics.List a -> Prelude.Basics.List a
+  export total 0 Erased : Type
+  export total Inner.inner : Prelude.Types.Nat
+  export total consume : {0 a : Type} -> (1 _ : a) -> {0 n : Prelude.Types.Nat} -> Data.Nat.NonZero n => a
+  export partial headOf : {0 a : Type} -> Prelude.Basics.List a -> a
+  public export total helper : Prelude.Types.Nat -> Prelude.Types.Nat
+  export covering loopy : Prelude.Types.Nat -> Prelude.Types.Nat
+  export total deprecated oldName : Prelude.Types.Nat
+  public export total twice : {0 a : Type} -> (a -> a) -> a -> a
+
+module ApiFix.Reexport
+  import public ApiFix.Basic
+  import public ApiFix.Shapes as S
+  export covering area : ApiFix.Shapes.Shape -> Double
+
+module ApiFix.Shapes
+  public export interface Convert : Type -> Type -> Type
+    parameters a b
+    determining a
+    constructor : {0 a : Type} -> {0 b : Type} -> (a -> b) -> ApiFix.Shapes.Convert a b
+    method convert : {0 a : Type} -> {0 b : Type} -> ApiFix.Shapes.Convert a b => a -> b
+  export record Opaque : Type
+    field secret : ApiFix.Shapes.Opaque -> Prelude.Types.Nat
+  public export record Point : Type
+    constructor MkPoint : Double -> (0 _ : Prelude.Types.Nat) -> Double -> ApiFix.Shapes.Point
+    field 0 tag : ApiFix.Shapes.Point -> Prelude.Types.Nat
+    field x : ApiFix.Shapes.Point -> Double
+    field y : ApiFix.Shapes.Point -> Double
+  public export interface Pretty : Type -> Type
+    parameters a
+    constructor MkPretty : {0 a : Type} -> Prelude.Show.Show a => (a -> String) -> (Prelude.Basics.List a -> String) -> ApiFix.Shapes.Pretty a
+    method pretty : {0 a : Type} -> ApiFix.Shapes.Pretty a => a -> String
+    method prettyList : {0 a : Type} -> ApiFix.Shapes.Pretty a => Prelude.Basics.List a -> String
+  public export data Shape : Type
+    constructor Circle : Double -> ApiFix.Shapes.Shape
+    constructor Rect : Double -> Double -> ApiFix.Shapes.Shape
+  export data Token : Type
+  public export data Vec : Prelude.Types.Nat -> Type -> Type
+    constructor Nil : {0 a : Type} -> ApiFix.Shapes.Vec Prelude.Types.Z a
+    constructor (::) : {0 n : Prelude.Types.Nat} -> {0 a : Type} -> a -> (1 _ : ApiFix.Shapes.Vec n a) -> ApiFix.Shapes.Vec (Prelude.Types.S n) a
+  export implementation : ApiFix.Shapes.Convert ApiFix.Shapes.Shape Prelude.Types.Nat
+  export implementation : ApiFix.Shapes.Pretty ApiFix.Shapes.Shape
+  export implementation : Prelude.Show.Show ApiFix.Shapes.Shape
+  export implementation [loud] : Prelude.Show.Show ApiFix.Shapes.Token
+same output from the second build
+Error: While processing right hand side of x. Can't find an implementation for FromString Nat.
+
+Broken:5:5--5:9
+ 1 | module Broken
+ 2 |
+ 3 | export
+ 4 | x : Nat
+ 5 | x = "no"
+         ^^^^
+
+exit status 1

@@ -28,6 +28,7 @@ import Libraries.Text.PrettyPrint.Prettyprinter.Render.String
 
 import Idris.CommandLine
 import Idris.Env
+import Idris.Doc.API
 import Idris.Doc.HTML
 import Idris.Doc.String
 import Idris.Error
@@ -816,32 +817,7 @@ makeDoc pkg opts =
            addImport (MkImport emptyFC False mod ns)
 
            -- generate docs for all visible names
-           defs <- get Ctxt
-           let ctxt = gamma defs
-           visibleDefs <- map catMaybes $ for [1..nextEntry ctxt - 1] $ \ i =>
-             do -- Select the entries that are from `mod` and visible
-                Just gdef <- lookupCtxtExact (Resolved i) ctxt
-                  | _ => pure Nothing
-                let Just nfc = isNonEmptyFC $ location gdef
-                  | _ => do log "doc.module.definitions" 70 $ unwords
-                              [ show mod ++ ":"
-                              , show (fullname gdef)
-                              , "has an empty FC"
-                              ]
-                            pure Nothing
-                let PhysicalIdrSrc mod' = origin nfc
-                  | _ => pure Nothing
-                let True = mod == mod'
-                  | _ => do log "doc.module.definitions" 60 $ unwords
-                              [ show mod ++ ":"
-                              , show (fullname gdef)
-                              , "was defined in"
-                              , show mod'
-                              ]
-                            pure Nothing
-                let True = visible gdef
-                  | _ => pure Nothing
-                pure (Just gdef)
+           visibleDefs <- filter visible <$> definedInModule mod
 
            let outputFilePath = docDir </> (show mod ++ ".html")
            allDocs <- for (sortBy (compare `on` startPos . toNonEmptyFC . location) visibleDefs) $ \ def =>
@@ -902,6 +878,32 @@ makeDoc pkg opts =
 
     fileError : String -> FileError -> Core (List Error)
     fileError filename err = pure [FileErr filename err]
+
+||| Build a package and print the public API of its modules, see
+||| `Idris.Doc.API`. The build is quiet, so that the standard output carries
+||| the API only (and the errors, if the build fails).
+dumpAPI : {auto c : Ref Ctxt Defs} ->
+          {auto s : Ref Syn SyntaxInfo} ->
+          {auto o : Ref ROpts REPLOpts} ->
+          {auto _ : Ref PostS PostSession} ->
+          PkgDesc ->
+          List CLOpt ->
+          Core (List Error)
+dumpAPI pkg opts =
+    do outMode <- idemode <$> get ROpts
+       setOutput (REPL VerbosityLvl.ErrorLvl)
+       errs <- prepareCompilation pkg opts
+       setOutput outMode
+       let [] = errs
+         | errs => pure errs
+       u <- newRef UST initUState
+       let mods = sortBy (compare `on` (show . fst)) (modules pkg)
+       coreLift $ putStrLn ("package " ++ pkg.name)
+       for_ mods $ \ (mod, _) =>
+         do addImport (MkImport emptyFC False mod (miAsNamespace mod))
+            ls <- dumpModuleAPI mod
+            coreLift $ putStr (unlines ("" :: ls))
+       pure []
 
 -- Data.These.bitraverse hand specialised for Core
 bitraverseC : (a -> Core c) -> (b -> Core d) -> These a b -> Core (These c d)
@@ -1081,6 +1083,9 @@ processPackage opts (cmd, mfile)
                   MkDoc => do [] <- makeDoc pkg opts
                                  | errs => coreLift (exitWith (ExitFailure 1))
                               pure ()
+                  DumpAPI => do [] <- dumpAPI pkg opts
+                                   | errs => coreLift (exitWith (ExitFailure 1))
+                                pure ()
                   Install => do [] <- build {jobsFrom} pkg opts
                                    | errs => coreLift (exitWith (ExitFailure 1))
                                 install pkg opts {installSrc = False}

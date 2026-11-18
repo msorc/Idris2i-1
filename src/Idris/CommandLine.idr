@@ -22,6 +22,7 @@ data PkgCommand
       | Install
       | InstallWithSrc
       | MkDoc
+      | DumpAPI
       | Typecheck
       | Clean
       | REPL
@@ -35,6 +36,7 @@ Show PkgCommand where
   show Install = "--install"
   show InstallWithSrc = "--install-with-src"
   show MkDoc = "--mkdoc"
+  show DumpAPI = "--dump-api"
   show Typecheck = "--typecheck"
   show Clean = "--clean"
   show REPL = "--repl"
@@ -324,6 +326,9 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
            MkOpt ["--mkdoc"] [Optional "package file"]
               (\f => [Package MkDoc f])
               (Just "Build documentation for the given package"),
+           MkOpt ["--dump-api"] [Optional "package file"]
+              (\f => [Package DumpAPI f])
+              (Just "Build the given package and print its public API in a stable, diffable form"),
            MkOpt ["--typecheck"] [Optional "package file"]
               (\f => [Package Typecheck f])
               (Just "Typechecks the given package without code generation"),

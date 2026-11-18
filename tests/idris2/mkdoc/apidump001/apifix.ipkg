@@ -1,0 +1,5 @@
+package apifix
+version = 0.1.0
+
+sourcedir = "src"
+modules = ApiFix.Basic, ApiFix.Shapes, ApiFix.Reexport

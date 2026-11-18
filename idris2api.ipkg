@@ -123,6 +123,7 @@ modules =
     Idris.Desugar.Mutual,
     Idris.Env,
     Idris.Doc.Annotations,
+    Idris.Doc.API,
     Idris.Doc.Brackets,
     Idris.Doc.Display,
     Idris.Doc.Keywords,
