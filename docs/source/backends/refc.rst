@@ -213,6 +213,19 @@ functions that the compiler found to only look at some of their arguments
 (see below), which matters for C code that calls the generated functions
 directly.
 
+An Idris function passed to a foreign function is not a C function pointer
+but the closure itself, an ``Idris2_Value *``, which C applies to one argument
+at a time with ``idris2_apply_closure`` (the call consumes a reference to the
+closure and one to the argument, so take a new reference with
+``idris2_newReference`` to a closure that is applied again; the result is a
+new reference).
+A library that wants a function pointer therefore needs a ``RefC:`` wrapper
+with a C function of its own that applies the closure, kept with
+``idris2_newReference`` for as long as the library may call it. Such a
+function must be called by the OS thread that runs the Idris code (in the
+foreign call, or later from a call that Idris makes): a thread that C started
+would use the memory of the main thread of the run time.
+
 A foreign function cannot return a function: the compiler reports it (return a
 ``Ptr`` or ``AnyPtr`` instead).
 

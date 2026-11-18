@@ -52,6 +52,15 @@ should target this file (`CHANGELOG_NEXT`).
     says that a `String` argument is only valid until the C function returns.
     [#2455](https://github.com/idris-lang/Idris2/issues/2455)
 
+  + The FFI overview says how several specifiers of `%foreign` are written
+    (one per line, or after a string literal on the same line), what C type `Int` is (`int` with the Scheme backends, `int64_t` with
+    RefC), what a `NULL` returned as a `String` does, and how long a callback
+    lives with each backend: Chez locks it for ever, so each call that passes
+    one keeps some memory; Racket keeps nothing after the call; RefC passes
+    the closure, not a C function pointer.  A callback is only called by the
+    thread that runs the Idris code.  The Readline sample no longer says that
+    Idris frees the string that a foreign function returns.
+
 ### Compiler changes
 
 * In `%foreign`, `%foreign_impl` and `%export`, a string literal may be

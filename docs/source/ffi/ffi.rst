@@ -257,6 +257,13 @@ others.  Argument types can be any of the following primitives:
 * ``String`` (as ``char*`` in C)
 * ``Ptr t`` and ``AnyPtr`` (both as ``void*`` in C)
 
+The C type of ``Int`` depends on the backend: it is ``int`` (32 bits on the
+usual platforms) with the Scheme backends, where a bigger value does not fit
+(Chez truncates it), and ``int64_t`` with RefC. Use ``Int32`` for a C
+``int`` and ``Int64`` for an ``int64_t``, which are the same with every backend
+(``Int8`` to ``Int64`` and ``Bits8`` to ``Bits64`` are the C types ``int8_t``
+to ``uint64_t``).
+
 Return types can be any of the above, plus:
 
 * ``()``
@@ -283,7 +290,8 @@ So, when passing ``String`` to and from C, remember the following:
   leak the string. Use ``Ptr String``, convert it, and then free it, as shown
   below.
 * If a ``char*`` might be ``NULL`` in ``C``, use ``Ptr String`` rather than
-  ``String``.
+  ``String``. A ``NULL`` returned as a ``String`` crashes the program (with
+  RefC in the call, with Chez where the string is used).
 * A ``String`` passed to a C function is a ``char*`` that is only valid until
   the function returns, and that the function must not change or free. A
   function that keeps the string for later must copy it (``strdup``), not
@@ -439,6 +447,35 @@ due to the callback, but we can do so using ``toPrim : IO a -> PrimIO a``:
 
 Note that the callback is explicitly in ``IO`` here, since ``HasIO`` doesn't
 have a general method for extracting the primitive ``IO`` operation.
+
+How long a callback lives
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Each call of a foreign function that takes a function makes a new C function
+pointer for the Idris function, so that C may call it during the call or
+keep it and call it later (a GUI toolkit that stores an event handler, say).
+The backends differ in how long that pointer stays valid:
+
+* With Chez, it stays valid for ever: the code made for it is locked in
+  memory and never freed. So every such call keeps some memory for the rest of
+  the program (about 350 bytes for an ``Int -> Int`` with Chez 10 on x86-64),
+  and a callback that is only used during the call (the comparison of
+  ``qsort``) leaks it at every call. Register a long lived
+  callback once (when the window is made, not at every event), and avoid
+  calling a foreign function that takes a function in a loop.
+* With Racket, nothing refers to it once the foreign function has returned,
+  so a C library that keeps the pointer and calls it later may call code that
+  has been collected. Only use callbacks during the call with Racket.
+* With RefC and the ``C`` calling convention, C does not get a function
+  pointer but the Idris closure (an ``Idris2_Value *``), which a
+  ``RefC:`` wrapper applies with ``idris2_apply_closure``, see
+  :doc:`../backends/refc`.
+
+With every backend, a callback must be called by the OS thread that runs the
+Idris code: during the foreign call, or later, from a function that Idris
+called (an event loop run by the main program). Calling it from a thread that
+C started is not supported: the Chez run time does not know that thread, and
+the RefC run time takes it for its main thread.
 
 For example, we can extend the above ``pluralise`` example to print a message
 in the callback:

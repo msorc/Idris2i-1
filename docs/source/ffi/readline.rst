@@ -261,14 +261,15 @@ with the memory allocation in the C glue code.
 
 This problem arises because we haven't thought carefully enough about which
 parts of our program are responsible for allocating and freeing strings.
-When Idris calls a foreign function that returns a string, it copies the
-string to the Idris heap and frees it immediately. But, if the foreign
-library also frees the string, it ends up being freed twice. This is what's
-happening here: the callback passed to ``prim__setCompletion`` frees the string
-and puts it onto the Idris heap, but Readline also frees the string returned
-by ``prim__setCompletion`` once it has processed it. We can solve this
-problem by writing a wrapper for the completion function which reallocates
-the string, and using that in ``idrisrl_setCompletion`` instead.
+When an Idris callback returns a ``String`` to C, C gets a pointer to a string
+that the Idris run time owns: it is only valid until the callback returns, and
+C must not free it. (In the other direction, when Idris calls a foreign
+function that returns a ``String``, the string is copied and the C string is
+left alone, see :ref:`sect-ffi-string`.) But Readline frees the string that
+the completion function returns, once it has processed it: here it frees
+memory of the Idris run time. We can solve this problem by writing a wrapper
+for the completion function which copies the string to memory from
+``malloc``, and using that in ``idrisrl_setCompletion`` instead.
 
 ::
 
