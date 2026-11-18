@@ -379,10 +379,27 @@ IDRIS2_CAST_STRING_TO(Int16)
 IDRIS2_CAST_STRING_TO(Int32)
 IDRIS2_CAST_STRING_TO(Int64)
 
+// Is `s` the letters of `word` (in lower case), in any case?
+static int idris2_isWord(char const *s, char const *word) {
+  for (; *word != '\0'; ++s, ++word)
+    if (*s != *word && !(*word >= 'a' && *word <= 'z' && *s == *word - 32))
+      return 0;
+  return *s == '\0';
+}
+
 Idris2_Value *idris2_cast_string_to_Double(Idris2_Value *input) {
   char const *s = ((Idris2_String *)input)->str;
-  switch (strlen(s) == ((Idris2_String *)input)->len ? idris2_numberSyntax(s)
-                                                     : IDRIS2_NOT_A_NUMBER) {
+  int wellFormed = strlen(s) == ((Idris2_String *)input)->len;
+  // The values that are no numbers, written as `show` (and Scheme) writes
+  // them: a sign, then `inf.0` or `nan.0` in any case, and nothing else
+  // (`inf`, `nan` and `Infinity`, which strtod reads, are not numbers).
+  if (wellFormed && (s[0] == '+' || s[0] == '-')) {
+    if (idris2_isWord(s + 1, "inf.0"))
+      return idris2_mkDouble(s[0] == '-' ? -INFINITY : INFINITY);
+    if (idris2_isWord(s + 1, "nan.0"))
+      return idris2_mkDouble(NAN);
+  }
+  switch (wellFormed ? idris2_numberSyntax(s) : IDRIS2_NOT_A_NUMBER) {
   case IDRIS2_INTEGER_SYNTAX:
   case IDRIS2_DECIMAL_SYNTAX:
     return idris2_mkDouble(strtod(s, NULL));

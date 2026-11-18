@@ -810,6 +810,14 @@ should target this file (`CHANGELOG_NEXT`).
   the result type `String`: the generated C no longer fails to compile with
   "initialization discards 'const' qualifier" (the C compiler runs with
   `-Werror`).  `idris2_mkString` of the runtime takes a `const char *`.
+* Casting a `String` to a `Double` reads the values that are not numbers the
+  way `show` writes them, like the Chez backend: `"+inf.0"`, `"-inf.0"` and
+  `"+nan.0"` (and `"-nan.0"`), in any case, which all gave 0.0, so that `cast
+  (show x)` is `x` for every `Double`
+  ([#2261](https://github.com/idris-lang/Idris2/issues/2261)).  Other
+  spellings (`"inf"`, `"nan"`, `"Infinity"`) are still 0.0, as with Chez.  As
+  the compiler built with RefC folds constants with this cast, the cast of a
+  literal changes the same way for every backend.
 
 #### Chez Backend
 
