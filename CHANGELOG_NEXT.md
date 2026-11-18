@@ -1060,7 +1060,10 @@ should target this file (`CHANGELOG_NEXT`).
   truncated three-byte sequence gives one with Chez and Node, two with
   RefC; a surrogate gives one with Chez, three with RefC and Node).  `toHex`/`fromHex` encode and decode
   hexadecimal.  The unsafe code (`unsafePerformIO` over fresh buffers) is
-  confined to `Data.ByteString.Internal`.
+  confined to `Data.ByteString.Internal`, which `Data.ByteString` does not
+  re-export: a program that imports `Data.ByteString` sees the type and the
+  safe functions only (the type is in `Data.ByteString.Types`).  A buffer
+  that cannot be allocated stops the program with an out-of-memory message.
 * Added `Data.ByteString.Builder`, which builds a `ByteString` from bytes,
   integers of 8 to 64 bits in both byte orders, byte strings and UTF-8
   strings in time linear in the size of the result, however the pieces are

@@ -23,7 +23,8 @@
 ||| small; everything below is ordinary total code on top of it.
 module Data.ByteString
 
-import public Data.ByteString.Internal
+import public Data.ByteString.Types
+import Data.ByteString.Internal
 import Data.Bits
 import Data.Buffer
 import Data.Fin

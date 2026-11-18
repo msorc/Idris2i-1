@@ -2,7 +2,8 @@
 ||| of the `Data.ByteString` modules is written on.
 |||
 ||| Most programs should import `Data.ByteString`, which re-exports the type
-||| from here.  The functions named `unsafe...` below exist so that
+||| from `Data.ByteString.Types` and not the functions of this module.  The
+||| functions named `unsafe...` below exist so that
 ||| `Data.ByteString.Builder` and `System.File.ByteString` can construct byte
 ||| strings; they are safe if used as documented, but the compiler cannot check
 ||| that.
@@ -33,17 +34,10 @@
 ||| creating functions build one, and the former has it as a precondition.
 module Data.ByteString.Internal
 
+import public Data.ByteString.Types
 import Data.Buffer
 
 %default total
-
-||| An immutable sequence of bytes: a slice of a buffer that is never written
-||| after it has been filled.  Slicing (`take`, `drop`, `splitAt`...) takes
-||| constant time and shares the buffer; `Data.ByteString.copy` makes a
-||| slice that owns its bytes.
-export
-data ByteString : Type where
-  BS : (buf : Buffer) -> (off : Int) -> (len : Int) -> ByteString
 
 --------------------------------------------------------------------------
 -- Loops in `IO` that do not grow the stack
@@ -85,18 +79,18 @@ ioForList xs start act = fromPrim (go xs start)
 ||| The length in bytes, as an `Int` (never negative).
 export %inline
 lengthInt : ByteString -> Int
-lengthInt (BS _ _ n) = n
+lengthInt (UnsafeBS _ _ n) = n
 
 ||| The underlying buffer.  It must be treated as read only, and it is
 ||| bigger than the byte string if the latter is a slice.
 export %inline
 unsafeBuffer : ByteString -> Buffer
-unsafeBuffer (BS b _ _) = b
+unsafeBuffer (UnsafeBS b _ _) = b
 
 ||| Where the bytes start in `unsafeBuffer`.
 export %inline
 unsafeOffset : ByteString -> Int
-unsafeOffset (BS _ o _) = o
+unsafeOffset (UnsafeBS _ o _) = o
 
 ||| The byte at an index.  Precondition: `0 <= i < lengthInt bs`; the index
 ||| is not checked (RefC aborts and the other backends read what is there or
@@ -106,13 +100,13 @@ unsafeOffset (BS _ o _) = o
 ||| after creation (see the module header).
 export
 unsafeIndex : ByteString -> Int -> Bits8
-unsafeIndex (BS b o _) i = unsafePerformIO (getBits8 b (o + i))
+unsafeIndex (UnsafeBS b o _) i = unsafePerformIO (getBits8 b (o + i))
 
 ||| The slice `[start, start + n)` of a byte string, sharing its buffer.
 ||| Precondition: `0 <= start`, `0 <= n` and `start + n <= lengthInt bs`.
 export
 unsafeSlice : (start : Int) -> (n : Int) -> ByteString -> ByteString
-unsafeSlice start n (BS b o _) = BS b (o + start) n
+unsafeSlice start n (UnsafeBS b o _) = UnsafeBS b (o + start) n
 
 ||| Copy the bytes of a byte string into a buffer at an offset.
 ||| Precondition: the destination has room for them.  The destination must
@@ -120,7 +114,7 @@ unsafeSlice start n (BS b o _) = BS b (o + start) n
 ||| the only kind that anyone may write).
 export
 unsafeCopyTo : ByteString -> (dst : Buffer) -> (dstOffset : Int) -> IO ()
-unsafeCopyTo (BS b o n) dst at = copyData b o n dst at
+unsafeCopyTo (UnsafeBS b o n) dst at = copyData b o n dst at
 
 -- Stop the program: a buffer that was asked for could not be allocated.  It
 -- has any result type, so that it can be used where a value is expected.
@@ -147,12 +141,12 @@ export
 unsafeCreate : (n : Int) -> (fill : Buffer -> IO ()) -> ByteString
 unsafeCreate n fill =
   if n <= 0
-     then unsafePerformIO (do b <- emptyBuffer; pure (BS b 0 0))
+     then unsafePerformIO (do b <- emptyBuffer; pure (UnsafeBS b 0 0))
      else unsafePerformIO $ do
             Just b <- newBuffer n
               | Nothing => outOfMemory n
             fill b
-            pure (BS b 0 n)
+            pure (UnsafeBS b 0 n)
 
 ||| Like `unsafeCreate`, for an action in any `HasIO` monad that tells how
 ||| many of the `n` bytes it wrote (from the start), or fails with an error:
@@ -170,9 +164,9 @@ createIO : HasIO io => (n : Int) -> (fill : Buffer -> io (Either e Int)) ->
 createIO n fill =
   if n <= 0
      then do b <- emptyBuffer
-             pure (Right (BS b 0 0))
+             pure (Right (UnsafeBS b 0 0))
      else do Just b <- newBuffer n
                | Nothing => outOfMemory n
              Right used <- fill b
                | Left err => pure (Left err)
-             pure (Right (BS b 0 (if used < 0 then 0 else if used > n then n else used)))
+             pure (Right (UnsafeBS b 0 (if used < 0 then 0 else if used > n then n else used)))
