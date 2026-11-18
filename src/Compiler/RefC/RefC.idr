@@ -907,10 +907,16 @@ sigArgsToC env owned ((v, False) :: rest)
 ||| Can the call be made in tail position, i.e. are no variables that we own
 ||| (or C integers, which are passed as new values) passed to borrowed
 ||| parameters?  They would have to be released after the call.  The borrow
-||| analysis makes such parameters owned.
+||| analysis makes such parameters owned.  (An erased argument, `ANull`, is
+||| never owned, as in the analysis, although the free variables of the body,
+||| which we own, can have it: a specialised copy of a function keeps its
+||| erased parameters, and its calls to itself pass them.)
 tailBorrowsOK : Env -> List (AVar, Bool) -> Bool
-tailBorrowsOK env
-    = all (\(v, b) => not b || not (contains v env.owned || isUnboxedIn env.unboxed v))
+tailBorrowsOK env = all ok
+  where
+    ok : (AVar, Bool) -> Bool
+    ok (ANull, _) = True
+    ok (v, b) = not b || not (contains v env.owned || isUnboxedIn env.unboxed v)
 
 ||| The arguments of a call, paired with whether the parameters are borrowed.
 withSignature : Env -> Name -> List AVar -> (Bool, List (AVar, Bool))
