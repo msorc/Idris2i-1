@@ -18,6 +18,7 @@ import Core.Hash
 import Core.Metadata
 import Core.Termination.Positivity
 import Core.Unify
+import Core.UniverseCheck
 
 import Parser.Unlit
 
@@ -484,7 +485,12 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
                             processDecls (decls mod)
                 totErrs <- logTime 3 ("Totality check overall")
                             getTotalityErrors
-                let errs = errs ++ totErrs
+                uErrs <- if isNil errs
+                            then catch (do finishModuleUniverses mod.headerLoc
+                                           pure [])
+                                       (\err => pure [err])
+                            else pure []
+                let errs = errs ++ totErrs ++ uErrs
 --                 coreLift $ gc
 
                 when (isNil errs) $

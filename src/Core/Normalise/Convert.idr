@@ -422,8 +422,12 @@ mutual
     convGen q i defs env (NErased {}) _ = pure True
     convGen q i defs env _ (NErased {}) = pure True
     convGen q i defs env (NType _ ul) (NType _ ur)
-        = -- TODO Cumulativity: Add constraint here
-          pure True
+        = -- Conversion identifies the two universes. Elaboration does not
+          -- care, but the universe checker (Core.UniverseCheck) collects the
+          -- pairs here and makes them equal.
+          do whenJust (ucollect defs) $ \ r =>
+               when (ul /= ur) $ coreLift $ modifyIORef r ((ul, ur) ::)
+             pure True
     convGen q i defs env x y = pure False
 
   export

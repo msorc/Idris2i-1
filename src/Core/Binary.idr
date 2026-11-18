@@ -8,6 +8,7 @@ import Core.Context.Log
 import Core.Options
 import Core.Profile
 import Core.TTC
+import Core.UniverseCheck
 import Core.UnifyState
 
 import Data.Buffer
@@ -80,6 +81,16 @@ record TTCFile extra where
   cgdirectives : SortedSet (CG, String)
   transforms : List (Name, Transform)
   foreignExports : List (Name, (List (String, String)))
+  universesChecked : Bool
+    -- ^ whether the module was built with --check-universes
+  uconstraints : List UEdge
+    -- ^ the universe constraints of the module's definitions (with full names)
+  ufixed : List Name
+    -- ^ the universes which can't be renamed (see Core.UniverseCheck)
+  uschemas : List (Name, USchema)
+    -- ^ the universe polymorphism of the module's definitions
+  utypeowners : List (Name, Name)
+    -- ^ which definition's type each universe belongs to
   extraData : extra
 
 HasNames a => HasNames (List a) where
@@ -120,7 +131,7 @@ HasNames e => HasNames (TTCFile e) where
                       imported nextVar currentNS nestedNS
                       pairnames rewritenames primnames foreignImpl
                       namedirectives cgdirectives trans
-                      fexp extra)
+                      fexp uchk ucs ufs uss uos extra)
       = pure $ MkTTCFile version totalReq sourceHash ifaceHash iHashes incData
                          srcHdr context userHoles
                          !(traverse (full gam) autoHints)
@@ -134,6 +145,7 @@ HasNames e => HasNames (TTCFile e) where
                          cgdirectives
                          !(full gam trans)
                          !(full gam fexp)
+                         uchk ucs ufs uss uos
                          !(full gam extra)
     where
       fullPair : Context -> Maybe PairNames -> Core (Maybe PairNames)
@@ -168,7 +180,7 @@ HasNames e => HasNames (TTCFile e) where
                       imported nextVar currentNS nestedNS
                       pairnames rewritenames primnames foreignImpl
                       namedirectives cgdirectives trans
-                      fexp extra)
+                      fexp uchk ucs ufs uss uos extra)
       = pure $ MkTTCFile version totalReq sourceHash ifaceHash iHashes incData
                          srcHdr context userHoles
                          !(traverse (resolved gam) autoHints)
@@ -182,6 +194,7 @@ HasNames e => HasNames (TTCFile e) where
                          cgdirectives
                          !(resolved gam trans)
                          !(resolved gam fexp)
+                         uchk ucs ufs uss uos
                          !(resolved gam extra)
     where
       resolvedPair : Context -> Maybe PairNames -> Core (Maybe PairNames)
@@ -240,6 +253,11 @@ writeTTCFile b file_in
            toBuf (Prelude.toList $ cgdirectives file)
            toBuf (transforms file)
            toBuf (foreignExports file)
+           toBuf (universesChecked file)
+           toBuf (uconstraints file)
+           toBuf (ufixed file)
+           toBuf (uschemas file)
+           toBuf (utypeowners file)
 
 readTTCFile : TTC extra =>
               {auto c : Ref Ctxt Defs} ->
@@ -267,7 +285,7 @@ readTTCFile readall file as b
                                    0 (mkNamespace "") [] Nothing
                                    Nothing
                                    (MkPrimNs Nothing Nothing Nothing Nothing Nothing Nothing Nothing)
-                                   empty [] empty [] [] ex)
+                                   empty [] empty [] [] False [] [] [] [] ex)
               else do
                  defs <- fromBuf
                  uholes <- fromBuf
@@ -284,11 +302,17 @@ readTTCFile readall file as b
                  let cgds = SortedSet.fromList (!fromBuf)
                  trans <- fromBuf
                  fexp <- fromBuf
+                 uchk <- fromBuf
+                 ucs <- fromBuf
+                 ufs <- fromBuf
+                 uss <- fromBuf
+                 uos <- fromBuf
                  pure (MkTTCFile ver totalReq
                                  sourceFileHash ifaceHash importHashes incData
                                  srcHdr (map (replaceNS cns) defs) uholes
                                  autohs typehs imp nextv cns nns
-                                 pns rws prims foreignImpl nds cgds trans fexp ex)
+                                 pns rws prims foreignImpl nds cgds trans fexp
+                                 uchk ucs ufs uss uos ex)
   where
     -- We don't store full names in 'defs' - we remove the namespace if it's
     -- the same as the current namespace. So, this puts it back.
@@ -450,6 +474,11 @@ writeToTTC extradata sourceFileName ttcFileName
                               (cgdirectives defs)
                               (saveTransforms defs)
                               (NameMap.toList (foreignExports defs))
+                              (checkUniverses (session (options defs)))
+                              (saved (universes defs))
+                              (savedFixed (universes defs))
+                              (savedSchemas (universes defs))
+                              (savedTypeOwner (universes defs))
                               extradata)
 
          Right ok <- coreLift $ writeToFile ttcFileName !(get Bin)
@@ -718,6 +747,11 @@ readFromTTC {cacheAs} nestedns loc reexp fname modNS importAs
                     updateCGDirectives (cgdirectives ttc)
                     updateTransforms (transforms ttc)
                     updateFExports (foreignExports ttc)
+                    when (checkUniverses (session (options defs))) $
+                      if universesChecked ttc
+                         then addImportedUniverses loc (uconstraints ttc)
+                                (ufixed ttc) (uschemas ttc) (utypeowners ttc)
+                         else update Ctxt { universes->uncheckedImports $= (show modNS ::) }
 
                when (not reexp) clearSavedHints
                resetFirstEntry

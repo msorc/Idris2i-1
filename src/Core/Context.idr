@@ -3,6 +3,7 @@ module Core.Context
 import        Core.Case.CaseTree
 import        Core.CompileExpr
 import public Core.Context.Context
+import public Core.Context.Universe
 import public Core.Core
 import        Core.Env
 import        Core.Hash
@@ -72,7 +73,6 @@ initCtxtS s
             , allPublic = False
             , inlineOnly = False
             , hidden = empty
-            , uconstraints = []
             , profiler = Nothing
             }
 
@@ -421,22 +421,6 @@ HasNames Name where
       = do let Just i = getNameID n gam
                     | Nothing => pure n
            pure (Resolved i)
-
-export
-HasNames UConstraint where
-  full gam (ULT x y)
-      = do x' <- full gam x; y' <- full gam y
-           pure (ULT x' y')
-  full gam (ULE x y)
-      = do x' <- full gam x; y' <- full gam y
-           pure (ULE x' y')
-
-  resolved gam (ULT x y)
-      = do x' <- resolved gam x; y' <- resolved gam y
-           pure (ULT x' y')
-  resolved gam (ULE x y)
-      = do x' <- resolved gam x; y' <- resolved gam y
-           pure (ULE x' y')
 
 export
 HasNames (Term vars) where
@@ -1225,7 +1209,14 @@ record Defs where
      -- new context (empty until it has once), kept when the context is
      -- cleared: they are the same each time, and compiling them again costs
      -- more than adding them
-
+  universes : UniverseInfo
+     -- ^ The universe constraints of the definitions checked so far, when
+     -- checking universes (see Core.UniverseCheck)
+  ucollect : Maybe (IORef (List (Name, Name)))
+     -- ^ When set, conversion checking records here the pairs of universe
+     -- names it identifies (see Core.Normalise.Convert)
+  ufresh : IORef Int
+     -- ^ For the names of the copies of universes (Core.UniverseCheck)
 
 -- Label for context references
 export
@@ -1242,6 +1233,7 @@ initDefs : Core Defs
 initDefs
     = do gam <- initCtxt
          opts <- defaults
+         ufr <- coreLift $ newIORef 0
          pure $ MkDefs
            { gamma = gam
            , mutData = []
@@ -1286,6 +1278,9 @@ initDefs
            , ttcDirs = empty
            , ttcCache = MkTTCCache empty 0 ttcCacheLimit 0 empty
            , primDefs = []
+           , universes = initUniverseInfo
+           , ucollect = Nothing
+           , ufresh = ufr
            }
 
 -- Reset the context, except for the options

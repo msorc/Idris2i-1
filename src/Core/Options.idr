@@ -257,6 +257,9 @@ record Session where
      -- (for testing) the key of every specialised copy of a function is the
      -- same, whatever its static arguments, so that the copies collide (see
      -- TTImp.PartialEval.copyName)
+  checkUniverses : Bool
+     -- check that the universe levels of the definitions are consistent
+     -- (see Core.UniverseCheck)
 
 public export
 record PPrinter where
@@ -325,7 +328,7 @@ defaultSession = MkSessionOpts False CoveringOnly False False RefC [] 1000 False
                                defaultLogLevel Nothing False Nothing Nothing
                                Nothing Nothing False 1 5 False False True
                                HumanErrors True False False False [] False False False
-                               False
+                               False False
 
 export
 defaultElab : ElabDirectives

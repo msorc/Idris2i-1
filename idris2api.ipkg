@@ -70,6 +70,7 @@ modules =
     Core.Context.Log,
     Core.Context.Pretty,
     Core.Context.TTC,
+    Core.Context.Universe,
     Core.Core,
     Core.Coverage,
     Core.Coverage.Methods,
@@ -116,6 +117,7 @@ modules =
     Core.TTC,
     Core.Unify,
     Core.UnifyState,
+    Core.UniverseCheck,
     Core.Value,
     Core.WithData,
 

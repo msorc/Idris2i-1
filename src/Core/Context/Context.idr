@@ -431,30 +431,6 @@ data PossibleName : Type where
              Name -> Int -> -- real full name and resolved name, as above
              PossibleName
 
-public export
-data UConstraint : Type where
-     ULE : Name -> Name -> UConstraint
-     ULT : Name -> Name -> UConstraint
-
-export
-Eq UConstraint where
-  ULE x y == ULE x' y' = x == x' && y == y'
-  ULT x y == ULT x' y' = x == x' && y == y'
-  _ == _ = False
-
-export
-Ord UConstraint where
-  compare (ULE {}) (ULT {}) = LT
-  compare (ULT {}) (ULE {}) = GT
-  compare (ULE x y) (ULE x' y')
-      = case compare x x' of
-             EQ => compare y y'
-             t => t
-  compare (ULT x y) (ULT x' y')
-      = case compare x x' of
-             EQ => compare y y'
-             t => t
-
 -- All the GlobalDefs. We can only have one context, because name references
 -- point at locations in here, and if we have more than one the indices won't
 -- match up. So, this isn't polymorphic.
@@ -488,7 +464,6 @@ record Context where
                      -- features such as case splitting).
     inlineOnly : Bool -- only return things with the 'alwaysReduce' flag
     hidden : NameMap () -- Never return these
-    uconstraints : List UConstraint
     -- The timers and counters of --timing-summary (shared by the copies
     -- of the context that backtracking makes, see Core.Profile)
     profiler : Maybe Profiler

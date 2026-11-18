@@ -1151,6 +1151,7 @@ partitionOpts opts = foldr pOptUpdate (MkPFR [] [] False) opts
     optType WarningsAsErrors       = POpt
     optType WarnWhereRecompute     = POpt
     optType MethodTotality         = POpt
+    optType CheckUniverses         = POpt
     optType SpecInterfaces         = POpt
     optType HashesInsteadOfModTime = POpt
     optType Profile                = POpt

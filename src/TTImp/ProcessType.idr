@@ -4,6 +4,7 @@ import Core.Env
 import Core.Hash
 import Core.Metadata
 import Core.UnifyState
+import Core.UniverseCheck
 import Core.Value
 
 import Idris.REPL.Opts
@@ -183,6 +184,7 @@ processType {vars} eopts nest env fc rig vis opts ty_raw
                    safeErase := dterased,
                    inferrable := infargs }
                  (newDef fc n rig vars fullty (specified vis) def))
+         checkTypeUniverses fc n fullty
          -- Flag it as checked, because we're going to check the clauses
          -- from the top level.
          -- But, if it's a case block, it'll be checked as part of the top

@@ -191,6 +191,7 @@ knownTopics = [
     ("unelab.case", Just "Unelaborating a case block"),
     ("unelab.case.clause", Just "Unelaborating a case block's clauses"),
     ("unelab.var", Nothing),
+    ("universe", Just "Universe checking (--check-universes)"),
     ("unify", Nothing),
     ("unify.application", Nothing),
     ("unify.binder", Nothing),

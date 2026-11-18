@@ -287,6 +287,7 @@ settings mainNS mainFile
                 , "noprelude \{show (noprelude sess)}"
                 , "debugelabcheck \{show (debugElabCheck sess)}"
                 , "debugspeccollide \{show (debugSpecCollide sess)}"
+                , "checkuniverses \{show (checkUniverses sess)}"
                 , "wholeprogram \{show (wholeProgram sess)}"
                 , "incremental \{show (map show (incrementalCGs sess))}"
                 , "build_dir \{show (build_dir d)}"

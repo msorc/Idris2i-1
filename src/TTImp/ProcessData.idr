@@ -7,6 +7,7 @@ import Core.FieldRep
 import Core.Hash
 import Core.Metadata
 import Core.UnifyState
+import Core.UniverseCheck
 import Core.Value
 
 import Idris.REPL.Opts
@@ -427,6 +428,7 @@ processData {vars} eopts nest env fc def_vis mbtot (MkImpLater dfc n_in ty_raw)
          tidx <- addDef n (newDef fc n top vars fullty def_vis
                           (TCon arity NatSet.empty NatSet.empty defaultFlags [] Nothing Nothing))
          addMutData (Resolved tidx)
+         checkTypeUniverses fc n fullty
          defs <- get Ctxt
          traverse_ (\n => setMutWith fc n (mutData defs)) (mutData defs)
 
@@ -502,6 +504,7 @@ processData {vars} eopts nest env fc def_vis mbtot (MkImpData dfc n_in mty_raw o
                         Nothing => pure (mw, vis, tot, type ndef)
                         Just fullty =>
                             do ok <- convert defs Env.empty fullty (type ndef)
+                               when ok $ checkSameTypeUniverses fc n fullty (type ndef)
                                if ok then pure (mw, vis, tot, fullty)
                                      else do logTermNF "declare.data" 1 "Previous" Env.empty (type ndef)
                                              logTermNF "declare.data" 1 "Now" Env.empty fullty
@@ -529,6 +532,8 @@ processData {vars} eopts nest env fc def_vis mbtot (MkImpData dfc n_in mty_raw o
 
          let ddef = MkData (Mk [dfc, NoFC n, arity] fullty) cons
          ignore $ addData vars vis tidx ddef
+         checkDataUniverses fc (Resolved tidx) fullty
+                            (map (\ con => (con.name.val, con.val)) cons)
 
          -- Flag data type as a newtype, if possible (See `findNewtype` for criteria).
          -- Skip optimisation if the data type has specified `noNewtype` in its

@@ -557,6 +557,9 @@ preOptions (ListErrorCodes :: _)
 preOptions (WarnWhereRecompute :: opts)
     = do updateSession ({ warnWhereRecompute := True })
          preOptions opts
+preOptions (CheckUniverses :: opts)
+    = do updateSession ({ checkUniverses := True })
+         preOptions opts
 preOptions (HashesInsteadOfModTime :: opts)
     = do throw (InternalError "-Xcheck-hashes disabled (see issue #1935)")
          updateSession ({ checkHashesInsteadOfModTime := True })

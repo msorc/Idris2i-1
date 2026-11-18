@@ -14,6 +14,7 @@ import Core.Termination.CallGraph
 import Core.Transform
 import Core.Value
 import Core.UnifyState
+import Core.UniverseCheck
 
 import Idris.REPL.Opts
 import Idris.Syntax
@@ -982,6 +983,7 @@ processDef opts nest env fc n_in cs_in
                                      hashit nidx opts nest env) cs_in
 
          let pats = map toPats (rights cs)
+         checkClauseUniverses fc n pats
 
          (cargs ** (tree_ct, unreachable)) <-
              logTime 3 ("Building compile time case tree for " ++ show n) $ profile "casetree" $

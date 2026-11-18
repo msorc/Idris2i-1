@@ -1266,3 +1266,16 @@ Core.Context.decode gam idx update (Coded ns bin)
               when update $ coreLift_ $ writeArray arr idx (Decoded def')
               pure def'
 Core.Context.decode gam idx update (Decoded def) = pure def
+
+export
+TTC UEdge where
+  toBuf e
+      = do toBuf e.lo; toBuf e.hi; toBuf e.strict; toBuf e.origin
+  fromBuf
+      = do lo <- fromBuf; hi <- fromBuf; strict <- fromBuf; origin <- fromBuf
+           pure (MkUEdge lo hi strict origin)
+
+export
+TTC USchema where
+  toBuf s = do toBuf s.poly; toBuf s.edges
+  fromBuf = do ps <- fromBuf; es <- fromBuf; pure (MkUSchema ps es (-1))

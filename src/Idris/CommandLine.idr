@@ -177,6 +177,8 @@ data CLOpt
    ||| Warn about local definitions without arguments which use the
    ||| enclosing definition's variables (they are recomputed at each use)
   WarnWhereRecompute |
+   ||| Check that the universe levels of the definitions are consistent
+  CheckUniverses |
    ||| Use SHA256 hashes to determine if a source file needs rebuilding instead
    ||| of modification time.
   HashesInsteadOfModTime |
@@ -298,6 +300,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               (Just "Require functions to be total by default"),
            MkOpt ["--method-totality"] [] [MethodTotality]
               (Just "Count the methods of the implementations a function uses in its totality"),
+           MkOpt ["--check-universes"] [] [CheckUniverses]
+              (Just "Check that the universe levels of the definitions are consistent (experimental, see the documentation for what it covers)"),
            MkOpt ["-Werror"] [] [WarningsAsErrors]
               (Just "Treat warnings as errors"),
            MkOpt ["-Wno-shadowing"] [] [IgnoreShadowingWarnings]
