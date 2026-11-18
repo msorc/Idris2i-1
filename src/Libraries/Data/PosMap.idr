@@ -8,6 +8,8 @@ module Libraries.Data.PosMap
 
 import Core.FC
 
+import Data.List
+
 %hide Prelude.Ops.infixr.(<|)
 %hide Prelude.Ops.infixl.(|>)
 
@@ -24,6 +26,26 @@ FileRange = (FilePos, FilePos)
 ||| with the maximum of the high endpoints.
 data RMFileRange = MkRange FileRange FilePos
 
+-- Comparisons of positions and ranges, written out: the generic ones go
+-- through the Ord dictionaries of pairs and Int at every step, and the
+-- measures of the finger tree compare positions all the time.
+ltPos : FilePos -> FilePos -> Bool
+ltPos (l, c) (l', c') = l < l' || (l == l' && c < c')
+
+eqPos : FilePos -> FilePos -> Bool
+eqPos (l, c) (l', c') = l == l' && c == c'
+
+maxPos : FilePos -> FilePos -> FilePos
+maxPos p q = if ltPos q p then p else q
+
+-- `geRange x y` is `x >= y`
+geRange : FileRange -> FileRange -> Bool
+geRange (s, e) (s', e') = ltPos s' s || (eqPos s s' && not (ltPos e e'))
+
+-- `gtRange x y` is `x > y`
+gtRange : FileRange -> FileRange -> Bool
+gtRange (s, e) (s', e') = ltPos s' s || (eqPos s s' && ltPos e' e)
+
 Eq RMFileRange where
   (MkRange low high) == (MkRange low' high') = low == low' && high == high'
 
@@ -39,7 +61,7 @@ Semigroup RMFileRange where
   --    serving as signpost keys.
   -- 2) the operation on high endpoints returns the maximum of the endpoints,
   --    thus the FingerTree behaves as a max-priority queue.
-  (MkRange low high) <+> (MkRange low' high') = MkRange low' (max high high')
+  (MkRange low high) <+> (MkRange low' high') = MkRange low' (maxPos high high')
 
 data Interval = MkInterval RMFileRange | NoInterval
 
@@ -533,23 +555,62 @@ Show a => Show (PosMap a) where
   showPrec p xs = showCon p "fromList" $ showArg (foldr (::) [] xs)
 
 larger : FileRange -> Interval -> Bool
-larger i (MkInterval (MkRange k _)) = k >= i
+larger i (MkInterval (MkRange k _)) = geRange k i
 larger i NoInterval = False
 
 larger' : FileRange -> Interval -> Bool
-larger' i (MkInterval (MkRange k _)) = k > i
+larger' i (MkInterval (MkRange k _)) = gtRange k i
 larger' i NoInterval = False
 
 ||| Inserts a new element in the map, in lexicographical order.
+||| It goes before the elements with the same interval.
 export
 insert : Measure a => a -> PosMap a -> PosMap a
-insert v m = let (l, r) = split (larger (measure v)) m in l ++ (v <| r)
+insert v m
+    = case measureTree m of
+           -- After everything there (the common case: the elements are
+           -- mostly added in the order of the source), the split would
+           -- return the map whole: just add the element at the end
+           MkInterval (MkRange k _) =>
+              if gtRange (measure v) k
+                 then m |> v
+                 else let (l, r) = split (larger (measure v)) m in l ++ (v <| r)
+           NoInterval => Single v
+
+-- A stable merge sort by interval
+sortByRange : Measure a => List a -> List a
+sortByRange xs = assert_total $ go (length xs) xs -- halves the list
+  where
+    -- Merge, the left one first when the intervals are equal
+    merge : List a -> List a -> List a -> List a
+    merge acc [] ys = reverseOnto ys acc
+    merge acc xs [] = reverseOnto xs acc
+    merge acc (x :: xs) (y :: ys)
+        = if gtRange (measure x) (measure y)
+             then merge (y :: acc) (x :: xs) ys
+             else merge (x :: acc) xs (y :: ys)
+
+    half : Nat -> Nat
+    half (S (S k)) = S (half k)
+    half _ = Z
+
+    covering
+    go : Nat -> List a -> List a
+    go _ [] = []
+    go _ [x] = [x]
+    go n xs
+        = let h = half n
+              (l, r) = splitAt h xs in
+              merge [] (go h l) (go (n `minus` h) r)
 
 ||| Builds a new map from a list of measurable elements, inserting in
 ||| lexicographical order.
+||| It is `foldr insert empty`: the elements with the same interval stay in
+||| the order of the list.  It sorts the list and builds the map from it
+||| directly.
 export
 fromList : Measure a => List a -> PosMap a
-fromList = foldr insert empty
+fromList xs = foldl (|>) Empty (sortByRange xs)
 
 merge1 : Measure a => PosMap a -> PosMap a -> PosMap a
 merge2 : Measure a => PosMap a -> PosMap a -> PosMap a
@@ -572,11 +633,11 @@ union : Measure a => PosMap a -> PosMap a -> PosMap a
 union xs ys = merge1 xs ys
 
 atleast : FilePos -> Interval -> Bool
-atleast k (MkInterval (MkRange _ high)) = k <= high
+atleast k (MkInterval (MkRange _ high)) = not (ltPos high k)
 atleast k NoInterval = False
 
 greater : FilePos -> Interval -> Bool
-greater k (MkInterval (MkRange low _)) = fst low > k
+greater k (MkInterval (MkRange low _)) = ltPos k (fst low)
 greater k NoInterval = False
 
 ||| Finds all the intervals that overlap with the given interval.

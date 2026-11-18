@@ -342,8 +342,11 @@ addSemanticDecorations decors
          unless (isNil droppedDecors)
            $ log "ide-mode.highlight" 19 $ "ignored adding decorations to "
                ++ show meta.sourceIdent ++ ": " ++ show droppedDecors
+         -- Inserting the few new decorations one by one is the same as
+         -- `fromList newDecors `union` posmap` (each one goes before the
+         -- equal ones already there), but does not rebuild the map.
          put MD $ {semanticHighlighting
-                     := (fromList newDecors) `union` posmap} meta
+                     := foldr insert posmap newDecors} meta
 
 
 -- Normalise all the types of the names, since they might have had holes
