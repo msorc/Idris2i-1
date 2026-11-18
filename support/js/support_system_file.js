@@ -68,7 +68,7 @@ function support_system_file_getStr () {
 
 function support_system_file_getChar() {
   const readBuf = Buffer.alloc(1);
-  if (support_system_file_fs.readSync(process.stdin.fd, readBuf, 0, 1) === 0) {
+  if (support_system_file_fs.readSync(0, readBuf, 0, 1) === 0) {
     // No bytes read, getChar from libc returns -1 in this case.
     return String.fromCharCode(-1)
   } else {

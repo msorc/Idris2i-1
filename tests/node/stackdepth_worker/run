@@ -1,0 +1,15 @@
+. ../../testutils.sh
+
+rm -rf testdir
+mkdir testdir
+touch testdir/marker
+
+idris2 -o deep Deep.idr
+echo "a line" | ./build/exec/deep
+echo "exit code: $?"
+
+# without the worker thread the stack is too small
+echo "a line" | IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/deep > /dev/null 2>&1
+echo "exit code on the main thread: $?"
+
+rm -rf testdir

@@ -828,9 +828,16 @@ compileToES c s cg tm ccTypes = do
   mainName <- compact . var !(get NoMangleMap) <$> getOrRegisterRef mainExpr
 
   -- main function and list of all declarations
-  let main =  "try{"
-           ++ mainName
-           ++ "()}catch(e){if(e instanceof IdrisError){console.log('ERROR: ' + e.message)}else{throw e} }"
+  let runMain =  "try{"
+              ++ mainName
+              ++ "()}catch(e){if(e instanceof IdrisError){console.log('ERROR: ' + e.message)}else{throw e} }"
+
+      -- Node runs the main function on a large stack of its own
+      -- (see `js/node_main.js`)
+      onNode = "node" `elem` ccTypes
+
+      main = if onNode then "__idris2_runMain(() => {" ++ runMain ++ "})"
+                       else runMain
 
       allDecls = fastUnlines $ foreigns ++ defDecls
 
@@ -838,9 +845,10 @@ compileToES c s cg tm ccTypes = do
 
   -- main preamble containing primops implementations
   static_preamble <- readDataFile ("js/support.js")
+  node_main <- if onNode then readDataFile ("js/node_main.js") else pure ""
 
   -- complete preamble, including content from additional
   -- support files (if any)
-  let pre = showSep "\n" $ static_preamble :: (values $ preamble st)
+  let pre = showSep "\n" $ static_preamble :: node_main :: (values $ preamble st)
 
   pure $ fastUnlines [pre,allDecls,main]
