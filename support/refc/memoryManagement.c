@@ -904,7 +904,7 @@ Idris2_String *idris2_mkStringOwned(char *s) {
   return retVal;
 }
 
-Idris2_String *idris2_mkString(char *s) {
+Idris2_String *idris2_mkString(const char *s) {
   return idris2_mkStringN(s, strlen(s));
 }
 

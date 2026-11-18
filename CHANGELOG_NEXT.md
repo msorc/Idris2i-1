@@ -797,6 +797,10 @@ should target this file (`CHANGELOG_NEXT`).
   `srand`.  A future is a green thread, which runs in parallel with the
   others; on the platforms without green threads, its value is computed
   when it is made.
+* A C function that is declared to return a `const char *` can be bound with
+  the result type `String`: the generated C no longer fails to compile with
+  "initialization discards 'const' qualifier" (the C compiler runs with
+  `-Werror`).  `idris2_mkString` of the runtime takes a `const char *`.
 
 #### Chez Backend
 

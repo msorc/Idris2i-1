@@ -284,7 +284,8 @@ Idris2_Value *idris2_mkInt32_Boxed(int32_t i);
 Idris2_Integer *idris2_mkInteger();
 Idris2_Value *idris2_mkIntegerLiteral(char *i);
 Idris2_String *idris2_mkEmptyString(size_t l);
-Idris2_String *idris2_mkString(char *);
+// Copies s; s stays with the caller.
+Idris2_String *idris2_mkString(const char *);
 // The l bytes at s (which may include NUL characters).
 Idris2_String *idris2_mkStringN(char const *s, size_t l);
 // Takes ownership of a string from malloc instead of copying it.

@@ -1983,15 +1983,21 @@ packCFType n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type i
 
 ||| The result of a foreign function.  A String returned by a function of the
 ||| `RefC` calling convention is an Idris value (a new reference); one from a
-||| plain C function is a `char *`, which is copied.
+||| plain C function is a `char *`, which is copied and never freed: the
+||| function may well return a string that it keeps (`getenv`, `strerror`, a
+||| literal), and the Scheme backends do not free it either.
 packFFIResult : CLang -> (cfType : CFType) -> (varName : String) -> String
 packFFIResult CLangRefC CFString    varName = varName
 packFFIResult c         (CFIORes x) varName = packFFIResult c x varName
 packFFIResult _         t           varName = packCFType t varName
 
 ||| The C type of the result of a foreign function (see `packFFIResult`).
+||| The `char *` of a plain C function is only read, to copy it: `const`, so
+||| that a function declared to return a `const char *` (a string that it
+||| keeps, the usual case) can be called too.
 cResultType : CLang -> CFType -> String
 cResultType CLangRefC CFString = "Idris2_Value *"
+cResultType CLangC    CFString = "const char *"
 cResultType _ t = cTypeOfCFType t
 
 discardLastArgument : List ty -> List ty

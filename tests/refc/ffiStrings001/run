@@ -1,0 +1,21 @@
+. ../../testutils.sh
+
+# The strings of C functions: a `String` result is copied and not freed (the
+# C function may keep it, and may declare it `const char *`), a string that the
+# caller owns is a `Ptr String` that the Idris code frees, and a `String`
+# argument is only valid during the call.  Valgrind fails the test on a leak,
+# a bad free or a read of freed memory.
+
+cd ./library/
+    make > /dev/null
+cd ..
+
+export CFLAGS="-I./library/ ${CFLAGS}"
+export LDFLAGS="-L./library/ ${LDFLAGS}"
+export LDLIBS="-lffistrings"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:./library/"
+export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:./library/"
+
+idris2 -o ffistrings Main.idr
+
+echo Edwin | $VALGRIND ./build/exec/ffistrings
