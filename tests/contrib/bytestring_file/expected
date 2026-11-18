@@ -1,0 +1,27 @@
+-- whole files
+write: ok
+round trip: (True, 256)
+bytes >= 0x80: (Just 128, (Just 255, Just 0))
+write empty: ok
+empty file: (0, True)
+truncated: "\SOH\STX\ETX"
+append: ok ok
+appended: ("\SOH\STX\ETX\EOT\ENQ", "\NUL\255")
+-- slices
+slice written: ("ok", "\SOH\STX\ETX\EOT")
+-- errors
+read missing: file not found
+write to a missing directory: file not found
+-- handles
+pieces: ("\NUL\SOH\STX", ("", "\ETX\EOT\ENQ\ACK\a\b\t\n\v\f"))
+rest: (87, ("\r\SO\SI", "abc"))
+at end of file: 0
+at end of file, 0 bytes: 0
+hGetContents after hGet: ("\NUL\SOH\STX\ETX\EOT", (95, "\ENQ\ACK"))
+hPut: ok ok ok
+hPut content: "\SOH\STX\200\201"
+-- large file
+big: ("ok", (370000, (370000, True)))
+big exact chunk sizes: [(65536, 65536), (196608, 196608)]
+big hGet: (100000, True)
+exactly one chunk: (65536, True)

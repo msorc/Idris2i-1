@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+rm -f test_bs_*.bin
+
+run -p contrib FileTest.idr
+
+rm -f test_bs_*.bin

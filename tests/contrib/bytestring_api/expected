@@ -1,0 +1,123 @@
+-- construction
+empty: ""
+singleton: "A"
+pack: "hello"
+unpack: [104, 101, 108, 108, 111]
+unpack high: [0, 1, 127, 128, 200, 255]
+show high: "\NUL\SOH\DEL\128\200\255"
+show escapes: "\"\\\n\t\r\a\NUL\DEL\200\&2SOH"
+literal: "h\195\169llo"
+length: (5, (0, 6))
+null: (True, False)
+replicate: ("\171\171\171\171", "")
+-- indexing
+index: [Just 104, Just 101, Just 111, Nothing, Nothing]
+index high: (Just 128, Just 255)
+index': (Just 108, Nothing)
+head/last: (Just 104, (Just 111, (Nothing, Nothing)))
+tail/init: ("ello", ("hell", ("", "")))
+tail single: ("", "")
+uncons: (Just (104, "ello"), Nothing)
+unsnoc: (Just ("hell", 111), Nothing)
+-- slicing
+take: ["", "he", "hello", "hello", "hello"]
+drop: ["hello", "llo", "", "", ""]
+takeEnd: ["", "lo", "hello", "hello", "hello"]
+dropEnd: ["hello", "hel", "", "", ""]
+huge: ("hello", "")
+splitAt: [("", "hello"), ("hel", "lo"), ("hello", ""), ("hello", "")]
+slice of slice: ("ell", ("l", ("ell", "")))
+slices of slices ops: ([101, 108, 108], ("lle", (3, (Just 108, Nothing))))
+copy: ("ell", (True, ""))
+tail of slice: ("ll", ("el", (Just (101, "ll"), Just ("el", 108))))
+-- takeWhile and friends
+takeWhile: ("123", "")
+dropWhile: ("abc456", "")
+span: (("123", "abc456"), ("", "123abc456"))
+break: (("123", "abc456"), ("123abc456", ""))
+-- combining
+append: ("hello!", ("hello", "hello"))
+<+> slices: "helo"
+concat: "hello \NUL\SOH\DEL\128\200\255"
+concat empty: ("", "")
+intercalate: "h,o,"
+monoid concat: ("hellohello", ("hello", ""))
+cons/snoc: ("\255hello", ("hello\NUL", ("\SOH", "\STX")))
+reverse: ("olleh", ("", "\255\200\128\DEL\SOH\NUL"))
+map: ("\SOH\STX\128\129\201\NUL", "")
+-- folds and searches
+foldl: 299566379
+foldr: [0, 1, 127, 128, 200, 255]
+foldl order: [3, 2, 1]
+foldr order: [1, 2, 3]
+any/all: (True, (False, (True, (False, (False, True)))))
+elem: (True, (False, (True, False)))
+findIndex: (Just 3, Nothing)
+elemIndex: (Just 2, Nothing)
+isPrefixOf: (True, (True, (True, (False, False))))
+isSuffixOf: (True, (True, (True, (False, False))))
+isInfixOf: (True, (True, (True, (True, (False, (True, False))))))
+isInfixOf bytes>=0x80: (True, False)
+-- split
+split: ["a", "b", "", "c"]
+split none: ["hello"]
+split empty: [""]
+split only: (["", ""], ["", "", ""])
+split ends: ["", "a", ""]
+split high: ["\NUL\SOH\DEL\128", "\255"]
+splitWith: ["\NUL\SOH", "", "", "", ""]
+split concat: "a,b,,c"
+-- integers
+u16: (Just 513, Just 258)
+u32: (Just 84148994, Just 33752069)
+u64: (Just 578437695752307201, Just 72623859790382856)
+u64 high: (Just 18374413830953698307, Just 217304205466599422)
+u16 high: (Just 65279, Just 65534)
+u32 all ff: (Just 4294967295, Just 4294967295)
+u64 all ff: (Just 18446744073709551615, Just 18446744073709551615)
+out of range: (Nothing, (Nothing, (Nothing, (Nothing, Nothing))))
+ints of slice: (Just 1284, Just 67438087)
+ints of empty: (Nothing, Nothing)
+-- Eq, Ord
+eq: ok
+eq slice: ok
+neq length: ok
+neq byte: ok
+eq empty: ok
+lt prefix: ok
+lt empty: ok
+lt unsigned: ok
+gt unsigned: ok
+compare eq: ok
+compare empty: ok
+sort: ok
+show sort: ["", "\SOH\t", "\STX", "\200"]
+-- UTF-8
+fromString ascii: "abc"
+fromString empty: ""
+fromString 2-4 bytes: [195, 169, 226, 130, 172, 240, 159, 152, 128]
+toString: Just "\233\8364\128512 plain"
+toString empty: Just ""
+edge code points: [127, 194, 128, 223, 191, 224, 160, 128, 239, 191, 191, 240, 144, 128, 128, 244, 143, 191, 191]
+roundtrip: [True, True, True, True, True, True]
+length utf8: 9
+valid: [True, True, True, True, True, True, True, True, True]
+invalid: [Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing]
+invalid valid?: [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False]
+lossy: [[65, 65533, 66], [65533, 65533], [233, 65533], [128512], [65533, 65533, 65533]]
+invalid in slice: (Just "\233", (Nothing, Nothing))
+-- hex
+toHex: ("00017f80c8ff", ("", "80c8ff"))
+fromHex: (Just "\NUL\SOH\DEL\128\200\255", (Just "\NUL\SOH\DEL\128\200\255", Just ""))
+fromHex bad: [Nothing, Nothing, Nothing, Nothing, Nothing, Nothing]
+hex roundtrip: ok
+-- big
+big length: 100000
+big fold: 12742320
+big roundtrip: (100000, True)
+big reverse: ("\159\158\157", Just 0)
+big concat: 50000
+big eq: (True, False)
+big split: (392, 391)
+big hex: (200000, True)
+big utf8: (100000, Just 50000)
