@@ -491,6 +491,11 @@ uint64_t mpz_get_lsb(mpz_srcptr i, mp_bitcnt_t b) {
   return retVal;
 }
 
+uint64_t idris2_integerLow64Slow(Idris2_Value *input) {
+  IDRIS2_INTEGER_MPZ(fromi, input);
+  return mpz_get_lsb(fromi, 64);
+}
+
 Idris2_Value *idris2_cast_Integer_to_Bits8(Idris2_Value *input) {
   if (idris2_isSmallInteger(input)) {
     int64_t n = idris2_smallInteger(input);

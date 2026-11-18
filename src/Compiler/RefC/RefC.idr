@@ -585,9 +585,10 @@ record Env where
   selfArity : Nat
   ||| The arities of the foreign functions, by C name (see `foreignCall`).
   foreigns : SortedMap String Nat
-  ||| The variables that are C integers, `int_N` instead of `var_N` (see
-  ||| Compiler.RefC.Unbox).  They are never owned: they are not values.
-  unboxed : SortedSet Int
+  ||| The variables that are C integers, `int_N` instead of `var_N`, with
+  ||| their types (see Compiler.RefC.Unbox).  They are never owned: they are
+  ||| not values.
+  unboxed : SortedMap Int PrimType
   ||| May a constructor take over a cell of another constructor of the same
   ||| size (see `ReuseKey`)?
   sizeReuse : Bool
@@ -826,23 +827,23 @@ removeReuseConstructors = applyFunctionToVars "idris2_removeReuseConstructor"
 intVarName : Int -> String
 intVarName i = "int_" ++ show i
 
-isUnboxedIn : SortedSet Int -> AVar -> Bool
-isUnboxedIn u (ALocal i) = contains i u
+isUnboxedIn : SortedMap Int PrimType -> AVar -> Bool
+isUnboxedIn u (ALocal i) = isJust (lookup i u)
 isUnboxedIn _ ANull = False
 
 ||| A new value (that the caller owns) made from a variable that is a C
 ||| integer.
-boxInt : AVar -> String
-boxInt (ALocal i) = "idris2_mkInt64(\{intVarName i})"
-boxInt ANull = "NULL"
+boxInt : SortedMap Int PrimType -> AVar -> String
+boxInt u (ALocal i) = boxC (fromMaybe IntType (lookup i u)) (intVarName i)
+boxInt _ ANull = "NULL"
 
-||| The C integer of a variable of type `Int`, unboxed or not.  (The variable
-||| is borrowed.)
-intOperand : Env -> AVar -> String
-intOperand env v@(ALocal i)
-    = if contains i env.unboxed then intVarName i
-         else "idris2_vp_to_Int64(\{varName v})"
-intOperand _ ANull = "0"
+||| The C integer of a variable of the fixed width integer type `t`, unboxed
+||| or not.  (The variable is borrowed.)
+intOperand : Env -> PrimType -> AVar -> String
+intOperand env t v@(ALocal i)
+    = if isJust (lookup i env.unboxed) then intVarName i
+         else unboxC t (varName v)
+intOperand _ _ ANull = "0"
 
 ||| Is the value of the variable static (see `StaticVal`)?  Such a variable
 ||| is never owned, and no reference is taken where it is used: its value
@@ -855,7 +856,7 @@ avarToC : Env -> AVar -> String
 avarToC env ANull = "NULL"
 avarToC env var =
     if isStaticIn env var then varName var
-    else if isUnboxedIn env.unboxed var then boxInt var
+    else if isUnboxedIn env.unboxed var then boxInt env.unboxed var
     else if contains var env.owned then varName var
         -- case when the variable is borrowed
     else "idris2_newReference(" ++ varName var ++ ")"
@@ -868,7 +869,7 @@ avarsToC env owned (v::vars) =
       if isStaticIn env v
           then v' :: avarsToC env owned vars
       else if isUnboxedIn env.unboxed v
-          then boxInt v :: avarsToC env owned vars
+          then boxInt env.unboxed v :: avarsToC env owned vars
       else if contains v owned
           then v'::avarsToC env (delete v owned) vars
           else "idris2_newReference(\{v'})"::avarsToC env owned vars -- when v is borrowed
@@ -899,7 +900,7 @@ sigArgsToC env owned ((ANull, _) :: rest) = "NULL" :: sigArgsToC env owned rest
 sigArgsToC env owned ((v, True) :: rest) = varName v :: sigArgsToC env owned rest
 sigArgsToC env owned ((v, False) :: rest)
     = if isStaticIn env v then varName v :: sigArgsToC env owned rest
-      else if isUnboxedIn env.unboxed v then boxInt v :: sigArgsToC env owned rest
+      else if isUnboxedIn env.unboxed v then boxInt env.unboxed v :: sigArgsToC env owned rest
       else if contains v owned then varName v :: sigArgsToC env (delete v owned) rest
       else "idris2_newReference(\{varName v})" :: sigArgsToC env owned rest
 
@@ -958,7 +959,7 @@ borrowedCall fc env fn pairs = do
         = if isUnboxedIn env.unboxed v
              then do
                t <- ("boxVar_" ++) <$> getNextCounter
-               emit fc "Idris2_Value *\{t} = \{boxInt v};"
+               emit fc "Idris2_Value *\{t} = \{boxInt env.unboxed v};"
                (as, bs) <- cArgs owned rest
                pure (t :: as, t :: bs)
              else do
@@ -968,7 +969,7 @@ borrowedCall fc env fn pairs = do
         = if isStaticIn env v
              then mapFst (varName v ::) <$> cArgs owned rest
           else if isUnboxedIn env.unboxed v
-             then mapFst (boxInt v ::) <$> cArgs owned rest
+             then mapFst (boxInt env.unboxed v ::) <$> cArgs owned rest
              else if contains v owned
                 then mapFst (varName v ::) <$> cArgs (delete v owned) rest
                 else mapFst ("idris2_newReference(\{varName v})" ::) <$> cArgs owned rest
@@ -1074,8 +1075,8 @@ makeTailCall fc n args = do
     selfTailCall env params borrowed = do
       let pairs = zip params args
       let bparams = fromList (map fst (filter snd (zip params borrowed)))
-      let ints = filter (\(p, _) => contains p env.unboxed) pairs
-      let values = filter (\(p, _) => not (contains p env.unboxed)) pairs
+      let ints = mapMaybe (\(p, a) => map (\t => (p, t, a)) (lookup p env.unboxed)) pairs
+      let values = filter (\(p, _) => isNothing (lookup p env.unboxed)) pairs
       let vals = sigArgsToC env env.owned
                    (map (\(p, a) => (a, contains p bparams)) values)
       -- (a parameter that keeps its value is left alone)
@@ -1085,16 +1086,16 @@ makeTailCall fc n args = do
                        (zip (map fst values) vals)
       for_ (zip tmps vals) $ \(t, v) =>
         whenJust t $ \t => emit fc "Idris2_Value *\{t} = \{v};"
-      itmps <- traverse (\(p, a) =>
-                 if intOperand env a == intVarName p
+      itmps <- traverse (\(p, ty, a) =>
+                 if intOperand env ty a == intVarName p
                     then pure Nothing
                     else do
                       t <- getNewVarThatWillNotBeFreedAtEndOfBlock
-                      emit fc "int64_t \{t} = \{intOperand env a};"
+                      emit fc "\{cIntType ty} \{t} = \{intOperand env ty a};"
                       pure (Just t)) ints
       let passed = SortedSet.fromList (map snd values)
       let released = filter (\v => contains v env.owned && not (contains v passed))
-                            (nub (map snd ints))
+                            (nub (map (\(_, _, a) => a) ints))
       removeVars (map varName released)
       for_ (zip (map fst values) tmps) $ \(p, t) =>
         whenJust t $ \t => emit fc "var_\{show p} = \{t};"
@@ -1328,7 +1329,7 @@ applyFirst env var body f a =
 
 ||| What the translation of an expression gives: a value (which may be a
 ||| pending call, in tail position), or a C integer (see Compiler.RefC.Unbox).
-data Result = AValue TailPositionStatus | AnInt
+data Result = AValue TailPositionStatus | AnInt PrimType
 
 ||| Give the variable `var` the result of an expression, unless the
 ||| expression ended in a jump.
@@ -1347,7 +1348,7 @@ mutual
            -> {auto _ : Ref ConstDef ConstTable}
            -> ANF -> Result -> Core String
     cResult anf (AValue tailPosition) = cStatementsFromANF anf tailPosition
-    cResult anf AnInt = cIntFromANF anf
+    cResult anf (AnInt t) = cIntFromANF t anf
 
     letGeneric : {auto a : Ref ArgCounter Nat}
               -> {auto oft : Ref OutfileText Output}
@@ -1455,35 +1456,40 @@ mutual
         let usedCons = usedReuseKeys env value
         let valueEnv = { reuseMap $= (`intersectionMap` usedCons) } (moveFromOwnedToBorrowed env borrowVal)
         put EnvTracker valueEnv
-        emit fc $ "int64_t \{intVarName var} = \{!(cIntFromANF value)};"
+        let t = fromMaybe IntType (lookup var env.unboxed)
+        emit fc $ "\{cIntType t} \{intVarName var} = \{!(cIntFromANF t value)};"
         put EnvTracker ({ owned := borrowVal, reuseMap $= (`differenceMap` usedCons) } env)
         cResult body r
 
-    ||| The C integer of an expression for which `intValued` holds.  The
-    ||| variables that it uses up are released, as in `cStatementsFromANF`.
+    ||| The C integer of type `t` of an expression whose `valueType` is `t`.
+    ||| The variables that it uses up are released, as in
+    ||| `cStatementsFromANF`.
     cIntFromANF : {auto a : Ref ArgCounter Nat}
                -> {auto oft : Ref OutfileText Output}
                -> {auto il : Ref IndentLevel Nat}
                -> {auto e : Ref EnvTracker Env}
                -> {auto _ : Ref ConstDef ConstTable}
-               -> ANF -> Core String
-    cIntFromANF (AV fc v) = pure $ intOperand !(get EnvTracker) v
-    cIntFromANF (APrimVal fc (I x)) = pure $ showIntMin x
-    cIntFromANF (APrimVal fc (I64 x)) = pure $ showInt64Min x
-    cIntFromANF (AOp fc _ op args) = do
+               -> PrimType -> ANF -> Core String
+    cIntFromANF t (AV fc v) = pure $ intOperand !(get EnvTracker) t v
+    cIntFromANF t (APrimVal fc c) = pure $ cIntLiteral c
+    cIntFromANF t (AOp fc _ op args) = do
         env <- get EnvTracker
         let resultVar = "primVar_" ++ !(getNextCounter)
-        emit fc $ "int64_t \{resultVar} = \{intOpC op (map (intOperand env) args)};"
+        -- (the casts from Double, Char and Integer take values)
+        let operands = case operandType op of
+                         Just ot => map (intOperand env ot) args
+                         Nothing => map varName args
+        emit fc $ "\{cIntType t} \{resultVar} = \{intOpC op operands};"
         removeVars $ map varName $ Prelude.toList $ intersection (fromList (toList args)) env.owned
         pure resultVar
-    cIntFromANF (ALet fc var value body) = do
+    cIntFromANF t (ALet fc var value body) = do
         env <- get EnvTracker
-        if contains var env.unboxed
-           then letInt fc var value body AnInt
-           else letGeneric fc var value body AnInt
-    cIntFromANF (AConstCase fc sc alts def) = constCase fc sc alts def AnInt
-    cIntFromANF (ACrash fc msg) = pure "(idris2_crashMsg(\{cStringQuoted msg}), 0)"
-    cIntFromANF anf = throw $ InternalError "[refc] Not an Int expression: \{show anf}"
+        if isJust (lookup var env.unboxed)
+           then letInt fc var value body (AnInt t)
+           else letGeneric fc var value body (AnInt t)
+    cIntFromANF t (AConstCase fc sc alts def) = constCase fc sc alts def (AnInt t)
+    cIntFromANF t (ACrash fc msg) = pure "(idris2_crashMsg(\{cStringQuoted msg}), 0)"
+    cIntFromANF t anf = throw $ InternalError "[refc] Not an integer expression: \{show anf}"
 
     concaseBody : {auto a : Ref ArgCounter Nat}
                  -> {auto e : Ref EnvTracker Env}
@@ -1615,7 +1621,7 @@ mutual
           _ => plainLet env
       where
         plainLet : Env -> Core String
-        plainLet env = if contains var env.unboxed
+        plainLet env = if isJust (lookup var env.unboxed)
                           then letInt fc var value body (AValue InTailPosition)
                           else letGeneric fc var value body (AValue InTailPosition)
 
@@ -1644,7 +1650,7 @@ mutual
 
     cStatementsFromANF (ALet fc var value body) tailPosition = do
         env <- get EnvTracker
-        if contains var env.unboxed
+        if isJust (lookup var env.unboxed)
            then letInt fc var value body (AValue tailPosition)
            else letGeneric fc var value body (AValue tailPosition)
 
@@ -1724,13 +1730,19 @@ mutual
         let resultVar = "primVar_" ++ !(getNextCounter)
         -- The primitive operations borrow their arguments, so the arguments
         -- are passed as they are, and those that we own are released after.
-        -- An operation on Ints of which some are C integers (see
-        -- Compiler.RefC.Unbox) is done on C integers.
-        let value = if intOp op && any (isUnboxedIn env.unboxed) args
-                       then let e = intOpC op (map (intOperand env) args) in
-                            if isComparison op then "idris2_mkBool(\{e})"
-                                               else "idris2_mkInt64(\{e})"
-                       else cOp op (map varName args)
+        -- An operation on fixed width integers of which some are C integers
+        -- (see Compiler.RefC.Unbox) is done on C integers.
+        let value = case operandType op of
+                      Just ot =>
+                        if any (isUnboxedIn env.unboxed) args
+                           then let e = intOpC op (map (intOperand env ot) args) in
+                                case resultType op of
+                                  Just rt => if isComparison op then "idris2_mkBool(\{e})"
+                                                                else boxC rt e
+                                  -- (a cast to Double, Char or Integer)
+                                  Nothing => e
+                           else cOp op (map varName args)
+                      Nothing => cOp op (map varName args)
         emit fc $ "Idris2_Value *" ++ resultVar ++ " = " ++ value ++ ";"
         removeVars $ map varName $ Prelude.toList $ intersection (fromList (toList args)) env.owned
         pure resultVar
@@ -1976,7 +1988,7 @@ mutual
         let sc' = varName sc
         switchReturnVar <- getNewVarThatWillNotBeFreedAtEndOfBlock
         case r of
-             AnInt => emit fc "int64_t \{switchReturnVar} = 0;"
+             AnInt t => emit fc "\{cIntType t} \{switchReturnVar} = 0;"
              AValue _ => emit fc "Idris2_Value *\{switchReturnVar} = NULL;"
         env <- get EnvTracker
         case alts of
@@ -2024,7 +2036,7 @@ mutual
         pure switchReturnVar
       where
         scrutinee : Env -> Constant -> String
-        scrutinee env c = if isUnboxedIn env.unboxed sc then intOperand env sc
+        scrutinee env c = if isUnboxedIn env.unboxed sc then intOperand env IntType sc
                                                      else unboxConst c (varName sc)
 
         integerEq : String -> Constant -> Core String
@@ -2201,7 +2213,7 @@ additionalFFIStub name argTypes retType =
 ||| the type `Int` or `Int64`.  They are its arguments that are not dropped
 ||| (see `mkDropSubst`), in order: if the type has fewer arguments than the
 ||| function (whose result is a function, by a name), none are given.
-intParams : {auto c : Ref Ctxt Defs} -> Name -> List Int -> Core (SortedSet Int)
+intParams : {auto c : Ref Ctxt Defs} -> Name -> List Int -> Core (SortedMap Int PrimType)
 intParams n params = do
     defs <- get Ctxt
     Just gdef <- lookupCtxtExact n (gamma defs)
@@ -2209,16 +2221,17 @@ intParams n params = do
     let tys = binders 0 (eraseArgs gdef) (type gdef)
     pure $ if length params > length tys
               then empty
-              else fromList (map fst (filter snd (zip params tys)))
+              else fromList (mapMaybe (\(p, t) => map (p,) t) (zip params tys))
   where
-    isInt : Term vs -> Bool
-    isInt (PrimVal _ (PrT t)) = isIntType t
-    isInt _ = False
+    intType : Term vs -> Maybe PrimType
+    intType (PrimVal _ (PrT t)) = unboxedType t
+    intType _ = Nothing
 
-    binders : Nat -> NatSet -> Term vs -> List Bool
+    binders : Nat -> NatSet -> Term vs -> List (Maybe PrimType)
     binders i es (Bind _ _ (Pi _ rig _ ty) sc)
         = let rest = binders (S i) es sc in
-              if i `elem` es then rest else (isInt ty && rig /= erased) :: rest
+              if i `elem` es then rest
+                 else (if rig /= erased then intType ty else Nothing) :: rest
     binders _ _ _ = []
 
 ||| The optimisations that a directive turns off, for measurements and to
@@ -2246,11 +2259,17 @@ refcOptions = do
                          (not ("refc-no-static" `elem` ds))
                          ("refc-backtrace" `elem` ds)
 
+||| A definition with the casts of Integer literals to fixed width integers
+||| made literals (see `foldIntegerCasts`).
+foldCasts : ANFDef -> ANFDef
+foldCasts (MkAFun args anf) = MkAFun args (foldIntegerCasts anf)
+foldCasts d = d
+
 ||| The variables of the function `n` (C name `cn`) that are C integers (see
 ||| Compiler.RefC.Unbox).
 unboxedOf : {auto c : Ref Ctxt Defs}
          -> SortedMap String Nat -> Name -> String -> List Int -> ANF
-         -> Core (SortedSet Int)
+         -> Core (SortedMap Int PrimType)
 unboxedOf foreigns n cn args anf = do
     let nargs = length args
     let loops = nargs > 0 && nargs <= MaxExtractFunArgs
@@ -2337,7 +2356,7 @@ createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto fo : Ref Foreigns (SortedMap String Nat)}
                 -> {auto vf : Ref ValueFns (SortedMap String Nat)}
                 -> {auto bs : Ref BorrowSigs Signatures}
-                -> {auto uv : Ref UnboxedVars (SortedMap String (SortedSet Int))}
+                -> {auto uv : Ref UnboxedVars (SortedMap String (SortedMap Int PrimType))}
                 -> {auto a : Ref ArgCounter Nat}
                 -> {auto _ : Ref ConstDef ConstTable}
                 -> {auto f : Ref FunctionDefinitions (SortedMap String (List String))}
@@ -2403,9 +2422,10 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
     unboxed <- case lookup cn !(get UnboxedVars) of
                  Just u => pure u
                  Nothing => unboxedOf foreigns n cn args anf
-    let unboxedParams = filter (`contains` unboxed) args
+    let unboxedParams = filter (\p => isJust (lookup p unboxed)) args
     for_ unboxedParams $ \p => do
-      emit EmptyFC "int64_t \{intVarName p} = idris2_vp_to_Int64(var_\{show p});"
+      let t = fromMaybe IntType (lookup p unboxed)
+      emit EmptyFC "\{cIntType t} \{intVarName p} = \{unboxC t "var_\{show p}"};"
       unless (p `elem` borrowedParams) $
         emit EmptyFC "idris2_removeReference(var_\{show p});"
     when loops $ emit EmptyFC "idris2_self_entry: ;"
@@ -3002,9 +3022,12 @@ generateCSourceFileParts defs0 outn =
      -- Compiler.RefC.LocalClosures), unless
      -- `--directive refc-no-local-closures`.
      local <- pure $ not ("refc-no-local-closures" `elem` !(getDirectives RefC))
+     -- (and the casts of Integer literals to fixed width integers are
+     -- literals, see `foldIntegerCasts`)
      let defs1 : List (Name, ANFDef)
-               = if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
-                          else defs0
+               = map (mapSnd foldCasts)
+                     (if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
+                               else defs0)
      -- The numbers in the names that the elaborator made are made stable
      -- (see `canonName`): `canons` are the names of the definitions.
      let nb = numbering defs1
@@ -3055,7 +3078,7 @@ generateCSourceFileParts defs0 outn =
             if borrowing
                then inferBorrowing cName
                       (\f, k => SortedMap.lookup f foreigns == Just k)
-                      (\f => fromMaybe empty (SortedMap.lookup f unboxed))
+                      (\f => maybe empty keySet (SortedMap.lookup f unboxed))
                       MaxExtractFunArgs
                       (`contains` trmcFns)
                       (map (\(cn, _, d) => (cn, d)) named)

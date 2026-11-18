@@ -1,0 +1,5 @@
+. ../../testutils.sh
+
+# The expected output is that of the Chez backend (`--cg chez`).
+idris2 -o unboxedbits UnboxedBits.idr > /dev/null
+$VALGRIND ./build/exec/unboxedbits

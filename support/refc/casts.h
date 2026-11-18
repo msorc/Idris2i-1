@@ -11,6 +11,16 @@ int64_t idris2_double_to_char_code(double d);
 #include <gmp.h>
 #include <stdio.h>
 
+/* The low 64 bits of an Integer (of its two's complement), which the casts to
+ * the fixed width integers keep: the code generator converts them to the
+ * integers that it keeps unboxed (`(uint8_t)idris2_integerLow64(x)`). */
+uint64_t idris2_integerLow64Slow(Idris2_Value *x);
+static inline uint64_t idris2_integerLow64(Idris2_Value *x) {
+  if (idris2_isSmallInteger(x))
+    return (uint64_t)idris2_smallInteger(x);
+  return idris2_integerLow64Slow(x);
+}
+
 #define idris2_cast_Int8_to_Bits8(x)                                           \
   (idris2_mkBits8((uint8_t)idris2_vp_to_Int8(x)))
 #define idris2_cast_Int8_to_Bits16(x)                                          \

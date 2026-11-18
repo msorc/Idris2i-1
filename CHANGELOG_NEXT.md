@@ -694,6 +694,18 @@ should target this file (`CHANGELOG_NEXT`).
   functions), and the `let`s of operations on them.  They are no longer
   untagged and tagged again at every operation, which makes a loop on `Int`s
   (a function calling itself in tail position) run about 1.7 times faster.
+* All the fixed width integer types (`Int8` to `Int64`, `Bits8` to `Bits64`
+  and `Int`) are kept in C integers of their width in this way, and their
+  arithmetic, bitwise operations, shifts, comparisons, `case`s on literals
+  and casts (between them, and to and from `Integer`, `Double` and `Char`)
+  are plain C on those integers, with the same results as before.  A
+  `Bits64` above 2^32 was allocated at every operation: a loop of a 64 bit
+  hash runs 3 times fewer instructions, a popcount by bit twiddling 9 times
+  fewer.  The values are still made (and allocated, for the large `Bits64`,
+  `Int64` and `Int`) where they are passed to another function or stored.
+* An `Int` literal of more than 32 bits (`0xffffffff`) is a C constant: it
+  was an `Integer` converted at each use, as the constant folding leaves the
+  casts to `Int` of large values to the backend.
 * `System.Clock` now reads the clocks with `clock_gettime`: they used to have
   a resolution of a second (`nanoseconds` was always 0), and the monotonic
   clock was the UTC one.

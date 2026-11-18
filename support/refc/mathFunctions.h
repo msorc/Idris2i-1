@@ -144,8 +144,18 @@ static inline Idris2_Value *idris2_mul_Integer(Idris2_Value *x,
 }
 #define idris2_mul_Double(l, r) (idris2_binop(Double, *, l, r))
 
-/* div */
+/* div
+   idris2_unsignedDiv_Bits8 and friends work on C integers: the code generator
+   uses them on the integers that it keeps unboxed. */
 #define IDRIS2_UNSIGNED_DIVMOD(ty, cty)                                        \
+  static inline cty idris2_unsignedDiv_##ty(cty x, cty d) {                    \
+    IDRIS2_CHECK_DIVISOR(d);                                                   \
+    return (cty)(x / d);                                                       \
+  }                                                                            \
+  static inline cty idris2_unsignedMod_##ty(cty x, cty d) {                    \
+    IDRIS2_CHECK_DIVISOR(d);                                                   \
+    return (cty)(x % d);                                                       \
+  }                                                                            \
   static inline Idris2_Value *idris2_div_##ty(Idris2_Value *x,                 \
                                               Idris2_Value *y) {               \
     cty d = idris2_vp_to_##ty(y);                                              \
@@ -184,8 +194,8 @@ IDRIS2_UNSIGNED_DIVMOD(Bits64, uint64_t)
 // remainder is negative.  See Division and Modulus for Computer Scientists
 // (Daan Leijen).  The quotient by -1 is the negation, which wraps around for
 // the smallest value (as in the other backends) instead of trapping.
-// idris2_euclidDiv_Int64 and idris2_euclidMod_Int64 work on C integers: the
-// code generator uses them on the Ints that it keeps unboxed.
+// idris2_euclidDiv_Int64 and friends work on C integers: the code generator
+// uses them on the integers that it keeps unboxed.
 #define IDRIS2_EUCLID_DIVMOD(ty, cty, uty)                                     \
   static inline cty idris2_euclidDiv_##ty(cty num, cty denom) {                \
     IDRIS2_CHECK_DIVISOR(denom);                                               \
@@ -250,8 +260,9 @@ static inline Idris2_Value *idris2_mod_Integer(Idris2_Value *x,
    the width of the type or more gives 0 (or -1, for a right shift of a
    negative number), where it is undefined behaviour in C.  A shift of a
    signed type by a negative count goes the other way.
-   idris2_shiftLeft_Int64 and idris2_shiftRight_Int64 work on C integers: the
-   code generator uses them on the Ints that it keeps unboxed. */
+   idris2_shiftLeft_Int64, idris2_shiftRight_Bits8 and friends work on C
+   integers: the code generator uses them on the integers that it keeps
+   unboxed. */
 #define IDRIS2_SHIFTS_UNSIGNED(ty, cty, uty, bits)                             \
   static inline cty idris2_shiftLeft_##ty(cty x, cty n) {                      \
     return n >= (bits) ? 0 : (cty)((uty)x << n);                               \
