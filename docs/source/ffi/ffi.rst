@@ -526,15 +526,25 @@ delete a ``Point`` as follows:
 
 The field types of a ``Struct`` can be any of the following:
 
-* ``Int``
-* ``Char``
+* ``Int`` (``int`` in C)
+* ``Char`` (``char`` in C)
 * ``Double`` (``double`` in C)
-* ``Bits8``
-* ``Bits16``
-* ``Bits32``
-* ``Bits64``
+* ``Bits8``, ``Bits16``, ``Bits32``, ``Bits64`` (``uint8_t`` to ``uint64_t`` in C)
+* ``Int8``, ``Int16``, ``Int32``, ``Int64`` (``int8_t`` to ``int64_t`` in C)
 * ``Ptr a`` or ``AnyPtr`` (``void*`` in C)
-* Another ``Struct``, which is a pointer to a ``struct`` in C
+* Another ``Struct``, which is a pointer to a ``struct`` in C (a ``struct``
+  that is nested by value in C cannot be described: the fields after it
+  would be read at the wrong place)
+
+Structs work with the RefC and Chez Scheme back ends. Both lay out the
+``struct`` by the fields of the Idris type, and know the fields of a
+``Struct`` type only when a ``%foreign`` function of the program has it in
+its type.
+With the RefC back end, which compiles the calls of the
+foreign functions to C, the ``%foreign`` declarations also name a header that
+declares the functions (``"C:mkPoint,libsmall,smallc.h"``, see
+``samples/ffi/Struct.idr`` and ``samples/ffi/smallc.h``); the header may
+define the ``struct`` too.
 
 Note that this doesn't include ``String`` or function types! This is primarily
 because these aren't directly supported by the Chez back end. However, you can

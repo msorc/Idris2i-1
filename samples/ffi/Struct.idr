@@ -1,7 +1,7 @@
 import System.FFI
 
 libsmall : String -> String
-libsmall fn = "C:" ++ fn ++ ",libsmallc"
+libsmall fn = "C:" ++ fn ++ ",libsmallc,smallc.h"
 
 Point : Type
 Point = Struct "point" [("x", Int), ("y", Int)]

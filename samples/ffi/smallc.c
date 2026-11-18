@@ -4,11 +4,16 @@
 //      gcc -c -fPIC smallc.c -o smallc.o
 //      gcc smallc.o -shared -o libsmallc.so
 //      idris2 Small.idr
+// With the default (RefC) code generator, which compiles the program to C, the C compiler also
+// has to find the header `smallc.h` that `Struct.idr` names and the library to link:
+//      CFLAGS="-I." LDFLAGS="-L." LDLIBS="-lsmallc" idris2 Struct.idr -o struct
+//      LD_LIBRARY_PATH=. ./build/exec/struct
 // For an example of using Idris packages to build external (FFI) libraries, see the `FFI-readline`
 // sample, and specifically `readline.ipkg`
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "smallc.h"
 
 int add(int x, int y) {
     return x+y;
@@ -29,11 +34,6 @@ char* applyFn(char* x, int y, StringFn f) {
 char* applyFnPure(char* x, int y, StringFn f) {
     return f(x, y);
 }
-
-typedef struct {
-    int x;
-    int y;
-} point;
 
 point* mkPoint(int x, int y) {
     point* pt = malloc(sizeof(point));
