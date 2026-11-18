@@ -219,7 +219,7 @@ caseBlock {vars} rigc elabinfo fc nest env opts scr scrtm scrty caseRig alts exp
                                       Scope.empty casefnty vis None))
 
          traverse_ (processFnOpt fc False casen) opts
-         whenJust parentDef $ inheritSpec casen
+         inheritSpec casen
 
          -- set the totality of the case block to be the same as that
          -- of the parent function
@@ -267,26 +267,16 @@ caseBlock {vars} rigc elabinfo fc nest env opts scr scrtm scrty caseRig alts exp
 
          pure (appTm, gnf env caseretty)
   where
-    -- The names of the arguments at the given positions of a type
-    specNames : Nat -> NatSet -> Term vs -> List Name
-    specNames i ps (Bind _ x (Pi {}) sc)
-        = let rest = specNames (S i) ps sc in
-              if i `elem` ps then x :: rest else rest
-    specNames _ _ _ = []
-
     -- A case block of a function with `%spec` arguments takes these
     -- arguments when they are in scope (`hio` in a function taking
-    -- `{auto hio : HasIO io}`), so it is specialised by them too: a
-    -- specialised copy of the function then calls a specialised copy of
-    -- the case block, instead of the generic one, which takes the
-    -- arguments at run time.
-    inheritSpec : Name -> GlobalDef -> Core ()
-    inheritSpec casen pdef
-        = unless (NatSet.isEmpty (specArgs pdef)) $
-            do let ns = specNames 0 (specArgs pdef) (type pdef)
-               let ns = filter (\ n => n `elem` vars) ns
-               log "elab.case" 5 $ "Specialising " ++ show casen ++ " by " ++ show ns
-               unless (null ns) $ processFnOpt fc False casen (SpecArgs ns)
+    -- `{auto hio : HasIO io}`), so it is specialised by them too (see
+    -- inheritSpecVars).
+    inheritSpec : Name -> Core ()
+    inheritSpec casen
+        = do est <- get EST
+             ps <- inheritSpecVars (defining est) (length vars) casen
+             unless (null ps) $
+               log "elab.case" 5 $ "Specialising " ++ show casen ++ " by " ++ show ps
 
     mkLocalEnv : Env Term vs -> Env Term vs
     mkLocalEnv [] = Env.empty

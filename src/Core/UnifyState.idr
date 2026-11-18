@@ -127,6 +127,13 @@ record UState where
   whereChecks : List WhereCheck
                 -- Local definitions to check for repeated uses once their
                 -- enclosing definition is complete
+  specVars : Maybe (Int, List Nat)
+                -- In the clause of a function with `%spec` arguments that
+                -- is being checked (the Int, its resolved name): the
+                -- positions in its environment, from the outermost, of the
+                -- pattern variables that are these arguments.  The case
+                -- blocks and local functions of the clause are specialised
+                -- by them (see TTImp.Elab.Case and TTImp.Elab.Local).
   logging : Bool
 
 export
@@ -144,6 +151,7 @@ initUState = MkUState
   , nextConstraint = 0
   , delayedElab = []
   , whereChecks = []
+  , specVars = Nothing
   , logging = False
   }
 

@@ -9,6 +9,7 @@ import Idris.REPL.Opts
 import Idris.Syntax
 
 import TTImp.Elab.Check
+import TTImp.ProcessFnOpt
 import TTImp.TTImp
 
 import Data.List1
@@ -74,12 +75,29 @@ localHelper {vars} nest env nestdecls_in func
          let nestdecls = map (updateName nest') nestdeclsMult
          log "elab.def.local" 20 $ show nestdecls
 
-         traverse_ (processDecl [] nest' env') nestdecls
+         traverse_ (\d => do processDecl [] nest' env' d
+                             inheritSpec d)
+                   nestdecls
          update UST { delayedElab := olddelayed }
          res <- func nest'
          update Ctxt { localHints := oldhints }
          pure res
   where
+    -- A local function of a function with `%spec` arguments takes these
+    -- arguments when they are in scope, as a case block does (see
+    -- TTImp.Elab.Case), so it is specialised by them too: a copy of the
+    -- function then calls a copy of the local function (and that the copy
+    -- of the function, when it calls it), not the generic one.
+    inheritSpec : ImpDecl -> Core ()
+    inheritSpec (IClaim claim)
+        = do est <- get EST
+             let n = claim.val.type.tyName.val
+             ps <- inheritSpecVars (defining est) (length vars) n
+             unless (null ps) $
+               log "elab.def.local" 5 $
+                 "Specialising " ++ show !(toFullNames n) ++ " by " ++ show ps
+    inheritSpec _ = pure ()
+
     applyEnv : Int -> Name ->
                Core (Name, (Maybe Name, List (Var vars), FC -> NameType -> Term vars))
     applyEnv outer inner

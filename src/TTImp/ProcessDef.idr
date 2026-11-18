@@ -37,6 +37,7 @@ import Data.List
 import Data.String
 import Data.Maybe
 import Libraries.Data.NameMap
+import Libraries.Data.NatSet
 import Libraries.Data.WithDefault
 import Libraries.Text.PrettyPrint.Prettyprinter
 import Libraries.Data.List.SizeOf
@@ -375,6 +376,46 @@ applyEnv env withname
                   \fc, nt => applyTo fc
                          (Ref fc nt (Resolved n')) env))
 
+-- In a clause of a function with `%spec` arguments, the positions in the
+-- environment of the clause (from the outermost) of the pattern variables
+-- that are these arguments: a case block or a local function takes the
+-- environment as its first arguments, so it is specialised by the same
+-- variables (see UState.specVars).  The positions are found from the
+-- checked LHS, not by the names of the arguments in the type of the
+-- function: a clause can bind another variable with such a name (in
+-- `f : {k : Type} -> Eq k => k -> ...` and `f k = ...`, `k` is the value).
+specVarsOf : {vars : _} ->
+             {auto c : Ref Ctxt Defs} ->
+             Int -> Term vars -> Core (Maybe (Int, List Nat))
+specVarsOf n lhs
+    = do defs <- get Ctxt
+         Just gdef <- lookupCtxtExact (Resolved n) (gamma defs)
+           | Nothing => pure Nothing
+         let specs = specArgs gdef
+         if NatSet.isEmpty specs
+            then pure Nothing
+            else pure (Just (n, go specs 0 (snd (getFnArgs lhs))))
+  where
+    levels : Term vars -> List Nat
+    levels (Local _ _ idx _) = [length vars `minus` S idx]
+    levels (As _ _ p t) = levels p ++ levels t
+    levels _ = []
+
+    go : NatSet -> Nat -> List (Term vars) -> List Nat
+    go specs i [] = []
+    go specs i (a :: as)
+        = (if i `elem` specs then levels a else []) ++ go specs (S i) as
+
+withSpecVars : {auto u : Ref UST UState} ->
+               Maybe (Int, List Nat) -> Core a -> Core a
+withSpecVars sv act
+    = do old <- specVars <$> get UST
+         update UST { specVars := sv }
+         r <- catch act (\err => do update UST { specVars := old }
+                                    throw err)
+         update UST { specVars := old }
+         pure r
+
 -- Check a pattern clause, returning the component of the 'Case' expression it
 -- represents, or Nothing if it's an impossible clause
 export
@@ -420,9 +461,11 @@ checkClause {vars} mult vis totreq hashit n opts nest env (PatClause fc lhs_in r
          log "declare.def.clause" 5 $ "Checking RHS " ++ show rhs
          logEnv "declare.def.clause" 5 "In env" env'
 
+         sv <- specVarsOf n lhstm'
          rhstm <- logTime 3 ("Check RHS " ++ show fc) $
                     wrapErrorC opts (InRHS fc !(getFullName (Resolved n))) $
-                       checkTermSub n rhsMode opts nest' env' env sub' rhs (gnf env' lhsty')
+                       withSpecVars sv $
+                         checkTermSub n rhsMode opts nest' env' env sub' rhs (gnf env' lhsty')
          clearHoleLHS
 
          logTerm "declare.def.clause" 3 "RHS term" rhstm
@@ -447,8 +490,10 @@ checkClause {vars} mult vis totreq hashit n opts nest env
          let wmode
                = if isErased mult || isErased rig then InType else InExpr
 
+         sv <- specVarsOf n lhspat
          (wval, gwvalTy) <- wrapErrorC opts (InRHS ifc !(getFullName (Resolved n))) $
-                elabTermSub n wmode opts nest' env' env sub' wval_raw Nothing
+                withSpecVars sv $
+                  elabTermSub n wmode opts nest' env' env sub' wval_raw Nothing
          clearHoleLHS
 
          logTerm "declare.def.clause.with" 5 "With value (at quantity \{show rig})" wval

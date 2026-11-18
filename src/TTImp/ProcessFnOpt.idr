@@ -3,6 +3,7 @@ module TTImp.ProcessFnOpt
 import Core.Context.Log
 import Core.Env
 import Core.Normalise
+import Core.UnifyState
 import Core.Value
 
 import TTImp.TTImp
@@ -29,6 +30,28 @@ throwIfHasFlag fc ndef fl msg = throwIf fc !(hasFlag fc ndef fl) msg
 %inline
 throwIfHasTotality : {auto c : Ref Ctxt Defs} -> FC -> Name -> String -> Core ()
 throwIfHasTotality fc ndef msg = throwIf fc !(hasSetTotal fc ndef) msg
+
+||| Specialise a case block or a local function of the clause being checked
+||| (of the function `parent`), which takes the environment of the clause as
+||| its first arguments, by the pattern variables of the clause that are
+||| `%spec` arguments of the function (see `UState.specVars`): a specialised
+||| copy of the function then calls a specialised copy of the case block or
+||| local function, instead of the generic one, which takes the arguments at
+||| run time.  Returns the positions.
+export
+inheritSpecVars : {auto c : Ref Ctxt Defs} ->
+                  {auto u : Ref UST UState} ->
+                  (parent : Int) -> (envLength : Nat) -> Name -> Core (List Nat)
+inheritSpecVars parent len n
+    = do Just (p, lvls) <- specVars <$> get UST
+           | Nothing => pure []
+         let ps = filter (< len) lvls
+         if p /= parent || null ps then pure [] else do
+           defs <- get Ctxt
+           Just gdef <- lookupCtxtExact n (gamma defs)
+             | Nothing => pure []
+           ignore $ addDef n ({ specArgs $= \s => foldr insert s ps } gdef)
+           pure ps
 
 ||| The positions of the arguments of a function to specialise it by (see
 ||| `%spec`), given the names of the arguments that are to be static: those
