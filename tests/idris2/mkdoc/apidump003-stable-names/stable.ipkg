@@ -1,0 +1,3 @@
+package stable
+sourcedir = "src"
+modules = Stable

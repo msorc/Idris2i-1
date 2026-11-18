@@ -682,9 +682,9 @@ module Prelude.Types
   export infixl 7 (<><)
   export infixr 6 (<>>)
   public export record (<=>) : Type -> Type -> Type
-    constructor MkEquivalence : {0 a : Type} -> {0 b : Type} -> (a -> b) -> (b -> a) -> a Prelude.(<=>) b
-    field leftToRight : {0 a : Type} -> {0 b : Type} -> a Prelude.(<=>) b -> a -> b
-    field rightToLeft : {0 a : Type} -> {0 b : Type} -> a Prelude.(<=>) b -> b -> a
+    constructor MkEquivalence : {0 a : Type} -> {0 b : Type} -> (a -> b) -> (b -> a) -> a Prelude.Types.(<=>) b
+    field leftToRight : {0 a : Type} -> {0 b : Type} -> a Prelude.Types.(<=>) b -> a -> b
+    field rightToLeft : {0 a : Type} -> {0 b : Type} -> a Prelude.Types.(<=>) b -> b -> a
   public export data Dec : Type -> Type
     constructor Yes : {0 prop : Type} -> prop -> Prelude.Types.Dec prop
     constructor No : {0 prop : Type} -> Prelude.Basics.Not prop -> Prelude.Types.Dec prop
@@ -800,7 +800,7 @@ module Prelude.Types
   public export total toLower : Char -> Char
   public export total toUpper : Char -> Char
   public export total unpack : String -> Prelude.Basics.List Char
-  public export total viaEquivalence : {0 b : Type} -> {0 a : Type} -> a Prelude.(<=>) b -> Prelude.Types.Dec a -> Prelude.Types.Dec b
+  public export total viaEquivalence : {0 b : Type} -> {0 a : Type} -> a Prelude.Types.(<=>) b -> Prelude.Types.Dec a -> Prelude.Types.Dec b
   public export total whenJust : {0 a : Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Types.Maybe a -> (a -> f Builtin.Unit) -> f Builtin.Unit
   public export implementation : Prelude.EqOrd.Eq Prelude.Types.Nat
   public export implementation : Prelude.EqOrd.Ord Prelude.Types.Nat

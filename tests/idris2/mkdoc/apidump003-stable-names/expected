@@ -1,0 +1,8 @@
+package stable
+
+module Stable
+  public export data InRange : Int -> Type
+    constructor MkInRange : (n : Int) -> Builtin.(===) {a = Prelude.Basics.Bool} (Prelude.EqOrd.(>=) {ty = Int} {__con = Prelude.EqOrd.__Impl_Ord_Int} n (Prelude.Num.fromInteger {ty = Int} {__con = Prelude.Num.__Impl_Num_Int} 0) Prelude.Basics.(&&) Delay (Prelude.EqOrd.(<) {ty = Int} {__con = Prelude.EqOrd.__Impl_Ord_Int} n (Prelude.Num.fromInteger {ty = Int} {__con = Prelude.Num.__Impl_Num_Int} 100))) Prelude.Basics.True -> Stable.InRange n
+  export covering assoc : (x : Prelude.Basics.Bool) -> (y : Prelude.Basics.Bool) -> (z : Prelude.Basics.Bool) -> Builtin.(===) {a = Prelude.Basics.Bool} ((x Prelude.Basics.(&&) Delay y) Prelude.Basics.(&&) Delay z) (x Prelude.Basics.(&&) Delay (y Prelude.Basics.(&&) Delay z))
+  public export covering pick : {0 a : Type} -> Prelude.EqOrd.Ord a => a -> a -> a
+  export covering pickSame : {0 a : Type} -> {auto conArg : Prelude.EqOrd.Ord a} -> (x : a) -> Builtin.(===) {a} (Stable.pick {a} {{conArg} = conArg} x x) x

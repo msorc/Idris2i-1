@@ -123,8 +123,39 @@ typeOf def
          ptm <- cleanPTerm (mapPTerm fullRef ptm)
          pure (render (prettyBy id ptm))
   where
+    -- The generated name of an unnamed implementation says where the
+    -- implementation is (`Num implementation at Prelude.Types:66:1--71:33`):
+    -- write the name without it
+    stableName : Name -> Name
+    stableName (NS ns n) = NS ns (stableName n)
+    stableName (DN s n)
+        = if " implementation at " `isInfixOf` s then stableName n else DN s n
+    stableName n = n
+
+    -- The name of an argument that is a machine generated name has a number
+    -- (`{a:2485} = a`) that depends on what was elaborated before: write it
+    -- without
+    argName : Name -> Name
+    argName (MN s _) = UN (Basic ("{" ++ s ++ "}"))
+    argName n = n
+
+    fullKindedName : KindedName -> KindedName
+    fullKindedName (MkKindedName nt full _)
+        = let full' = stableName full in MkKindedName nt full' full'
+
+    -- the operator of an infix, prefix or section is not a `PRef`
+    fullOp : WithFC (OpStr' KindedName) -> WithFC (OpStr' KindedName)
+    fullOp = map (map fullKindedName)
+
     fullRef : IPTerm -> IPTerm
-    fullRef (PRef fc (MkKindedName nt full _)) = PRef fc (MkKindedName nt full full)
+    fullRef (PRef fc n) = PRef fc (fullKindedName n)
+    -- (`mapPTerm` applies the function to the left operand of an infix
+    -- operator but not to its subterms: do that here)
+    fullRef (POp fc l op r) = POp fc (map (map (mapPTerm fullRef)) l) (fullOp op) r
+    fullRef (PPrefixOp fc op x) = PPrefixOp fc (fullOp op) x
+    fullRef (PSectionL fc op x) = PSectionL fc (fullOp op) x
+    fullRef (PSectionR fc x op) = PSectionR fc x (fullOp op)
+    fullRef (PNamedApp fc f n x) = PNamedApp fc f (argName n) x
     fullRef tm = tm
 
 lookupDef : {auto c : Ref Ctxt Defs} -> Name -> Core (Maybe GlobalDef)
