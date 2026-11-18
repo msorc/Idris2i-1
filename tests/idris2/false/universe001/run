@@ -1,0 +1,7 @@
+. ../../../testutils.sh
+
+# Without universe checking, Type : Type and Hurkens' paradox is accepted
+check Hurkens.idr
+rm -rf build
+
+check --check-universes Hurkens.idr

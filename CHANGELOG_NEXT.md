@@ -667,6 +667,14 @@ should target this file (`CHANGELOG_NEXT`).
   repeatedly. Such definitions are lifted to functions of those variables, so
   they are recomputed at each use rather than shared like a `let` binding.
   The warning is off by default.
+* Added the experimental `--check-universes` flag, which checks that the
+  universe levels of the definitions are consistent, so that `Type : Type`
+  no longer holds and Girard's paradox (in Hurkens' form) is rejected. It is
+  off by default. The universe constraints of a module are saved in its TTC
+  file (the TTC version changes), so a program is only checked completely
+  when all the libraries it uses were built with the flag too; the compiler
+  warns about imports which were not. See the "Universe checking" section of
+  the reference documentation for what the check covers and what it does not.
 * The REPL has a built-in line editor when it runs in a terminal: readline
   key bindings (cursor movement by character and word, kill and yank, history
   search with the arrow keys), a history kept between sessions in

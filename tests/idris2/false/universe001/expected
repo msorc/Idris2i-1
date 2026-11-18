@@ -1,0 +1,73 @@
+1/1: Building Hurkens (Hurkens.idr)
+1/1: Building Hurkens (Hurkens.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step:
+    the universe of `Type` at Hurkens:16:10--16:14 < an inferred universe (from Hurkens.U)
+    an inferred universe <= the universe of `Type` at Hurkens:16:10--16:14 (from Hurkens.sigma)
+
+Hurkens:22:1--22:28
+ 18 | tau : P (P U) -> U
+ 19 | tau t = \x, f, p => t (\s => p (f (s x f)))
+ 20 |
+ 21 | sigma : U -> P (P U)
+ 22 | sigma s = s U (\t => tau t)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: Universe inconsistency: these constraints form a cycle with a strict step:
+    an inferred universe <= an inferred universe (from Hurkens.NotT)
+    an inferred universe <= an inferred universe (from Hurkens.NotT)
+    an inferred universe <= the universe of `Type` at Hurkens:13:12--13:16 (from Hurkens.Delta)
+    the universe of `Type` at Hurkens:13:12--13:16 < an inferred universe (from Hurkens.P)
+    an inferred universe <= an inferred universe (from Hurkens.Delta)
+    an inferred universe <= an inferred universe (from Hurkens.Delta)
+
+Hurkens:25:1--25:61
+ 21 | sigma : U -> P (P U)
+ 22 | sigma s = s U (\t => tau t)
+ 23 |
+ 24 | Delta : P U
+ 25 | Delta y = NotT ((p : P U) -> sigma y p -> p (tau (sigma y)))
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: Universe inconsistency: these constraints form a cycle with a strict step:
+    the universe of `Type` at Hurkens:13:12--13:16 < an inferred universe (from Hurkens.U)
+    an inferred universe <= an inferred universe (from Hurkens.Omega)
+    an inferred universe <= the universe of `Type` at Hurkens:13:12--13:16 (from Hurkens.Omega)
+
+Hurkens:28:1--28:48
+ 24 | Delta : P U
+ 25 | Delta y = NotT ((p : P U) -> sigma y p -> p (tau (sigma y)))
+ 26 |
+ 27 | Omega : U
+ 28 | Omega = tau (\p => (x : U) -> sigma x p -> p x)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: While processing right hand side of lem1. Can't solve constraint between: (x : ((x : Type) -> (P (P x) -> x) -> P (P x))) -> sigma (tau (sigma x)) p -> p (tau (sigma x)) and sigma Omega p.
+
+Hurkens:34:24--34:25
+ 30 | D : Type
+ 31 | D = (p : P U) -> sigma Omega p -> p (tau (sigma Omega))
+ 32 |
+ 33 | lem1 : (p : P U) -> ((x : U) -> sigma x p -> p x) -> p Omega
+ 34 | lem1 p h1 = h1 Omega (\x => h1 (tau (sigma x)))
+                             ^
+
+Error: While processing right hand side of lem2. While processing left hand side of lem2,step. Can't solve constraint between: Delta ?x and ?argTy -> ?retTy.
+
+Hurkens:40:5--40:17
+ 36 | lem2 : NotT D
+ 37 | lem2 = lem1 Delta step
+ 38 |   where
+ 39 |     step : (x : U) -> sigma x Delta -> Delta x
+ 40 |     step x h2 h3 = h3 Delta h2 (\p => h3 (\y => p (tau (sigma y))))
+          ^^^^^^^^^^^^
+
+Error: While processing right hand side of lem3. Can't solve constraint between: (x : U) -> sigma x (\y => p (tau (sigma y))) -> p (tau (sigma x)) and sigma Omega p.
+
+Hurkens:43:10--43:40
+ 39 |     step : (x : U) -> sigma x Delta -> Delta x
+ 40 |     step x h2 h3 = h3 Delta h2 (\p => h3 (\y => p (tau (sigma y))))
+ 41 |
+ 42 | lem3 : D
+ 43 | lem3 p = lem1 (\y => p (tau (sigma y)))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

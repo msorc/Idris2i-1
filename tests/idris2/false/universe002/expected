@@ -1,0 +1,53 @@
+1/1: Building Fixed (Fixed.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step:
+    the universe of `Type` at Fixed:7:5--7:9 < an inferred universe (from Fixed.T)
+    an inferred universe <= the universe of `Type` at Fixed:7:5--7:9 (from Fixed.selfT)
+
+Fixed:10:1--10:10
+ 06 | T : Type
+ 07 | T = Type
+ 08 |
+ 09 | selfT : T
+ 10 | selfT = T
+      ^^^^^^^^^
+
+1/1: Building Russell (Russell.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step:
+    the universe of `Type` at Russell:5:14--5:18 < an inferred universe (from Russell.Set)
+    an inferred universe <= the universe of `Type` at Russell:5:14--5:18 (from Russell.setOfAll)
+
+Russell:9:1--9:22
+ 5 |   Sup : (a : Type) -> (a -> Set) -> Set
+ 6 |
+ 7 | -- Set is in the universe of its field `a : Type`, so it can't be one
+ 8 | setOfAll : Set
+ 9 | setOfAll = Sup Set id
+     ^^^^^^^^^^^^^^^^^^^^^
+
+1/1: Building Box (Box.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step:
+    the universe of `Type` at Box:7:18--7:22 < an inferred universe (from Box.Wrap)
+    an inferred universe <= the universe of `Type` at Box:7:18--7:22 (from Box.wrapSmall)
+
+Box:18:1--18:37
+ 14 |   MkWrap : Seq Small -> Wrap
+ 15 |
+ 16 | -- Wrap holds a list of Smalls, so it is at least as big as Small
+ 17 | wrapSmall : Small
+ 18 | wrapSmall = MkSmall Wrap (MkWrap [])
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1/1: Building Delta (Delta.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step:
+    the universe of `Type` at Delta:6:34--6:40 < an inferred universe (from Delta.Delta)
+    an inferred universe <= Delta.{uf:1} (from Delta.absurd)
+    Delta.{uf:1} <= the universe of `Type` at Delta:6:34--6:40 (from Delta.absurd)
+
+Delta:8:1--8:46
+ 4 |
+ 5 | %default total
+ 6 | data Delta = MkDelta ((a : _) -> a -> a)
+ 7 | absurd : Delta -> Void
+ 8 | absurd (MkDelta f) = absurd $ f _ (MkDelta f)
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

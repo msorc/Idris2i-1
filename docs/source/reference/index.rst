@@ -27,5 +27,6 @@ This is a placeholder, to get set up with readthedocs.
    pragmas
    builtins
    debugging
+   universes
    failing
    error-codes

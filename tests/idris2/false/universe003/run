@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+# Ordinary code using types as values is accepted
+check --no-prelude --check-universes Ok.idr

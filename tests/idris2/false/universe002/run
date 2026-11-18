@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+check --check-universes Fixed.idr
+check --check-universes Russell.idr
+check --check-universes Box.idr
+check --check-universes Delta.idr

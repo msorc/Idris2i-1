@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+# The constraints of Base come with its TTC file
+check --check-universes UseA.idr
+check --check-universes UseB.idr
