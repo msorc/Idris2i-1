@@ -215,6 +215,57 @@ are also associated with ``AnyPtr`` on the Idris side. To separate ``DomNode`` f
 we create two different types. Also it demonstrates how a simple callback function defined in
 Idris can be used on the JavaScript side.
 
+Stack depth
+===========
+
+JavaScript engines give a program a small stack (about 1MB with Node, and
+similar in browsers), which they cannot grow, and they do not eliminate tail
+calls.  The code generators make up for this as follows.
+
+Tail calls of a toplevel function to itself, or between toplevel functions
+that call each other, are compiled to loops.  This covers the usual loops in
+``IO`` as well (``loop n = do act n; loop (n - 1)``), since the inliner turns
+them into such calls.
+
+Other tail calls go to functions that are not known when the code is
+generated: the continuation of a ``>>=`` in a ``Maybe``, ``Either`` or
+unknown monad, or in continuation-passing code.  They go through a
+trampoline: such a call is made directly while there are fewer than 64 of
+them on the stack, and beyond that it returns a pending call to the nearest
+caller that needs the value, which makes it.  So a loop through any monad
+runs in constant stack space.  A function given to foreign code (an argument
+whose type is a function) is wrapped so that its calls run the pending calls.
+A closure that reaches foreign code in another way, such as inside an
+``AnyPtr`` or a record, is not wrapped, and its result can be a pending call
+(an object of class ``__TC``).  ``--directive no-trampoline`` makes all
+these calls directly, as before.
+
+The library builds ranges (``[1..n]``), and runs ``traverse_``, ``for_`` and
+``sequence_`` on lists in ``IO``, with loops.
+
+Recursion that is not a tail call needs a stack as deep as the recursion:
+``foldr``, ``sort`` and ``sortBy``, ``traverse`` and ``for`` on a list,
+``zip``, ``take``, ``lines``, ``unwords`` and the like use one frame per
+element.  With Node, the main expression therefore runs on a stack of its own
+of 1GB, in a worker thread, as it does with the RefC backend, which is enough
+for lists of millions of elements.  The ``IDRIS2_MAIN_STACK_SIZE``
+environment variable gives the size of this stack in bytes; with ``0``, or
+when the generated file is loaded with ``require`` instead of being the
+script that Node runs, the program runs on the main thread.  The worker
+writes to stdout and stderr synchronously and asks the main thread to change
+the working directory and to listen to signals, and the exit code and
+uncaught exceptions are passed on, so that programs behave as on the main
+thread.  Foreign code that reads ``process.stdin`` as a stream gets no input
+in the worker (the library reads file descriptor 0 instead), and starting
+the worker costs about 25ms and 12MB.  Deep recursion is slow with V8, as
+every garbage collection walks the whole stack: ``traverse`` on a list of a
+million elements takes 12 times as long as on one of 100,000.
+
+The browser has no such worker: there, recursion that is not a tail call
+overflows the stack at a few thousand elements (``foldr`` over 6000,
+``sort`` of 10,000).  Use ``foldl``, tail-recursive functions, or
+``Data.SnocList`` there for longer lists.
+
 Directives
 ----------
 
@@ -250,3 +301,7 @@ file:
 .. code-block:: javascript
 
     function $R3a($0,$1){return $0.a2(undefined)($7=>$R3b($1,$7));}
+
+``idris2 --cg node --directive no-trampoline`` (or ``--cg javascript``)
+makes the tail calls to unknown functions directly, without the trampoline
+described in the section on the stack depth above.

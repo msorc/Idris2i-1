@@ -127,3 +127,14 @@ runs; see :doc:`../backends/refc` for the details:
 * ``IDRIS2_REFC_LEAKCHECK`` - ``1`` reports the values that are still alive
   when the main expression is done (they leaked); ``2`` also shows some of
   them.
+
+Programs compiled with Node
+---------------------------
+
+A program compiled with the Node backend reads this when it runs; see
+:doc:`../backends/javascript` for the details:
+
+* ``IDRIS2_MAIN_STACK_SIZE`` - The size in bytes of the stack of the worker
+  thread that runs the main expression (default: 1GB; the memory is only used
+  as the stack grows).  ``0`` runs it on the main thread of Node, whose stack
+  is about 1MB.

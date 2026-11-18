@@ -1016,8 +1016,36 @@ should target this file (`CHANGELOG_NEXT`).
   nothing with `C__scoped_callbacks`).  The other backends take the `C`
   specifier.
 
+#### JavaScript Backends
+
+* Deep recursion and loops through monads no longer overflow the small stack
+  of JavaScript (about 1MB) at a few thousand iterations; see the section
+  on the stack depth in the documentation of the backends.
+  + Tail calls to functions that are not known statically (the continuation
+    of `>>=` in `Maybe`, `Either` or an unknown monad, continuation-passing
+    code) go through a trampoline, with Node and in the browser: a `do`
+    loop in `Maybe` overflowed at 2800 iterations, and runs 10^6 (13 times
+    faster than the 300,000 it could do on a big stack).  The cost on the
+    benchmarks is from -30% (`mergeStr`) to +40% (`triples`) instructions;
+    `--directive no-trampoline` turns it off.  Function arguments of foreign
+    functions are wrapped to run the pending calls of their results.
+  + With Node, the main expression runs on a stack of 1GB in a worker
+    thread, as with RefC, so that recursion that is not a tail call
+    (`foldr`, `sort`, `traverse` on lists of 10^6 elements) works: four of
+    the five benchmarks overflowed the stack before.  `IDRIS2_MAIN_STACK_SIZE`
+    sets the size (`0` runs on the main thread).  The browser keeps its
+    limit for such recursion.
+* `getChar` with Node reads file descriptor 0 instead of `process.stdin.fd`.
+
 ### Library changes
 
+* Ranges (`[x..y]`, `[x,y..z]`) are built by loops instead of `takeUntil`
+  and `takeBefore` on a `Stream`, and `traverse_`, `for_` and `sequence_` on
+  lists in `IO` are transformed (`%transform`) to a loop that passes the
+  world on (`ioTraverseList_`) instead of building a chain of `*>`.  They no
+  longer need a stack as deep as the list with JavaScript, and are faster with
+  every backend: `length [1..10^6]` takes 63% fewer instructions with Chez and
+  32% fewer with RefC, `for_ [1..10^6]` in `IO` 80% and 61% fewer.
 * The `HasIO` functions of `Data.IORef` and `System.Concurrency` are
   specialised (`%spec`) on their `HasIO` implementation: at `IO`, they are
   direct calls of the primitives instead of going through the `Monad`
