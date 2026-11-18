@@ -1,0 +1,12 @@
+--- segv
+Exception: invalid memory reference.  Some debugging context lost
+Backtrace of the main thread, innermost call first:
+  (no frames of Idris functions)
+exit code: 255
+--- fpe
+Exception: arithmetic overflow.  Some debugging context lost
+Backtrace of the main thread, innermost call first:
+  (no frames of Idris functions)
+exit code: 255
+--- abort
+exit code: 134

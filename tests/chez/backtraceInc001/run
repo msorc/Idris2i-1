@@ -1,0 +1,31 @@
+. ../../testutils.sh
+
+# Backtraces of a program built incrementally (IDRIS2_INC_CGS=chez): each
+# module is compiled by itself, and Chez does not inline the functions of a
+# module in another one, nor those of a module (they are defined at the top
+# level).  The directive, when the program is linked, only turns the
+# backtraces on: the names are those of the Scheme code, turned back into
+# Idris names, without where they are defined; and a crash in tail position
+# (in `name`, `checked`) leaves no frame, as without the directive.
+# Chez compiles a module only when each module that it imports has Chez code
+# (see chez035): build a prelude that has it.
+rm -rf prelude
+cp -r ../../../libs/prelude prelude
+rm -rf prelude/build
+(cd prelude && IDRIS2_INC_CGS=chez idris2 --install prelude.ipkg > /dev/null)
+rm -rf prelude
+export IDRIS2_PACKAGE_PATH="$NEW_PP"
+export IDRIS2_INC_CGS=chez
+
+idris2 --cg chez --directive chez-backtrace -o bt Main.idr
+ls build/exec/bt_app | grep -c '^Main.so$'
+for c in crash case deep; do
+  echo "--- $c"
+  echo $c | ./build/exec/bt 2>&1
+  echo "exit code: $?"
+done
+echo "--- off"
+echo crash | IDRIS2_CHEZ_BACKTRACE=0 ./build/exec/bt 2>&1
+echo "exit code: $?"
+
+rm -rf build prefix

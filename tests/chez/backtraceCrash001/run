@@ -1,0 +1,41 @@
+. ../../testutils.sh
+
+# Backtraces of a fatal error with Chez: `idris_crash`, a missing case in
+# partial code, a division by zero (a missing case in the Prelude), an error
+# that Chez raises, and a deep continuation, with the names of the Idris
+# functions (and where they are defined) that `--directive chez-backtrace`
+# puts in the program.  The functions of the program are not inlined by Chez
+# then.  The same on a forked thread.
+
+idris2 --cg chez --directive chez-backtrace -o bt Main.idr
+for c in crash case div chez deep; do
+  echo "--- $c"
+  ./build/exec/bt $c main 2>&1
+  echo "exit code: $?"
+done
+for c in crash chez; do
+  echo "--- $c on a thread"
+  ./build/exec/bt $c thread 2>&1
+  echo "exit code: $?"
+done
+
+# IDRIS2_CHEZ_BACKTRACE=0 turns them off.
+echo "--- off"
+IDRIS2_CHEZ_BACKTRACE=0 ./build/exec/bt crash main 2>&1
+echo "exit code: $?"
+IDRIS2_CHEZ_BACKTRACE=0 ./build/exec/bt chez main 2>&1
+echo "exit code: $?"
+
+# Without the directive, they are off unless IDRIS2_CHEZ_BACKTRACE=1, and the
+# names of the functions are those of the Scheme code turned back into Idris
+# names.  Chez inlines most of the functions here.
+echo "--- no directive"
+idris2 --cg chez -o plain Main.idr
+./build/exec/plain case main 2>&1
+echo "exit code: $?"
+for c in case chez deep; do
+  IDRIS2_CHEZ_BACKTRACE=1 ./build/exec/plain $c main 2>&1
+  echo "exit code: $?"
+done
+
+rm -rf build

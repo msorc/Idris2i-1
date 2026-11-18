@@ -1,0 +1,33 @@
+. ../../testutils.sh
+
+# A program whose foreign code dies of a signal.  Chez turns SIGSEGV and
+# SIGFPE into errors ("invalid memory reference", "arithmetic overflow"),
+# which the backtraces cover, but it does so by leaving the C code and the
+# frames of the continuation where the call was ("Some debugging context
+# lost"): the backtrace says that it has no frames.  SIGABRT is not one of
+# them: the program dies of it, without a backtrace (the shell says so, with
+# the number of the process: left out).
+
+case $(uname -s) in
+    OpenBSD | FreeBSD | NetBSD)
+        MAKE=gmake
+        ;;
+    *)
+        MAKE=make
+        ;;
+esac
+
+ulimit -c 0
+${MAKE} all > /dev/null
+idris2 --cg chez --directive chez-backtrace -o bt Main.idr
+
+for s in segv fpe; do
+  echo "--- $s"
+  ./build/exec/bt $s 2>&1
+  echo "exit code: $?"
+done
+echo "--- abort"
+./build/exec/bt abort 2>/dev/null
+echo "exit code: $?"
+${MAKE} clean > /dev/null
+rm -rf build

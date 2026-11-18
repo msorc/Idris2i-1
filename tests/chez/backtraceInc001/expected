@@ -1,0 +1,24 @@
+1
+--- crash
+ERROR: too big
+Backtrace of the main thread, innermost call first:
+  Main.sumChecked, 3 frames
+  Main.main
+exit code: 1
+--- case
+ERROR: Unhandled input for Main.name at Main:9:1--9:17
+Backtrace of the main thread, innermost call first:
+  Main.describe
+  Main.main
+exit code: 1
+--- deep
+ERROR: deep
+Backtrace of the main thread, innermost call first:
+  Main.depth, 48 frames
+  ... 941 more frames ...
+  Main.depth, 11 frames
+  Main.main
+exit code: 1
+--- off
+ERROR: too big
+exit code: 1
