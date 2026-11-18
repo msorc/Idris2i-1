@@ -323,6 +323,19 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Building/Packaging changes
 
+* `idris2 --dump-api pkg.ipkg` builds a package and prints its public API in a
+  stable text form, one declaration per line, meant to be compared with
+  `diff`: per module, the public imports, the exported fixities, every
+  exported name with its visibility, totality requirement and elaborated type
+  (implicits and quantities shown, names in full), the constructors of public
+  data types, record fields, interfaces with their methods, and
+  implementations.  It does not depend on source positions, paths, build order
+  or machine generated names.  The API of `prelude` and `base` is committed in
+  `libs/api`: `make api-check` (and the test `idris2/mkdoc/apidump002-libs`)
+  fails with the difference when it changes, `make api-snapshots` writes it
+  again.  See "Detecting changes to the API of a package" in the package
+  documentation.
+
 * TTC files record the version of the compiler that wrote them, and a module
   whose TTC was written by another version is rebuilt.  A TTC holds choices
   made by its compiler (inlining flags, specialised copies of functions), so

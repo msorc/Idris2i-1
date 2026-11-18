@@ -139,6 +139,10 @@ Given an Idris package file ``test.ipkg`` it can be used with the Idris compiler
 + ``idris2 --mkdoc test.ipkg`` will generate HTML documentation for the
   package, output to ``build/docs``
 
++ ``idris2 --dump-api test.ipkg`` will build the package and print its public
+  API to the standard output, in a stable text form meant for ``diff`` (see
+  :ref:`api-dump`)
+
 With ``--build``, ``--install``, ``--typecheck`` and ``--repl``, the option
 ``--jobs N`` (or ``-j N``, or the environment variable ``IDRIS2_BUILD_JOBS``)
 builds the modules of the package with up to ``N`` processes in parallel: each
@@ -170,6 +174,96 @@ Once the test package has been installed, the command line option
 For example::
 
     idris -p test Main.idr
+
+.. _api-dump:
+
+Detecting changes to the API of a package
+=========================================
+
+``idris2 --dump-api test.ipkg`` builds the package (quietly: only errors are
+printed; one module after the other, so ``idris2 --build -j N test.ipkg``
+beforehand is faster) and prints its public API: for each module of the ``modules`` field,
+in the order of their names, what another package can use of it.  For
+example::
+
+    package shapes
+
+    module Shapes
+      import public Shapes.Basic
+      export infixl 6 (<+>)
+      export total (<+>) : Shapes.Shape -> Shapes.Shape -> Shapes.Shape
+      public export interface Convert : Type -> Type -> Type
+        parameters a b
+        determining a
+        constructor : {0 a : Type} -> {0 b : Type} -> (a -> b) -> Shapes.Convert a b
+        method convert : {0 a : Type} -> {0 b : Type} -> Shapes.Convert a b => a -> b
+      public export record Point : Type
+        constructor MkPoint : Double -> (0 _ : Prelude.Types.Nat) -> Double -> Shapes.Point
+        field 0 tag : Shapes.Point -> Prelude.Types.Nat
+        field x : Shapes.Point -> Double
+        field y : Shapes.Point -> Double
+      public export data Shape : Type
+        constructor Circle : Double -> Shapes.Shape
+        constructor Rect : Double -> Double -> Shapes.Shape
+      export data Token : Type
+      export total consume : {0 a : Type} -> (1 _ : a) -> {0 n : Prelude.Types.Nat} -> Data.Nat.NonZero n => a
+      export covering loopy : Prelude.Types.Nat -> Prelude.Types.Nat
+      export implementation : Prelude.Show.Show Shapes.Shape
+      export implementation [loud] : Prelude.Show.Show Shapes.Token
+
+Each module lists its ``import public`` imports, its fixity declarations that
+are not ``private``, then its ``export`` and ``public export`` definitions in
+the order of their names, then its implementations in the order of their
+types.  A definition is shown with:
+
++ its visibility: ``public export`` also exports the definition itself (which
+  callers can reduce in their types), ``export`` only its type;
++ its totality requirement (``total``, ``covering`` or ``partial``, from the
+  definition or from ``%default``) and ``deprecated`` for ``%deprecate``;
++ its quantity (``0`` for an erased definition) and its type as elaborated:
+  every implicit argument is shown with its quantity, and every name is
+  written in full, whatever the imports of the module;
++ for a data type, its constructors in the order of their declaration when it
+  is ``public export`` (the constructors of an ``export`` type are not
+  exported); for a record, also its fields; for an interface, its parameters,
+  the parameters that determine an implementation when not all of them do,
+  its constructor (whose type has the parent constraints and the methods, in
+  order) and its methods.
+
+Implementations without a name are shown by their type only.  Definitions the
+compiler makes (case, ``with`` and ``where`` blocks, the functions of the
+methods of an implementation, the parent constraints of an interface, the
+specialised copies of ``%spec``) are left out, and so are ``private``
+definitions.  The text does not depend on source positions, paths, the order
+in which the modules are built or the numbers of machine generated names,
+which are dropped (so two such names can be shown the same): two builds of
+the same source print the same text.  A declaration is on one line, so that a
+change to it shows as one line in a diff.
+
+What is not in the text: the definitions of ``public export`` functions (a
+change of one can break a caller whose types reduce it), the names of
+explicit arguments that are not used in the rest of the type, and the
+documentation comments.
+
+To notice a change of the API of a library, commit its API and compare it
+with the API of every new version::
+
+    idris2 --dump-api mylib.ipkg > mylib.api      # once, then commit mylib.api
+    idris2 --dump-api mylib.ipkg | diff -u -F '^module ' mylib.api -
+
+A line that is removed (``-``) or changed is a change that can break the
+packages that use the library: a removed name, a different type, quantity or
+implicit argument, a weaker totality, a hidden constructor.  A line that is
+only added (``+``) is an addition, which does not break them (unless they
+define the same name).  ``-F '^module '`` writes the module of each change in
+the header of its hunk.  When a change is intended, write the file again and
+commit it with the change.
+
+The libraries of Idris 2 are checked this way: ``libs/api`` has the API of
+``prelude`` and ``base``, ``make api-check`` (and the test
+``idris2/mkdoc/apidump002-libs``) fails with the difference when it changed,
+and ``make api-snapshots`` writes the files again (the variable ``API_LIBS``
+says which libraries).
 
 Where does Idris look for packages?
 ===================================
