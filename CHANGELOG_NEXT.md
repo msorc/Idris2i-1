@@ -958,3 +958,32 @@ should target this file (`CHANGELOG_NEXT`).
   file never stopped (`idris2 --check` on a directory named `Foo.idr` hung,
   once the compiler is built with this `base`).  `replWith` and `repl` stop
   on an error of `stdin` too.
+
+#### Contrib
+
+* Added `Data.ByteString`, an immutable sequence of bytes: a slice
+  (buffer, offset, length) of a `Data.Buffer` that is never written after it
+  is built, so that `take`, `drop`, `splitAt`, `span` and `split` take constant
+  time (or time in the length of the part found) and share storage, and
+  `copy` releases a large parent buffer.  It has `pack`/`unpack`, `index`,
+  `head`/`last`/`uncons`/`unsnoc`, `append`/`concat` (one allocation),
+  `cons`/`snoc`, `reverse`, `map`, `foldl`/`foldr`, `any`/`all`, `elem`,
+  `findIndex`, `isPrefixOf`/`isSuffixOf`/`isInfixOf`, `split`, `replicate`,
+  16, 32 and 64 bit reads in both byte orders (`indexBits32BE`...), `Eq`,
+  `Ord` (lexicographic, unsigned), `Show`, `Semigroup`, `Monoid` and
+  `FromString`.  `fromString`/`toString` are UTF-8 and give the same
+  answers with every backend: `toString` returns `Nothing` for invalid input
+  (truncated or stray bytes, overlong forms, surrogates, above U+10FFFF) and
+  `toStringLossy` replaces each invalid byte with U+FFFD, whereas the
+  primitive `Data.Buffer.getString` replaces invalid bytes with U+FFFD but
+  with a different number of replacement characters per backend (a
+  truncated three-byte sequence gives one with Chez and Node, two with
+  RefC; a surrogate gives one with Chez, three with RefC and Node).  `toHex`/`fromHex` encode and decode
+  hexadecimal.  The unsafe code (`unsafePerformIO` over fresh buffers) is
+  confined to `Data.ByteString.Internal`.
+* Added `Data.ByteString.Builder`, which builds a `ByteString` from bytes,
+  integers of 8 to 64 bits in both byte orders, byte strings and UTF-8
+  strings in time linear in the size of the result, however the pieces are
+  nested, and with one allocation.
+* Added `System.File.ByteString`: `readFile`, `writeFile`, `appendFile`,
+  `hGet` (up to `n` bytes), `hGetContents` and `hPut`.

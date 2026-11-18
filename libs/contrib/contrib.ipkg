@@ -17,6 +17,11 @@ modules = Control.ANSI,
           Data.Binary.Digit,
           Data.Binary,
 
+          Data.ByteString,
+          Data.ByteString.Builder,
+          Data.ByteString.Internal,
+          System.File.ByteString,
+
           Data.Fin.Extra,
 
           Data.Fun.Extra,
