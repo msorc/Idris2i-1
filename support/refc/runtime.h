@@ -48,8 +48,18 @@ extern Idris2_Value const idris2_tailCallMarker;
 // A call in tail position that is a jump (see makeTailCall in RefC.idr):
 // GCC 15 can make one even when the caller and the callee have different
 // parameters (Clang requires them to be the same).
+//
+// Not on 32 bit x86 and ARM: the jump needs the arguments of the callee to
+// fit where the caller got its own.  x86 passes every argument on the stack
+// and ARM all but four, so a function cannot jump to one that takes more
+// arguments than it does, which the runtime does for closures (see
+// IDRIS2_JUMP_TO_CLOSURE in runtime.c) and the generated code when it applies
+// one (IDRIS2_TAIL_APPLY): GCC refuses to compile such a call ("cannot
+// tail-call: target is not able to optimize the call into a sibling call").
+// The calls in tail position go through the trampoline there.
 #if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 15 &&             \
-    !defined(__wasm__) && !defined(IDRIS2_NO_MUSTTAIL)
+    !defined(__wasm__) && !defined(__i386__) && !defined(__arm__) &&           \
+    !defined(IDRIS2_NO_MUSTTAIL)
 #define IDRIS2_MUSTTAIL __attribute__((musttail))
 #endif
 

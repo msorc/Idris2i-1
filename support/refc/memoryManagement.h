@@ -256,10 +256,10 @@ static inline Idris2_Closure *idris2_mkClosure(Idris2_Value *(*f)(),
 
 #if !defined(UINTPTR_WIDTH)
 #define idris2_mkBits32(x)                                                     \
-  ((idris2_vp_int_shift == 16) ? (idris2_mkBits32_Boxed(x))                    \
+  ((idris2_vp_int_shift != 32) ? (idris2_mkBits32_Boxed(x))                    \
                                : idris2_mkUnboxed(uint32_t, x))
 #define idris2_mkInt32(x)                                                      \
-  ((idris2_vp_int_shift == 16) ? (idris2_mkInt32_Boxed(x))                     \
+  ((idris2_vp_int_shift != 32) ? (idris2_mkInt32_Boxed(x))                     \
                                : idris2_mkUnboxed(int32_t, x))
 
 #elif UINTPTR_WIDTH >= 64
@@ -320,7 +320,7 @@ static inline Idris2_Value *idris2_mkDouble(double d) {
 
 static inline Idris2_Value *idris2_mkBits64(uint64_t i) {
   if (idris2_vp_int_shift == 32 && i <= UINT32_MAX)
-    return (Idris2_Value *)(((uintptr_t)(i) << 32) + 1);
+    return (Idris2_Value *)(uintptr_t)(((uint64_t)(i) << 32) + 1);
   if (i < 100)
     return (Idris2_Value *)&idris2_predefined_Bits64[i];
   Idris2_Bits64 *retVal = IDRIS2_NEW_VALUE(Idris2_Bits64);
@@ -331,7 +331,7 @@ static inline Idris2_Value *idris2_mkBits64(uint64_t i) {
 
 static inline Idris2_Value *idris2_mkInt64(int64_t i) {
   if (idris2_vp_int_shift == 32 && i >= INT32_MIN && i <= INT32_MAX)
-    return (Idris2_Value *)(((uintptr_t)(i) << 32) + 1);
+    return (Idris2_Value *)(uintptr_t)(((uint64_t)(i) << 32) + 1);
   if (i >= 0 && i < 100)
     return (Idris2_Value *)&idris2_predefined_Int64[i];
   Idris2_Int64 *retVal = IDRIS2_NEW_VALUE(Idris2_Int64);

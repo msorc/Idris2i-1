@@ -460,8 +460,16 @@ int64_t idris2_extractInt64Boxed(Idris2_Value *v) {
     return idris2_vp_to_Int32(v);
   case INT64_TAG:
     return idris2_vp_to_Int64(v);
-  case INTEGER_TAG:
+  case INTEGER_TAG: {
+#if LONG_MAX >= INT64_MAX
     return mpz_get_si(((Idris2_Integer *)v)->i);
+#else
+    // (a `long` has 32 bits)
+    mpz_srcptr z = ((Idris2_Integer *)v)->i;
+    uint64_t n = idris2_mpzLow64(z);
+    return (int64_t)(mpz_sgn(z) < 0 ? -n : n);
+#endif
+  }
   case DOUBLE_TAG:
     return (int64_t)idris2_vp_to_Double(v);
   default:

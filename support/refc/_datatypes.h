@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gmp.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,8 +83,18 @@ flag.
  */
 #define idris2_vp_is_unboxed(p) ((uintptr_t)(p)&3)
 
+// How far an unboxed value is shifted into the pointer.  With 32 bit
+// pointers, 8 bits leave 24 for the value: enough for the 16 bit integers
+// and for a Char (21 bits; with a shift of 16 the characters above U+FFFF
+// lost their upper bits).
 #define idris2_vp_int_shift                                                    \
-  ((sizeof(uintptr_t) >= 8 && sizeof(Idris2_Value *) >= 8) ? 32 : 16)
+  ((sizeof(uintptr_t) >= 8 && sizeof(Idris2_Value *) >= 8) ? 32 : 8)
+
+// The bits of a pointer as 64 bits, for the code of the 64 bit platforms that
+// takes the upper half of an unboxed value: on a 32 bit platform that code is
+// never run (it is under a test of idris2_vp_int_shift), but it is compiled,
+// and a shift of a 32 bit pointer by 32 would be an error under -Werror.
+#define idris2_vp_bits64(p) ((uint64_t)(uintptr_t)(p))
 
 // On 64 bit platforms, Int64 and Bits64 values that fit in 32 bits are
 // unboxed (see idris2_mkInt64): see idris2_unboxInt64 and idris2_unboxBits64.
@@ -91,11 +102,11 @@ flag.
 
 #if !defined(UINTPTR_WIDTH)
 #define idris2_vp_to_Bits32(p)                                                 \
-  ((idris2_vp_int_shift == 16)                                                 \
+  ((idris2_vp_int_shift != 32)                                                 \
        ? (((Idris2_Bits32 *)(p))->ui32)                                        \
        : ((uint32_t)((uintptr_t)(p) >> idris2_vp_int_shift)))
 #define idris2_vp_to_Int32(p)                                                  \
-  ((idris2_vp_int_shift == 16)                                                 \
+  ((idris2_vp_int_shift != 32)                                                 \
        ? (((Idris2_Int32 *)(p))->i32)                                          \
        : ((int32_t)((uintptr_t)(p) >> idris2_vp_int_shift)))
 
@@ -136,7 +147,7 @@ typedef struct {
 
 static inline uint64_t idris2_unboxBits64(Idris2_Value *p) {
   if (idris2_vp_int_shift == 32 && idris2_vp_is_unboxed(p))
-    return (uint32_t)((uintptr_t)(p) >> 32);
+    return (uint32_t)(idris2_vp_bits64(p) >> 32);
   return ((Idris2_Bits64 *)(p))->ui64;
 }
 
@@ -153,7 +164,7 @@ typedef struct {
 
 static inline int64_t idris2_unboxInt64(Idris2_Value *p) {
   if (idris2_vp_int_shift == 32 && idris2_vp_is_unboxed(p))
-    return (int32_t)((uintptr_t)(p) >> 32);
+    return (int32_t)(idris2_vp_bits64(p) >> 32);
   return ((Idris2_Int64 *)(p))->i64;
 }
 
@@ -168,9 +179,9 @@ typedef struct {
 // idris2_integerMpz), and they give small results unboxed.
 #define idris2_isSmallInteger(v)                                               \
   (idris2_vp_int_shift == 32 && idris2_vp_is_unboxed(v))
-#define idris2_smallInteger(v) ((int64_t)(int32_t)((uintptr_t)(v) >> 32))
+#define idris2_smallInteger(v) ((int64_t)(int32_t)(idris2_vp_bits64(v) >> 32))
 #define idris2_mkSmallInteger(n)                                               \
-  ((Idris2_Value *)(((uintptr_t)(int64_t)(n) << 32) + 1))
+  ((Idris2_Value *)(uintptr_t)(((uint64_t)(int64_t)(n) << 32) + 1))
 static inline int idris2_fitsSmallInteger(int64_t n) {
   return idris2_vp_int_shift == 32 && n >= INT32_MIN && n <= INT32_MAX;
 }
@@ -203,6 +214,21 @@ static inline mpz_srcptr idris2_integerMpz(Idris2_Value *v,
 #define IDRIS2_INTEGER_MPZ(name, v)                                            \
   Idris2_IntegerView name##_view;                                              \
   mpz_srcptr name = idris2_integerMpz((v), &name##_view)
+
+// The low 64 bits of the absolute value of `z`.  This is mpz_get_ui where an
+// `unsigned long` has 64 bits; it has 32 on the 32 bit platforms (and on 64
+// bit Windows), where the limbs of `z` are put together instead.
+static inline uint64_t idris2_mpzLow64(mpz_srcptr z) {
+#if ULONG_MAX >= UINT64_MAX
+  return mpz_get_ui(z);
+#else
+  uint64_t n = 0;
+  size_t limbs = mpz_size(z);
+  for (size_t k = 0; k < limbs && k * GMP_NUMB_BITS < 64; ++k)
+    n |= (uint64_t)mpz_getlimbn(z, k) << (k * GMP_NUMB_BITS);
+  return n;
+#endif
+}
 
 
 typedef struct {

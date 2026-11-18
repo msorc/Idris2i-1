@@ -486,7 +486,7 @@ uint64_t mpz_get_lsb(mpz_srcptr i, mp_bitcnt_t b) {
   mpz_t r;
   mpz_init(r);
   mpz_fdiv_r_2exp(r, i, b);
-  uint64_t retVal = mpz_get_ui(r);
+  uint64_t retVal = idris2_mpzLow64(r);
   mpz_clear(r);
   return retVal;
 }

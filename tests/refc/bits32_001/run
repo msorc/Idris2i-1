@@ -1,0 +1,40 @@
+. ../../testutils.sh
+
+# The C code does not depend on the machine that the compiler runs on, so the
+# program can be tested for a 32 bit platform without a 32 bit compiler: its C
+# is compiled with `cc -m32` against the sources of the runtime.  That needs a
+# C compiler for 32 bit x86 with a 32 bit GMP, which most machines do not
+# have: without one, the test runs the native program, which prints the same.
+
+idris2 -o bits32 Main.idr
+
+support=../../../support
+cc=${IDRIS2_CC:-${CC:-cc}}
+
+# The 32 bit gmp.h is not always the one that the compiler finds first.
+gmpinc=
+have32=
+for dir in "" /usr/lib32/gmp /usr/include/i386-linux-gnu; do
+    cat > build/probe32.c <<EOC
+#include <gmp.h>
+#include <pthread.h>
+_Static_assert(sizeof(void *) == 4 && GMP_LIMB_BITS == 32, "not 32 bit");
+int main(void) { mpz_t z; mpz_init_set_ui(z, 42); return mpz_get_ui(z) != 42; }
+EOC
+    if "$cc" -m32 ${dir:+-I$dir} -o build/probe32 build/probe32.c -lgmp -lm -pthread 2>/dev/null \
+        && ./build/probe32 2>/dev/null; then
+        have32=1
+        gmpinc=${dir:+-I$dir}
+        break
+    fi
+done
+
+if [ -n "$have32" ] && [ -f "$support/refc/runtime.c" ]; then
+    # (-Werror for the generated code, as the compiler compiles it)
+    "$cc" -m32 -O1 -Werror $gmpinc -I"$support/refc" -I"$support/c" -c build/exec/bits32.c -o build/bits32.o \
+        && "$cc" -m32 -O1 -w $gmpinc -I"$support/refc" -I"$support/c" -o build/bits32 build/bits32.o \
+            "$support"/refc/*.c "$support"/c/*.c -lgmp -lm -pthread \
+        && ./build/bits32
+else
+    ./build/exec/bits32
+fi

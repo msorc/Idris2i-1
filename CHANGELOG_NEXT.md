@@ -818,6 +818,20 @@ should target this file (`CHANGELOG_NEXT`).
   spellings (`"inf"`, `"nan"`, `"Infinity"`) are still 0.0, as with Chez.  As
   the compiler built with RefC folds constants with this cast, the cast of a
   literal changes the same way for every backend.
+* On 32 bit platforms
+  ([#1617](https://github.com/idris-lang/Idris2/issues/1617)): a cast from
+  an `Integer` that does not fit in 32 bits to `Int`, `Int64` or `Bits64`
+  kept its low 32 bits only (the runtime read it as an `unsigned long`), and
+  so did a `String` cast to these types; a `Char` above U+FFFF lost its
+  upper bits (unboxed values had 16 bits; they have 24 now).  The generated
+  C compiles there as the compiler compiles it, with `-Werror` (shifts of a
+  pointer by 32 bits, in code that only 64 bit platforms run, were errors),
+  with or without `UINTPTR_WIDTH`, and with GCC 15 for 32 bit x86 and ARM,
+  where a call in tail position cannot always be a jump (`musttail`): the
+  calls go through the trampoline there.  The test `refc/bits32_001`
+  compiles the C code of a program with `cc -m32` where that works, as the C
+  code does not depend on the machine of the compiler; there is no 32 bit
+  build of the compiler itself.
 
 #### Chez Backend
 

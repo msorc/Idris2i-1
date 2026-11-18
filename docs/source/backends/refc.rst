@@ -235,7 +235,8 @@ A call in tail position is a jump when the C compiler can make one: with GCC
 takes no more arguments than the caller, or no more than are passed in
 registers (6 on x86-64, 8 on AArch64 and RISC-V 64).  Otherwise the call is left to the
 trampoline of the caller, which costs more but needs no support from the C
-compiler.  Two macros, given in ``IDRIS2_CPPFLAGS`` or ``IDRIS2_CFLAGS``,
+compiler.  It is always the trampoline on 32 bit x86 and ARM, which pass
+arguments on the stack, where GCC cannot make every such call a jump.  Two macros, given in ``IDRIS2_CPPFLAGS`` or ``IDRIS2_CFLAGS``,
 change this: ``-DIDRIS2_NO_MUSTTAIL`` makes no jumps at all, and
 ``-DIDRIS2_MUSTTAIL_REG_ARGS=0`` only the jumps to functions that take no
 more arguments than their caller.

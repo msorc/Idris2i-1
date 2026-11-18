@@ -541,7 +541,8 @@ static OverflowEntry *overflowTable = NULL;
 static size_t overflowCapacity = 0, overflowUsed = 0;
 static Idris2_SpinLock overflowLock = 0;
 
-static size_t overflowHash(uintptr_t key) {
+// (in 64 bits, whatever the size of a pointer: the shifts need them)
+static size_t overflowHash(uint64_t key) {
   key ^= key >> 33;
   key *= 0xff51afd7ed558ccdULL;
   key ^= key >> 33;
