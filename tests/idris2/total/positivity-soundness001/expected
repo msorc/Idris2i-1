@@ -1,0 +1,437 @@
+1/1: Building NegParam (NegParam.idr)
+Error: Bad is not total, not strictly positive
+
+NegParam:6:1--7:26
+ 6 | data Bad : Type where
+ 7 |   MkBad : NegT Bad -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegParam:7:3--7:26
+ 3 | data NegT : Type -> Type where
+ 4 |   MkNeg : (a -> Void) -> NegT a
+ 5 |
+ 6 | data Bad : Type where
+ 7 |   MkBad : NegT Bad -> Bad
+       ^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad
+
+NegParam:9:1--9:21
+ 5 |
+ 6 | data Bad : Type where
+ 7 |   MkBad : NegT Bad -> Bad
+ 8 |
+ 9 | notBad : Bad -> Void
+     ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad, Main.notBad
+
+NegParam:12:1--12:12
+ 08 |
+ 09 | notBad : Bad -> Void
+ 10 | notBad (MkBad (MkNeg f)) = f (MkBad (MkNeg f))
+ 11 |
+ 12 | void : Void
+      ^^^^^^^^^^^
+
+1/1: Building NegParamTwoLevels (NegParamTwoLevels.idr)
+Error: Bad is not total, not strictly positive
+
+NegParamTwoLevels:7:1--8:32
+ 7 | data Bad : Type where
+ 8 |   MkBad : Box (NegT Bad) -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegParamTwoLevels:8:3--8:32
+ 4 |   MkNegT : (a -> Void) -> NegT a
+ 5 | data Box : Type -> Type where
+ 6 |   MkBox : a -> Box a
+ 7 | data Bad : Type where
+ 8 |   MkBad : Box (NegT Bad) -> Bad
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad
+
+NegParamTwoLevels:9:1--9:21
+ 5 | data Box : Type -> Type where
+ 6 |   MkBox : a -> Box a
+ 7 | data Bad : Type where
+ 8 |   MkBad : Box (NegT Bad) -> Bad
+ 9 | notBad : Bad -> Void
+     ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad, Main.notBad
+
+NegParamTwoLevels:11:1--11:12
+ 07 | data Bad : Type where
+ 08 |   MkBad : Box (NegT Bad) -> Bad
+ 09 | notBad : Bad -> Void
+ 10 | notBad (MkBad (MkBox (MkNegT f))) = f (MkBad (MkBox (MkNegT f)))
+ 11 | void : Void
+      ^^^^^^^^^^^
+
+1/1: Building NegParamPassedOn (NegParamPassedOn.idr)
+Error: Bad is not total, not strictly positive
+
+NegParamPassedOn:7:1--8:26
+ 7 | data Bad : Type where
+ 8 |   MkBad : Wrap Bad -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegParamPassedOn:8:3--8:26
+ 4 |   MkNegT : (a -> Void) -> NegT a
+ 5 | data Wrap : Type -> Type where
+ 6 |   MkWrap : NegT a -> Wrap a
+ 7 | data Bad : Type where
+ 8 |   MkBad : Wrap Bad -> Bad
+       ^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad
+
+NegParamPassedOn:9:1--9:21
+ 5 | data Wrap : Type -> Type where
+ 6 |   MkWrap : NegT a -> Wrap a
+ 7 | data Bad : Type where
+ 8 |   MkBad : Wrap Bad -> Bad
+ 9 | notBad : Bad -> Void
+     ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad, Main.notBad
+
+NegParamPassedOn:11:1--11:12
+ 07 | data Bad : Type where
+ 08 |   MkBad : Wrap Bad -> Bad
+ 09 | notBad : Bad -> Void
+ 10 | notBad (MkBad (MkWrap (MkNegT f))) = f (MkBad (MkWrap (MkNegT f)))
+ 11 | void : Void
+      ^^^^^^^^^^^
+
+1/1: Building NegRecordParam (NegRecordParam.idr)
+Error: Bad is not total, not strictly positive
+
+NegRecordParam:6:1--7:23
+ 6 | data Bad : Type where
+ 7 |   MkBad : R Bad -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegRecordParam:7:3--7:23
+ 3 | record R a where
+ 4 |   constructor MkR
+ 5 |   get : a -> Void
+ 6 | data Bad : Type where
+ 7 |   MkBad : R Bad -> Bad
+       ^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad
+
+NegRecordParam:8:1--8:21
+ 4 |   constructor MkR
+ 5 |   get : a -> Void
+ 6 | data Bad : Type where
+ 7 |   MkBad : R Bad -> Bad
+ 8 | notBad : Bad -> Void
+     ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad, Main.notBad
+
+NegRecordParam:10:1--10:12
+ 06 | data Bad : Type where
+ 07 |   MkBad : R Bad -> Bad
+ 08 | notBad : Bad -> Void
+ 09 | notBad (MkBad r) = r.get (MkBad r)
+ 10 | void : Void
+      ^^^^^^^^^^^
+
+1/1: Building NegDPair (NegDPair.idr)
+Error: Bad is not total, not strictly positive
+
+NegDPair:3:1--4:44
+ 3 | data Bad : Type where
+ 4 |   MkBad : (x : Nat ** (Bad -> Void)) -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegDPair:4:3--4:44
+ 1 | -- dependent pair hiding negative
+ 2 | %default total
+ 3 | data Bad : Type where
+ 4 |   MkBad : (x : Nat ** (Bad -> Void)) -> Bad
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to call to Main.MkBad
+
+NegDPair:6:1--6:21
+ 2 | %default total
+ 3 | data Bad : Type where
+ 4 |   MkBad : (x : Nat ** (Bad -> Void)) -> Bad
+ 5 |
+ 6 | notBad : Bad -> Void
+     ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.MkBad, Main.notBad
+
+NegDPair:9:1--9:12
+ 5 |
+ 6 | notBad : Bad -> Void
+ 7 | notBad (MkBad (_ ** f)) = f (MkBad (Z ** f))
+ 8 |
+ 9 | void : Void
+     ^^^^^^^^^^^
+
+1/1: Building NegLambdaParam (NegLambdaParam.idr)
+Error: Bad is not total, not strictly positive
+
+NegLambdaParam:5:1--6:40
+ 5 | data Bad : Type where
+ 6 |   MkBad : Ex (\_ => Bad -> Void) -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegLambdaParam:6:3--6:40
+ 2 | %default total
+ 3 | data Ex : (Nat -> Type) -> Type where
+ 4 |   MkEx : (n : Nat) -> p n -> Ex p
+ 5 | data Bad : Type where
+ 6 |   MkBad : Ex (\_ => Bad -> Void) -> Bad
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to call to Main.MkBad
+
+NegLambdaParam:7:1--7:21
+ 3 | data Ex : (Nat -> Type) -> Type where
+ 4 |   MkEx : (n : Nat) -> p n -> Ex p
+ 5 | data Bad : Type where
+ 6 |   MkBad : Ex (\_ => Bad -> Void) -> Bad
+ 7 | notBad : Bad -> Void
+     ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.MkBad, Main.notBad
+
+NegLambdaParam:9:1--9:12
+ 5 | data Bad : Type where
+ 6 |   MkBad : Ex (\_ => Bad -> Void) -> Bad
+ 7 | notBad : Bad -> Void
+ 8 | notBad (MkBad (MkEx n f)) = f (MkBad (MkEx n f))
+ 9 | void : Void
+     ^^^^^^^^^^^
+
+1/1: Building NegEquality (NegEquality.idr)
+Error: D is not total, not strictly positive
+
+NegEquality:2:1--2:54
+ 1 | %default total
+ 2 | data D : Type where Abs : (D = e) -> (e -> Void) -> D
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: Omega is not total, possibly not terminating due to function Main.Abs being reachable via Main.omega -> Main.lam -> Main.Abs
+
+NegEquality:9:1--9:13
+ 5 | app : D -> D -> Void
+ 6 | app (Abs Refl f) d = f d
+ 7 | omega : D
+ 8 | omega = lam (\x => app x x)
+ 9 | Omega : Void
+     ^^^^^^^^^^^^
+
+Calls leading to the non-terminating function:
+    Main.omega called at NegEquality:10:13--10:18
+    Main.lam called at NegEquality:8:9--8:12
+    Main.Abs called at NegEquality:4:9--4:12
+
+Error: lam is not total, possibly not terminating due to call to Main.Abs
+
+NegEquality:3:1--3:23
+ 1 | %default total
+ 2 | data D : Type where Abs : (D = e) -> (e -> Void) -> D
+ 3 | lam : (D -> Void) -> D
+     ^^^^^^^^^^^^^^^^^^^^^^
+
+Calls leading to the non-terminating function:
+    Main.Abs called at NegEquality:4:9--4:12
+
+Error: omega is not total, possibly not terminating due to function Main.Abs being reachable via Main.lam -> Main.Abs
+
+NegEquality:7:1--7:10
+ 3 | lam : (D -> Void) -> D
+ 4 | lam f = Abs Refl f
+ 5 | app : D -> D -> Void
+ 6 | app (Abs Refl f) d = f d
+ 7 | omega : D
+     ^^^^^^^^^
+
+Calls leading to the non-terminating function:
+    Main.lam called at NegEquality:8:9--8:12
+    Main.Abs called at NegEquality:4:9--4:12
+
+1/1: Building NegStuckFn (NegStuckFn.idr)
+Error: Bad is not total, not strictly positive
+
+NegStuckFn:9:1--10:28
+ 09 | data Bad : Type where
+ 10 |   MkBad : R True Bad -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegStuckFn:10:3--10:28
+ 06 | record R (b : Bool) a where
+ 07 |   constructor MkR
+ 08 |   get : T b a
+ 09 | data Bad : Type where
+ 10 |   MkBad : R True Bad -> Bad
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad
+
+NegStuckFn:11:1--11:21
+ 07 |   constructor MkR
+ 08 |   get : T b a
+ 09 | data Bad : Type where
+ 10 |   MkBad : R True Bad -> Bad
+ 11 | notBad : Bad -> Void
+      ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad, Main.notBad
+
+NegStuckFn:13:1--13:12
+ 09 | data Bad : Type where
+ 10 |   MkBad : R True Bad -> Bad
+ 11 | notBad : Bad -> Void
+ 12 | notBad (MkBad r) = r.get (MkBad r)
+ 13 | void : Void
+      ^^^^^^^^^^^
+
+1/1: Building NegRecursiveFn (NegRecursiveFn.idr)
+Error: Bad is not total, not strictly positive
+
+NegRecursiveFn:9:1--10:25
+ 09 | data Bad : Type where
+ 10 |   MkBad : R 3 Bad -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegRecursiveFn:10:3--10:25
+ 06 | record R (n : Nat) a where
+ 07 |   constructor MkR
+ 08 |   get : F n a
+ 09 | data Bad : Type where
+ 10 |   MkBad : R 3 Bad -> Bad
+        ^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad
+
+NegRecursiveFn:11:1--11:21
+ 07 |   constructor MkR
+ 08 |   get : F n a
+ 09 | data Bad : Type where
+ 10 |   MkBad : R 3 Bad -> Bad
+ 11 | notBad : Bad -> Void
+      ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad, Main.notBad
+
+NegRecursiveFn:13:1--13:12
+ 09 | data Bad : Type where
+ 10 |   MkBad : R 3 Bad -> Bad
+ 11 | notBad : Bad -> Void
+ 12 | notBad (MkBad r) = r.get (MkBad r)
+ 13 | void : Void
+      ^^^^^^^^^^^
+
+1/1: Building NegCaseFn (NegCaseFn.idr)
+Error: Bad is not total, not strictly positive
+
+NegCaseFn:10:1--11:28
+ 10 | data Bad : Type where
+ 11 |   MkBad : R True Bad -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegCaseFn:11:3--11:28
+ 07 | record R (b : Bool) a where
+ 08 |   constructor MkR
+ 09 |   get : G b a
+ 10 | data Bad : Type where
+ 11 |   MkBad : R True Bad -> Bad
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad
+
+NegCaseFn:12:1--12:21
+ 08 |   constructor MkR
+ 09 |   get : G b a
+ 10 | data Bad : Type where
+ 11 |   MkBad : R True Bad -> Bad
+ 12 | notBad : Bad -> Void
+      ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad, Main.notBad
+
+NegCaseFn:14:1--14:12
+ 10 | data Bad : Type where
+ 11 |   MkBad : R True Bad -> Bad
+ 12 | notBad : Bad -> Void
+ 13 | notBad (MkBad r) = r.get (MkBad r)
+ 14 | void : Void
+      ^^^^^^^^^^^
+
+1/1: Building NegTypeCase (NegTypeCase.idr)
+Error: Bad is not total, not strictly positive
+
+NegTypeCase:9:1--10:23
+ 09 | data Bad : Type where
+ 10 |   MkBad : R Bad -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegTypeCase:10:3--10:23
+ 06 | record R a where
+ 07 |   constructor MkR
+ 08 |   get : H a
+ 09 | data Bad : Type where
+ 10 |   MkBad : R Bad -> Bad
+        ^^^^^^^^^^^^^^^^^^^^
+
+1/1: Building NegRecursionTurnsNegative (NegRecursionTurnsNegative.idr)
+Error: Bad is not total, not strictly positive
+
+NegRecursionTurnsNegative:9:1--10:25
+ 09 | data Bad : Type where
+ 10 |   MkBad : R 1 Bad -> Bad
+
+Error: MkBad is not total, not strictly positive
+
+NegRecursionTurnsNegative:10:3--10:25
+ 06 | record R (n : Nat) a where
+ 07 |   constructor MkR
+ 08 |   get : F n a
+ 09 | data Bad : Type where
+ 10 |   MkBad : R 1 Bad -> Bad
+        ^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad
+
+NegRecursionTurnsNegative:11:1--11:21
+ 07 |   constructor MkR
+ 08 |   get : F n a
+ 09 | data Bad : Type where
+ 10 |   MkBad : R 1 Bad -> Bad
+ 11 | notBad : Bad -> Void
+      ^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad, Main.MkBad, Main.notBad
+
+NegRecursionTurnsNegative:13:1--13:12
+ 09 | data Bad : Type where
+ 10 |   MkBad : R 1 Bad -> Bad
+ 11 | notBad : Bad -> Void
+ 12 | notBad (MkBad r) = r.get (MkBad r)
+ 13 | void : Void
+      ^^^^^^^^^^^
+
+1/1: Building Accepted (Accepted.idr)
+1/1: Building AcceptedFns (AcceptedFns.idr)
+1/1: Building AcceptedPartialFn (AcceptedPartialFn.idr)

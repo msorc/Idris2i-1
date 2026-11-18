@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+# The parameter types come from another module (read from its TTC), one of
+# them abstract: the positivity check must still look at their constructors.
+check Main.idr || true

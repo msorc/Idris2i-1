@@ -1,0 +1,21 @@
+. ../../../testutils.sh
+
+# Each of these hides a negative occurrence of the type being defined, most
+# of them deriving Void from it; all must be rejected as not strictly
+# positive.
+check NegParam.idr || true
+check NegParamTwoLevels.idr || true
+check NegParamPassedOn.idr || true
+check NegRecordParam.idr || true
+check NegDPair.idr || true
+check NegLambdaParam.idr || true
+check NegEquality.idr || true
+check NegStuckFn.idr || true
+check NegRecursiveFn.idr || true
+check NegCaseFn.idr || true
+check NegTypeCase.idr || true
+check NegRecursionTurnsNegative.idr || true
+# Legitimate nested and parameterised types must stay accepted.
+check Accepted.idr
+check AcceptedFns.idr
+check AcceptedPartialFn.idr

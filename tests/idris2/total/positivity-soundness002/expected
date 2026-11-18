@@ -1,0 +1,54 @@
+1/2: Building Lib (Lib.idr)
+2/2: Building Main (Main.idr)
+Error: Bad is not total, not strictly positive
+
+Main:4:1--5:26
+ 4 | data Bad : Type where
+ 5 |   MkBad : NegT Bad -> Bad
+
+Error: Bad2 is not total, not strictly positive
+
+Main:6:1--7:31
+ 6 | data Bad2 : Type where
+ 7 |   MkBad2 : Hidden Bad2 -> Bad2
+
+Error: MkBad is not total, not strictly positive
+
+Main:5:3--5:26
+ 1 | module Main
+ 2 | import Lib
+ 3 | %default total
+ 4 | data Bad : Type where
+ 5 |   MkBad : NegT Bad -> Bad
+       ^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: MkBad2 is not total, not strictly positive
+
+Main:7:3--7:31
+ 3 | %default total
+ 4 | data Bad : Type where
+ 5 |   MkBad : NegT Bad -> Bad
+ 6 | data Bad2 : Type where
+ 7 |   MkBad2 : Hidden Bad2 -> Bad2
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Error: notBad2 is not total, possibly not terminating due to calls to Main.Bad2, Main.MkBad2
+
+Main:8:1--8:23
+ 4 | data Bad : Type where
+ 5 |   MkBad : NegT Bad -> Bad
+ 6 | data Bad2 : Type where
+ 7 |   MkBad2 : Hidden Bad2 -> Bad2
+ 8 | notBad2 : Bad2 -> Void
+     ^^^^^^^^^^^^^^^^^^^^^^
+
+Error: void is not total, possibly not terminating due to calls to Main.Bad2, Main.MkBad2, Main.notBad2
+
+Main:10:1--10:12
+ 06 | data Bad2 : Type where
+ 07 |   MkBad2 : Hidden Bad2 -> Bad2
+ 08 | notBad2 : Bad2 -> Void
+ 09 | notBad2 (MkBad2 h) = useHidden h (MkBad2 h)
+ 10 | void : Void
+      ^^^^^^^^^^^
+

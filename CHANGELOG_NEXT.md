@@ -214,6 +214,21 @@ should target this file (`CHANGELOG_NEXT`).
   too large.  Checking a file importing modules of `base` and `contrib` with
   five undefined names takes 4.7 G instructions instead of 25 G (one undefined
   name: 2.7 G instead of 7.5 G).
+* The strict positivity check no longer accepts data types that hide a
+  negative occurrence of themselves, which let `%default total` code prove
+  `Void`:
+  - in a parameter of another data type that uses its parameter negatively
+    (`MkBad : Neg Bad -> Bad` with `MkNeg : (a -> Void) -> Neg a`); a
+    parameter is now positive only if the constructors of its type use it
+    strictly positively and it does not also appear in an index of their
+    return type, so `(D = e) -> (e -> Void) -> D` is rejected too (#1988);
+  - in a type-level lambda, such as the second argument of a dependent pair
+    (`MkBad : (n : Nat ** (Bad -> Void)) -> Bad`).
+  A type-level function applied to the type is now accepted when every clause
+  of the function matches that argument with a variable and uses it strictly
+  positively (`Arr d r` with `Arr` defined by matching on `d`; also #2297),
+  where it used to be either rejected outright or, when passed through a
+  parameter, accepted without looking.
 * A totality error that comes from a path of calls ("possibly not
   terminating due to recursive path ...", or "due to function ... being
   reachable via ...") lists the calls of the path with their locations, under
