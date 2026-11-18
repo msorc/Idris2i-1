@@ -1096,6 +1096,9 @@ record Defs where
      -- TTImp.PartialEval; computed once per function and module
   autoSpecCount : Nat
      -- ^ How many functions were specialised that way in this module
+  autoSpecStack : List Name
+     -- ^ The functions whose copies made that way are being elaborated, one
+     -- in another (innermost first)
   timings : StringMap (Bool, Integer)
      -- ^ record of timings from logTimeRecord
   timer : Maybe (Integer, String)
@@ -1165,6 +1168,7 @@ initDefs
            , peFailures = empty
            , autoSpecs = empty
            , autoSpecCount = 0
+           , autoSpecStack = []
            , timings = empty
            , timer = Nothing
            , warnings = []

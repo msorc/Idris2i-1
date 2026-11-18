@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+# The copies that --spec-interfaces makes are not in the source: their names
+# (PE_..., _pe...) must not be highlighted.  The output is the one without
+# the option (ideMode007 and ideMode014).
+idris2 --spec-interfaces --ide-mode < input-syntax
+idris2 --spec-interfaces --ide-mode < input-with

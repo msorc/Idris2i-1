@@ -202,11 +202,18 @@ getSpecPats fc pename fn stk fnty args sargs pats
 
     unelabPat : Name -> (vs ** (Env Term vs, Term vs, Term vs)) ->
                 Core ImpClause
-    unelabPat pename (vs ** (env, lhs, rhs))
-        = do logTerm "specialise" 20 "Unelaborating LHS:" lhs
+    unelabPat pename (vs0 ** (env0, lhs0, rhs0))
+        = do -- Two pattern variables can have the same name (in a local
+             -- definition, a pattern variable of the parent function and one
+             -- of its own, `xs` and `x :: xs`): they are renamed apart, or
+             -- the LHS that is elaborated again would not be linear.
+             let (vs ** (env, compat)) = uniqifyEnv env0
+             let lhs = compatTerm compat lhs0
+             let rhs = compatTerm compat rhs0
+             logTerm "specialise" 20 "Unelaborating LHS:" lhs
              lhsapp <- unelabNoSugar env lhs
              log "specialise" 20 $ "Unelaborating LHS to: \{show lhsapp}"
-             let lhs' = bindMachineNames $ dropArgs pename (map rawName lhsapp)
+             let lhs' = bindMachineNames vs $ dropArgs pename (map rawName lhsapp)
              defs <- get Ctxt
              rhs <- normaliseArgHoles defs env rhs
              rhs <- unelabNoSugar env rhs
@@ -218,8 +225,8 @@ getSpecPats fc pename fn stk fnty args sargs pats
         -- Only user names are bound as pattern variables when the LHS is
         -- elaborated again, so a pattern variable with a machine name (the
         -- one of a `_` in a case block, say) is bound explicitly.
-        bindMachineNames : RawImp -> RawImp
-        bindMachineNames = mapTTImp $ \case
+        bindMachineNames : List Name -> RawImp -> RawImp
+        bindMachineNames vs = mapTTImp $ \case
           IVar vfc n@(MN {}) => if n `elem` vs then IBindVar vfc n else IVar vfc n
           tm => tm
 
@@ -261,6 +268,26 @@ autoSpecSmall = 150
 autoSpecRecursive : Nat
 autoSpecRecursive = 1500
 
+-- The size of a clause of a copy after reduction, at most.
+autoSpecReduced : Nat
+autoSpecReduced = 5000
+
+-- The size of an argument that a function is specialised by that way, at
+-- most.
+autoSpecArgSize : Nat
+autoSpecArgSize = 200
+
+-- How many copies made that way can be elaborated one in another (a copy
+-- calls functions that are specialised in turn) at most, and how many of
+-- them can be copies of one function (a recursive function can take a
+-- copy of its implementation that is reduced a bit more each time, before
+-- the copies are the same).
+autoSpecMaxDepth : Nat
+autoSpecMaxDepth = 16
+
+autoSpecRepeat : Nat
+autoSpecRepeat = 4
+
 -- The number of functions that a module specialises that way.
 autoSpecLimit : Nat
 autoSpecLimit = 400
@@ -283,6 +310,93 @@ interfaceArgs (Bind _ x (Pi _ rig _ ty) sc)
               _ => pure rest
 interfaceArgs _ = pure []
 
+-- Is a type the type of proofs, which there is nothing to compute with at
+-- run time: `Type`, `Void` or an equality, after its arguments.  (Nothing
+-- when the result is the application of a function, `x = y` is `x === y`
+-- say: the type is to be evaluated first, see isProofNF.)
+isProofType : {auto c : Ref Ctxt Defs} -> Term vs -> Core (Maybe Bool)
+isProofType (Bind _ _ (Pi {}) sc) = isProofType sc
+isProofType (TType {}) = pure (Just True)
+isProofType ty
+    = case getFn ty of
+           Ref _ (TyCon _) n =>
+             do n' <- toFullNames n
+                pure $ Just (n' == NS builtinNS (UN $ Basic "Equal")
+                             || n' == NS builtinNS (UN $ Basic "Void"))
+           Ref _ Func _ => pure Nothing
+           _ => pure (Just False)
+
+-- The same, on the normal form of a type, which is evaluated lazily, under
+-- at most `fuel` binders: a type that is not total can unfold forever
+-- (`K = K -> Void`), so the type is not normalised.
+isProofNF : {auto c : Ref Ctxt Defs} -> (fuel : Nat) -> ClosedNF -> Core Bool
+isProofNF (S k) (NBind fc _ (Pi {}) sc)
+    = do defs <- get Ctxt
+         isProofNF k !(sc defs (toClosure defaultOpts Env.empty (Erased fc Placeholder)))
+isProofNF _ (NType {}) = pure True
+isProofNF _ (NTCon _ n _ _)
+    = do n' <- toFullNames n
+         pure (n' == NS builtinNS (UN $ Basic "Equal")
+               || n' == NS builtinNS (UN $ Basic "Void"))
+isProofNF _ _ = pure False
+
+isProofTypeNF : {auto c : Ref Ctxt Defs} -> ClosedTerm -> Core Bool
+isProofTypeNF ty
+    = do Nothing <- isProofType ty
+           | Just p => pure p
+         defs <- get Ctxt
+         isProofNF 100 !(nf defs Env.empty ty)
+
+-- An interface whose methods are all proofs (like `Uninhabited` or
+-- `Injective`), from the fields of its constructor (a field for a parent
+-- interface is not a proof): a copy by its implementations would compute
+-- nothing faster, and the proofs can be costly to reduce.
+proofInterface : {auto c : Ref Ctxt Defs} ->
+                 {auto s : Ref Syn SyntaxInfo} ->
+                 Name -> Core Bool
+proofInterface iface
+    = do syn <- get Syn
+         Just info <- pure (lookupExact iface (ifaces syn))
+           | Nothing => pure False
+         defs <- get Ctxt
+         Just cdef <- lookupCtxtExact (iconstructor info) (gamma defs)
+           | Nothing => pure False
+         fields (the Nat 100) !(nf defs Env.empty (type cdef))
+  where
+    fields : Nat -> ClosedNF -> Core Bool
+    fields (S k) (NBind fc _ (Pi _ rig _ fty) sc)
+        = do defs <- get Ctxt
+             prf <- if isErased rig then pure True
+                       else isProofNF 100 !(evalClosure defs fty)
+             if not prf then pure False else
+               fields k !(sc defs (toClosure defaultOpts Env.empty (Erased fc Placeholder)))
+    fields Z _ = pure False
+    fields _ _ = pure True
+
+-- The arguments of a type that --spec-interfaces specialises by: the
+-- implementations of interfaces that are not proof interfaces.  None when
+-- the function computes a proof (or a type): the copy would gain nothing at
+-- run time.
+autoInterfaceArgs : {auto c : Ref Ctxt Defs} ->
+                    {auto s : Ref Syn SyntaxInfo} ->
+                    ClosedTerm -> Core (List Name)
+autoInterfaceArgs ty
+    = if !(isProofTypeNF ty) then pure [] else go ty
+  where
+    go : Term vs' -> Core (List Name)
+    go (Bind _ x (Pi _ rig _ aty) sc)
+        = do rest <- go sc
+             case getFn aty of
+                  Ref _ (TyCon _) n =>
+                    if isErased rig then pure rest else do
+                      n' <- toFullNames n
+                      syn <- get Syn
+                      pure $ if isJust (lookupExact n' (ifaces syn))
+                                && not !(proofInterface n')
+                                then x :: rest else rest
+                  _ => pure rest
+    go _ = pure []
+
 -- The arguments that the function is specialised by when its interfaces
 -- are known (empty when it is not).
 autoSpecArgs : {auto c : Ref Ctxt Defs} ->
@@ -296,7 +410,7 @@ autoSpecArgs fc fn gdef
          case lookup fnfull (autoSpecs defs) of
               Just specs => pure specs
               Nothing =>
-                do ns <- interfaceArgs (type gdef)
+                do ns <- autoInterfaceArgs (type gdef)
                    let size = foldl (\n, (_ ** (_, _, rhs)) => n + termSize rhs) 0 pats
                    refs <- traverse toFullNames (keys (refersTo gdef))
                    let recursive = fnfull `elem` refs
@@ -418,8 +532,23 @@ mkSpecDef {vars} fc gdef isAuto pename sargs fn stk
                 | Nothing => pure (applyStackWithFC (Ref fc Func fn) stk)
            log "specialise" 5 $ "New patterns for " ++ show pename ++ ":\n" ++
                     showSep "\n" (map showPat newpats)
+           -- The copy is not in the source: what elaborating it records
+           -- for the IDE (semantic highlighting, the locations and types of
+           -- names) would show its names (`PE_...`, `_pe...`) at the
+           -- locations of the call, so it is forgotten.
+           -- (autoSpecStack: the functions whose copies made by
+           -- --spec-interfaces are being elaborated, one in another, see
+           -- specialise)
+           md <- get MD
+           fnfull <- toFullNames fn
+           stack <- autoSpecStack <$> get Ctxt
+           when isAuto $ update Ctxt { autoSpecStack := fnfull :: stack }
+           let done = do put MD md
+                         when isAuto $ update Ctxt { autoSpecStack := stack }
            processDecl [InPartialEval] (MkNested []) Env.empty
                        (IDef fc (Resolved peidx) newpats)
+             `catch` (\err => do done; throw err)
+           done
            -- A copy made by --spec-interfaces of a function that does not
            -- call itself must not call itself either: that happens when the
            -- function could not be reduced, and the call left was
@@ -611,7 +740,7 @@ specArgsOf inCopy fc fn gdef
 -- application on success, or Nothing if it's not specialisable (due to static
 -- arguments not being concrete)
 specialise : {vars : _} ->
-             (inCopy : Bool) ->
+             (inCopy : Bool) -> (er : Bool) ->
              {auto c : Ref Ctxt Defs} ->
              {auto m : Ref MD Metadata} ->
              {auto u : Ref UST UState} ->
@@ -620,35 +749,54 @@ specialise : {vars : _} ->
              FC -> Env Term vars -> GlobalDef ->
              Name -> List (FC, Term vars) ->
              Core (Maybe (Term vars))
-specialise {vars} inCopy fc env gdef fn stk
+specialise {vars} inCopy er fc env gdef fn stk
     = do (specs, isAuto) <- specArgsOf inCopy fc fn gdef
-         if NatSet.isEmpty specs then pure Nothing else specialiseBy specs isAuto
+         if NatSet.isEmpty specs || (isAuto && er)
+            then pure Nothing
+            else specialiseBy specs isAuto
   where
     concrete : {vars : _} ->
                Term vars -> Maybe ClosedTerm
     concrete tm = shrink tm none
 
-    getSpecArgs : Nat -> NatSet -> List (FC, Term vars) ->
+    -- (An argument that --spec-interfaces would specialise by is at most
+    -- autoSpecArgSize big, before and after its holes are normalised: in a
+    -- proof, the types of the implementations can be huge, and normalising
+    -- them at every application costs more than the copy can gain.)
+    getSpecArgs : Bool -> Nat -> NatSet -> List (FC, Term vars) ->
                   Core (Maybe (List (Nat, ArgMode)))
-    getSpecArgs i specs [] = pure (Just [])
-    getSpecArgs i specs ((_, x) :: xs)
-        = do Just xs' <- getSpecArgs (1 + i) specs xs
+    getSpecArgs isAuto i specs [] = pure (Just [])
+    getSpecArgs isAuto i specs ((_, x) :: xs)
+        = do Just xs' <- getSpecArgs isAuto (1 + i) specs xs
                  | Nothing => pure Nothing
              if i `elem` specs
-                then do defs <- get Ctxt
+                then do let True = small x
+                              | False => tooBig x
+                        defs <- get Ctxt
                         x' <- normaliseHoles defs env x
+                        let True = small x'
+                              | False => tooBig x'
                         x' <- eraseInferred x'
                         let Just xok = concrete x'
                             | Nothing => pure Nothing
                         pure $ Just ((i, Static xok) :: xs')
                 else pure $ Just ((i, Dynamic) :: xs')
+      where
+        small : Term vars -> Bool
+        small tm = not isAuto || termSize tm <= autoSpecArgSize
+
+        tooBig : Term vars -> Core (Maybe a)
+        tooBig tm
+            = do log "specialise.auto" 20 $
+                   "Not specialising \{show !(toFullNames fn)}: argument \{show i} has size \{show (termSize tm)}"
+                 pure Nothing
 
     specialiseBy : NatSet -> Bool -> Core (Maybe (Term vars))
     specialiseBy specs isAuto = do
         fnfull <- toFullNames fn
         -- If all the arguments are concrete (meaning, no local variables
         -- or holes in them, so they can be a ClosedTerm) we can specialise
-        Just sargs <- getSpecArgs 0 specs stk
+        Just sargs <- getSpecArgs isAuto 0 specs stk
             | Nothing => pure Nothing
         defs <- get Ctxt
         -- (The implementations of interfaces that --spec-interfaces
@@ -669,49 +817,109 @@ specialise {vars} inCopy fc env gdef fn stk
                do -- (a new copy made because of --spec-interfaces counts
                   -- towards the limit of the module)
                   new <- isNothing <$> lookupCtxtExact pename (gamma defs)
+                  -- (nor is one made in too many copies of the function,
+                  -- or of any, one in another: polymorphic recursion, as in
+                  -- a finger tree, would make a copy for every depth of the
+                  -- type, up to the limit of the module)
+                  let stack = autoSpecStack defs
                   if isAuto && new && autoSpecCount defs >= autoSpecLimit
                      then pure Nothing
+                     else if isAuto && new
+                             && (count (== fnfull) stack >= autoSpecRepeat
+                                 || length stack >= autoSpecMaxDepth)
+                     then do log "specialise.auto" 10 $
+                               "Not specialising \{show fnfull}: \{show (length stack)} copies are being made, one in another, \{show (count (== fnfull) stack)} of it"
+                             pure Nothing
                      else do
                        when (isAuto && new) $ update Ctxt { autoSpecCount $= S }
                        Just <$> mkSpecDef fc gdef isAuto pename sargs fn stk
              Just _ => pure Nothing
 
+-- The positions of the arguments of quantity 0 in a type of a function or a
+-- constructor: they are erased at run time.
+erasedPositions : Term vs -> NatSet
+erasedPositions = go 0
+  where
+    go : Nat -> Term vs' -> NatSet
+    go i (Bind _ _ (Pi _ rig _ _) sc)
+        = let rest = go (S i) sc in
+              if isErased rig then insert i rest else rest
+    go i _ = NatSet.empty
+
+-- Which arguments of an application of this head are erased at run time:
+-- the arguments of quantity 0 of a function or a constructor, and all the
+-- arguments of a type constructor.
+erasedArgsOf : {auto c : Ref Ctxt Defs} -> Term vars -> Core (Nat -> Bool)
+erasedArgsOf (Ref _ (TyCon _) _) = pure (const True)
+erasedArgsOf (Ref _ Bound _) = pure (const False)
+erasedArgsOf (Ref _ _ n)
+    = do defs <- get Ctxt
+         Just gdef <- lookupCtxtExact n (gamma defs)
+           | Nothing => pure (const False)
+         let es = erasedPositions (type gdef)
+         pure (\i => i `elem` es)
+erasedArgsOf _ = pure (const False)
+
+-- (`er`: the term is erased at run time, it is a type or an argument of
+-- quantity 0.  A copy made by --spec-interfaces would gain nothing there,
+-- so none is made; the copies of `%spec` functions are made everywhere.)
 findSpecs : {vars : _} ->
             {auto c : Ref Ctxt Defs} ->
             {auto m : Ref MD Metadata} ->
             {auto u : Ref UST UState} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto o : Ref ROpts REPLOpts} ->
-            Env Term vars -> List (FC, Term vars) -> Term vars ->
+            Env Term vars -> (er : Bool) -> List (FC, Term vars) -> Term vars ->
             Core (Term vars)
-findSpecs env stk (Ref fc Func fn)
+findSpecs env er stk (Ref fc Func fn)
     = do defs <- get Ctxt
          Just gdef <- lookupCtxtExact fn (gamma defs)
               | Nothing => pure (applyStackWithFC (Ref fc Func fn) stk)
-         Just r <- specialise False fc env gdef fn stk
+         Just r <- specialise False er fc env gdef fn stk
               | Nothing => pure (applyStackWithFC (Ref fc Func fn) stk)
          pure r
-findSpecs env stk (Meta fc n i args)
-    = do args' <- traverse (findSpecs env []) args
+findSpecs env er stk (Meta fc n i args)
+    = do args' <- traverse (findSpecs env er []) args
          pure $ applyStackWithFC (Meta fc n i args') stk
-findSpecs env stk (Bind fc x b sc)
-    = do b' <- traverse (findSpecs env []) b
-         sc' <- findSpecs (b' :: env) [] sc
+findSpecs env er stk (Bind fc x b sc)
+    = do b' <- case b of
+                    Let bfc r val ty =>
+                      pure $ Let bfc r !(findSpecs env er [] val)
+                                       !(findSpecs env True [] ty)
+                    _ => traverse (findSpecs env True []) b
+         sc' <- findSpecs (b' :: env) (er || isPi b) [] sc
          pure $ applyStackWithFC (Bind fc x b' sc') stk
-findSpecs env stk (App fc fn arg)
-    = do arg' <- findSpecs env [] arg
-         findSpecs env ((fc, arg') :: stk) fn
-findSpecs env stk (TDelayed fc r tm)
-    = do tm' <- findSpecs env [] tm
+  where
+    isPi : Binder (Term vars) -> Bool
+    isPi (Pi {}) = True
+    isPi _ = False
+findSpecs env er stk tm@(App {})
+    = do let (f, args) = spine tm []
+         erasedAt <- erasedArgsOf f
+         args' <- goArgs erasedAt 0 args
+         findSpecs env er (args' ++ stk) f
+  where
+    spine : Term vars -> List (FC, Term vars) -> (Term vars, List (FC, Term vars))
+    spine (App afc f a) acc = spine f ((afc, a) :: acc)
+    spine f acc = (f, acc)
+
+    goArgs : (Nat -> Bool) -> Nat -> List (FC, Term vars) ->
+             Core (List (FC, Term vars))
+    goArgs erasedAt i [] = pure []
+    goArgs erasedAt i ((afc, a) :: as)
+        = do a' <- findSpecs env (er || erasedAt i) [] a
+             pure ((afc, a') :: !(goArgs erasedAt (S i) as))
+findSpecs env er stk (TDelayed fc r tm)
+    = do tm' <- findSpecs env True [] tm
          pure $ applyStackWithFC (TDelayed fc r tm') stk
-findSpecs env stk (TDelay fc r ty tm)
-    = do ty' <- findSpecs env [] ty
-         tm' <- findSpecs env [] tm
+findSpecs env er stk (TDelay fc r ty tm)
+    = do ty' <- findSpecs env True [] ty
+         tm' <- findSpecs env er [] tm
          pure $ applyStackWithFC (TDelay fc r ty' tm') stk
-findSpecs env stk (TForce fc r tm)
-    = do tm' <- findSpecs env [] tm
+findSpecs env er stk (TForce fc r tm)
+    = do tm' <- findSpecs env er [] tm
          pure $ applyStackWithFC (TForce fc r tm') stk
-findSpecs env stk tm = pure $ applyStackWithFC tm stk
+findSpecs env er stk tm = pure $ applyStackWithFC tm stk
 
 bName : {auto q : Ref QVar Int} -> String -> Core Name
 bName n
@@ -867,7 +1075,7 @@ mutual
            (specs, _) <- specArgsOf True fc fn gdef
            let False = NatSet.isEmpty specs
                | _ => pure $ applyStackWithFC (Ref fc Func fn) args'
-           Just r <- specialise True fc (extendEnv bound env) gdef fn args'
+           Just r <- specialise True False fc (extendEnv bound env) gdef fn args'
                 | Nothing =>
                      -- can't specialise, keep the arguments
                      -- unreduced
@@ -952,7 +1160,7 @@ applySpecialise : {vars : _} ->
                   Term vars -> -- initial RHS
                   Core (Term vars)
 applySpecialise env Nothing tm
-    = findSpecs env [] tm -- not specialising, just search through RHS
+    = findSpecs env False [] tm -- not specialising, just search through RHS
 applySpecialise env (Just ls) tmin -- specialising, evaluate RHS while looking
                                  -- for names to specialise
     = do defs <- get Ctxt
@@ -970,6 +1178,17 @@ applySpecialise env (Just ls) tmin -- specialising, evaluate RHS while looking
                   else pure []
          nf <- nfOpts ({ reduceLimit := ls } defaultOpts) defs env tm
          tm' <- evalRHS env nf
+         -- A copy made by --spec-interfaces that grows too big when it is
+         -- reduced is not used (the error makes mkSpecDef fall back to the
+         -- function): it would cost more to compile, and to store, than it
+         -- gains at run time.
+         when (not (null ls)) $
+           do let size = termSize tm'
+              log "specialise.auto" 15 $
+                "Size of a clause of a copy after reduction: \{show size}"
+              when (size > autoSpecReduced) $
+                throw (GenericMsg emptyFC
+                         "A clause of the copy is too big after reduction (\{show size})")
          tmfull <- toFullNames tm'
          logTermNF "specialise" 5 ("New RHS") env tmfull
          pure tmfull

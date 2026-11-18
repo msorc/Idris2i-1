@@ -1,0 +1,3 @@
+. ../../../testutils.sh
+
+idris2 --spec-interfaces --log specialise.fail:1 --exec main Shadow.idr

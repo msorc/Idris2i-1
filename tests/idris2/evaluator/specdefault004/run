@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+# --spec-interfaces looks at the types of functions, to see whether they
+# compute proofs: K, which is not total, unfolds forever
+check --spec-interfaces Loop.idr

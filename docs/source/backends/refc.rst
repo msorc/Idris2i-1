@@ -293,8 +293,9 @@ a dictionary for every method call.  The (experimental) compiler option
 take implementations, for the implementations that are known where they are
 called, as if they were declared ``%spec`` on them (see
 :doc:`../reference/pragmas`): the copies call the methods directly.  It costs
-compile time (the compiler builds 2.6 times slower with it), and makes a big
-difference for code that uses ``compare`` or ``(<)`` of a known type a lot (a
+compile time (checking the compiler takes 1.1 times the instructions, and
+some of its modules 3 times; building the libraries 1.07 times), and makes a
+big difference for code that uses ``compare`` or ``(<)`` of a known type a lot (a
 tree sort of ``Integer``\ s runs with 38% fewer instructions).
 
 Backtraces

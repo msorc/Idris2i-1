@@ -127,6 +127,29 @@ should target this file (`CHANGELOG_NEXT`).
   (a tree sort of `Integer`s runs with 38% fewer instructions with the RefC
   backend).  Its copies only reduce the implementations and the methods of
   interfaces, once.  `--log specialise.auto:10` shows what it specialises.
+* `--spec-interfaces` costs much less compile time.  Making the run time
+  definitions of a function made them again for every copy that they made
+  (for `%spec` too, which makes few copies).  It makes no copy where nothing
+  is gained at run time: in a type or an argument of quantity 0, of a
+  function that computes a type or a proof (`=`, `Void`), or by an
+  implementation of an interface of proofs (`Uninhabited`, `Injective`).  An
+  argument that it specialises by is at most 200 nodes big (the types in
+  proofs can be huge), a clause of a copy at most 5000 after reduction, and
+  at most 16 copies are made one in another, 4 of them of one function (the
+  polymorphic recursion of a finger tree made a copy for every depth of the
+  type).  Checking the whole
+  compiler with it takes 1.1 times the instructions of checking it without
+  (5.8 times before), `Core.Termination.SizeChange`, the worst module, 3
+  times (350 times), and building the libraries 1.07 times (1.9 times, with
+  1.8 GB of memory for contrib's `Data.Nat.Factor`).  The copies that the
+  benchmarks run are the same.
+* The copies made by `%spec` and `--spec-interfaces` add nothing to the IDE
+  metadata: their names (`PE_...`, `_pe...`) were highlighted at the
+  locations of the calls.
+* A local function whose pattern variable has the name of one of its
+  parent's (`xs` in `show'` of `Show (List a)`) can be specialised: its copy
+  did not elaborate ("Non linear pattern variable"), and the generic function
+  was called.
 * Fixed ill-typed program where a typed lambda would not have its type checked #3771
 * Fixed missing handling of dotted patterns See
   [#3669](https://github.com/idris-lang/Idris2/issues/3669),

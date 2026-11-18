@@ -297,7 +297,14 @@ a direct comparison of integers instead of the application of a closure of the
 ``Ord`` implementation.  Only small functions, or recursive ones of moderate
 size, are specialised that way, and at most a few hundred of them per module;
 the copies only reduce the implementations and the methods of interfaces
-(once), so that they are not evaluated forever.  The
+(once), so that they are not evaluated forever.  No copy is made where
+nothing is gained at run time: in a type or an argument of quantity 0, of a
+function that computes a type or a proof, or by an implementation of an
+interface whose methods are proofs (``Uninhabited``, say).  A copy is not
+made either when an implementation that it is specialised by is big, when it
+grows too big when it is reduced, or when too many copies are being made one
+in another (polymorphic recursion would make a copy for every depth of a
+type).  The
 option applies to the modules that it is given for (the copies of library
 functions are made in the calling module), and ``--log specialise.auto:10``
 shows the decisions.
