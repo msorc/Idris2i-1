@@ -131,14 +131,14 @@ updatePats env nf (p :: ps)
 
 substInPatInfo : {pvar, vars, todo : _} ->
                  {auto c : Ref Ctxt Defs} ->
-                 FC -> Name -> Term vars -> PatInfo pvar vars ->
+                 FC -> Env Term vars -> Name -> Term vars -> PatInfo pvar vars ->
                  NamedPats todo vars ->
                  Core (PatInfo pvar vars, NamedPats todo vars)
-substInPatInfo fc n tm p ps
+substInPatInfo fc env n tm p ps
     = case argType p of
            Known c ty =>
                 do defs <- get Ctxt
-                   tynf <- nf defs (mkEnv fc vars) ty
+                   tynf <- nf defs env ty
                    case tynf of
                         NApp {} =>
                            pure ({ argType := Known c (substName n tm ty) } p, ps)
@@ -147,7 +147,6 @@ substInPatInfo fc n tm p ps
            Stuck fty =>
              do defs <- get Ctxt
                 empty <- clearDefs defs
-                let env = mkEnv fc vars
                 case !(nf defs env (substName n tm fty)) of
                      NBind pfc _ (Pi _ c _ farg) fsc =>
                        pure ({ argType := Known c !(quote empty env farg) } p,
@@ -163,10 +162,15 @@ substInPats : {vars, todo : _} ->
               {auto c : Ref Ctxt Defs} ->
               FC -> Name -> Term vars -> NamedPats todo vars ->
               Core (NamedPats todo vars)
-substInPats fc n tm [] = pure []
-substInPats fc n tm (p :: ps)
-    = do (p', ps') <- substInPatInfo fc n tm p ps
-         pure (p' :: !(substInPats fc n tm ps'))
+substInPats fc n tm ps = go (mkEnv fc vars) ps
+  where
+    -- The dummy environment is the same for all the patterns: make it once
+    go : {todo' : _} -> Env Term vars -> NamedPats todo' vars ->
+         Core (NamedPats todo' vars)
+    go env [] = pure []
+    go env (p :: ps)
+        = do (p', ps') <- substInPatInfo fc env n tm p ps
+             pure (p' :: !(go env ps'))
 
 getPat : {idx : Nat} ->
          (0 el : IsVar nm idx ps) -> NamedPats ps ns -> PatInfo nm ns
