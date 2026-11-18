@@ -31,13 +31,20 @@
         (begin (set-car! e val) val))
       exval)))
 
+;; A fixnum (60 bits and a sign) is within the range of the integers of
+;; 61 bits or more as it is, which is the common case: this skips the
+;; computation of the masks, which allocates numbers of 64 bits and more.
 (define (blodwen-toSignedInt x bits)
-  (if (logbit? bits x)
-      (logor x (ash -1 bits))
-      (logand x (sub1 (ash 1 bits)))))
+  (if (and (fixnum? x) (fx>= bits 60))
+      x
+      (if (logbit? bits x)
+          (logor x (ash -1 bits))
+          (logand x (sub1 (ash 1 bits))))))
 
 (define (blodwen-toUnsignedInt x bits)
-  (logand x (sub1 (ash 1 bits))))
+  (if (and (fixnum? x) (fx>= x 0) (fx>= bits 60))
+      x
+      (logand x (sub1 (ash 1 bits)))))
 
 (define (blodwen-euclidDiv a b)
   (let ((q (quotient a b))
@@ -84,7 +91,10 @@
 (define (integer->bits8 x) (logand x (sub1 (ash 1 8))))
 (define (integer->bits16 x) (logand x (sub1 (ash 1 16))))
 (define (integer->bits32 x) (logand x (sub1 (ash 1 32))))
-(define (integer->bits64 x) (logand x (sub1 (ash 1 64))))
+(define (integer->bits64 x)
+  (if (and (fixnum? x) (fx>= x 0))
+      x
+      (logand x (sub1 (ash 1 64)))))
 
 (define (bits16->bits8 x) (logand x (sub1 (ash 1 8))))
 (define (bits32->bits8 x) (logand x (sub1 (ash 1 8))))
