@@ -454,6 +454,10 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* A foreign function that returns a function (`PrimIO (Int -> Int)`) is a
+  compile error, which says that the RefC backend does not support it: the
+  generated C called a `makeFunction` that does not exist.
+
 * The `Struct` type of `System.FFI` is supported (#3830): a struct can be
   passed to and returned from foreign functions (compiling a program with one
   used to stop with `INTERNAL ERROR: Struct access not implemented`), and

@@ -213,6 +213,9 @@ functions that the compiler found to only look at some of their arguments
 (see below), which matters for C code that calls the generated functions
 directly.
 
+A foreign function cannot return a function: the compiler reports it (return a
+``Ptr`` or ``AnyPtr`` instead).
+
 Optimisations
 -------------
 

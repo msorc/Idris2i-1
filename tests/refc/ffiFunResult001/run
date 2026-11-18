@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+# A foreign function that returns a function is a compile error (the file is
+# checked first, so only the code generator reports).
+
+check FunResult.idr
+idris2 -o funresult FunResult.idr

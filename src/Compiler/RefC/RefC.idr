@@ -2455,6 +2455,11 @@ createCFunctions _ _ n canonN (MkAForeign ccs fargs ret) = do
           let cLang = if lang == "RefC"
                          then CLangRefC
                          else CLangC
+          -- C has no way to make an Idris function of a function pointer
+          case ret of
+               CFFun _ _ => noFunctionResult
+               CFIORes (CFFun _ _) => noFunctionResult
+               _ => pure ()
           let isStandardFFI = elem lang $ the (List String) ["RefC", "C"]
           let fctName = if isStandardFFI
                            then UN $ Basic $ fctForeignName
@@ -2512,6 +2517,12 @@ createCFunctions _ _ n canonN (MkAForeign ccs fargs ret) = do
           emit EmptyFC "}"
       _ => throw $ InternalError "[refc] FFI not found for \{cName canonN}"
           -- not really total but this way this internal error does not contaminate everything else
+  where
+    noFunctionResult : Core ()
+    noFunctionResult
+        = throw $ GenericMsg emptyFC $
+            "The foreign function \{show n} returns a function, which the RefC "
+            ++ "backend does not support: return a Ptr or AnyPtr instead"
 
 -- A name without a definition to compile (a hole, for instance): like in the
 -- Scheme backends, the program is compiled, and it stops with the message
