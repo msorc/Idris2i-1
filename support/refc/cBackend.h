@@ -12,6 +12,7 @@
 #include "mathFunctions.h"
 #include "memoryManagement.h"
 #include "prim.h"
+#include "random.h"
 #include "runtime.h"
 #include "schemeStubs.h"
 #include "stringOps.h"

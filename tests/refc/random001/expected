@@ -1,0 +1,19 @@
+in [-3, 3]: True
+every value drawn: [-3, -2, -1, 0, 1, 2, 3]
+in [0, 1): True
+in [2.5, 4.5]: True
+in [7, 7]: [7, 7, 7, 7, 7, 7, 7, 7, 7, 7]
+seed 42: [9, 38, 69, 93, 100, 77, 72, 86]
+same seed, same Int32s: True
+same seed, same Doubles: True
+other seed, other Int32s: True
+big seeds: [559, 767, 507, 747, 567] [335, 308, 526, 61, 905] [601, 747, 103, 416, 732]
+whole range, both signs: True
+whole range, big values: True
+randomIO, both signs: True
+top of the range: True
+rndFin 3: [0, 1, 2, 3]
+rndSelect: ["a", "b", "c"]
+rndSelect': ['x', 'y']
+in threads: True
+RefC leak check: 0 leaked values

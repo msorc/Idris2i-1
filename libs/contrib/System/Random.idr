@@ -14,6 +14,7 @@ interface Random a where
   randomRIO : HasIO io => (a, a) -> io a
 
 %foreign "scheme:blodwen-random"
+         "RefC:refc_randomBits32"
          "javascript:lambda:(max)=>Math.floor(Math.random() * max)"
 prim__randomBits32 : Bits32 -> PrimIO Bits32
 
@@ -37,6 +38,7 @@ Random Int32 where
      in pure . cast $ !(liftIO . randomBits32 $ cast range) + cast lo
 
 %foreign "scheme:blodwen-random"
+         "RefC:refc_randomDouble"
          "javascript:lambda:()=>Math.random()"
 prim__randomDouble : PrimIO Double
 
@@ -52,6 +54,7 @@ Random Double where
   randomRIO (lo, hi) = map ((+ lo) . (* (hi - lo))) (liftIO randomDouble)
 
 %foreign "scheme:blodwen-random-seed"
+         "RefC:refc_randomSeed"
 prim__srand : Bits64 -> PrimIO ()
 
 ||| Sets the random seed
