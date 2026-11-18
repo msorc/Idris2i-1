@@ -1,0 +1,9 @@
+. ../../testutils.sh
+
+# What the RefC backend cannot do with a foreign struct is a compile error
+# (the files are checked first, so only the code generator reports).
+
+for f in BadField TwoLayouts NoForeign AnyStruct; do
+    check $f.idr
+    idris2 -o $f $f.idr
+done

@@ -154,6 +154,23 @@ A string must not be changed once other code has seen it: the runtime keeps
 the number of its characters (``codePoints``), counted the first time that it
 is needed.
 
+A ``Struct`` of ``System.FFI`` is a pointer to a C ``struct`` that C code
+owns, passed to and returned from foreign functions as a ``void *``.
+``getField`` and ``setField`` read and write its fields in place.  As in the
+Chez backend, the layout is that of the C ``struct`` whose fields have the C
+types of the fields of the Idris type, in order: ``Int`` is ``int``, ``Char``
+is ``char``, ``Double`` is ``double``, ``Int8`` to ``Bits64`` are ``int8_t``
+to ``uint64_t``, ``Ptr t`` and ``AnyPtr`` are ``void *``, and a ``Struct`` is
+a *pointer* to that struct (a struct that C nests by value cannot be
+described).  The generated C defines these structs itself, with names of its
+own, so no header is needed and a header that defines them does no harm.
+The compiler reports a struct with a field of another type, and two
+``Struct`` types of the same name with different fields.  The fields of a
+struct are known when a ``%foreign`` function of the program has the struct
+in its type, and the names of the struct and of the field must be known
+where ``getField`` or ``setField`` is used (not in a function that works for
+any struct name): the compiler reports the other uses.
+
 Memory
 ======
 

@@ -454,6 +454,19 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* The `Struct` type of `System.FFI` is supported (#3830): a struct can be
+  passed to and returned from foreign functions (compiling a program with one
+  used to stop with `INTERNAL ERROR: Struct access not implemented`), and
+  `getField` and `setField` read and write its fields.  As in the Chez
+  backend, the layout is that of the C `struct` that the fields of the Idris
+  type describe (`Int` is `int`, the fixed width integers, `Double`, `Char`,
+  `Ptr t`/`AnyPtr`, and another `Struct`, which is a pointer to a struct), and
+  the generated C defines it under a name of its own, so no header is needed.
+  A field of another type, two `Struct` types with the same name and
+  different fields, a struct that is in the type of no `%foreign` function
+  and a `getField` whose struct or field name is not known at compile time are
+  compile errors.
+
 * `System.Info.os` gives the names of the Scheme backends: `"unix"` (Linux
   and the BSDs), `"darwin"`, `"windows"` or `"unknown"`, instead of `"Linux"`,
   `"macOS"`, `"FreeBSD"` and so on.

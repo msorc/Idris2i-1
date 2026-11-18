@@ -430,6 +430,144 @@ record ReuseCell where
 ReuseMap = SortedMap ReuseKey ReuseCell
 Owned = SortedSet AVar
 
+------------------------------------------------------------------------
+-- Foreign structs (`Struct` of System.FFI)
+--
+-- A value of the type `Struct "name" [("field", Type), ...]` is a pointer to
+-- a C struct that C code owns: at run time it is an `Idris2_Pointer`, like a
+-- `Ptr`.  `getField` and `setField` read and write the fields in place.  As
+-- in the Chez backend, the layout is that of the C struct that the fields of
+-- the Idris type describe (an `Int` is an `int`, a `Struct` is a pointer to
+-- a struct), and the fields are known for the structs in the types of the
+-- foreign functions of the program only (they are erased elsewhere).  The
+-- generated C defines these structs itself, with names of its own (the
+-- headers of the foreign functions may define structs with the same names).
+
+||| The foreign structs of a program.
+record StructTable where
+  constructor MkStructTable
+  ||| The fields of the structs, by name.
+  structFields : SortedMap String (List (String, CFType))
+  ||| Their C definitions (a struct comes after the structs of its fields).
+  structDefs : SnocList String
+
+||| The C type of a foreign struct.
+structCName : String -> String
+structCName n = "struct Idris2_FFIStruct_" ++ cCleanString n
+
+||| The C name of a field of a foreign struct.
+structFieldCName : String -> String
+structFieldCName f = "field_" ++ cCleanString f
+
+||| The C type of a field of a foreign struct, for the types that a field can
+||| have.
+structFieldCType : CFType -> Maybe String
+structFieldCType CFInt = Just "int"
+structFieldCType CFInt8 = Just "int8_t"
+structFieldCType CFInt16 = Just "int16_t"
+structFieldCType CFInt32 = Just "int32_t"
+structFieldCType CFInt64 = Just "int64_t"
+structFieldCType CFUnsigned8 = Just "uint8_t"
+structFieldCType CFUnsigned16 = Just "uint16_t"
+structFieldCType CFUnsigned32 = Just "uint32_t"
+structFieldCType CFUnsigned64 = Just "uint64_t"
+structFieldCType CFDouble = Just "double"
+structFieldCType CFChar = Just "char"
+structFieldCType CFPtr = Just "void *"
+structFieldCType (CFStruct n _) = Just (structCName n ++ " *")
+structFieldCType _ = Nothing
+
+||| The Idris value of a field of a foreign struct, read from the C
+||| expression `field`.
+structFieldRead : CFType -> (field : String) -> String
+structFieldRead ty field = "(Idris2_Value *)" ++ case ty of
+    CFInt => "idris2_mkInt64(\{field})"
+    CFInt8 => "idris2_mkInt8(\{field})"
+    CFInt16 => "idris2_mkInt16(\{field})"
+    CFInt32 => "idris2_mkInt32(\{field})"
+    CFInt64 => "idris2_mkInt64(\{field})"
+    CFUnsigned8 => "idris2_mkBits8(\{field})"
+    CFUnsigned16 => "idris2_mkBits16(\{field})"
+    CFUnsigned32 => "idris2_mkBits32(\{field})"
+    CFUnsigned64 => "idris2_mkBits64(\{field})"
+    CFDouble => "idris2_mkDouble(\{field})"
+    -- (a C `char` is one of the first 256 characters, as in the Chez backend)
+    CFChar => "idris2_mkChar((unsigned char)\{field})"
+    _ => "idris2_makePointer(\{field})"
+
+||| The C value to write in a field of a foreign struct, of the Idris value
+||| of the C variable `var`.
+structFieldWrite : CFType -> (var : String) -> String
+structFieldWrite ty var = "(" ++ fromMaybe "void *" (structFieldCType ty) ++ ")" ++ case ty of
+    CFInt => "idris2_vp_to_Int64(\{var})"
+    CFInt8 => "idris2_vp_to_Int8(\{var})"
+    CFInt16 => "idris2_vp_to_Int16(\{var})"
+    CFInt32 => "idris2_vp_to_Int32(\{var})"
+    CFInt64 => "idris2_vp_to_Int64(\{var})"
+    CFUnsigned8 => "idris2_vp_to_Bits8(\{var})"
+    CFUnsigned16 => "idris2_vp_to_Bits16(\{var})"
+    CFUnsigned32 => "idris2_vp_to_Bits32(\{var})"
+    CFUnsigned64 => "idris2_vp_to_Bits64(\{var})"
+    CFDouble => "idris2_vp_to_Double(\{var})"
+    CFChar => "idris2_vp_to_Char(\{var})"
+    _ => "((Idris2_Pointer *)\{var})->p"
+
+||| Add the structs of a type of the foreign function `fn` to the table.
+addStructs : (fn : Name) -> CFType -> StructTable -> Core StructTable
+addStructs fn (CFStruct n flds) tbl = do
+    tbl <- foldlC (\t, (_, ty) => addStructs fn ty t) tbl flds
+    case lookup n tbl.structFields of
+      Just flds' =>
+        if show flds == show flds'
+           then pure tbl
+           else err "is used with different fields in the foreign functions of the program"
+      Nothing => do
+        let names = map fst flds
+        when (length (nub names) /= length names) $
+          err "has two fields with the same name"
+        lines <- traverse field flds
+        let def = structCName n ++ " {\n" ++ concat lines ++ "};\n"
+        -- (a struct without fields is left undefined: C has no empty struct)
+        pure $ MkStructTable (insert n flds tbl.structFields)
+                             (if null flds then tbl.structDefs else tbl.structDefs :< def)
+  where
+    err : String -> Core a
+    err msg = throw $ GenericMsg emptyFC $
+                "The foreign struct \{show n} (in the type of \{show fn}) " ++ msg
+
+    field : (String, CFType) -> Core String
+    field (f, ty) = case structFieldCType ty of
+        Just cty => pure "  \{cty} \{structFieldCName f};\n"
+        Nothing => err "has the field \{show f} of the type \{show ty}, which the RefC backend does not support in a struct"
+addStructs fn (CFIORes t) tbl = addStructs fn t tbl
+addStructs fn (CFFun a b) tbl = addStructs fn a tbl >>= addStructs fn b
+addStructs _ _ tbl = pure tbl
+
+||| Does the expression read or write a field of a foreign struct?
+usesStructFields : ANF -> Bool
+usesStructFields (AExtPrim _ _ (NS _ (UN (Basic p))) _)
+    = p == "prim__getField" || p == "prim__setField"
+usesStructFields (ALet _ _ v b) = usesStructFields v || usesStructFields b
+usesStructFields (AConCase _ _ alts def)
+    = any (\(MkAConAlt _ _ _ _ b) => usesStructFields b) alts || maybe False usesStructFields def
+usesStructFields (AConstCase _ _ alts def)
+    = any (\(MkAConstAlt _ b) => usesStructFields b) alts || maybe False usesStructFields def
+usesStructFields _ = False
+
+||| The variables of an expression that are bound to string constants, added
+||| to `acc` (the variables of a definition are all different): `getField`
+||| and `setField` get the names of the struct and of the field this way.
+stringLets : ANF -> SortedMap Int String -> SortedMap Int String
+stringLets (ALet _ var (APrimVal _ (Str s)) b) acc = stringLets b (insert var s acc)
+stringLets (ALet _ _ v b) acc = stringLets v (stringLets b acc)
+stringLets (AConCase _ _ alts def) acc
+    = foldl (\a, (MkAConAlt _ _ _ _ b) => stringLets b a)
+            (maybe acc (\d => stringLets d acc) def) alts
+stringLets (AConstCase _ _ alts def) acc
+    = foldl (\a, (MkAConstAlt _ b) => stringLets b a)
+            (maybe acc (\d => stringLets d acc) def) alts
+stringLets _ acc = acc
+
 ||| Environment for precise reference counting.
 ||| If variable borrowed (that is, it is not in the owned set) when used, call a function idris2_newReference.
 ||| If variable owned, then use it directly.
@@ -474,6 +612,11 @@ record Env where
   ||| May a constructor be a static value?  Not the cell that tail recursion
   ||| modulo cons makes with a hole, which is filled later.
   staticOK : Bool
+  ||| The foreign structs of the program (see `StructTable`).
+  structs : StructTable
+  ||| The variables of the function that are bound to string constants, when
+  ||| it reads or writes fields of foreign structs (see `stringLets`).
+  stringVars : SortedMap Int String
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -1604,11 +1747,54 @@ mutual
         env <- get EnvTracker
         let resultVar = "primVar_" ++ !(getNextCounter)
         emit fc $ "// call to external primitive " ++ cName p
-        emit fc $ "Idris2_Value *\{resultVar} = idris2_\{cName p}(" ++ showSep ", " (map varName args) ++ ");"
+        call <- case (p, args) of
+          (NS _ (UN (Basic "prim__getField")), [s, _, _, struct, fld, _]) => do
+              (lvalue, ty) <- structField env "getField" s struct fld
+              pure (structFieldRead ty lvalue)
+          (NS _ (UN (Basic "prim__setField")), [s, _, _, struct, fld, _, val, _]) => do
+              (lvalue, ty) <- structField env "setField" s struct fld
+              pure "(\{lvalue} = \{structFieldWrite ty (varName val)}, (Idris2_Value *)NULL)"
+          (NS _ (UN (Basic pn)), _) =>
+              if pn == "prim__getField" || pn == "prim__setField"
+                 then throw $ InternalError "[refc] Badly formed call of \{pn}"
+                 else pure plainCall
+          _ => pure plainCall
+        emit fc $ "Idris2_Value *\{resultVar} = \{call};"
         -- The primitives borrow their arguments (they take a reference to
         -- whatever they keep), so the arguments we own are released here.
         removeVars $ map varName $ Prelude.toList $ intersection (fromList args) env.owned
         pure resultVar
+      where
+        plainCall : String
+        plainCall = "idris2_\{cName p}(" ++ showSep ", " (map varName args) ++ ")"
+
+        -- The field `fld` of the struct `s` in the value `struct`, as a C
+        -- lvalue, and its type.  The names are those of the variables `s`
+        -- and `fld`, which are bound to string constants when the type of
+        -- the struct and the name of the field are known where `getField`
+        -- or `setField` is used (the Chez backend wants the same).
+        structField : Env -> (prim : String) -> (s, struct, fld : AVar) -> Core (String, CFType)
+        structField env prim s struct fld = do
+            let Just sn = constant s
+              | Nothing => throw $ GenericMsg fc $
+                  "\{prim}: the name of the struct must be known at compile time"
+                  ++ " (the RefC backend needs a concrete Struct type here)"
+            let Just fn = constant fld
+              | Nothing => throw $ GenericMsg fc $
+                  "\{prim}: the name of the field of the struct \{show sn} must be a string literal"
+            let Just flds = lookup sn env.structs.structFields
+              | Nothing => throw $ GenericMsg fc $
+                  "\{prim}: the fields of the struct \{show sn} are unknown, as no %foreign"
+                  ++ " function of the program has it in its type"
+            let Just ty = lookup fn flds
+              | Nothing => throw $ GenericMsg fc $
+                  "\{prim}: the struct \{show sn} has no field \{show fn}"
+            pure ( "((\{structCName sn} *)((Idris2_Pointer *)\{varName struct})->p)->\{structFieldCName fn}"
+                 , ty )
+          where
+            constant : AVar -> Maybe String
+            constant (ALocal i) = lookup i env.stringVars
+            constant ANull = Nothing
 
     cStatementsFromANF (AConCase fc sc alts mDef) tailPosition = do
         let sc' = varName sc
@@ -1949,8 +2135,8 @@ extractValue CLangRefC CFBuffer varName = "((Idris2_Buffer*)" ++ varName ++ ")->
 extractValue _ CFWorld          _       = "(Idris2_Value *)NULL"
 extractValue _ (CFFun x y)      varName = "(Idris2_Closure*)" ++ varName
 extractValue c (CFIORes x)      varName = extractValue c x varName
-extractValue _ (CFStruct x xs)  varName = assert_total $ idris_crash ("INTERNAL ERROR: Struct access not implemented: " ++ varName)
--- not really total but this way this internal error does not contaminate everything else
+-- (a pointer to a C struct, see `StructTable`)
+extractValue _ (CFStruct x xs)  varName = "((Idris2_Pointer*)" ++ varName ++ ")->p"
 extractValue _ (CFUser x xs)    varName = "(Idris2_Value*)" ++ varName
 extractValue _ CFForeignObj     varName = "(Idris2_Value*)" ++ varName
 extractValue _ n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
@@ -1976,7 +2162,7 @@ packCFType CFBuffer        varName = "idris2_makeBuffer(" ++ varName ++ ")"
 packCFType CFWorld         _       = "(Idris2_Value *)NULL"
 packCFType (CFFun x y)     varName = "makeFunction(" ++ varName ++ ")"
 packCFType (CFIORes x)     varName = packCFType x varName
-packCFType (CFStruct x xs) varName = "makeStruct(" ++ varName ++ ")"
+packCFType (CFStruct x xs) varName = "idris2_makePointer(" ++ varName ++ ")"
 packCFType (CFUser x xs)   varName = varName
 packCFType CFForeignObj    varName = varName
 packCFType n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
@@ -2157,11 +2343,12 @@ createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto h : Ref HeaderFiles (SortedSet String)}
                 -> {default [] additionalFFILangs : List String}
                 -> RefCOptions
+                -> StructTable
                 -> (n : Name)
                 -> (canonN : Name) -- the same, with stable numbers (see `canonName`)
                 -> ANFDef
                 -> Core ()
-createCFunctions opts n canonN (MkAFun args anf) = do
+createCFunctions opts structs n canonN (MkAFun args anf) = do
     let cn = cName canonN
     let nargs = length args
     let params = if nargs == 0 then "(void)"
@@ -2224,7 +2411,9 @@ createCFunctions opts n canonN (MkAFun args anf) = do
                               -- (many arguments are passed in an array)
                               (if nargs > MaxExtractFunArgs then 1 else nargs)
                               foreigns unboxed opts.optSizeReuse sigs borrowedVars
-                              !(get ValueFns) trmc empty opts.optStatics)
+                              !(get ValueFns) trmc empty opts.optStatics
+                              structs
+                              (if usesStructFields anf then stringLets anf empty else empty))
     if trmc
        then do
          assignResult "*idris2_trmc_hole" !(cStatementsFromANF anf InTailPosition)
@@ -2248,7 +2437,7 @@ createCFunctions opts n canonN (MkAFun args anf) = do
     pure ()
 
 
-createCFunctions _ n canonN (MkACon tag arity nt) =
+createCFunctions _ _ n canonN (MkACon tag arity nt) =
   case conTag tag of
     Nothing => do
       let n' = cName canonN
@@ -2260,7 +2449,7 @@ createCFunctions _ n canonN (MkACon tag arity nt) =
       emit EmptyFC $ ( "// \{show n} Constructor tag " ++ show tag ++ " arity " ++ show arity) -- Nothing to compile here
 
 
-createCFunctions _ n canonN (MkAForeign ccs fargs ret) = do
+createCFunctions _ _ n canonN (MkAForeign ccs fargs ret) = do
   case parseCC (additionalFFILangs ++ ["RefC", "C"]) ccs of
       Just (lang, fctForeignName :: extLibOpts) => do
           let cLang = if lang == "RefC"
@@ -2327,7 +2516,7 @@ createCFunctions _ n canonN (MkAForeign ccs fargs ret) = do
 -- A name without a definition to compile (a hole, for instance): like in the
 -- Scheme backends, the program is compiled, and it stops with the message
 -- when it gets to that name.
-createCFunctions _ n canonN (MkAError (ACrash _ msg)) = do
+createCFunctions _ _ n canonN (MkAError (ACrash _ msg)) = do
     let fn = "Idris2_Value *\{cName canonN}(void)"
     addProtos (cName canonN) [fn ++ ";\n"]
     emit EmptyFC fn
@@ -2336,7 +2525,7 @@ createCFunctions _ n canonN (MkAError (ACrash _ msg)) = do
     emit EmptyFC "return idris2_crashMsg(\{cStringQuoted msg});"
     decreaseIndentation
     emit EmptyFC "}"
-createCFunctions _ n canonN (MkAError exp) = throw $ InternalError "[refc] Error with expression: \{show exp}"
+createCFunctions _ _ n canonN (MkAError exp) = throw $ InternalError "[refc] Error with expression: \{show exp}"
 -- not really total but this way this internal error does not contaminate everything else
 
 
@@ -2367,10 +2556,13 @@ constantTexts tbl = mergeLeft tbl.staticDefs $
 
 ||| The beginning of every C file: the runtime and the headers of the foreign
 ||| functions.
-preamble : (headerFiles : List String) -> List String
-preamble headerFiles
+preamble : (headerFiles : List String) -> StructTable -> List String
+preamble headerFiles structs
     = ["#include <runtime.h>\n/* \{ generatedString "RefC" } */\n"]
       ++ map (\h => "#include <\{h}>\n") headerFiles
+      ++ (case structs.structDefs <>> [] of
+               [] => []
+               defs => "\n// foreign structs\n" :: defs)
 
 ||| The prototypes of the definitions and the constants that a file uses.
 declarations : (protos : List String) -> (constants : List String) -> List String
@@ -2798,6 +2990,12 @@ generateCSourceFileParts defs0 outn =
                       (`contains` trmcFns)
                       (map (\(cn, _, d) => (cn, d)) named)
                else empty
+     -- The structs in the types of the foreign functions
+     structs <- foldlC (\tbl, (_, n, d) => case d of
+                           MkAForeign _ fargs ret =>
+                             foldlC (\t, ty => addStructs n ty t) tbl (ret :: fargs)
+                           _ => pure tbl)
+                       (MkStructTable empty empty) named
      _ <- newRef FunctionDefinitions Data.SortedMap.empty
      _ <- newRef ConstDef emptyConsts
      _ <- newRef OutfileText DList.Nil
@@ -2811,7 +3009,7 @@ generateCSourceFileParts defs0 outn =
                  do put OutfileText DList.Nil
                     put ArgCounter 0
                     update ConstDef { constUses := empty }
-                    createCFunctions {additionalFFILangs} opts n canonN d
+                    createCFunctions {additionalFFILangs} opts structs n canonN d
                     ls <- reify <$> get OutfileText
                     tbl <- get ConstDef
                     let refs = case d of
@@ -2826,7 +3024,7 @@ generateCSourceFileParts defs0 outn =
      protos <- get FunctionDefinitions
      consts <- constantTexts <$> get ConstDef
      headerFiles <- Prelude.toList <$> get HeaderFiles
-     let pre = preamble headerFiles
+     let pre = preamble headerFiles structs
      -- added after the definition traversal in order to add all encountered
      -- function defintions and constants
      let headerLines = pre ++ declarations (concat (values protos)) (values consts)
