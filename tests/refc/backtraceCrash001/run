@@ -1,0 +1,47 @@
+. ../../testutils.sh
+
+# Backtraces of a fatal error: `idris_crash`, a missing case in partial code
+# and a division by zero, with the names of the Idris functions (and where
+# they are defined) that `--directive refc-backtrace` puts in the program.
+# The functions of the program are not inlined then, so that the backtrace is
+# the same whatever the optimisation level.
+
+ulimit -c 0
+crashes="crash case div"
+
+for o in -O0 -O2; do
+  echo "--- $o"
+  IDRIS2_CFLAGS="$o" idris2 --directive refc-backtrace --build-dir "build$o" -o bt Main.idr
+  for c in $crashes; do
+    "./build$o/exec/bt" $c 2>&1
+    echo "exit code: $?"
+  done
+done
+
+# IDRIS2_REFC_BACKTRACE=0 turns them off.
+echo "--- off"
+IDRIS2_REFC_BACKTRACE=0 ./build-O2/exec/bt crash 2>&1
+echo "exit code: $?"
+
+# Without the directive, they are off unless IDRIS2_REFC_BACKTRACE=1, and they
+# show the C names of the functions.
+echo "--- no directive"
+idris2 --build-dir build-plain -o plain Main.idr
+./build-plain/exec/plain case 2>&1
+echo "exit code: $?"
+# (Main_name may be inlined in Main_describe, depending on the C compiler)
+IDRIS2_REFC_BACKTRACE=1 ./build-plain/exec/plain case > out.txt 2>&1
+code=$?
+grep -v '^  Main_name$' out.txt
+echo "exit code: $code"
+
+# IDRIS2_REFC_DEMANGLE=1: the program replaces the C names of its functions in
+# its input by their Idris names (for the output of perf).
+echo "--- demangle"
+printf '  12.5%%  bt  bt  [.] Main_sumChecked\n  3.1%%  bt  bt  [.] Main_describe.cold\n  1.0%%  bt  libc.so.6  [.] malloc\n' \
+  | IDRIS2_REFC_DEMANGLE=1 ./build-O2/exec/bt
+echo "exit code: $?"
+echo Main_name | IDRIS2_REFC_DEMANGLE=1 ./build-plain/exec/plain 2>&1
+echo "exit code: $?"
+
+rm -rf build-O0 build-O2 build-plain out.txt

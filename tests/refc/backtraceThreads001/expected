@@ -1,0 +1,32 @@
+--- overflow on the main thread
+RefC: stack overflow (SIGSEGV)
+Backtrace of the main thread, innermost call first:
+  Main.depth (Main:8:1), many frames
+  ... more frames ...
+  Main.depth (Main:8:1), many frames
+  Main.work (Main:16:1)
+  Main.main (Main:22:1)
+exit code: 139
+--- crash on the main thread
+ERROR: too big
+Backtrace of the main thread, innermost call first:
+  Builtin.idris_crash (Builtin:204:1)
+  Main.work (Main:16:1)
+  Main.main (Main:22:1)
+exit code: 1
+--- overflow on the thread thread
+RefC: stack overflow (SIGSEGV)
+Backtrace of thread 1, innermost call first:
+  Main.depth (Main:8:1), many frames
+  ... more frames ...
+  Main.depth (Main:8:1), many frames
+  Main.work (Main:16:1)
+  Main.{main:0} (Main:22:1)
+exit code: 139
+--- crash on the thread thread
+ERROR: too big
+Backtrace of thread 1, innermost call first:
+  Builtin.idris_crash (Builtin:204:1)
+  Main.work (Main:16:1)
+  Main.{main:0} (Main:22:1)
+exit code: 1

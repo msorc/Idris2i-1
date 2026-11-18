@@ -1,0 +1,54 @@
+--- -O0
+ERROR: too big
+Backtrace of the main thread, innermost call first:
+  Builtin.idris_crash (Builtin:204:1)
+  Main.sumChecked (Main:24:1), 3 frames
+  Main.main (Main:33:1)
+exit code: 1
+ERROR: Unhandled input for Main.name at Main:13:1--13:17
+Backtrace of the main thread, innermost call first:
+  Main.name (Main:11:1)
+  Main.describe (Main:16:1)
+  Main.main (Main:33:1)
+exit code: 1
+ERROR: Unhandled input for Prelude.Num.case block in div at Prelude.Num:128:3--130:40
+Backtrace of the main thread, innermost call first:
+  Main.divide (Main:29:1)
+  Main.main (Main:33:1)
+exit code: 1
+--- -O2
+ERROR: too big
+Backtrace of the main thread, innermost call first:
+  Builtin.idris_crash (Builtin:204:1)
+  Main.sumChecked (Main:24:1), 3 frames
+  Main.main (Main:33:1)
+exit code: 1
+ERROR: Unhandled input for Main.name at Main:13:1--13:17
+Backtrace of the main thread, innermost call first:
+  Main.name (Main:11:1)
+  Main.describe (Main:16:1)
+  Main.main (Main:33:1)
+exit code: 1
+ERROR: Unhandled input for Prelude.Num.case block in div at Prelude.Num:128:3--130:40
+Backtrace of the main thread, innermost call first:
+  Main.divide (Main:29:1)
+  Main.main (Main:33:1)
+exit code: 1
+--- off
+ERROR: too big
+exit code: 1
+--- no directive
+ERROR: Unhandled input for Main.name at Main:13:1--13:17
+exit code: 1
+ERROR: Unhandled input for Main.name at Main:13:1--13:17
+Backtrace of the main thread, innermost call first:
+  Main_describe
+  Main_main
+exit code: 1
+--- demangle
+  12.5%  bt  bt  [.] Main.sumChecked
+  3.1%  bt  bt  [.] Main.describe.cold
+  1.0%  bt  libc.so.6  [.] malloc
+exit code: 0
+RefC: IDRIS2_REFC_DEMANGLE: this program has no table of names; compile it with --directive refc-backtrace
+exit code: 1

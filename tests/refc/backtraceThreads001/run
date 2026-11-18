@@ -1,0 +1,22 @@
+. ../../testutils.sh
+
+# Backtraces of a stack overflow (reported on an alternate signal stack) and
+# of a crash, on the main thread and on a forked thread.  The number of frames
+# of a stack overflow depends on the size of the frames: it is left out.
+
+ulimit -c 0
+idris2 --directive refc-backtrace -o bt Main.idr
+
+export IDRIS2_MAIN_STACK_SIZE=1048576
+export IDRIS2_THREAD_STACK_SIZE=1048576
+for w in main thread; do
+  for c in overflow crash; do
+    echo "--- $c on the $w thread"
+    ./build/exec/bt $c $w > out.txt 2>&1
+    code=$?
+    sed -e 's/, [0-9]* frames$/, many frames/' \
+        -e 's/\.\.\. [0-9]* more frames \.\.\./... more frames .../' out.txt
+    echo "exit code: $code"
+  done
+done
+rm -rf out.txt build

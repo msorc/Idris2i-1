@@ -1,0 +1,36 @@
+--- segv
+RefC: segmentation fault (SIGSEGV)
+Backtrace of the main thread, innermost call first:
+  bt_segv
+  Main.segv (Main:8:1)
+  Main.compute (Main:20:1)
+  Main.twice (Main:28:1)
+  Main.main (Main:32:1)
+exit code: 139
+--- fpe
+RefC: integer division by zero (SIGFPE)
+Backtrace of the main thread, innermost call first:
+  bt_fpe
+  Main.fpe (Main:11:1)
+  Main.compute (Main:20:1)
+  Main.twice (Main:28:1)
+  Main.main (Main:32:1)
+exit code: 136
+--- abort
+RefC: aborted (SIGABRT)
+Backtrace of the main thread, innermost call first:
+  bt_abort
+  Main.abrt (Main:14:1)
+  Main.compute (Main:20:1)
+  Main.twice (Main:28:1)
+  Main.main (Main:32:1)
+exit code: 134
+--- bus
+RefC: bus error (SIGBUS)
+Backtrace of the main thread, innermost call first:
+  bt_bus
+  Main.bus (Main:17:1)
+  Main.compute (Main:20:1)
+  Main.twice (Main:28:1)
+  Main.main (Main:32:1)
+exit code: 135

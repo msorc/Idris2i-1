@@ -1,0 +1,19 @@
+. ../../testutils.sh
+
+# Backtraces of a program that dies of a signal in foreign code: the frame of
+# the C function, then those of the Idris functions.  The program still dies
+# of the signal.
+
+ulimit -c 0
+export IDRIS2_CFLAGS="-I. $IDRIS2_CFLAGS"
+idris2 --directive refc-backtrace -o bt Main.idr
+
+# (the frames in the C library, under abort, depend on its version)
+for s in segv fpe abort bus; do
+  echo "--- $s"
+  ./build/exec/bt $s > out.txt 2>&1
+  code=$?
+  grep -v '\[libc' out.txt
+  echo "exit code: $code"
+done
+rm -rf out.txt build
