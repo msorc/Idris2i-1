@@ -815,15 +815,16 @@ loadMainFile : {auto c : Ref Ctxt Defs} ->
                {auto s : Ref Syn SyntaxInfo} ->
                {auto m : Ref MD Metadata} ->
                {auto o : Ref ROpts REPLOpts} ->
+               {default True reload : Bool} -> -- see `buildDeps`
                String -> Core REPLResult
-loadMainFile f
+loadMainFile {reload} f
     = do update ROpts { evalResultName := Nothing }
          modIdent <- ctxtPathToNS f
          resetContext (PhysicalIdrSrc modIdent)
          Right res <- coreLift (readFile f)
             | Left err => do setSource ""
                              pure (ErrorLoadingFile f err)
-         errs <- logTime 1 "Build deps" $ buildDeps f
+         errs <- logTime 1 "Build deps" $ buildDeps {reload} f
          updateErrorLine errs
          setSource res
          resetProofState

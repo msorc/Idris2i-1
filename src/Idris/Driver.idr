@@ -214,7 +214,14 @@ stMain cgs opts
                                    readPrelude True
                                  pure Done
                     Just f => logTime 1 "Loading main file" $ do
-                                res <- loadMainFile f
+                                -- `--check` alone does not use what the
+                                -- main file defines once it is built
+                                post <- get PostS
+                                let reload = not (checkOnly post)
+                                             || isJust (outputFile post)
+                                             || isCons (execExpr post)
+                                             || isJust (runRepl post)
+                                res <- loadMainFile {reload} f
                                 displayStartupErrors res
                                 pure res
 

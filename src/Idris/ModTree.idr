@@ -333,20 +333,27 @@ buildMods fc num len (m :: ms)
               _ => do when skipped resetForModule
                       pure errs
 
+||| Build the modules that the main file needs, and the main file. On
+||| success the main file is then read again from its TTC file, with all its
+||| imports, for the REPL (or whatever comes next), unless `reload` is False:
+||| reading the whole of what the main file imports, transitively, costs as
+||| much as checking a small module, and `--check` alone needs none of it.
 export
 buildDeps : {auto c : Ref Ctxt Defs} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto m : Ref MD Metadata} ->
             {auto u : Ref UST UState} ->
             {auto o : Ref ROpts REPLOpts} ->
+            {default True reload : Bool} ->
             (mainFile : String) ->
             Core (List Error)
-buildDeps fname
+buildDeps {reload} fname
     = do mods <- getBuildMods EmptyFC [] fname
          log "import" 20 $ "Needs to rebuild: " ++ show mods
          ok <- buildMods EmptyFC 1 (length mods) mods
          case ok of
-              [] => do -- On success, reload the main ttc in a clean context
+              [] => if not reload then pure [] else
+                    do -- On success, reload the main ttc in a clean context
                        clearCtxt; addPrimitives
                        modIdent <- ctxtPathToNS fname
                        put MD (initMetadata (PhysicalIdrSrc modIdent))
