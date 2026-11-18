@@ -5,6 +5,7 @@
 void idris2_missing_ffi() {
   fprintf(stderr, "Foreign function declared, but not defined.\n"
                   "Cannot call missing FFI - aborting.\n");
+  idris2_backtracePrint();
   exit(1);
 }
 

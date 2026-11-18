@@ -62,6 +62,7 @@
 #endif
 
 #include "threads.h"
+#include "backtrace.h"
 #include "memoryManagement.h"
 #include "runtime.h"
 #include "worker.h"
@@ -1174,6 +1175,16 @@ static void stack_configure(void) {
                                    DEFAULT_STACK_SIZE);
 }
 
+int idris2_threadStackGuard(const void *addr) {
+  Idris2_Thread *thread = self()->current;
+  if (!thread || !thread->stack) {
+    return 0;
+  }
+  // (a big frame may jump over the guard page)
+  uintptr_t a = (uintptr_t)addr, guard = (uintptr_t)thread->stack;
+  return a < guard + page_size && a + 65536 >= guard;
+}
+
 // Like stack_map, but NULL when the memory is not available.
 static void *stack_try_map(size_t size) {
   void *mapping = mmap(NULL, size + page_size, PROT_READ | PROT_WRITE,
@@ -1372,6 +1383,7 @@ static int configured_workers(void) {
 static void *worker_main(void *arg) {
   Sched *s = (Sched *)arg;
   idris2_tlsWorker = s->worker;
+  idris2_backtraceThreadSetup();
   scheduler_loop();
   return NULL;
 }
@@ -1515,6 +1527,13 @@ static int run_main_on_own_stack(Idris2_Value *(*mainAction)(void)) {
   return 1;
 }
 
+#else
+
+int idris2_threadStackGuard(const void *addr) {
+  (void)addr;
+  return 0;
+}
+
 #endif /* IDRIS2_GREEN_THREADS */
 
 // The reports of memoryManagement.c, when the program exits before the end
@@ -1543,6 +1562,7 @@ static void configure_keep_pages(void) {
 
 void idris2_threadSchedulerRun(Idris2_Value *(*mainAction)(void)) {
   main_sched.current = &main_thread;
+  idris2_backtraceSetup();
   configure_keep_pages();
   atexit(report_at_exit);
 #if IDRIS2_GREEN_THREADS

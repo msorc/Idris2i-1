@@ -43,6 +43,10 @@ Idris2_Thread *idris2_currentThread(void);
 // thread is 0.
 int64_t idris2_threadId(Idris2_Thread *thread);
 
+// Is `addr` in (or just below) the guard page of the stack of the current
+// green thread?  For the report of a stack overflow (see backtrace.c).
+int idris2_threadStackGuard(const void *addr);
+
 // The current time, in nanoseconds, on a monotonic clock.
 int64_t idris2_monotonicNanoseconds(void);
 

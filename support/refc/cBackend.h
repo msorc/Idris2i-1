@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "_datatypes.h"
+#include "backtrace.h"
 #include "buffer.h"
 #include "casts.h"
 #include "clock.h"

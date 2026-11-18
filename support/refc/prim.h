@@ -31,6 +31,12 @@ extern Idris2_ShortString const idris2_predefined_codegenstring;
   ((Idris2_Value *)&idris2_predefined_osstring)
 #define idris2_System_Info_prim__codegen()                                     \
   ((Idris2_Value *)&idris2_predefined_codegenstring)
+// `idris_crash`: print the message and stop.  (Like idris2_crashMsg, it does
+// not return, which also keeps the C compiler from making its call a jump,
+// so that the frame of the caller is in the backtrace.)
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noreturn, cold))
+#endif
 Idris2_Value *idris2_crash(Idris2_Value *msg);
 // A crash of the compiled code itself (a case without a clause for the value,
 // a hole): print the message and stop, like the Scheme backends.  It has a

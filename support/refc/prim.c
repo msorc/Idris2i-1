@@ -76,6 +76,7 @@ Idris2_Value *idris2_crash(Idris2_Value *msg) {
   fwrite(str->str, 1, str->len, stdout);
   fputc('\n', stdout);
   fflush(stdout);
+  idris2_backtracePrint();
   exit(1);
 }
 
@@ -83,6 +84,7 @@ Idris2_Value *idris2_crashMsg(const char *msg) {
   fputs(msg, stdout);
   fputc('\n', stdout);
   fflush(stdout);
+  idris2_backtracePrint();
   exit(1);
 }
 
