@@ -148,9 +148,10 @@ allParents (MkNS ns) = go ns where
   go [] = []
   go (n :: ns) = MkNS (n :: ns) :: go ns
 
--- Equality and order of lists of identifiers, written out: names are compared
--- all the time (they are the keys of the context), and the instances for
--- lists would go through the String dictionary at every element.
+-- Equality and order of lists of identifiers, written out: names and module
+-- identifiers are compared all the time (they are the keys of the context and
+-- of the syntax information), and the instances for lists would go through
+-- the String dictionary at every element.
 eqIdents : List String -> List String -> Bool
 eqIdents [] [] = True
 eqIdents (x :: xs) (y :: ys) = x == y && eqIdents xs ys
@@ -179,6 +180,19 @@ isParentOf (MkNS ms) (MkNS ns)
   = let lm = length ms
         ln = length ns in
         lm <= ln && eqIdents ms (drop (ln `minus` lm) ns)
+
+||| Is any of the given namespaces a parent of the candidate (as `isParentOf`)?
+||| For asking about many namespaces: the length of the candidate is only
+||| found once.
+export
+anyParentOf : (givens : List Namespace) -> (candidate : Namespace) -> Bool
+anyParentOf gs (MkNS ns) = go (length ns) gs
+  where
+    go : Nat -> List Namespace -> Bool
+    go ln [] = False
+    go ln (MkNS ms :: rest)
+        = let lm = length ms in
+              (lm <= ln && eqIdents ms (drop (ln `minus` lm) ns)) || go ln rest
 
 ||| When writing qualified names users often do not want to spell out the full
 ||| namespace, rightly considering that an unambiguous segment should be enough.
@@ -210,7 +224,7 @@ Eq Namespace where
 
 export
 Eq ModuleIdent where
-  (MkMI ms) == (MkMI ns) = ms == ns
+  (MkMI ms) == (MkMI ns) = eqIdents ms ns
 
 export
 Ord Namespace where
@@ -218,7 +232,7 @@ Ord Namespace where
 
 export
 Ord ModuleIdent where
-    compare (MkMI ms) (MkMI ns) = compare ms ns
+    compare (MkMI ms) (MkMI ns) = compareIdents ms ns
 
 Injective MkNS where
   injective Refl = Refl

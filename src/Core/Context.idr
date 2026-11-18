@@ -2200,16 +2200,12 @@ isVisible : {auto c : Ref Ctxt Defs} ->
             Namespace -> Core Bool
 isVisible nspace
     = do defs <- get Ctxt
-         -- (not one `any` over the lists appended: that would copy them)
-         pure (any visible (allParents (currentNS defs)) ||
-               any visible (nestedNS defs) ||
-               any visible (visibleNS (gamma defs)))
-
-  where
-    -- Visible if any visible namespace is a parent of the namespace we're
-    -- asking about
-    visible : Namespace -> Bool
-    visible visns = isParentOf visns nspace
+         -- Visible if any visible namespace is a parent of the namespace
+         -- we're asking about
+         -- (not one search in the lists appended: that would copy them)
+         pure (anyParentOf (allParents (currentNS defs)) nspace ||
+               anyParentOf (nestedNS defs) nspace ||
+               anyParentOf (visibleNS (gamma defs)) nspace)
 
 -- Get the next entry id in the context (this is for recording where to go
 -- back to when backtracking in the elaborator)
