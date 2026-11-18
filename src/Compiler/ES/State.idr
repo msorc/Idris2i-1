@@ -6,6 +6,7 @@ import Core.Context
 import Compiler.ES.Ast
 import Compiler.NoMangle
 import Data.SortedMap
+import Data.SortedSet
 
 %default total
 
@@ -108,6 +109,10 @@ record ESSt where
 
   ||| %nomangle names
   noMangleMap : NoMangleMap
+
+  ||| The toplevel functions that can return a pending tail call, or
+  ||| `Nothing` if tail calls to unknown functions are not trampolined.
+  bouncing : Maybe (SortedSet Name)
 
 --------------------------------------------------------------------------------
 --          Local Variables
@@ -235,9 +240,10 @@ init :  (mode  : CGMode)
      -> (isFun : Exp -> Bool)
      -> (types : List String)
      -> (noMangle : NoMangleMap)
+     -> (bouncing : Maybe (SortedSet Name))
      -> ESSt
-init mode isArg isFun ccs noMangle =
-  MkESSt mode isArg isFun 0 0 empty empty empty ccs noMangle
+init mode isArg isFun ccs noMangle bouncing =
+  MkESSt mode isArg isFun 0 0 empty empty empty ccs noMangle bouncing
 
 ||| Reset the local state before defining a new toplevel
 ||| function.

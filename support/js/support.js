@@ -17,11 +17,82 @@ function __prim_idris2js_array(x){
   return result;
 }
 
+// The trampoline for the tail calls to unknown functions (see
+// Compiler.ES.TailRec).  Such a call is made directly while there are fewer
+// than 64 of them on the stack above the nearest caller that needs a value
+// (`__res`); beyond that, it returns a pending call instead, which unwinds
+// the stack up to that caller, where it is run.
+class __TC { }
+class __TC0 extends __TC {
+  constructor(f) { super(); this.f = f }
+  run() { return this.f() }
+}
+class __TC1 extends __TC {
+  constructor(f, a) { super(); this.f = f; this.a = a }
+  run() { return this.f(this.a) }
+}
+class __TC2 extends __TC {
+  constructor(f, a, b) { super(); this.f = f; this.a = a; this.b = b }
+  run() { return this.f(this.a, this.b) }
+}
+class __TC3 extends __TC {
+  constructor(f, a, b, c) { super(); this.f = f; this.a = a; this.b = b; this.c = c }
+  run() { return this.f(this.a, this.b, this.c) }
+}
+class __TCN extends __TC {
+  constructor(f, as) { super(); this.f = f; this.as = as }
+  run() { return this.f(...this.as) }
+}
+
+// The number of calls made by `__tcN` on the stack since the nearest `__res`
+let __tcDepth = 0
+
+function __tc0(f) {
+  if (__tcDepth >= 64) return new __TC0(f)
+  __tcDepth++; const r = f(); __tcDepth--; return r
+}
+function __tc1(f, a) {
+  if (__tcDepth >= 64) return new __TC1(f, a)
+  __tcDepth++; const r = f(a); __tcDepth--; return r
+}
+function __tc2(f, a, b) {
+  if (__tcDepth >= 64) return new __TC2(f, a, b)
+  __tcDepth++; const r = f(a, b); __tcDepth--; return r
+}
+function __tc3(f, a, b, c) {
+  if (__tcDepth >= 64) return new __TC3(f, a, b, c)
+  __tcDepth++; const r = f(a, b, c); __tcDepth--; return r
+}
+function __tcN(f, as) {
+  if (__tcDepth >= 64) return new __TCN(f, as)
+  __tcDepth++; const r = f(...as); __tcDepth--; return r
+}
+
+// The value of `r`, once the pending calls are run.
+function __res(r) {
+  if (!(r instanceof __TC)) return r
+  const depth = __tcDepth
+  __tcDepth = 0
+  do r = r.run(); while (r instanceof __TC)
+  __tcDepth = depth
+  return r
+}
+
+// A function given to foreign code, whose calls run the pending calls, also
+// in the functions that it returns.
+function __resFn(f) {
+  if (typeof f !== 'function') return f
+  return function (...args) {
+    const r = __res(f.apply(this, args))
+    return typeof r === 'function' ? __resFn(r) : r
+  }
+}
+
 function __lazy(thunk) {
   let res;
   return function () {
     if (thunk === undefined) return res;
-    res = thunk();
+    res = __res(thunk());
     thunk = undefined;
     return res;
   };

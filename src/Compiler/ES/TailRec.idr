@@ -345,3 +345,58 @@ functions loop dfs =
    where def : (Name,FC,NamedDef) -> Maybe (Name,List Name,NamedCExp)
          def (n,_,MkNmFun args x) = Just (n,args,x)
          def _                    = Nothing
+
+--------------------------------------------------------------------------------
+--          Trampoline for the other tail calls
+--------------------------------------------------------------------------------
+
+-- The loops above cover the tail calls between toplevel functions that call
+-- each other.  The other tail calls go to functions that are not known
+-- statically (closures, like the continuation of a `>>=`), and JavaScript
+-- does not eliminate them: a loop through a monad nests a call for every
+-- iteration.  With the trampoline, such a tail call can return a pending
+-- call (an object of class `__TC` in `support.js`) instead of making it,
+-- which a caller that needs the value runs (`__res`).
+--
+-- A toplevel function can thus return a pending call if one of its tail
+-- calls goes to an unknown function, or to a toplevel function that can.
+-- Only the calls of these functions (and of unknown functions) have to
+-- check their result.
+
+-- The tail calls of an expression: `Nothing` for an unknown function.
+tailCallees : NamedCExp -> List (Maybe Name)
+tailCallees (NmLet _ _ _ z) = tailCallees z
+tailCallees (NmApp _ (NmRef _ n) _) = [Just n]
+tailCallees (NmApp {}) = [Nothing]
+tailCallees (NmForce {}) = [Nothing]
+tailCallees (NmConCase _ _ xs x) =
+  concatMap (\(MkNConAlt _ _ _ _ y) => tailCallees y) xs ++
+  concatMap tailCallees x
+tailCallees (NmConstCase _ _ xs x) =
+  concatMap (\(MkNConstAlt _ y) => tailCallees y) xs ++
+  concatMap tailCallees x
+tailCallees _ = []
+
+||| The toplevel functions that can return a pending tail call.
+export
+bouncingFunctions : List Function -> SortedSet Name
+bouncingFunctions fs =
+  let callees : List (Name, List (Maybe Name))
+      callees = map (\f => (f.name, tailCallees f.body)) fs
+      -- the functions that make a tail call to each function
+      callers : SortedMap Name (List Name)
+      callers = M.fromListWith (\xs, ys => xs ++ ys) $
+                  concatMap (\(f, cs) => map (\g => (g, [f])) (catMaybes cs))
+                            callees
+      direct : List Name
+      direct  = map fst $ filter (any isNothing . snd) callees
+   in go callers empty direct
+
+  where
+    go : SortedMap Name (List Name) -> SortedSet Name -> List Name -> SortedSet Name
+    go callers done [] = done
+    go callers done (f :: fs) =
+      if contains f done
+         then go callers done fs
+         else go callers (insert f done)
+                 (fromMaybe [] (lookup f callers) ++ fs)

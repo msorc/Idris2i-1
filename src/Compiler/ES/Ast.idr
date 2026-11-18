@@ -54,6 +54,21 @@ data Minimal =
 --          Expressions
 --------------------------------------------------------------------------------
 
+||| What a function application can return (see `Compiler.ES.TailRec` for
+||| the trampoline).
+public export
+data Callee =
+  ||| A toplevel function that never returns a pending tail call, or any
+  ||| function when there is no trampoline.
+  Direct |
+
+  ||| A toplevel function that can return a pending tail call (it makes a
+  ||| tail call to an unknown function, or to another such function).
+  Bouncing |
+
+  ||| A function that is not known statically (a closure).
+  Unknown
+
 ||| The effect of a statement or a block of statements.
 ||| `Returns` means the
 ||| result of the final expression will be returned as
@@ -87,7 +102,7 @@ mutual
     |||
     ||| In case of a zero-argument list, we might also be
     ||| dealing with forcing a delayed computation.
-    EApp      : Exp -> List Exp -> Exp
+    EApp      : Callee -> Exp -> List Exp -> Exp
 
     ||| Saturated construtor application.
     |||

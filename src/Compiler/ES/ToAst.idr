@@ -3,6 +3,7 @@
 module Compiler.ES.ToAst
 
 import Data.Vect
+import Data.SortedSet
 import Core.CompileExpr
 import Core.Context
 import Compiler.ES.Ast
@@ -37,6 +38,15 @@ mutual
   integerArith (NmOp _ (Mul IntegerType) [x,y]) =
     [| getInteger x * getInteger y |]
   integerArith _ = Nothing
+
+-- What applying the given function can return.
+callee : {auto c : Ref ESs ESSt} -> NamedCExp -> Core Callee
+callee x = do
+  Just bs <- bouncing <$> get ESs
+    | Nothing => pure Direct
+  pure $ case x of
+    NmRef _ n => if contains n bs then Bouncing else Direct
+    _         => Unknown
 
 mutual
   -- Converts a `NamedCExp` by calling `stmt` with a
@@ -152,7 +162,8 @@ mutual
   stmt e (NmApp _ x xs) = do
     (mbx, vx)    <- liftFun x
     (mbxs, args) <- liftArgs xs
-    pure . prepend (mbx ++ mbxs) $ assign e (EApp vx args)
+    k            <- callee x
+    pure . prepend (mbx ++ mbxs) $ assign e (EApp k vx args)
 
   stmt e (NmCon _ n ci tg xs) = do
     (mbxs, args) <- liftArgs xs
@@ -171,7 +182,8 @@ mutual
 
   stmt e (NmForce _ _ x) = do
     (mbx, vx) <- liftFun x
-    pure . prepend mbx $ assign e (EApp vx [])
+    k         <- callee (NmLocal EmptyFC (MN "forced" 0))
+    pure . prepend mbx $ assign e (EApp k vx [])
 
   stmt e (NmDelay _ _ x) = assign e . ELam [] <$> stmt Returns x
 

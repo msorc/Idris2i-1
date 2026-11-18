@@ -6,6 +6,7 @@ import Core.Directory
 import Core.Env
 import Data.String
 import Data.SortedMap
+import Data.SortedSet
 import Compiler.ES.Ast
 import Compiler.ES.Doc
 import Compiler.ES.ToAst
@@ -499,29 +500,53 @@ searchForeign knownBackends decls =
       backends = Left $ map fst pairs
    in maybe backends (Right. snd) $ find ((`elem` knownBackends) . fst) pairs
 
+-- With the trampoline, a foreign function gets the function arguments
+-- wrapped in `__resFn`, which runs the pending tail calls that they return.
+-- (`f` is the foreign function and `args` the types of its arguments.)
+wrapCallbacks : {auto c : Ref ESs ESSt} -> List CFType -> Doc -> Core Doc
+wrapCallbacks args f = do
+  Just _ <- bouncing <$> get ESs
+    | Nothing => pure f
+  let as = zipWith wrap [1 .. length args] args
+  if all (isNothing . snd) as
+     then pure f
+     else let ns = map fst as
+           in pure $ app (paren ("$f" <+> lambdaArrow <+> applyList "(" ")" softComma ns
+                                  <+> lambdaArrow <+> app "$f" (map arg as)))
+                         [f]
+  where
+    wrap : Nat -> CFType -> (Doc, Maybe ())
+    wrap i (CFFun _ _) = (Text ("$" ++ show i), Just ())
+    wrap i _           = (Text ("$" ++ show i), Nothing)
+
+    arg : (Doc, Maybe ()) -> Doc
+    arg (d, Just ()) = callFun1 "__resFn" d
+    arg (d, Nothing) = d
+
 -- given a function name and FFI implementation string,
 -- generate a toplevel function definition.
 makeForeign :  {auto d : Ref Ctxt Defs}
             -> {auto c : Ref ESs ESSt}
             -> {auto nm : Ref NoMangleMap NoMangleMap}
             -> (name : Name)
+            -> (args : List CFType)
             -> (ffDecl : String)
             -> Core Doc
-makeForeign n x = do
+makeForeign n args x = do
   nd <- var !(get NoMangleMap) <$> getOrRegisterRef n
   let (ty, def) = readCCPart x
   case ty of
-    "lambda" => pure . constant nd . paren $ Text def
+    "lambda" => constant nd <$> wrapCallbacks args (paren $ Text def)
     "support" => do
       let (name, lib) = breakDrop1 ',' def
       lib_code <- readDataFile ("js/" ++ lib ++ ".js")
       addToPreamble lib lib_code
-      pure . constant nd . Text $ lib ++ "_" ++ name
+      constant nd <$> wrapCallbacks args (Text $ lib ++ "_" ++ name)
     "stringIterator" =>
       case def of
         "new"      => pure $ constant nd "__prim_stringIteratorNew"
         "next"     => pure $ constant nd "__prim_stringIteratorNext"
-        "toString" => pure $ constant nd "__prim_stringIteratorToString"
+        "toString" => constant nd <$> wrapCallbacks args "__prim_stringIteratorToString"
         _ => errorConcat
                [ "Invalid string iterator function: ", def, ". "
                , "Supported functions are: "
@@ -541,11 +566,12 @@ foreignDecl :  {auto d : Ref Ctxt Defs}
             -> {auto nm : Ref NoMangleMap NoMangleMap}
             -> Name
             -> List String
+            -> List CFType
             -> Core Doc
-foreignDecl n ccs = do
+foreignDecl n ccs args = do
   tys <- ccTypes <$> get ESs
   case searchForeign tys ccs of
-    Right x        => makeForeign n x
+    Right x        => makeForeign n args x
     Left  backends =>
       errorConcat
         [ "No supported backend found in the definition of ", show n, ". "
@@ -655,14 +681,18 @@ mutual
      map (\e => lambdaArgs nm xs <+> paren e) (exp y)
   exp (ELam xs (Return y)) = do
      nm <- get NoMangleMap
-     (lambdaArgs nm xs <+> ) <$> exp y
+     (lambdaArgs nm xs <+> ) <$> tailExp y
   exp (ELam xs y) = do
      nm <- get NoMangleMap
      (lambdaArgs nm xs <+>) . block <$> stmt y
-  exp (EApp x xs) = do
+  -- the result of a call that is not a tail call is needed: a pending
+  -- tail call is run
+  exp (EApp k x xs) = do
     o    <- exp x
     args <- traverse exp xs
-    pure $ app o args
+    pure $ case k of
+      Direct => app o args
+      _      => callFun1 "__res" (app o args)
 
   exp (ECon tag ci xs) = applyCon ci tag <$> traverse exp xs
 
@@ -671,13 +701,30 @@ mutual
   exp (EPrimVal x) = pure . Text $ jsConstant x
   exp EErased = pure "undefined"
 
+  -- converts an `Exp` in tail position to JS code: a call of an unknown
+  -- function goes through the trampoline, and a call that can return a
+  -- pending tail call returns it.
+  tailExp :  {auto c : Ref ESs ESSt}
+          -> {auto nm : Ref NoMangleMap NoMangleMap}
+          -> Exp
+          -> Core Doc
+  tailExp (EApp Direct x xs) = exp (EApp Direct x xs)
+  tailExp (EApp Bouncing x xs) = exp (EApp Direct x xs)
+  tailExp (EApp Unknown x xs) = do
+    o    <- exp x
+    args <- traverse exp xs
+    pure $ case length args of
+      S (S (S (S _))) => callFun "__tcN" [o, applyList "[" "]" softComma args]
+      n               => callFun ("__tc" ++ show n) (o :: args)
+  tailExp x = exp x
+
   -- converts a `Stmt e` to JS code.
   stmt :  {e : _}
        -> {auto c : Ref ESs ESSt}
        -> {auto nm : Ref NoMangleMap NoMangleMap}
        -> Stmt e
        -> Core Doc
-  stmt (Return y) = (\e => "return" <++> e <+> ";") <$> exp y
+  stmt (Return y) = (\e => "return" <++> e <+> ";") <$> tailExp y
   stmt (Const v x) = do
     nm <- get NoMangleMap
     constant (var nm v) <$> exp x
@@ -767,7 +814,7 @@ foreign :  {auto c : Ref ESs ESSt}
         -> {auto nm : Ref NoMangleMap NoMangleMap}
         -> (Name,FC,NamedDef)
         -> Core (List String)
-foreign (n, _, MkNmForeign path _ _) = pure . pretty <$> foreignDecl n path
+foreign (n, _, MkNmForeign path args _) = pure . pretty <$> foreignDecl n path args
 foreign _                            = pure []
 
 -- name of the toplevel tail call loop from the
@@ -803,13 +850,6 @@ compileToES c s cg tm ccTypes = do
              else if "compact" `elem` directives then Compact
              else Pretty
 
-  -- initialize the state used in the code generator
-  s <- newRef ESs $ init mode (isArg mode) isFun ccTypes !(get NoMangleMap)
-
-  -- register the toplevel `__tailRec` function to make sure
-  -- it is not mangled in `Minimal` mode
-  addRef tailRec (VName tailRec)
-
   -- the list of all toplevel definitions (including the main
   -- function)
   let allDefs =  (mainExpr, EmptyFC, MkNmFun [] $ forget cdata.mainExpr)
@@ -817,6 +857,19 @@ compileToES c s cg tm ccTypes = do
 
       -- tail-call optimized set of toplevel functions
       defs    = TailRec.functions tailRec allDefs
+
+      -- tail calls to unknown functions go through a trampoline, unless
+      -- the `no-trampoline` directive says otherwise
+      bounce  = if "no-trampoline" `elem` directives
+                   then Nothing
+                   else Just (bouncingFunctions defs)
+
+  -- initialize the state used in the code generator
+  s <- newRef ESs $ init mode (isArg mode) isFun ccTypes !(get NoMangleMap) bounce
+
+  -- register the toplevel `__tailRec` function to make sure
+  -- it is not mangled in `Minimal` mode
+  addRef tailRec (VName tailRec)
 
   -- pretty printed toplevel function definitions
   defDecls <- traverse def defs
@@ -828,9 +881,9 @@ compileToES c s cg tm ccTypes = do
   mainName <- compact . var !(get NoMangleMap) <$> getOrRegisterRef mainExpr
 
   -- main function and list of all declarations
-  let runMain =  "try{"
+  let runMain =  "try{__res("
               ++ mainName
-              ++ "()}catch(e){if(e instanceof IdrisError){console.log('ERROR: ' + e.message)}else{throw e} }"
+              ++ "())}catch(e){if(e instanceof IdrisError){console.log('ERROR: ' + e.message)}else{throw e} }"
 
       -- Node runs the main function on a large stack of its own
       -- (see `js/node_main.js`)
