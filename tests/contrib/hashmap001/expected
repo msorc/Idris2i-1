@@ -1,0 +1,195 @@
+-- hashes
+13331581593930102267
+13822439871872589623
+5142867580690128592
+15510747335337550407
+8791047083057884403
+16695468836549230116
+9598574325391973449
+8063736887493548913
+14085038581610036632
+8136163452210094857
+2716538807540014143
+5142867580690128592
+13331581593930102267
+5142867580690128592
+8586235068506722660
+8669547879642799384
+16258664541266577714
+16467970263906159460
+12890609093231008911
+16241206565079460672
+11208207135156368334
+11183850148181156684
+2753652909230033059
+13822439871872589623
+13331581593930102267
+14959654582688832416
+13331581593930102267
+6738827563844358620
+12354001310518443041
+5474613674450006987
+6118778247639020127
+6118778247639020127
+9310694270679773447
+6118778247639020127
+7889065732234043330
+18156521770253741974
+17015388321642141393
+8364389272283742692
+10364892323288027431
+16283003019774873573
+13331581593930102267
+8052751802911800590
+13785258332132875021
+8052751802911800590
+151415815616364526
+13331581593930102267
+7438264906571328977
+hash of Vect, List, SnocList and List1 agree: ok
+0.0 and -0.0 hash alike: ok
+order matters: ok
+salt matters: ok
+Int hashes of 0..1999 are distinct: ok
+-- basic operations
+size: ok
+lookup: ok
+lookup missing: ok
+lookup': ok
+lookupDefault: ok
+member: ok
+contains: ok
+empty: ok
+singleton: ok
+not null: ok
+insert replaces: ok
+persistent: ok
+insertWith new ++ old: ok
+insertWith absent: ok
+delete: ok
+delete absent: ok
+delete everything: ok
+update insert: ok
+update change: ok
+update delete: ok
+alter: ok
+updateExisting present: ok
+updateExisting absent: ok
+fromListWith: ok
+fromList last wins: ok
+insertFrom: ok
+insertFromWith: ok
+-- traversals
+toList sorted: ok
+kvList: ok
+keys: ok
+values: ok
+foldrWithKey: ok
+foldlWithKey: ok
+Foldable sum of lengths: ok
+Foldable foldr: ok
+Foldable toList: ok
+Foldable foldMap: ok
+mapWithKey: ok
+Functor: ok
+filter: ok
+filterWithKey: ok
+filter nothing removed: ok
+filter all removed: ok
+Traversable IO: ok
+Traversable Maybe: ok
+Traversable Nothing: ok
+-- merging
+mergeWith: ok
+merge: ok
+<+>: ok
+mergeLeft: ok
+union: ok
+unionWith: ok
+neutral: ok
+-- Eq and Show
+Eq independent of insertion order: ok
+Eq after deletion: ok
+Eq different values: ok
+Eq different keys: ok
+Eq different sizes: ok
+fromList [(1, "one")]
+fromList []
+-- sets
+size: ok
+contains: ok
+member: ok
+insert: ok
+delete: ok
+singleton: ok
+empty: ok
+toList: ok
+union: ok
+difference: ok
+intersection: ok
+symDifference: ok
+isSubsetOf: ok
+filter: ok
+Foldable sum: ok
+foldr: ok
+Eq: ok
+Semigroup: ok
+Monoid: ok
+keySet: ok
+differenceMap: ok
+intersectionMap: ok
+fromList [5]
+-- collisions
+same hash: size: ok
+same hash: all found: ok
+same hash: absent: ok
+same hash: replace: ok
+same hash: insertWith: ok
+same hash: delete evens: ok
+same hash: toList: ok
+same hash: delete absent: ok
+same hash: delete all: ok
+same hash: Eq: ok
+same hash: filter: ok
+same hash: mapWithKey: ok
+same hash: merge: ok
+few hashes: size: ok
+few hashes: all found: ok
+few hashes: absent: ok
+few hashes: replace: ok
+few hashes: insertWith: ok
+few hashes: delete evens: ok
+few hashes: toList: ok
+few hashes: delete absent: ok
+few hashes: delete all: ok
+few hashes: Eq: ok
+few hashes: filter: ok
+few hashes: mapWithKey: ok
+few hashes: merge: ok
+high bits: size: ok
+high bits: all found: ok
+high bits: absent: ok
+high bits: replace: ok
+high bits: insertWith: ok
+high bits: delete evens: ok
+high bits: toList: ok
+high bits: delete absent: ok
+high bits: delete all: ok
+high bits: Eq: ok
+high bits: filter: ok
+high bits: mapWithKey: ok
+high bits: merge: ok
+-- model against SortedMap
+model Int (20 comparisons, final size 226): ok
+model String (20 comparisons, final size 226): ok
+model same hash (20 comparisons, final size 226): ok
+model few hashes (20 comparisons, final size 226): ok
+model high bits (20 comparisons, final size 226): ok
+model pair (20 comparisons, final size 226): ok
+-- bigger map
+size: ok
+lookups: ok
+absent: ok
+delete half: ok
+sum: ok
+string keys: ok
