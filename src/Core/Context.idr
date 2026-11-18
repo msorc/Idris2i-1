@@ -2200,9 +2200,10 @@ isVisible : {auto c : Ref Ctxt Defs} ->
             Namespace -> Core Bool
 isVisible nspace
     = do defs <- get Ctxt
-         pure (any visible (allParents (currentNS defs) ++
-                            nestedNS defs ++
-                            visibleNS (gamma defs)))
+         -- (not one `any` over the lists appended: that would copy them)
+         pure (any visible (allParents (currentNS defs)) ||
+               any visible (nestedNS defs) ||
+               any visible (visibleNS (gamma defs)))
 
   where
     -- Visible if any visible namespace is a parent of the namespace we're

@@ -148,6 +148,23 @@ allParents (MkNS ns) = go ns where
   go [] = []
   go (n :: ns) = MkNS (n :: ns) :: go ns
 
+-- Equality and order of lists of identifiers, written out: names are compared
+-- all the time (they are the keys of the context), and the instances for
+-- lists would go through the String dictionary at every element.
+eqIdents : List String -> List String -> Bool
+eqIdents [] [] = True
+eqIdents (x :: xs) (y :: ys) = x == y && eqIdents xs ys
+eqIdents _ _ = False
+
+compareIdents : List String -> List String -> Ordering
+compareIdents [] [] = EQ
+compareIdents [] (_ :: _) = LT
+compareIdents (_ :: _) [] = GT
+compareIdents (x :: xs) (y :: ys)
+    = case compare x y of
+           EQ => compareIdents xs ys
+           o => o
+
 ||| We can check whether a given namespace is a parent (aka englobing) namespace
 ||| of a candidate namespace.
 ||| We expect that `all (\ p => isParentOf p ns) (allParents ns)` holds true.
@@ -156,8 +173,12 @@ isParentOf : (given, candidate : Namespace) -> Bool
 isParentOf (MkNS ms) (MkNS ns)
   -- This is not a typo: namespaces are stored in reverse order so a namespace is
   -- a prefix of another if its reversed list of identifiers is a suffix of that
-  -- other's list of identifiers
-  = isSuffixOf ms ns
+  -- other's list of identifiers.  `isSuffixOf` would reverse both lists:
+  -- this is asked about every visible namespace at every name lookup, so
+  -- drop the extra identifiers instead and compare what is left.
+  = let lm = length ms
+        ln = length ns in
+        lm <= ln && eqIdents ms (drop (ln `minus` lm) ns)
 
 ||| When writing qualified names users often do not want to spell out the full
 ||| namespace, rightly considering that an unambiguous segment should be enough.
@@ -185,7 +206,7 @@ isInPathOf i (MkNS ns) = i `elem` ns
 
 export
 Eq Namespace where
-  (MkNS ms) == (MkNS ns) = ms == ns
+  (MkNS ms) == (MkNS ns) = eqIdents ms ns
 
 export
 Eq ModuleIdent where
@@ -193,7 +214,7 @@ Eq ModuleIdent where
 
 export
 Ord Namespace where
-    compare (MkNS ms) (MkNS ns) = compare ms ns
+    compare (MkNS ms) (MkNS ns) = compareIdents ms ns
 
 export
 Ord ModuleIdent where
