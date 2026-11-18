@@ -176,6 +176,7 @@ knownTopics = [
     ("transform.lhs", Nothing),
     ("transform.rhs", Nothing),
     ("ttc.read", Nothing),
+    ("ttc.read.cache", Just "What the cache of TTC files has, uses and forgets."),
     ("ttc.write", Nothing),
     ("typesearch.equiv", Nothing),
     ("unelab.case", Just "Unelaborating a case block"),

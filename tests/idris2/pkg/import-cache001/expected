@@ -1,0 +1,35 @@
+1/7: Building A (A.idr)
+2/7: Building B (B.idr)
+3/7: Building C (C.idr)
+4/7: Building D (D.idr)
+5/7: Building E (E.idr)
+6/7: Building F (F.idr)
+7/7: Building Main (Main.idr)
+361
+121
+131
+T 131
+7
+3/3: Building Fail (Fail.idr)
+Error: While processing right hand side of bad. Undefined name Y.f. 
+
+Fail:7:7--7:10
+ 3 | -- F imports A privately: A's names are not visible here
+ 4 | import F
+ 5 |
+ 6 | bad : Nat
+ 7 | bad = Y.f (Y.MkT 1)
+           ^^^
+
+Building A (A.idr)
+Building B (B.idr)
+Building C (C.idr)
+Building D (D.idr)
+Building E (E.idr)
+Building F (F.idr)
+Building Main (Main.idr)
+361
+121
+131
+T 131
+7

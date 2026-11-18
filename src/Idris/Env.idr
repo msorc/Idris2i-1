@@ -29,6 +29,7 @@ envs = [
     MkEnvDesc "IDRIS2_CG"            "Codegen backend.",
     MkEnvDesc "IDRIS2_INC_CGS"       "Code generators to use (comma separated) when compiling modules incrementally.",
     MkEnvDesc "IDRIS2_BUILD_JOBS"    "How many processes build the modules of a package in parallel (see --jobs).",
+    MkEnvDesc "IDRIS2_TTC_CACHE_MB"  "How many megabytes of TTC files a process keeps, once read, for the modules it checks next (default: 64; 0 keeps none).",
     MkEnvDesc "CHEZ"                 "Chez backend: chez executable.",
     MkEnvDesc "RACKET"               "Racket backend: racket executable.",
     MkEnvDesc "RACKET_RACO"          "Racket backend: raco executable.",

@@ -12,6 +12,8 @@ import Core.UnifyState
 import Data.String
 import Data.SortedSet
 
+import System.Clock
+import System.Directory
 import System.File
 
 import IdrisPaths
@@ -20,6 +22,7 @@ import Libraries.Data.NameMap
 import Libraries.Data.StringMap
 import Libraries.Data.NatSet
 import Libraries.Data.WithDefault
+import Libraries.Utils.Path
 
 import public Libraries.Utils.Binary
 
@@ -310,6 +313,74 @@ getSaveDefs modns (n :: ns) acc defs
     trimName n@(NS defns d) = if defns == modns then d else n
     trimName n = n
 
+-- The cache of TTC files (`Defs.ttcCache`) --------------------------------
+
+-- The absolute path of a file, which is how the cache knows it (the working
+-- directory can change)
+cacheKey : String -> Core (Maybe String)
+cacheKey fname
+    = if isAbsolute fname
+         then pure (Just fname)
+         else do Just dir <- coreLift currentDir
+                   | Nothing => pure Nothing
+                 pure (Just (dir </> fname))
+
+-- The size and times of a file
+fileStamp : String -> Core (Maybe FileStamp)
+fileStamp fname
+    = do Right f <- coreLift $ openFile fname Read
+           | Left _ => pure Nothing
+         Right t <- coreLift $ fileTime f
+           | Left _ => do coreLift $ closeFile f
+                          pure Nothing
+         Right size <- coreLift $ fileSize f
+           | Left _ => do coreLift $ closeFile f
+                          pure Nothing
+         coreLift $ closeFile f
+         pure (Just (MkFileStamp size t.mtime t.ctime))
+
+-- Record that this process wrote a TTC file: what the cache has for it is
+-- out of date, and the file can be cached when it is read while it has the
+-- stamp it has now
+noteWritten : {auto c : Ref Ctxt Defs} -> String -> Core ()
+noteWritten fname
+    = do Just key <- cacheKey fname
+           | Nothing => pure ()
+         stamp <- fileStamp fname
+         update Ctxt { ttcCache $= forget key stamp }
+  where
+    forget : String -> Maybe FileStamp -> TTCCache -> TTCCache
+    forget key stamp cache
+        = let bytes = maybe cache.bytes (\ e => cache.bytes - e.stamp.stampSize)
+                            (lookup key cache.entries) in
+              { entries $= delete key,
+                bytes := bytes,
+                written $= maybe (delete key) (insert key) stamp } cache
+
+-- Drop the least recently used files from the cache (other than `keep`) until
+-- it is within its limit
+evict : String -> TTCCache -> TTCCache
+evict keep cache
+    = if cache.bytes <= cache.limit
+         then cache
+         else case oldest (StringMap.toList cache.entries) Nothing of
+                   Nothing => cache
+                   Just (k, e) =>
+                     evict keep ({ entries $= delete k,
+                                   bytes $= \ b => b - e.stamp.stampSize } cache)
+  where
+    oldest : List (String, CachedTTC) -> Maybe (String, CachedTTC) ->
+             Maybe (String, CachedTTC)
+    oldest [] acc = acc
+    oldest ((k, e) :: es) acc
+        = if k == keep
+             then oldest es acc
+             else case acc of
+                       Just (_, e') => if e.lastUse < e'.lastUse
+                                          then oldest es (Just (k, e))
+                                          else oldest es acc
+                       Nothing => oldest es (Just (k, e))
+
 -- Write out the things in the context which have been defined in the
 -- current source file
 export
@@ -356,7 +427,7 @@ writeToTTC extradata sourceFileName ttcFileName
 
          Right ok <- coreLift $ writeToFile ttcFileName !(get Bin)
                | Left err => throw (InternalError (ttcFileName ++ ": " ++ show err))
-         pure ()
+         noteWritten ttcFileName
 
 addGlobalDef : {auto c : Ref Ctxt Defs} ->
                (modns : ModuleIdent) -> Namespace ->
@@ -472,6 +543,75 @@ getNSas : (String, (ModuleIdent, Bool, Namespace)) ->
           (ModuleIdent, Namespace)
 getNSas (a, (b, c, d)) = (b, d)
 
+-- What a TTC file holds: all of it, or (if not `readall`) everything up to
+-- the extra data, the rest being empty. With `kind` (which names the type
+-- `extra`), it comes from the cache when the cache has the file as it is
+-- now, and a file read in full is put in the cache (see `TTCCache`).
+readTTCContents : TTC extra =>
+                  {auto c : Ref Ctxt Defs} ->
+                  (kind : Maybe String) -> (readall : Bool) ->
+                  (fname : String) -> Maybe Namespace -> Core (TTCFile extra)
+readTTCContents Nothing readall fname as
+    = do Right buffer <- coreLift $ readFromFile fname
+           | Left err => throw (InternalError (fname ++ ": " ++ show err))
+         bin <- newRef Bin buffer
+         readTTCFile readall fname as bin
+readTTCContents (Just kind) readall fname as
+    = do Just key <- cacheKey fname
+           | Nothing => readTTCContents Nothing readall fname as
+         -- the stamp is taken before the file is read: if the file changes
+         -- in between, the stamp is out of date, not what is read
+         Just stamp <- fileStamp fname
+           | Nothing => readTTCContents Nothing readall fname as
+         cache <- ttcCache <$> get Ctxt
+         case lookup key cache.entries of
+              Just e =>
+                if e.stamp == stamp && e.kind == kind
+                   then do log "ttc.read.cache" 10 $ "Using what was read of " ++ key
+                           update Ctxt { ttcCache := used key e cache }
+                           pure (fromCached e.contents)
+                   else do log "ttc.read.cache" 5 $ key ++ " changed since it was read"
+                           update Ctxt { ttcCache := drop key e cache }
+                           readNow key stamp
+              Nothing => readNow key stamp
+  where
+    used : String -> CachedTTC -> TTCCache -> TTCCache
+    used key e cache
+        = { entries $= insert key ({ lastUse := cache.uses } e),
+            uses $= S } cache
+
+    drop : String -> CachedTTC -> TTCCache -> TTCCache
+    drop key e cache
+        = { entries $= delete key, bytes $= \ b => b - e.stamp.stampSize } cache
+
+    -- Whether a file with this stamp has stayed as it is since it was
+    -- written, so it changes stamp when it is written again
+    settled : String -> FileStamp -> Core Bool
+    settled key stamp
+        = do cache <- ttcCache <$> get Ctxt
+             if lookup key cache.written == Just stamp
+                then pure True
+                else do now <- coreLift $ clockTime UTC
+                        pure (cast stamp.stampMTime.sec + 2 < seconds now)
+
+    withEntry : String -> FileStamp -> TTCFile extra -> TTCCache -> TTCCache
+    withEntry key stamp ttc cache
+        = evict key ({ entries $= insert key
+                           (MkCachedTTC stamp kind (toCached ttc) cache.uses),
+                       bytes $= (+ stamp.stampSize),
+                       uses $= S } cache)
+
+    readNow : String -> FileStamp -> Core (TTCFile extra)
+    readNow key stamp
+        = do ttc <- readTTCContents Nothing readall fname as
+             maxBytes <- limit . ttcCache <$> get Ctxt
+             when (readall && stamp.stampSize <= maxBytes) $
+               if !(settled key stamp)
+                  then do log "ttc.read.cache" 10 $ "Keeping " ++ key
+                          update Ctxt { ttcCache $= withEntry key stamp ttc }
+                  else log "ttc.read.cache" 5 $ "Not keeping " ++ key ++ ", written just now"
+             pure ttc
+
 -- Add definitions from a binary file to the current context
 -- Returns the "extra" section of the file (user defined data), the interface
 -- hash and the list of additional TTCs that need importing
@@ -481,6 +621,10 @@ export
 readFromTTC : TTC extra =>
               {auto c : Ref Ctxt Defs} ->
               {auto u : Ref UST UState} ->
+              {default Nothing cacheAs : Maybe String} ->
+                -- ^ keep the file in the cache of TTC files (see TTCCache),
+                -- if given: the name of the type `extra`, for the cache
+                -- holds files read with several types
               Bool -> -- set nested namespaces (for records, to use at the REPL)
               FC ->
               Bool -> -- importing as public
@@ -489,7 +633,7 @@ readFromTTC : TTC extra =>
               (importAs : Namespace) -> -- namespace to import as
               Core (Maybe (extra, Int,
                            List (ModuleIdent, Bool, Namespace)))
-readFromTTC nestedns loc reexp fname modNS importAs
+readFromTTC {cacheAs} nestedns loc reexp fname modNS importAs
     = do defs <- get Ctxt
          -- If it's already in the context, with the same visibility flag,
          -- don't load it again (we do need to load it again if it's visible
@@ -498,9 +642,6 @@ readFromTTC nestedns loc reexp fname modNS importAs
               | True => pure Nothing
          put Ctxt ({ allImported $= ((fname, (modNS, reexp, importAs)) :: ) } defs)
 
-         Right buffer <- coreLift $ readFromFile fname
-               | Left err => throw (InternalError (fname ++ ": " ++ show err))
-         bin <- newRef Bin buffer -- for reading the file into
          let as = if importAs == miAsNamespace modNS
                      then Nothing
                      else Just importAs
@@ -509,11 +650,11 @@ readFromTTC nestedns loc reexp fname modNS importAs
          -- interested in is returning which other modules to load.
          -- Otherwise, add the data
          if alreadyDone modNS importAs (allImported defs)
-            then do ttc <- readTTCFile False fname as bin
+            then do ttc <- readTTCContents cacheAs False fname as
                     let ex = extraData ttc
                     pure (Just (ex, ifaceHash ttc, imported ttc))
             else do
-               ttc <- readTTCFile True fname as bin
+               ttc <- readTTCContents cacheAs True fname as
                let ex = extraData ttc
                traverse_ (addGlobalDef modNS (currentNS ttc) as) (context ttc)
                traverse_ (addUserHole True) (userHoles ttc)

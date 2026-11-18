@@ -1,0 +1,8 @@
+both
+:sh "cp Dep2.idr Dep.idr"
+:r
+both
+:sh "cp Dep3.idr Dep.idr"
+:sh "$IDRIS2_UNDER_TEST --no-banner --check Dep.idr > /dev/null"
+:r
+both

@@ -1,0 +1,12 @@
+. ../../../testutils.sh
+
+# The REPL keeps the TTC files it reads for the next load: after a module
+# changes, whether this process or another one builds it again, the next
+# load must see the new version.
+export IDRIS2_BUILD_JOBS=1
+export IDRIS2_UNDER_TEST="$1"
+
+cp Dep1.idr Dep.idr
+idris2 Main.idr < input
+
+rm -f Dep.idr

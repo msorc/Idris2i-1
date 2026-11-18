@@ -71,6 +71,9 @@ updateEnv
          whenJust cg $ \ e => case getCG (options defs) e of
            Just cg => setCG cg
            Nothing => throw (InternalError ("Unknown code generator " ++ show e))
+         cacheMB <- coreLift $ idrisGetEnv "IDRIS2_TTC_CACHE_MB"
+         whenJust (cacheMB >>= parsePositive {a = Int}) $ \ mb =>
+           update Ctxt { ttcCache->limit := mb * 1024 * 1024 }
          inccgs <- coreLift $ idrisGetEnv "IDRIS2_INC_CGS"
          whenJust inccgs $ \ cgs =>
            traverseList1_ (setIncrementalCG False) $

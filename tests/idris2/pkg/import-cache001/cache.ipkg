@@ -1,0 +1,4 @@
+package cache
+modules = A, B, C, D, E, F, Main
+main = Main
+executable = cachetest

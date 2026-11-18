@@ -301,7 +301,8 @@ resetContext origin
     = do defs <- get Ctxt
          put Ctxt ({ options := clearNames (options defs),
                      ttcExports := ttcExports defs,
-                     ttcDirs := ttcDirs defs } !initDefs)
+                     ttcDirs := ttcDirs defs,
+                     ttcCache := ttcCache defs } !initDefs)
          addPrimitives
          put UST initUState
          put Syn initSyntax

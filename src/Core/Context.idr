@@ -1015,6 +1015,68 @@ record TTCDir where
   dirs : List (String, Timestamp)
   modules : List (String, String)
 
+||| The size and times of a file, which change when it is written
+public export
+record FileStamp where
+  constructor MkFileStamp
+  stampSize : Int
+  stampMTime : Timestamp
+  stampCTime : Timestamp
+
+export
+Eq FileStamp where
+  s == s' = s.stampSize == s'.stampSize && s.stampMTime == s'.stampMTime
+            && s.stampCTime == s'.stampCTime
+
+||| What Core.Binary.readFromTTC read from a TTC file. The type of the
+||| contents (`TTCFile extra`, for the type of the extra data of the file) is
+||| not known here: `kind` names the type of the extra data.
+export
+data CachedContents : Type where
+  MkCachedContents : (0 t : Type) -> t -> CachedContents
+
+||| Put what a TTC file holds in the cache (with `kind`, see `CachedTTC`)
+export
+toCached : t -> CachedContents
+toCached {t} x = MkCachedContents t x
+
+||| What a TTC file holds, back from the cache. Only for contents that were
+||| cached with the same `kind`, which stands for the type.
+export
+fromCached : CachedContents -> t
+fromCached (MkCachedContents _ x) = believe_me x
+
+||| A TTC file read when it had the stamp `stamp`
+public export
+record CachedTTC where
+  constructor MkCachedTTC
+  stamp : FileStamp
+  kind : String
+  contents : CachedContents
+  lastUse : Nat
+
+||| The TTC files read by this process, so that a module imported by many
+||| others is read and decoded once (the definitions are not decoded: they are
+||| kept as read, coded). A file is kept while it has the same stamp, and only
+||| if the stamp says when it was written: its modification time is older
+||| than a couple of seconds (times are coarse: a file written twice in
+||| the same tick keeps its time), or this process wrote it and the stamp is
+||| the one it had then (`written`). The files kept are at most `limit`
+||| bytes together; the least recently used go first.
+public export
+record TTCCache where
+  constructor MkTTCCache
+  entries : StringMap CachedTTC
+  bytes : Int -- the sizes of the files in `entries`
+  limit : Int
+  uses : Nat -- the uses of the cache so far, for `lastUse`
+  written : StringMap FileStamp
+
+||| The bytes of TTC files that `ttcCache` keeps at most
+export
+ttcCacheLimit : Int
+ttcCacheLimit = 64 * 1024 * 1024
+
 public export
 record Defs where
   constructor MkDefs
@@ -1120,6 +1182,10 @@ record Defs where
      -- package directory. This is kept when the context is cleared, like
      -- `ttcExports`: an entry is used only while none of its directories
      -- changed.
+  ttcCache : TTCCache
+     -- ^ The TTC files read so far, kept when the context is cleared, so that
+     -- the next module imports them without reading them again
+
 
 -- Label for context references
 export
@@ -1177,6 +1243,7 @@ initDefs
            , defsStack = [<]
            , ttcExports = empty
            , ttcDirs = empty
+           , ttcCache = MkTTCCache empty 0 ttcCacheLimit 0 empty
            }
 
 -- Reset the context, except for the options
@@ -1188,7 +1255,8 @@ clearCtxt
          put Ctxt ({ options := resetElab (options defs),
                      timings := timings defs,
                      ttcExports := ttcExports defs,
-                     ttcDirs := ttcDirs defs } !initDefs)
+                     ttcDirs := ttcDirs defs,
+                     ttcCache := ttcCache defs } !initDefs)
   where
     resetElab : Options -> Options
     resetElab opts =

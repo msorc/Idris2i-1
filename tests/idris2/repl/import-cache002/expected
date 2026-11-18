@@ -1,0 +1,12 @@
+1/2: Building Dep (Dep.idr)
+2/2: Building Main (Main.idr)
+Main> (1, "one")
+Main> Main> 1/2: Building Dep (Dep.idr)
+2/2: Building Main (Main.idr)
+Loaded file Main.idr
+Main> (2, "two")
+Main> Main> Main> 2/2: Building Main (Main.idr)
+Loaded file Main.idr
+Main> (3, "six")
+Main> 
+Bye for now!
