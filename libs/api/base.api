@@ -1061,6 +1061,7 @@ module Data.IOArray
   export record IOArray : Type -> Type
     field content : {0 elem : Type} -> Data.IOArray.IOArray elem -> Data.IOArray.Prims.ArrayData (Prelude.Types.Maybe elem)
     field maxSize : {0 elem : Type} -> Data.IOArray.IOArray elem -> Int
+  export total copyArrayRange : {0 elem : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Data.IOArray.IOArray elem -> Int -> Data.IOArray.IOArray elem -> Int -> Int -> io Prelude.Basics.Bool
   export total fromList : {0 elem : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Prelude.Basics.List (Prelude.Types.Maybe elem) -> io (Data.IOArray.IOArray elem)
   export total max : {0 elem : Type} -> Data.IOArray.IOArray elem -> Int
   export total newArray : {0 elem : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> io (Data.IOArray.IOArray elem)
@@ -1071,6 +1072,7 @@ module Data.IOArray
 
 module Data.IOArray.Prims
   export data ArrayData : Type -> Type
+  export total prim__arrayCopy : {0 a : Type} -> Data.IOArray.Prims.ArrayData a -> Int -> Data.IOArray.Prims.ArrayData a -> Int -> Int -> PrimIO.PrimIO Builtin.Unit
   export total prim__arrayGet : {0 a : Type} -> Data.IOArray.Prims.ArrayData a -> Int -> PrimIO.PrimIO a
   export total prim__arraySet : {0 a : Type} -> Data.IOArray.Prims.ArrayData a -> Int -> a -> PrimIO.PrimIO Builtin.Unit
   export total prim__newArray : {0 a : Type} -> Int -> a -> PrimIO.PrimIO (Data.IOArray.Prims.ArrayData a)

@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 --cg node -p contrib -o main Main.idr
+node ./build/exec/main

@@ -1093,6 +1093,18 @@ should target this file (`CHANGELOG_NEXT`).
   longer need a stack as deep as the list with JavaScript, and are faster with
   every backend: `length [1..10^6]` takes 63% fewer instructions with Chez and
   32% fewer with RefC, `for_ [1..10^6]` in `IO` 80% and 61% fewer.
+* Arrays (`Data.IOArray`, and `Data.Linear.Array` of `contrib`) are cheap
+  enough to build data structures on.  Reading and writing an element were
+  calls through the `HasIO` dictionary that built closures for the action
+  (and, for the linear arrays, a call of `unsafePerformIO`); at a known
+  implementation they are now specialised (`%spec`) and inlined to the
+  primitive and its bounds check.  Copying is done by the backend (the new
+  primitive `prim__arrayCopy` of `Data.IOArray.Prims`) instead of an Idris
+  loop of reads and writes.  In instructions per element, for an array of
+  1024 `Int`s, RefC / Chez: read 551 → 134 / 143 → 73 (the loop around it
+  alone takes 39 / 52), write 1353 → 191 / 310 → 83, copy 1799 → 36 /
+  404 → 33; through `Data.Linear.Array`: read 701 → 157 / 155 → 102, write
+  1628 → 242 / 312 → 112, `copyArray` 2813 → 45 / 580 → 37.
 * The `HasIO` functions of `Data.IORef` and `System.Concurrency` are
   specialised (`%spec`) on their `HasIO` implementation: at `IO`, they are
   direct calls of the primitives instead of going through the `Monad`
@@ -1108,6 +1120,11 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Base
 
+* Added `copyArrayRange` to `Data.IOArray`, which copies a range of an array
+  to another one or to another place in the same one (the ranges may
+  overlap), and `prim__arrayCopy` to `Data.IOArray.Prims`, which it calls;
+  `newArrayCopy` uses it too.  `newArray` with a negative size makes an empty
+  array, instead of crashing.
 * `system` returns 128 + the number of the signal for a command killed by a
   signal (143 for `SIGTERM`), as shells report it: it returned -1, which
   lost the signal (and, with the JavaScript backends, `null`).  It still
@@ -1143,6 +1160,12 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Contrib
 
+* `Data.Linear.Array`: added `copyInto`, which copies a range of an immutable
+  array into a linear one, and `thaw`, which makes a linear copy of an
+  immutable array (with `write` and `toIArray`, an updated copy, as the nodes
+  of a persistent data structure need); `MArray` has a new method `mcopy`,
+  with a default that copies element by element, which `LinArray` implements
+  in bulk and `copyArray` uses.
 * Added `Data.ByteString`, an immutable sequence of bytes: a slice
   (buffer, offset, length) of a `Data.Buffer` that is never written after it
   is built, so that `take`, `drop`, `splitAt`, `span` and `split` take constant

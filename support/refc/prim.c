@@ -99,8 +99,11 @@ Idris2_Value *idris2_Data_IOArray_Prims_prim__newArray(Idris2_Value *erased,
   int length = idris2_vp_to_Int64(_length);
   Idris2_Array *a = idris2_makeArray(length);
 
-  for (int i = 0; i < length; i++) {
-    a->arr[i] = idris2_newReference(v);
+  // (calloc made the slots NULL: nothing to do for a NULL value)
+  if (v != NULL) {
+    for (int i = 0; i < length; i++) {
+      a->arr[i] = idris2_newReference(v);
+    }
   }
 
   return (Idris2_Value *)a;
@@ -127,6 +130,72 @@ Idris2_Value *idris2_Data_IOArray_Prims_prim__arraySet(Idris2_Value *erased,
   }
   idris2_removeReference(old);
   return NULL;
+}
+
+// The copy of a range when an array is shared, or when the ranges overlap in
+// one array: the elements are taken into a temporary array (with a reference
+// each) under the lock of `src`, then swapped with those of `dst` under its
+// lock, and the old elements of `dst` are released after.  The two locks are
+// never held at the same time, so that two copies between the same arrays in
+// opposite directions cannot deadlock.
+static void arrayCopySlow(Idris2_Array *src, int64_t srcPos, Idris2_Array *dst,
+                          int64_t dstPos, int64_t len) {
+  Idris2_Value *small[16];
+  Idris2_Value **tmp = small;
+  if (len > 16) {
+    tmp = malloc(len * sizeof(Idris2_Value *));
+    IDRIS2_REFC_VERIFY(tmp, "malloc failed");
+  }
+  int srcShared = idris2_isShared((Idris2_Value *)src);
+  if (srcShared)
+    idris2_spinLock(&src->lock);
+  for (int64_t i = 0; i < len; i++)
+    tmp[i] = idris2_newReference(src->arr[srcPos + i]);
+  if (srcShared)
+    idris2_spinUnlock(&src->lock);
+  int dstShared = idris2_isShared((Idris2_Value *)dst);
+  if (dstShared) {
+    for (int64_t i = 0; i < len; i++)
+      idris2_markShared(tmp[i]);
+    idris2_spinLock(&dst->lock);
+  }
+  for (int64_t i = 0; i < len; i++) {
+    Idris2_Value *old = dst->arr[dstPos + i];
+    dst->arr[dstPos + i] = tmp[i];
+    tmp[i] = old;
+  }
+  if (dstShared)
+    idris2_spinUnlock(&dst->lock);
+  for (int64_t i = 0; i < len; i++)
+    idris2_removeReference(tmp[i]);
+  if (tmp != small)
+    free(tmp);
+}
+
+void idris2_arrayCopy(Idris2_Value *erased, Idris2_Value *_src,
+                      int64_t srcPos, Idris2_Value *_dst, int64_t dstPos,
+                      int64_t len) {
+  Idris2_Array *src = (Idris2_Array *)_src;
+  Idris2_Array *dst = (Idris2_Array *)_dst;
+  if (len <= 0)
+    return;
+  if (__builtin_expect(idris2_isShared(_src) || idris2_isShared(_dst) ||
+                           (src == dst && srcPos < dstPos + len &&
+                            dstPos < srcPos + len),
+                       0)) {
+    arrayCopySlow(src, srcPos, dst, dstPos, len);
+    return;
+  }
+  // Each slot of `dst` gets its new element before its old one is released:
+  // releasing a value may run a finaliser, which sees the arrays in a
+  // consistent state (the ranges are disjoint, so `src` is not changed).
+  Idris2_Value **from = src->arr + srcPos;
+  Idris2_Value **to = dst->arr + dstPos;
+  for (int64_t i = 0; i < len; i++) {
+    Idris2_Value *old = to[i];
+    to[i] = idris2_newReference(from[i]);
+    idris2_removeReference(old);
+  }
 }
 
 Idris2_Value *idris2_sharedArrayGet(Idris2_Array *a, int64_t i) {

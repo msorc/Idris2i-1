@@ -53,6 +53,12 @@ Idris2_Value *idris2_Data_IOArray_Prims_prim__newArray(Idris2_Value *,
                                                        Idris2_Value *,
                                                        Idris2_Value *);
 Idris2_Value *idris2_sharedArrayGet(Idris2_Array *array, int64_t i);
+// Copy `len` elements of an array from `srcPos` to another (or the same)
+// from `dstPos`, as Data.IOArray.Prims.prim__arrayCopy: the ranges are in
+// bounds, and may overlap.  The copied elements get a reference each, and
+// the overwritten ones lose theirs.
+void idris2_arrayCopy(Idris2_Value *erased, Idris2_Value *src, int64_t srcPos,
+                      Idris2_Value *dst, int64_t dstPos, int64_t len);
 static inline Idris2_Value *idris2_arrayGet(Idris2_Value *array, int64_t i) {
   Idris2_Array *a = (Idris2_Array *)array;
   if (__builtin_expect(idris2_isShared(array), 0))

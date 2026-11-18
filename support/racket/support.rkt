@@ -299,6 +299,13 @@
 (define (blodwen-buffer-copydata buf start len dest loc)
   (bytevector-copy! buf start dest loc len))
 
+;; Arrays
+
+; Copy n elements of src from sp to dst from dp (Data.IOArray.Prims); the
+; ranges may overlap.
+(define (blodwen-array-copy ty src sp dst dp n)
+  (vector-copy! dst dp src sp (+ sp n)))
+
 ;; Threads
 
 ;; NB: Racket threads are green/virtual threads meaning extra caution is to be

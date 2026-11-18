@@ -1,0 +1,32 @@
+[True, False, False]
+[Just 11, Nothing, Nothing]
+4
+_ 11 _ _
+middle: True 10 11 1 2 3 15
+all: True 0 1 2 3 4 5
+none: True 10 11 12 13 14 15
+at end: True 10 11 12 13 14 15
+src too far: False 10 11 12 13 14 15
+dst too far: False 10 11 12 13 14 15
+negative len: False 10 11 12 13 14 15
+negative src: False 10 11 12 13 14 15
+negative dst: False 10 11 12 13 14 15
+huge len: False 10 11 12 13 14 15
+self right: True 0 1 0 1 2 3 4 7
+self left: True 2 3 4 5 6 5 6 7
+self same: True 0 1 2 3 4 5 6 7
+holes: True 10 1 _ 3
+copies: 1 _ 3 _ _ _ | 1 _ 3 | 0
+independent: 1 _ 3 | 100 _ 3 _ _ _
+[Just "a", Just "z", Just "b"]
+thaw: 1 2 3 4 5 | 1 2 30 4 5
+thaw larger: 1 2 3 4 5 _ _
+thaw smaller: 1 2
+thaw negative: 0
+(True, (True, "1 2 99 3 4 5"))
+(False, "_ _ _")
+("7 _ _ 8", "7 _ _ 8 _ 9")
+("_ 5 _ _", "_ 5")
+(True, (False, ("1 2 _ _", "1 1 2")))
+(Just 1, (Just 2, Just 3))
+21

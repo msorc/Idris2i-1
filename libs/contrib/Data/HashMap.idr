@@ -17,12 +17,13 @@
 ||| have the same 30 bits of hash, or branches eight ways.  Updates copy the
 ||| nodes on the path from the root to the changed entry (and nothing else),
 ||| so old versions of a map stay valid.  Nodes are plain constructors with
-||| eight fields rather than arrays of sub-tries: the array primitives of the
-||| standard libraries (`Data.IOArray`, `Data.Linear.Array`) can only be used
-||| from pure code through `unsafePerformIO`, and an implementation with 32-way
-||| nodes in such arrays, which was tried, took 75000 instructions per insertion
-||| into a map of 100000 entries on Chez, against 4000 for `Data.SortedMap`,
-||| because every update copies an array element by element.
+||| eight fields rather than arrays of sub-tries: an implementation with 32-way
+||| nodes in the immutable arrays of `Data.Linear.Array`, copied in bulk with
+||| `thaw` and `copyInto`, takes 11500 instructions per insertion into a map of
+||| 100000 `Int` keys with RefC and 7600 with Chez, against 1300 and 2700 for
+||| this one, because every update allocates and fills a new array for each
+||| level, with a reference count update for each element on RefC (lookups
+||| cost about the same with both, 1700 instructions with RefC).
 |||
 ||| Every function is total.  Keys are compared with `==` after their hashes
 ||| compare equal, so `Eq` and `Hashable` must agree: `x == y` must imply

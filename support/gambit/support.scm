@@ -207,6 +207,24 @@
         (if (eof-object? chr) #\nul chr))
       #\nul))
 
+;; Arrays
+
+; Copy n elements of src from sp to dst from dp (Data.IOArray.Prims): when the
+; ranges overlap in one array, in the direction that reads every element
+; before it is overwritten.
+(define (blodwen-array-copy ty src sp dst dp n)
+  (if (and (eq? src dst) (< sp dp))
+      (let loop ((i (- n 1)))
+        (if (>= i 0)
+            (begin
+              (vector-set! dst (+ dp i) (vector-ref src (+ sp i)))
+              (loop (- i 1)))))
+      (let loop ((i 0))
+        (if (< i n)
+            (begin
+              (vector-set! dst (+ dp i) (vector-ref src (+ sp i)))
+              (loop (+ i 1)))))))
+
 ;; Threads
 
 (define (blodwen-thread p)

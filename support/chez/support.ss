@@ -337,6 +337,22 @@
 (define (blodwen-buffer-copydata buf start len dest loc)
   (bytevector-copy! buf start dest loc len))
 
+;; Arrays
+
+; Copy n elements of src from sp to dst from dp (Data.IOArray.Prims): when the
+; ranges overlap in one array, in the direction that reads every element
+; before it is overwritten.
+(define (blodwen-array-copy ty src sp dst dp n)
+  (if (and (eq? src dst) (fx< sp dp))
+      (let loop ((i (fx- n 1)))
+        (when (fx>= i 0)
+          (vector-set! dst (fx+ dp i) (vector-ref src (fx+ sp i)))
+          (loop (fx- i 1))))
+      (let loop ((i 0))
+        (when (fx< i n)
+          (vector-set! dst (fx+ dp i) (vector-ref src (fx+ sp i)))
+          (loop (fx+ i 1))))))
+
 ;; Threads
 
 (define-record thread-handle (semaphore))
