@@ -391,11 +391,11 @@ getToBind {vars} fc elabmode impmode env excepts
              List (Name, ImplBinding vars)
     insert h ns sofar [] = [h]
     insert (hn, bty) ns sofar ((hn', bty') :: rest)
-        = let used = filter (\n => elem n ns) (keys (bindingMetas bty')) in
-              -- 'used' is to make sure we're only worrying about metavariables
-              -- introduced in *this* expression (there may be others unresolved
-              -- from elsewhere, for type inference purposes)
-              if hn `elem` used
+        = -- Only the metavariables introduced in *this* expression, 'ns',
+          -- matter (there may be others unresolved from elsewhere, for type
+          -- inference purposes).  'hn' is one of them: 'ns' is the list of
+          -- the names being sorted.
+          if isJust (lookup hn (bindingMetas bty'))
                  then (hn, bty) ::
                       (hn', bty') :: rest
                  else (hn', bty') ::
