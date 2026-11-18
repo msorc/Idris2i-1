@@ -27,7 +27,8 @@ export
 singleton : Hashable a => a -> HashSet a
 singleton x = MkHashSet (singleton x ())
 
-||| The number of elements, in constant time.
+||| The number of elements.  The set does not store it: this takes time in the
+||| size of the set (see `Data.HashMap.size`).
 export
 size : HashSet a -> Nat
 size (MkHashSet m) = size m

@@ -1032,24 +1032,26 @@ should target this file (`CHANGELOG_NEXT`).
 * Added `System.File.ByteString`: `readFile`, `writeFile`, `appendFile`,
   `hGet` (up to `n` bytes), `hGetContents` and `hPut`.
 * Added hash maps and hash sets to `contrib`:
-  `Data.Hashable` (an interface `Hashable` with `hashWithSalt` and `hash` on
-  64 bits, with instances for the fixed-width integers, `Int`, `Integer`,
-  `Nat`, `Char`, `String`, `Bool`, `Double`, `()`, `Ordering`, `Fin`, tuples,
-  `Maybe`, `Either`, `List`, `Vect`, `SnocList` and `List1`; the mixing
-  function is FNV-1 followed by the murmur3 finaliser, and the hashes are the
-  same on the Chez, RefC and JavaScript back ends, apart from `Int`, which has
-  32 bits on JavaScript, and strings with characters outside the Basic
-  Multilingual Plane there), `Data.HashMap` (a persistent hash trie with
-  collision buckets and a constant time `size`, with the interface of
-  `Data.SortedMap`: `insert`, `insertWith`, `lookup`, `delete`, `update`,
-  `fromList`, `foldrWithKey`, `mapWithKey`, `filter`, `mergeWith`, `Functor`,
-  `Foldable`, `Traversable`, `Semigroup`, `Monoid`, `Show` and an `Eq` that
-  does not depend on the order of insertions) and `Data.HashSet`.  They are
-  total and use no unsafe operation.  They are not faster than `Data.SortedMap`
-  on these back ends: with RefC and 1000000 `Int` keys a `HashMap`
-  needs 28% fewer instructions per lookup but 10% more per insertion and
-  59% more per deletion than a `SortedMap` (12% more for the three together,
-  about 35% more time), and 32% less memory; with `String` keys the numbers are
-  about 1% fewer, 21% more and 50% more.  With Chez it needs 1.6 to 3.5 times
-  as many instructions (about the same time with 1000000 keys, where the
-  garbage collector dominates), because 64-bit arithmetic allocates there.
+  `Data.Hashable` (an interface `Hashable` with `hashWithSalt` and `hash`,
+  with instances for the fixed-width integers, `Int`, `Integer`, `Nat`, `Char`,
+  `String`, `Bool`, `Double`, `()`, `Ordering`, `Fin`, tuples, `Maybe`,
+  `Either`, `List`, `Vect`, `SnocList` and `List1`; the hashes are numbers of
+  31 bits, made with FNV and the finaliser of a 32-bit integer hash with
+  `Int` arithmetic, so that it stays on machine words on RefC and in fixnums
+  on Chez, and they are the same on the Chez, RefC and JavaScript back ends,
+  apart from `Int`, which has 32 bits on JavaScript, and strings with
+  characters outside the Basic Multilingual Plane there), `Data.HashMap` (a
+  persistent hash trie of eight-way nodes with collision buckets, with the
+  interface of `Data.SortedMap`: `insert`, `insertWith`, `lookup`, `delete`,
+  `update`, `fromList`, `foldrWithKey`, `mapWithKey`, `filter`, `mergeWith`,
+  `Functor`, `Foldable`, `Traversable`, `Semigroup`, `Monoid`, `Show` and an
+  `Eq` that does not depend on the order of insertions; `size` takes time in
+  the size of the map) and `Data.HashSet`.  They are total and use no unsafe
+  operation.  They need fewer instructions than `Data.SortedMap` for the
+  insertion, the lookup and the deletion of 100000 and 1000000 keys, `Int` and
+  `String`, with RefC (17 to 59% fewer) and Chez (16 to 48% fewer), measured
+  with `perf stat`, and 10 to 50% more memory.
+* The Chez back end no longer makes the masks of the fixed-width arithmetic
+  (`2^bits - 1`, big numbers for 64 bits) when the result of an operation on
+  61 bits or more is a fixnum, nor for the cast of a non-negative fixnum to
+  `Bits64`: an addition of `Int`s took 400 instructions and takes 40.

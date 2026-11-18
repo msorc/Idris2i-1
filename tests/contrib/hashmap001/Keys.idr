@@ -41,7 +41,8 @@ export
 Hashable Few where
   hashWithSalt s x = hashWithSalt s (x.n `mod` 7)
 
--- Hashes that differ in the top bits only, so the tries are as deep as they get.
+-- Hashes that differ in the high bits (of the 30 that the maps use) and in the
+-- two lowest, so that the tries are as deep as they get.
 public export
 record High where
   constructor MkHigh
@@ -57,7 +58,7 @@ Show High where
 
 export
 Hashable High where
-  hashWithSalt _ x = cast (x.n `mod` 32) * 0x0800000000000000 + cast (x.n `mod` 3)
+  hashWithSalt _ x = cast (x.n `mod` 32) * 0x2000000 + cast (x.n `mod` 3)
 
 
 ||| Print the name of a check and whether it passed.
