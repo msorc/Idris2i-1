@@ -412,6 +412,9 @@ valueType c u e = case go e of
   where
     -- `Just Nothing`: any type (a crash)
     go : ANF -> Maybe (Maybe PrimType)
+    -- (`%op crash`: the missing case of the `mod` or `div` of an `Int` by
+    -- zero, say; `cIntFromANF` unboxes what it gives, as it never returns)
+    go (AOp _ _ Crash _) = Just Nothing
     go (AOp _ _ op _) = map Just (resultType op)
     go (APrimVal _ c) = map Just (constType c)
     go (AV _ (ALocal v)) = map Just (lookup v u)
@@ -539,6 +542,7 @@ rawResultOK c u t e = go e == Just True
     go : ANF -> Maybe Bool
     go (AV _ (ALocal v)) = if lookup v u == Just t then Just True else Nothing
     go (APrimVal _ k) = if constType k == Just t then Just True else Nothing
+    go (AOp _ _ Crash _) = Just False
     go (AOp _ _ op _) = if resultType op == Just t then Just True else Nothing
     go (ACrash _ _) = Just False
     go (ALet _ _ _ body) = go body

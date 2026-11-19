@@ -814,6 +814,9 @@ should target this file (`CHANGELOG_NEXT`).
   times fewer instructions, and a workload of `Data.HashMap` (`Int` and
   `String` keys, `hashWithSalt` on `Bits64`) 19% fewer.  `--directive
   refc-no-workers` turns this off.
+* A `mod` or `div` of an `Int`, whose case for zero crashes, gives a C
+  integer in the function that computes it: a loop with an `Int` state above
+  2^32 that takes a `mod` runs 3.6 times fewer instructions.
 * An `Int` literal of more than 32 bits (`0xffffffff`) is a C constant: it
   was an `Integer` converted at each use, as the constant folding leaves the
   casts to `Int` of large values to the backend.
