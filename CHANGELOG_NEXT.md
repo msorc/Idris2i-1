@@ -117,6 +117,14 @@ should target this file (`CHANGELOG_NEXT`).
 * Two blocks of a function no longer get the same specialised copy when they
   are specialised by the same arguments: their names hashed the same (the
   hash left out their index), so the copy of one block ran for the other.
+* Nor do the calls of a `%spec` function by different arguments whose hash
+  was the same: the hash that names the copies multiplied by 33 and added,
+  so that the names `Ab` and `BA` hashed alike, and `pick BA` ran the copy
+  made for `pick Ab`.  The copies are named by a hash that mixes better, and
+  a copy records the arguments that it was made by (in the TTC file): it is
+  only reused for them, and the next hash names a copy by other arguments.
+  (Two modules that do not import each other can still make two copies of
+  one name, when the hashes of their arguments are the same.)
 * A specialised copy made by `%spec` is no longer checked against the default
   totality of the module where it is made (neither was one made by
   `--spec-interfaces`).  The copy runs the code of the implementations it is

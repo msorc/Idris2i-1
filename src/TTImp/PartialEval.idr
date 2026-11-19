@@ -23,6 +23,7 @@ import Libraries.Data.NameMap
 import Libraries.Data.NatSet
 import Libraries.Data.WithDefault
 import Libraries.Data.SnocList.SizeOf
+import Libraries.Data.String.Iterator
 
 %default covering
 
@@ -44,6 +45,94 @@ Show a => Show (ArgMode' a) where
 getStatic : ArgMode -> Maybe ClosedTerm
 getStatic Dynamic = Nothing
 getStatic (Static t) = Just t
+
+-- The key of a specialised copy: a hash of the function and of the static
+-- arguments that it is specialised by, which names the copy.  (`hash` of
+-- Core.Hash multiplies by 33 and adds, so that sequences like the names
+-- `Ab` and `BA` hash alike: a copy made for one was used for the other.
+-- This one mixes every word into all the bits of the state.)  The names in
+-- the arguments are full names; the binders of the arguments are not
+-- hashed, nor their locations, as they are not compared either (see
+-- copyName).
+namespace SpecKey
+  export
+  mixKey : Int -> Int -> Int
+  mixKey h w
+      = let y = prim__mul_Int (prim__xor_Int h w) (-7046029254386353131) in
+            prim__xor_Int y (prim__and_Int (prim__shr_Int y 29) 0x7ffffffff)
+
+  keyString : Int -> String -> Int
+  keyString h s = mixKey (Iterator.foldl (\k, c => mixKey k (ord c)) h s) (cast (length s))
+
+  keyUN : Int -> UserName -> Int
+  keyUN h (Basic s) = keyString (mixKey h 1) s
+  keyUN h (Field s) = keyString (mixKey h 2) s
+  keyUN h Underscore = mixKey h 3
+
+  export
+  keyName : Int -> Name -> Int
+  keyName h (NS ns n)
+      = let ss = unsafeUnfoldNamespace ns in
+            keyName (mixKey (foldl keyString (mixKey h 1) ss) (cast (length ss))) n
+  keyName h (UN un) = keyUN (mixKey h 2) un
+  keyName h (MN s i) = mixKey (keyString (mixKey h 3) s) i
+  keyName h (PV n i) = mixKey (keyName (mixKey h 4) n) i
+  keyName h (DN _ n) = keyName h n
+  keyName h (Nested (i, j) n) = keyName (mixKey (mixKey (mixKey h 6) i) j) n
+  keyName h (CaseBlock s i) = mixKey (keyString (mixKey h 7) s) i
+  keyName h (WithBlock s i) = mixKey (keyString (mixKey h 8) s) i
+  keyName h (Resolved i) = mixKey (mixKey h 9) i
+
+  -- (`show` does not tell apart the types of numbers)
+  constKind : Constant -> Int
+  constKind (I _) = 0
+  constKind (I8 _) = 1
+  constKind (I16 _) = 2
+  constKind (I32 _) = 3
+  constKind (I64 _) = 4
+  constKind (BI _) = 5
+  constKind (B8 _) = 6
+  constKind (B16 _) = 7
+  constKind (B32 _) = 8
+  constKind (B64 _) = 9
+  constKind (Str _) = 10
+  constKind (Ch _) = 11
+  constKind (Db _) = 12
+  constKind (PrT _) = 13
+  constKind WorldVal = 14
+
+  keyRig : Int -> RigCount -> Int
+  keyRig h = elimSemi (mixKey h 0) (mixKey h 1) (const $ mixKey h 2)
+
+  mutual
+    keyPi : Int -> PiInfo (Term vs) -> Int
+    keyPi h Implicit = mixKey h 0
+    keyPi h Explicit = mixKey h 1
+    keyPi h AutoImplicit = mixKey h 2
+    keyPi h (DefImplicit t) = keyTerm (mixKey h 3) t
+
+    keyBinder : Int -> Binder (Term vs) -> Int
+    keyBinder h (Lam _ c p ty) = keyTerm (keyPi (keyRig (mixKey h 0) c) p) ty
+    keyBinder h (Let _ c val ty) = keyTerm (keyTerm (keyRig (mixKey h 1) c) val) ty
+    keyBinder h (Pi _ c p ty) = keyTerm (keyPi (keyRig (mixKey h 2) c) p) ty
+    keyBinder h (PVar _ c p ty) = keyTerm (keyPi (keyRig (mixKey h 3) c) p) ty
+    keyBinder h (PLet _ c val ty) = keyTerm (keyTerm (keyRig (mixKey h 4) c) val) ty
+    keyBinder h (PVTy _ c ty) = keyTerm (keyRig (mixKey h 5) c) ty
+
+    export
+    keyTerm : Int -> Term vs -> Int
+    keyTerm h (Local _ _ idx _) = mixKey (mixKey h 0) (cast idx)
+    keyTerm h (Ref _ _ n) = keyName (mixKey h 1) n
+    keyTerm h (Meta _ _ i args) = foldl keyTerm (mixKey (mixKey h 2) i) args
+    keyTerm h (Bind _ _ b sc) = keyTerm (keyBinder (mixKey h 3) b) sc
+    keyTerm h (App _ f a) = keyTerm (keyTerm (mixKey h 4) f) a
+    keyTerm h (As _ _ a p) = keyTerm (keyTerm (mixKey h 5) a) p
+    keyTerm h (TDelayed _ _ t) = keyTerm (mixKey h 6) t
+    keyTerm h (TDelay _ _ t x) = keyTerm (keyTerm (mixKey h 7) t) x
+    keyTerm h (TForce _ _ t) = keyTerm (mixKey h 8) t
+    keyTerm h (PrimVal _ c) = keyString (mixKey (mixKey h 9) (constKind c)) (show c)
+    keyTerm h (Erased _ _) = mixKey h 10
+    keyTerm h (TType _ _) = mixKey h 11
 
 specialiseTy : {vars : _} ->
                Nat -> List (Nat, ClosedTerm) -> Term vars -> Term vars
@@ -459,9 +548,10 @@ mkSpecDef : {auto c : Ref Ctxt Defs} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto o : Ref ROpts REPLOpts} ->
             FC -> GlobalDef -> (isAuto : Bool) ->
-            Name -> List (Nat, ArgMode) -> Name -> List (FC, Term vars) ->
+            Name -> (statics : List ClosedTerm) ->
+            List (Nat, ArgMode) -> Name -> List (FC, Term vars) ->
             Core (Term vars)
-mkSpecDef {vars} fc gdef isAuto pename sargs fn stk
+mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
     = handleUnify {unResolve = True}
        (do defs <- get Ctxt
            setAllPublic True
@@ -501,7 +591,7 @@ mkSpecDef {vars} fc gdef isAuto pename sargs fn stk
            -- of `Integral Int`, where its function only called `mod`.  How
            -- covering it is is taken from its function, see copyCovering.)
            let defflags : List DefFlag
-                 = SetTotal PartialOK
+                 = SetTotal PartialOK :: SpecStatics statics
                      :: filter (not . isSetTotal) (propagateFlags (flags gdef))
            log "specialise.flags" 20 "Defining \{show pename} with flags: \{show defflags}"
            peidx <- addDef pename
@@ -698,6 +788,7 @@ mkSpecDef {vars} fc gdef isAuto pename sargs fn stk
     propagateFlags : List DefFlag -> List DefFlag
     propagateFlags = mapMaybe $ \case
       Deprecate => Nothing
+      SpecStatics _ => Nothing
       Overloadable => Nothing
       Identity k => Identity <$> identityFlag sargs k
       fl => Just fl
@@ -779,6 +870,26 @@ specArgsOf inCopy fc fn gdef
              refs <- fullRefs d
              pure (size <= 10 && not (any (== fnfull) refs))
 
+-- The name of the copy by these static arguments: the one of their key,
+-- unless there is a copy of that name made by other arguments (whose key is
+-- the same); then the one of the next key.
+-- (Two modules that do not import each other can still make two copies of
+-- the same name by different arguments, when their keys are the same.)
+copyName : {auto c : Ref Ctxt Defs} ->
+           Name -> List ClosedTerm -> Int -> Nat -> Core (Maybe Name)
+copyName fnfull statics key k
+    = do let pename = NS partialEvalNS
+                        (UN $ Basic ("PE_" ++ nameRoot fnfull ++ "_" ++ asHex (cast key)))
+         defs <- get Ctxt
+         Just d <- lookupCtxtExact pename (gamma defs)
+           | Nothing => pure (Just pename)
+         if SpecStatics statics `elem` flags d
+            then pure (Just pename)
+            else do log "specialise" 3 $
+                      "The key of \{show pename} is that of other arguments"
+                    if k >= 8 then pure Nothing
+                       else copyName fnfull statics (mixKey key 1) (S k)
+
 -- Specialise a function name according to arguments. Return the specialised
 -- application on success, or Nothing if it's not specialisable (due to static
 -- arguments not being concrete)
@@ -850,10 +961,11 @@ specialise {vars} inCopy er fc env gdef fn stk
         sargs <- if isAuto then pure sargs
                     else for sargs $ traversePair $ traverseArgMode $ \ tm =>
                            normalise defs Env.empty tm
-        let nhash = hash !(traverse toFullNames $ mapMaybe getStatic $ map snd sargs)
-                       `hashWithSalt` fnfull -- add function name to hash to avoid namespace clashes
-        let pename = NS partialEvalNS
-                     (UN $ Basic ("PE_" ++ nameRoot fnfull ++ "_" ++ asHex (cast nhash)))
+        statics <- traverse toFullNames $ mapMaybe getStatic $ map snd sargs
+        -- (the function name is in the key too, to avoid namespace clashes)
+        let key = foldl keyTerm (keyName 0x5bd1e995 fnfull) statics
+        Just pename <- copyName fnfull statics key 0
+          | Nothing => pure Nothing
         defs <- get Ctxt
         case lookup pename (peFailures defs) of
              Nothing =>
@@ -875,7 +987,7 @@ specialise {vars} inCopy er fc env gdef fn stk
                              pure Nothing
                      else do
                        when (isAuto && new) $ update Ctxt { autoSpecCount $= S }
-                       Just <$> mkSpecDef fc gdef isAuto pename sargs fn stk
+                       Just <$> mkSpecDef fc gdef isAuto pename statics sargs fn stk
              Just _ => pure Nothing
 
 -- The positions of the arguments of quantity 0 in a type of a function or a
