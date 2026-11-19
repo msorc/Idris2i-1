@@ -22,6 +22,10 @@ record EvalOpts where
   fuel : Maybe Nat -- Limit for recursion depth
   reduceLimit : List (Name, Nat) -- reduction limits for given names. If not
                      -- present, no limit
+  steps : Maybe (IORef Int) -- How many definitions can be unfolded at most, in
+                     -- all (shared by the closures made with these options).
+                     -- When they run out, the counter is set to -1 and the
+                     -- evaluation fails.
   strategy : EvalOrder
 
 export
@@ -35,6 +39,7 @@ defaultOpts = MkEvalOpts
     , keepLets = False
     , fuel = Nothing
     , reduceLimit = []
+    , steps = Nothing
     , strategy = CBN
     }
 
@@ -49,6 +54,7 @@ withHoles = MkEvalOpts
     , keepLets = False
     , fuel = Nothing
     , reduceLimit = []
+    , steps = Nothing
     , strategy = CBN
     }
 
@@ -63,6 +69,7 @@ withAll = MkEvalOpts
     , keepLets = False
     , fuel = Nothing
     , reduceLimit = []
+    , steps = Nothing
     , strategy = CBN
     }
 
@@ -77,6 +84,7 @@ withArgHoles = MkEvalOpts
     , keepLets = False
     , fuel = Nothing
     , reduceLimit = []
+    , steps = Nothing
     , strategy = CBN
     }
 

@@ -62,7 +62,8 @@ mutual
               Env Term free -> Closure free ->
               Core (Term (bound ++ free))
   quoteArg q opts defs bounds env a
-      = quoteGenNF q opts defs bounds env !(evalClosure defs a)
+      = do countClosure a
+           quoteGenNF q opts defs bounds env !(evalClosure defs a)
 
   quoteArgWithFC : {auto c : Ref Ctxt Defs} ->
                    {bound, free : _} ->
