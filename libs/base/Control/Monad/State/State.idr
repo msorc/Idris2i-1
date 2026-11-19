@@ -136,6 +136,36 @@ stateSeqRight a b = ST $ \st => case runIdentity (runStateT' a st) of
 %transform "stateForList_" for_ {t = List} {f = StateT s Identity} xs f = stateTraverseList_ f xs
 %transform "stateSequenceList_" sequence_ {t = List} {f = StateT s Identity} {a} xs = stateTraverseList_ {a = StateT s Identity a} {b = a} id xs
 %transform "stateSeqRight" (*>) {f = StateT s Identity} = stateSeqRight
+%transform "stateFoldlMList" foldlM {t = List} {m = StateT s Identity} = bindFoldlMList
+
+-- Over `IO`, the loops with `>>=` of `Control.Monad.Trans`: `<*>` of `StateT` is
+-- `ap`, and `>>=` of `IO` calls its continuation as a tail call.
+%transform "stateTIOTraverseList" traverse {t = List} {f = StateT s IO} = bindTraverseList
+%transform "stateTIOForList" for {t = List} {f = StateT s IO} xs f = bindTraverseList f xs
+%transform "stateTIOSequenceList" sequence {t = List} {f = StateT s IO} {a} xs = bindTraverseList {a = StateT s IO a} {b = a} id xs
+%transform "stateTIOTraverseList_" traverse_ {t = List} {f = StateT s IO} = bindTraverseList_
+%transform "stateTIOForList_" for_ {t = List} {f = StateT s IO} xs f = bindTraverseList_ f xs
+%transform "stateTIOSequenceList_" sequence_ {t = List} {f = StateT s IO} {a} xs = bindTraverseList_ {a = StateT s IO a} {b = a} id xs
+%transform "stateTIOSeqRight" (*>) {f = StateT s IO} = bindSeqRight
+%transform "stateTIOFoldlMList" foldlM {t = List} {m = StateT s IO} = bindFoldlMList
+
+-- Over `Either e` and `Maybe`, likewise.
+%transform "stateTEitherTraverseList" traverse {t = List} {f = StateT s (Either e)} = bindTraverseList
+%transform "stateTEitherForList" for {t = List} {f = StateT s (Either e)} xs f = bindTraverseList f xs
+%transform "stateTEitherSequenceList" sequence {t = List} {f = StateT s (Either e)} {a} xs = bindTraverseList {a = StateT s (Either e) a} {b = a} id xs
+%transform "stateTEitherTraverseList_" traverse_ {t = List} {f = StateT s (Either e)} = bindTraverseList_
+%transform "stateTEitherForList_" for_ {t = List} {f = StateT s (Either e)} xs f = bindTraverseList_ f xs
+%transform "stateTEitherSequenceList_" sequence_ {t = List} {f = StateT s (Either e)} {a} xs = bindTraverseList_ {a = StateT s (Either e) a} {b = a} id xs
+%transform "stateTEitherSeqRight" (*>) {f = StateT s (Either e)} = bindSeqRight
+%transform "stateTEitherFoldlMList" foldlM {t = List} {m = StateT s (Either e)} = bindFoldlMList
+%transform "stateTMaybeTraverseList" traverse {t = List} {f = StateT s Maybe} = bindTraverseList
+%transform "stateTMaybeForList" for {t = List} {f = StateT s Maybe} xs f = bindTraverseList f xs
+%transform "stateTMaybeSequenceList" sequence {t = List} {f = StateT s Maybe} {a} xs = bindTraverseList {a = StateT s Maybe a} {b = a} id xs
+%transform "stateTMaybeTraverseList_" traverse_ {t = List} {f = StateT s Maybe} = bindTraverseList_
+%transform "stateTMaybeForList_" for_ {t = List} {f = StateT s Maybe} xs f = bindTraverseList_ f xs
+%transform "stateTMaybeSequenceList_" sequence_ {t = List} {f = StateT s Maybe} {a} xs = bindTraverseList_ {a = StateT s Maybe a} {b = a} id xs
+%transform "stateTMaybeSeqRight" (*>) {f = StateT s Maybe} = bindSeqRight
+%transform "stateTMaybeFoldlMList" foldlM {t = List} {m = StateT s Maybe} = bindFoldlMList
 
 public export
 implementation MonadTrans (StateT stateType) where

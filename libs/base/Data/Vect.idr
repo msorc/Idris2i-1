@@ -982,6 +982,13 @@ implementation Traversable (Vect k) where
     traverse f []        = pure []
     traverse f (x :: xs) = [| f x :: traverse f xs |]
 
+-- `traverse_` on a `Vect` in `IO` builds a chain of actions as long as the
+-- vector, which needs a stack as deep as the vector on the JavaScript
+-- backends: it is transformed to the loop on lists of `Prelude.IO`.
+%transform "ioTraverseVect_" traverse_ {t = Vect n} {f = IO} f xs = ioTraverseList_ f (toList xs)
+%transform "ioForVect_" for_ {t = Vect n} {f = IO} xs f = ioTraverseList_ f (toList xs)
+%transform "ioSequenceVect_" sequence_ {t = Vect n} {f = IO} {a} xs = ioTraverseList_ {a = IO a} {b = a} id (toList xs)
+
 --------------------------------------------------------------------------------
 -- Semigroup/Monoid
 --------------------------------------------------------------------------------

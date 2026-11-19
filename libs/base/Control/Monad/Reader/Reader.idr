@@ -77,3 +77,26 @@ implementation Alternative f => Alternative (ReaderT stateType f) where
   empty = MkReaderT $ const empty
 
   MkReaderT f <|> mg = MkReaderT $ \st => f st <|> runReaderT' mg st
+
+-- In `ReaderT` over `IO` or `Identity`, `<*>` is `ap`, and `>>=` calls its
+-- continuation as a tail call: `traverse` and friends on lists are transformed
+-- to the loops with `>>=` of `Control.Monad.Trans`, which run in constant
+-- stack on the JavaScript backends (see there).
+
+%transform "readerTIOTraverseList" traverse {t = List} {f = ReaderT r IO} = bindTraverseList
+%transform "readerTIOForList" for {t = List} {f = ReaderT r IO} xs f = bindTraverseList f xs
+%transform "readerTIOSequenceList" sequence {t = List} {f = ReaderT r IO} {a} xs = bindTraverseList {a = ReaderT r IO a} {b = a} id xs
+%transform "readerTIOTraverseList_" traverse_ {t = List} {f = ReaderT r IO} = bindTraverseList_
+%transform "readerTIOForList_" for_ {t = List} {f = ReaderT r IO} xs f = bindTraverseList_ f xs
+%transform "readerTIOSequenceList_" sequence_ {t = List} {f = ReaderT r IO} {a} xs = bindTraverseList_ {a = ReaderT r IO a} {b = a} id xs
+%transform "readerTIOSeqRight" (*>) {f = ReaderT r IO} = bindSeqRight
+%transform "readerTIOFoldlMList" foldlM {t = List} {m = ReaderT r IO} = bindFoldlMList
+
+%transform "readerTraverseList" traverse {t = List} {f = ReaderT r Identity} = bindTraverseList
+%transform "readerForList" for {t = List} {f = ReaderT r Identity} xs f = bindTraverseList f xs
+%transform "readerSequenceList" sequence {t = List} {f = ReaderT r Identity} {a} xs = bindTraverseList {a = ReaderT r Identity a} {b = a} id xs
+%transform "readerTraverseList_" traverse_ {t = List} {f = ReaderT r Identity} = bindTraverseList_
+%transform "readerForList_" for_ {t = List} {f = ReaderT r Identity} xs f = bindTraverseList_ f xs
+%transform "readerSequenceList_" sequence_ {t = List} {f = ReaderT r Identity} {a} xs = bindTraverseList_ {a = ReaderT r Identity a} {b = a} id xs
+%transform "readerSeqRight" (*>) {f = ReaderT r Identity} = bindSeqRight
+%transform "readerFoldlMList" foldlM {t = List} {m = ReaderT r Identity} = bindFoldlMList

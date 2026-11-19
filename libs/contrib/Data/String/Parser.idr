@@ -202,21 +202,30 @@ export
 letter : Applicative m => ParseT m Char
 letter = satisfy isAlpha <?> "expected letter"
 
-mutual
-    ||| Succeeds if `p` succeeds, will continue to match `p` until it fails
-    ||| and accumulate the results in a list
-    export
+||| Always succeeds, will accumulate the results of `p` in a list until it fails.
+-- A loop, which runs `p` again as a tail call of `>>=` of `m`, rather than
+-- `some p <|> pure []`: that runs the rest of the matches before it returns,
+-- which needs a stack as deep as the number of matches on the JavaScript
+-- backends.
+export
+covering
+many : Monad m => ParseT m a -> ParseT m (List a)
+many p = P $ \s => go [<] s
+  where
     covering
-    some : Monad m => ParseT m a -> ParseT m (List a)
-    some p = do r <- p
-                rs <- many p
-                pure $ r :: rs
+    go : SnocList a -> State -> m (Result (List a))
+    go acc s = p.runParser s >>= \case
+                 OK r s' => go (acc :< r) s'
+                 Fail _ _ => pure (OK (acc <>> []) s)
 
-    ||| Always succeeds, will accumulate the results of `p` in a list until it fails.
-    export
-    covering
-    many : Monad m => ParseT m a -> ParseT m (List a)
-    many p = some p <|> pure []
+||| Succeeds if `p` succeeds, will continue to match `p` until it fails
+||| and accumulate the results in a list
+export
+covering
+some : Monad m => ParseT m a -> ParseT m (List a)
+some p = do r <- p
+            rs <- many p
+            pure $ r :: rs
 
 ||| Parse left-nested lists of the form `((init op arg) op arg) op arg`
 export

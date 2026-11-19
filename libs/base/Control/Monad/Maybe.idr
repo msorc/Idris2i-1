@@ -172,3 +172,27 @@ MonadTrans MaybeT where
 public export
 HasIO m => HasIO (MaybeT m) where
   liftIO act = MkMaybeT $ liftIO (io_bind act (pure . Just))
+
+--------------------------------------------------------------------------------
+--          Loops over lists in MaybeT over IO
+--------------------------------------------------------------------------------
+
+-- As for `EitherT` (see `Control.Monad.Error.Either`): `<*>` of `MaybeT` runs
+-- both actions of `m`, also after a `Nothing`.
+
+||| `*>` in `MaybeT`, where the second action is a tail call of `>>=` of `m`
+||| when the first gives a `Just`.
+public export
+maybeTSeqRight : Monad m => MaybeT m a -> MaybeT m b -> MaybeT m b
+maybeTSeqRight a b = MkMaybeT $ runMaybeT a >>= \case
+                       Nothing => map (\_ => Nothing) (runMaybeT b)
+                       Just _ => runMaybeT b
+
+%transform "maybeTIOTraverseList" traverse {t = List} {f = MaybeT IO} {a} {b} f xs = MkMaybeT (map (sequence {f = Maybe} {a = b}) (ioTraverseList {a} {b = Maybe b} (runMaybeT . f) xs))
+%transform "maybeTIOForList" for {t = List} {f = MaybeT IO} {a} {b} xs f = MkMaybeT (map (sequence {f = Maybe} {a = b}) (ioTraverseList {a} {b = Maybe b} (runMaybeT . f) xs))
+%transform "maybeTIOSequenceList" sequence {t = List} {f = MaybeT IO} {a} xs = MkMaybeT (map (sequence {f = Maybe} {a}) (ioTraverseList {a = MaybeT IO a} {b = Maybe a} runMaybeT xs))
+%transform "maybeTIOTraverseList_" traverse_ {t = List} {f = MaybeT IO} {a} {b} f xs = MkMaybeT (map (sequence_ {f = Maybe} {a = b}) (ioTraverseList {a} {b = Maybe b} (runMaybeT . f) xs))
+%transform "maybeTIOForList_" for_ {t = List} {f = MaybeT IO} {a} {b} xs f = MkMaybeT (map (sequence_ {f = Maybe} {a = b}) (ioTraverseList {a} {b = Maybe b} (runMaybeT . f) xs))
+%transform "maybeTIOSequenceList_" sequence_ {t = List} {f = MaybeT IO} {a} xs = MkMaybeT (map (sequence_ {f = Maybe} {a}) (ioTraverseList {a = MaybeT IO a} {b = Maybe a} runMaybeT xs))
+%transform "maybeTIOSeqRight" (*>) {f = MaybeT IO} = maybeTSeqRight
+%transform "maybeTIOFoldlMList" foldlM {t = List} {m = MaybeT IO} = bindFoldlMList

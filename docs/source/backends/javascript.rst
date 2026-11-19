@@ -242,13 +242,28 @@ A closure that reaches foreign code in another way, such as inside an
 (an object of class ``__TC``).  ``--directive no-trampoline`` makes all
 these calls directly, as before.
 
-The library builds ranges (``[1..n]``), runs ``traverse_``, ``for_``,
-``sequence_``, ``traverse``, ``for``, ``sequence`` and ``foldlM`` on lists in
-``IO``, all of them but ``foldlM`` on lists in ``State`` (``StateT s
-Identity``), and ``and`` and ``or`` on lists, with loops; ``map``,
-``filter``, ``(++)`` and ``concat`` on lists are tail recursive, and so is
-``*>`` in ``IO`` and in ``State`` in its second action (``foldr (*>) (pure
-())`` on a list of actions).
+The library builds ranges (``[1..n]``), and runs ``and`` and ``or`` on
+lists, with loops; ``map``, ``filter``, ``(++)`` and ``concat`` on lists are
+tail recursive.  ``traverse``, ``for``, ``sequence``, ``traverse_``,
+``for_``, ``sequence_`` and ``foldlM`` on lists, and ``*>`` (``foldr (*>)
+(pure ())`` on a list of actions), are loops in ``IO``, in ``State``,
+``Reader``, ``Writer`` and ``RWS``, in ``StateT``, ``ReaderT``, ``WriterT``
+and ``RWST`` over ``IO``, in ``StateT`` over ``Either e`` and ``Maybe``, and
+in ``EitherT e IO`` and ``MaybeT IO``; ``traverse`` and friends (not
+``foldlM`` and ``*>``) on lists in ``Control.App``; ``traverse_``, ``for_``
+and ``sequence_`` on ``SnocList``, ``List1`` and ``Vect`` in ``IO``, and
+``traverse``, ``for`` and ``sequence`` on ``SnocList`` and ``List1`` in
+``IO``; ``many`` of ``Data.String.Parser`` (and ``some``, ``takeWhile`` and
+the like, which use it).  These loops are ``%transform`` rules of the
+library to functions that do the same with ``>>=`` (``bindTraverseList``
+and the like in ``Control.Monad.Trans``, where the rest of the list is the
+continuation, which the trampoline runs in constant stack), and they have
+the effects of the original in the same order (in ``EitherT`` and
+``MaybeT``, where ``<*>`` runs both actions also after a ``Left``, the
+actions in ``IO`` all run and their results are combined after).  Explicit
+recursive loops in these monads (``loop n = do step n; loop (n - 1)``, also
+through ``when``) run in constant stack as they are: their ``>>=`` calls the
+continuation as a tail call.
 
 In the browser, a function that returns a constructor with a call of itself
 in a field (tail recursion modulo cons: ``zipWith f (x :: xs) (y :: ys) = f
@@ -295,8 +310,25 @@ What is left needs a stack as deep as the recursion: recursion through
 several functions that call each other where the calls are not tail calls,
 and through closures: running a chain of actions as long as the list where
 each action runs the rest before it returns, as ``traverse`` builds in an
-applicative that the library does not turn into a loop (``StateT s m``
-over another monad, ``Writer``, a parser), or ``foldr (<*)``.  Making every
+applicative that the library does not turn into a loop.  On 10^5 elements,
+of the shapes above (``traverse``, ``for``, ``sequence``, ``traverse_``,
+``for_``, ``sequence_``, ``foldlM``, ``foldr (*>)``, ``foldr (<*)``, a loop
+with ``when``, a recursive loop) in ``IO``, ``State``, ``Reader``,
+``Writer``, ``RWS``, ``StateT s IO``, ``ReaderT r IO``, ``WriterT w IO``,
+``EitherT e IO``, ``MaybeT IO``, ``StateT s (Either e)``, ``Either e``,
+``Maybe`` and ``Identity``, and ``traverse`` and ``traverse_`` on
+``SnocList``, ``List1`` and ``Vect`` in ``IO`` and ``State``, these still
+overflow: ``foldr (<*) (pure ())`` in all of these monads but ``Either``,
+``Maybe`` and ``Identity`` (``a <* b`` gives the value of ``a`` after
+``b``, so each action of the chain has something left to do after the rest
+of it); ``traverse`` on a ``Vect`` in ``IO``; ``traverse`` and
+``traverse_`` on ``SnocList``, ``List1`` and ``Vect`` in ``State``; and
+these functions in other combinations (the transformers over another
+transformer, ``ReaderT r (StateT s IO)``, or over a monad of the program;
+another container in a transformer; a ``Traversable`` of the program).
+``many`` and ``some`` of ``Text.Parser`` on long inputs overflow too:
+``doParse`` calls itself from the functions that its ``case`` blocks are
+compiled to, which the explicit stack does not follow.  Making every
 call of a closure that is not a tail call go through the explicit stack (in
 effect, compiling the whole program in continuation-passing style) would
 cost much more than these loops: on small programs written by hand in that

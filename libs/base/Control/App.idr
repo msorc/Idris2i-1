@@ -199,6 +199,35 @@ export
 Monad (App es) where
   (>>=) = bindApp -- won't get used, but handy to have the instance
 
+-- `traverse` and `traverse_` on a list build a chain of `<*>` (`*>`) as long
+-- as the list, which runs the rest of the chain before it returns: running it
+-- needs a stack as deep as the list on the JavaScript backends.  These do the
+-- same with a bind per element, which runs the rest of the list as a tail
+-- call; the uses of `traverse` and friends on lists in `App` are transformed
+-- to them.
+
+||| `traverse` on a list in `App`, as a loop.
+export
+appTraverseList : (a -> App {l} e b) -> List a -> App {l} e (List b)
+appTraverseList f xs = go [<] xs
+  where
+    go : SnocList b -> List a -> App {l} e (List b)
+    go acc [] = pure (acc <>> [])
+    go acc (x :: xs) = bindApp @{SafeSame} (f x) (\y => go (acc :< y) xs)
+
+||| `traverse_` on a list in `App`, as a loop.
+export
+appTraverseList_ : (a -> App {l} e b) -> List a -> App {l} e ()
+appTraverseList_ f [] = pure ()
+appTraverseList_ f (x :: xs) = bindApp @{SafeSame} (f x) (\_ => appTraverseList_ f xs)
+
+%transform "appTraverseList" traverse {t = List} {f = App {l} e} = appTraverseList
+%transform "appForList" for {t = List} {f = App {l} e} xs f = appTraverseList f xs
+%transform "appSequenceList" sequence {t = List} {f = App {l} e} {a} xs = appTraverseList {a = App {l} e a} {b = a} id xs
+%transform "appTraverseList_" traverse_ {t = List} {f = App {l} e} = appTraverseList_
+%transform "appForList_" for_ {t = List} {f = App {l} e} xs f = appTraverseList_ f xs
+%transform "appSequenceList_" sequence_ {t = List} {f = App {l} e} {a} xs = appTraverseList_ {a = App {l} e a} {b = a} id xs
+
 export
 (>>=) : SafeBind l l' =>
         App {l} e a -> (k : a -> App {l=l'} e b) -> App {l=l'} e b

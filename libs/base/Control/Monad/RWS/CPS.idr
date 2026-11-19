@@ -146,3 +146,26 @@ MonadTrans (RWST r w s) where
 public export %inline
 HasIO m => HasIO (RWST r w s m) where
   liftIO = lift . liftIO
+
+-- In `RWST` over `IO` or `Identity`, `<*>` is `ap`, and `>>=` calls its
+-- continuation as a tail call: `traverse` and friends on lists are transformed
+-- to the loops with `>>=` of `Control.Monad.Trans`, which run in constant
+-- stack on the JavaScript backends (see there).
+
+%transform "rwsTIOTraverseList" traverse {t = List} {f = RWST r w s IO} = bindTraverseList
+%transform "rwsTIOForList" for {t = List} {f = RWST r w s IO} xs f = bindTraverseList f xs
+%transform "rwsTIOSequenceList" sequence {t = List} {f = RWST r w s IO} {a} xs = bindTraverseList {a = RWST r w s IO a} {b = a} id xs
+%transform "rwsTIOTraverseList_" traverse_ {t = List} {f = RWST r w s IO} = bindTraverseList_
+%transform "rwsTIOForList_" for_ {t = List} {f = RWST r w s IO} xs f = bindTraverseList_ f xs
+%transform "rwsTIOSequenceList_" sequence_ {t = List} {f = RWST r w s IO} {a} xs = bindTraverseList_ {a = RWST r w s IO a} {b = a} id xs
+%transform "rwsTIOSeqRight" (*>) {f = RWST r w s IO} = bindSeqRight
+%transform "rwsTIOFoldlMList" foldlM {t = List} {m = RWST r w s IO} = bindFoldlMList
+
+%transform "rwsTraverseList" traverse {t = List} {f = RWST r w s Identity} = bindTraverseList
+%transform "rwsForList" for {t = List} {f = RWST r w s Identity} xs f = bindTraverseList f xs
+%transform "rwsSequenceList" sequence {t = List} {f = RWST r w s Identity} {a} xs = bindTraverseList {a = RWST r w s Identity a} {b = a} id xs
+%transform "rwsTraverseList_" traverse_ {t = List} {f = RWST r w s Identity} = bindTraverseList_
+%transform "rwsForList_" for_ {t = List} {f = RWST r w s Identity} xs f = bindTraverseList_ f xs
+%transform "rwsSequenceList_" sequence_ {t = List} {f = RWST r w s Identity} {a} xs = bindTraverseList_ {a = RWST r w s Identity a} {b = a} id xs
+%transform "rwsSeqRight" (*>) {f = RWST r w s Identity} = bindSeqRight
+%transform "rwsFoldlMList" foldlM {t = List} {m = RWST r w s Identity} = bindFoldlMList

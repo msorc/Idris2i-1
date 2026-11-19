@@ -150,6 +150,16 @@ public export
 Traversable List1 where
   traverse f (x ::: xs) = [| f x ::: traverse f xs |]
 
+-- `traverse` and `traverse_` on a `List1` in `IO` build a chain of actions as
+-- long as the list, which needs a stack as deep as the list on the JavaScript
+-- backends: they are transformed to the loops on lists of `Prelude.IO`.
+%transform "ioTraverseList1" traverse {t = List1} {f = IO} f xs = [| f (head xs) ::: ioTraverseList f (tail xs) |]
+%transform "ioForList1" for {t = List1} {f = IO} xs f = [| f (head xs) ::: ioTraverseList f (tail xs) |]
+%transform "ioSequenceList1" sequence {t = List1} {f = IO} {a} xs = [| head xs ::: ioTraverseList {a = IO a} {b = a} id (tail xs) |]
+%transform "ioTraverseList1_" traverse_ {t = List1} {f = IO} f xs = ioTraverseList_ f (forget xs)
+%transform "ioForList1_" for_ {t = List1} {f = IO} xs f = ioTraverseList_ f (forget xs)
+%transform "ioSequenceList1_" sequence_ {t = List1} {f = IO} {a} xs = ioTraverseList_ {a = IO a} {b = a} id (forget xs)
+
 export
 Show a => Show (List1 a) where
   show = show . forget

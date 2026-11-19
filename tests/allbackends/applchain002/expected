@@ -1,0 +1,17 @@
+App traverse: 10000100000
+App for: 10000100000
+App sequence: 10000100000
+App traverse_, for_, sequence_
+app 1
+app 2
+app 3
+App order: [1, 2, 3]
+app 1
+app 2
+app 3
+stop 1
+stop 2
+App exception: 2
+stop 1
+stop 2
+App exception: 2

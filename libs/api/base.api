@@ -45,6 +45,8 @@ module Control.App
     constructor Any : Control.App.Usage
   export covering app : {0 a : Type} -> {0 e : Prelude.Basics.List Control.App.Error} -> (1 _ : Control.App.App {l = Control.App.NoThrow} e a) -> Control.App.App1 {u = Control.App.Any} e a
   export covering app1 : {0 l : Control.App.Path} -> {0 a : Type} -> {0 e : Prelude.Basics.List Control.App.Error} -> (1 _ : Control.App.App1 {u = Control.App.Any} e a) -> Control.App.App {l} e a
+  export covering appTraverseList : {0 b : Type} -> {0 e : Prelude.Basics.List Control.App.Error} -> {0 l : Control.App.Path} -> {0 a : Type} -> (a -> Control.App.App {l} e b) -> Prelude.Basics.List a -> Control.App.App {l} e (Prelude.Basics.List b)
+  export covering appTraverseList_ : {0 b : Type} -> {0 e : Prelude.Basics.List Control.App.Error} -> {0 l : Control.App.Path} -> {0 a : Type} -> (a -> Control.App.App {l} e b) -> Prelude.Basics.List a -> Control.App.App {l} e Builtin.Unit
   export covering bindApp1 : {0 b : Type} -> {0 u' : Control.App.Usage} -> {0 a : Type} -> {0 e : Prelude.Basics.List Control.App.Error} -> {u : Control.App.Usage} -> (1 _ : Control.App.App1 {u} e a) -> (1 _ : Control.App.Cont1Type u a u' e b) -> Control.App.App1 {u = u'} e b
   export covering bindL : {0 b : Type} -> {0 l : Control.App.Path} -> {0 a : Type} -> {0 e : Prelude.Basics.List Control.App.Error} -> Control.App.App {l = Control.App.NoThrow} e a -> (1 _ : (a -> Control.App.App {l} e b)) -> Control.App.App {l} e b
   export covering catch : {0 a : Type} -> {0 es : Prelude.Basics.List Control.App.Error} -> {0 err : Control.App.Error} -> Control.App.HasErr err es => Control.App.App {l = Control.App.MayThrow} es a -> (err -> Control.App.App {l = Control.App.MayThrow} es a) -> Control.App.App {l = Control.App.MayThrow} es a
@@ -162,6 +164,7 @@ module Control.Monad.Error.Either
   public export total bimapEitherT : {0 d : Type} -> {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Functor m => (a -> c) -> (b -> d) -> Control.Monad.Error.Either.EitherT a m b -> Control.Monad.Error.Either.EitherT c m d
   public export total catchE : {0 e' : Type} -> {0 a : Type} -> {0 e : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => Control.Monad.Error.Either.EitherT e m a -> (e -> Control.Monad.Error.Either.EitherT e' m a) -> Control.Monad.Error.Either.EitherT e' m a
   public export total eitherT : {0 b : Type} -> {0 c : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => (a -> m c) -> (b -> m c) -> Control.Monad.Error.Either.EitherT a m b -> m c
+  public export total eitherTSeqRight : {0 b : Type} -> {0 a : Type} -> {0 e : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => Control.Monad.Error.Either.EitherT e m a -> Control.Monad.Error.Either.EitherT e m b -> Control.Monad.Error.Either.EitherT e m b
   public export total left : {0 a : Type} -> {0 e : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Applicative m => e -> Control.Monad.Error.Either.EitherT e m a
   public export total mapEitherT : {0 a' : Type} -> {0 e' : Type} -> {0 n : Type -> Type} -> {0 a : Type} -> {0 e : Type} -> {0 m : Type -> Type} -> (m (Prelude.Types.Either e a) -> n (Prelude.Types.Either e' a')) -> Control.Monad.Error.Either.EitherT e m a -> Control.Monad.Error.Either.EitherT e' n a'
   public export total right : {0 e : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Applicative m => a -> Control.Monad.Error.Either.EitherT e m a
@@ -234,6 +237,7 @@ module Control.Monad.Maybe
   public export total just : {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Applicative m => a -> Control.Monad.Maybe.MaybeT m a
   public export total mapMaybeT : {0 a' : Type} -> {0 n : Type -> Type} -> {0 a : Type} -> {0 m : Type -> Type} -> (m (Prelude.Types.Maybe a) -> n (Prelude.Types.Maybe a')) -> Control.Monad.Maybe.MaybeT m a -> Control.Monad.Maybe.MaybeT n a'
   public export total maybeT : {0 a : Type} -> {0 b : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => m b -> (a -> m b) -> Control.Monad.Maybe.MaybeT m a -> m b
+  public export total maybeTSeqRight : {0 b : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => Control.Monad.Maybe.MaybeT m a -> Control.Monad.Maybe.MaybeT m b -> Control.Monad.Maybe.MaybeT m b
   public export total nothing : {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Applicative m => Control.Monad.Maybe.MaybeT m a
   public export total runMaybeT : {0 a : Type} -> {0 m : Type -> Type} -> Control.Monad.Maybe.MaybeT m a -> m (Prelude.Types.Maybe a)
   public export total toMaybeT : {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Functor m => Prelude.Basics.Bool -> m a -> Control.Monad.Maybe.MaybeT m a
@@ -399,6 +403,10 @@ module Control.Monad.Trans
     parameters t
     constructor : {0 t : (Type -> Type) -> Type -> Type} -> ({0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => m a -> t m a) -> Control.Monad.Trans.MonadTrans t
     method lift : {0 a : Type} -> {0 m : Type -> Type} -> {0 t : (Type -> Type) -> Type -> Type} -> Control.Monad.Trans.MonadTrans t => Prelude.Interfaces.Monad m => m a -> t m a
+  public export total bindFoldlMList : {0 a : Type} -> {0 acc : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => (acc -> a -> m acc) -> acc -> Prelude.Basics.List a -> m acc
+  public export total bindSeqRight : {0 b : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => m a -> m b -> m b
+  public export total bindTraverseList : {0 b : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => (a -> m b) -> Prelude.Basics.List a -> m (Prelude.Basics.List b)
+  public export total bindTraverseList_ : {0 b : Type} -> {0 a : Type} -> {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => (a -> m b) -> Prelude.Basics.List a -> m Builtin.Unit
 
 module Control.Monad.Writer
   import public Control.Monad.Writer.CPS as Control.Monad.Writer

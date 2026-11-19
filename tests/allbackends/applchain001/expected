@@ -1,0 +1,75 @@
+StateT IO traverse: 5000050000 10000100000 100000
+StateT IO for: 5000050000 10000100000
+StateT IO sequence: 5000050000 10000100000
+StateT IO traverse_: 5000050000
+StateT IO for_: 5000050000
+StateT IO sequence_: 5000050000
+StateT IO *>: 5000050000 600000
+StateT IO foldlM: 5000050000 10000100000
+StateT IO order: [3, 2, 1] [1, 2, 3] ["s1", "s2", "s3"]
+StateT IO order_: [3, 2, 1] ["s1", "s2", "s3"]
+StateT IO order *>: [2, 1] 7 ["s1", "s2"]
+StateT IO order foldlM: [3, 2, 1] 6 ["s1", "s2", "s3"]
+ReaderT IO traverse: 10000200000 200000
+ReaderT IO sequence: 10000200000
+ReaderT IO for_: 200000
+ReaderT IO *>: 100000
+ReaderT IO foldlM: 10000200000
+ReaderT IO order: [11, 12, 13] ["r1", "r2", "r3"]
+WriterT IO traverse: 5000050000 10000100000 200000
+WriterT IO traverse_: 5000050000
+WriterT IO *>: 5000050000
+WriterT IO foldlM: 5000050000 10000100000
+WriterT IO order: [1, 2, 3] ["t1", "t2", "t3"] ["w1", "w2", "w3"]
+Writer traverse: 5000050000 10000100000
+Writer sequence_: 5000050000
+Writer *>: 5000050000
+Writer foldlM: 5000050000 10000100000
+Writer order: [10, 20, 30] [1, 2, 3]
+Reader traverse: 10000200000
+Reader for: 10000200000
+Reader traverse_: ()
+Reader foldlM: 10000200000
+RWS traverse: 100000 5000050000 10000200000
+RWS for_: 100000 5000050000
+RWS *>: 100000 5000050000
+RWS foldlM: 100000 5000050000 10000200000
+RWS order: [101, 102, 103] [3, 2, 1] [1, 2, 3]
+State foldlM: 100000 5000050000
+EitherT IO traverse: Right 10000100000 400000
+EitherT IO for_: Right () 100000
+EitherT IO sequence: Right 10000100000
+EitherT IO *>: Right () 200000
+EitherT IO foldlM: Right 10000100000
+EitherT IO order: Left "bad2" ["e1", "e2", "e3"]
+EitherT IO order_: Left "bad2" ["e1", "e2", "e3"]
+EitherT IO order *>: Left "bad2" ["e1", "e2", "e3", "e4"]
+EitherT IO order foldlM: Left "bad2" ["e1", "e2"]
+MaybeT IO traverse: Just 10000100000 200000
+MaybeT IO traverse_: Just () 100000
+MaybeT IO *>: Just () 100000
+MaybeT IO foldlM: Just 10000100000
+MaybeT IO order: Nothing ["m1", "m2", "m3"]
+MaybeT IO order_: Nothing ["m1", "m2", "m3"]
+MaybeT IO order *>: Nothing ["m2", "m3"]
+StateT Either traverse: Right (5000050000, 10000100000)
+StateT Either traverse_: Right 5000050000
+StateT Either *>: Right 5000050000
+StateT Either foldlM: Right (5000050000, 10000100000)
+StateT Either order: Left "stop2"
+StateT Either order_: Right ([3, 1], ())
+StateT Maybe traverse: Just (5000050000, 10000100000)
+StateT Maybe for_: Just 5000050000
+SnocList IO traverse: 10000100000 200000
+SnocList IO traverse_: 100000
+SnocList IO order: [< 1, 2, 3] ["1", "2", "3"]
+List1 IO traverse: 10000100000 100001
+List1 IO for_: 100001
+List1 IO order: [0, 1, 2, 3] ["0", "1", "2", "3"]
+Vect IO traverse_: 100000
+Vect IO order_: ["1", "2", "3"]
+Parser many: Right (100000, 100000)
+Parser takeWhile: Right (100000, 100000)
+Parser some: Right (100000, 100001)
+Parser some fails: Left "Parse failed at position 0-0: expected 'b'"
+Parser many order: Right ((['a', 'a'], ['b', 'b', 'b']), 5)

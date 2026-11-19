@@ -1,0 +1,3 @@
+. ../../testutils.sh
+
+run AppChain2.idr

@@ -107,3 +107,26 @@ MonadTrans (WriterT w) where
 public export %inline
 HasIO m => HasIO (WriterT w m) where
   liftIO = lift . liftIO
+
+-- In `WriterT` over `IO` or `Identity`, `<*>` is `ap`, and `>>=` calls its
+-- continuation as a tail call: `traverse` and friends on lists are transformed
+-- to the loops with `>>=` of `Control.Monad.Trans`, which run in constant
+-- stack on the JavaScript backends (see there).
+
+%transform "writerTIOTraverseList" traverse {t = List} {f = WriterT w IO} = bindTraverseList
+%transform "writerTIOForList" for {t = List} {f = WriterT w IO} xs f = bindTraverseList f xs
+%transform "writerTIOSequenceList" sequence {t = List} {f = WriterT w IO} {a} xs = bindTraverseList {a = WriterT w IO a} {b = a} id xs
+%transform "writerTIOTraverseList_" traverse_ {t = List} {f = WriterT w IO} = bindTraverseList_
+%transform "writerTIOForList_" for_ {t = List} {f = WriterT w IO} xs f = bindTraverseList_ f xs
+%transform "writerTIOSequenceList_" sequence_ {t = List} {f = WriterT w IO} {a} xs = bindTraverseList_ {a = WriterT w IO a} {b = a} id xs
+%transform "writerTIOSeqRight" (*>) {f = WriterT w IO} = bindSeqRight
+%transform "writerTIOFoldlMList" foldlM {t = List} {m = WriterT w IO} = bindFoldlMList
+
+%transform "writerTraverseList" traverse {t = List} {f = WriterT w Identity} = bindTraverseList
+%transform "writerForList" for {t = List} {f = WriterT w Identity} xs f = bindTraverseList f xs
+%transform "writerSequenceList" sequence {t = List} {f = WriterT w Identity} {a} xs = bindTraverseList {a = WriterT w Identity a} {b = a} id xs
+%transform "writerTraverseList_" traverse_ {t = List} {f = WriterT w Identity} = bindTraverseList_
+%transform "writerForList_" for_ {t = List} {f = WriterT w Identity} xs f = bindTraverseList_ f xs
+%transform "writerSequenceList_" sequence_ {t = List} {f = WriterT w Identity} {a} xs = bindTraverseList_ {a = WriterT w Identity a} {b = a} id xs
+%transform "writerSeqRight" (*>) {f = WriterT w Identity} = bindSeqRight
+%transform "writerFoldlMList" foldlM {t = List} {m = WriterT w Identity} = bindFoldlMList

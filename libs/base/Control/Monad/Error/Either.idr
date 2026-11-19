@@ -157,3 +157,33 @@ MonadTrans (EitherT e) where
 public export
 HasIO m => HasIO (EitherT e m) where
   liftIO act = MkEitherT $ liftIO (io_bind act (pure . Right))
+
+--------------------------------------------------------------------------------
+--          Loops over lists in EitherT over IO
+--------------------------------------------------------------------------------
+
+-- `traverse` and `traverse_` on a list in `EitherT e m` build a chain of
+-- `<*>` as long as the list, and running it needs a stack as deep as the list
+-- on the JavaScript backends (see `Control.Monad.Trans`).  `<*>` of
+-- `EitherT` runs both actions of `m`, also after a `Left`, so, in `EitherT e
+-- IO`, these run the actions of the list in `IO` as a loop and then combine
+-- their results in `Either`, and `*>` runs its second action as a tail call
+-- unless the first one gave a `Left`.  `foldlM`, which uses `>>=`, stops at
+-- the first `Left`, as `bindFoldlMList` does.
+
+||| `*>` in `EitherT`, where the second action is a tail call of `>>=` of `m`
+||| when the first gives a `Right`.
+public export
+eitherTSeqRight : Monad m => EitherT e m a -> EitherT e m b -> EitherT e m b
+eitherTSeqRight a b = MkEitherT $ runEitherT a >>= \case
+                        Left e => map (\_ => Left e) (runEitherT b)
+                        Right _ => runEitherT b
+
+%transform "eitherTIOTraverseList" traverse {t = List} {f = EitherT e IO} {a} {b} f xs = MkEitherT (map (sequence {f = Either e} {a = b}) (ioTraverseList {a} {b = Either e b} (runEitherT . f) xs))
+%transform "eitherTIOForList" for {t = List} {f = EitherT e IO} {a} {b} xs f = MkEitherT (map (sequence {f = Either e} {a = b}) (ioTraverseList {a} {b = Either e b} (runEitherT . f) xs))
+%transform "eitherTIOSequenceList" sequence {t = List} {f = EitherT e IO} {a} xs = MkEitherT (map (sequence {f = Either e} {a}) (ioTraverseList {a = EitherT e IO a} {b = Either e a} runEitherT xs))
+%transform "eitherTIOTraverseList_" traverse_ {t = List} {f = EitherT e IO} {a} {b} f xs = MkEitherT (map (sequence_ {f = Either e} {a = b}) (ioTraverseList {a} {b = Either e b} (runEitherT . f) xs))
+%transform "eitherTIOForList_" for_ {t = List} {f = EitherT e IO} {a} {b} xs f = MkEitherT (map (sequence_ {f = Either e} {a = b}) (ioTraverseList {a} {b = Either e b} (runEitherT . f) xs))
+%transform "eitherTIOSequenceList_" sequence_ {t = List} {f = EitherT e IO} {a} xs = MkEitherT (map (sequence_ {f = Either e} {a}) (ioTraverseList {a = EitherT e IO a} {b = Either e a} runEitherT xs))
+%transform "eitherTIOSeqRight" (*>) {f = EitherT e IO} = eitherTSeqRight
+%transform "eitherTIOFoldlMList" foldlM {t = List} {m = EitherT e IO} = bindFoldlMList

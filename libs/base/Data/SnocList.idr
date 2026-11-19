@@ -120,6 +120,17 @@ Traversable SnocList where
   traverse _ Lin = pure Lin
   traverse f (xs :< x) = [| traverse f xs :< f x |]
 
+-- `traverse` and `traverse_` on a snoc list in `IO` build a chain of
+-- actions as long as the list, which needs a stack as deep as the list on the
+-- JavaScript backends: they are transformed to the loops on lists of
+-- `Prelude.IO`, on the elements in the same order.
+%transform "ioTraverseSnocList" traverse {t = SnocList} {f = IO} f sx = map ([<] <><) (ioTraverseList f (sx <>> []))
+%transform "ioForSnocList" for {t = SnocList} {f = IO} sx f = map ([<] <><) (ioTraverseList f (sx <>> []))
+%transform "ioSequenceSnocList" sequence {t = SnocList} {f = IO} {a} sx = map ([<] <><) (ioTraverseList {a = IO a} {b = a} id (sx <>> []))
+%transform "ioTraverseSnocList_" traverse_ {t = SnocList} {f = IO} f sx = ioTraverseList_ f (sx <>> [])
+%transform "ioForSnocList_" for_ {t = SnocList} {f = IO} sx f = ioTraverseList_ f (sx <>> [])
+%transform "ioSequenceSnocList_" sequence_ {t = SnocList} {f = IO} {a} sx = ioTraverseList_ {a = IO a} {b = a} id (sx <>> [])
+
 public export
 Alternative SnocList where
   empty = Lin

@@ -1385,6 +1385,39 @@ should target this file (`CHANGELOG_NEXT`).
   backend, too: `traverse` in `State` on 10^6 elements takes 65% fewer
   instructions with Chez, 52% with RefC and 98% with Node, `foldr (*>)` in
   `IO` 32%, 34% and 67% fewer.
+* `traverse`, `for`, `sequence`, `traverse_`, `for_`, `sequence_` and
+  `foldlM` on lists, and `*>`, in `Reader`, `Writer`, `RWS` (over
+  `Identity`), in `StateT`, `ReaderT`, `WriterT` and `RWST` over `IO`, in
+  `StateT` over `Either e` and `Maybe`, and `foldlM` in `State`, are
+  transformed (`%transform`) to functions that do the same with `>>=`, where
+  the rest of the list is the continuation (`bindTraverseList`,
+  `bindTraverseList_`, `bindFoldlMList`, `bindSeqRight` in
+  `Control.Monad.Trans`, for any monad); in `EitherT e IO` and `MaybeT IO`,
+  whose `<*>` runs both actions also after a `Left` (`Nothing`), `traverse`
+  and friends run the actions in a loop in `IO` and combine their results
+  after, and `*>` runs its second action as a tail call after a `Right`
+  (`eitherTSeqRight`, `maybeTSeqRight`).  `traverse` and friends on lists in
+  `Control.App` are loops of `bindApp` (`appTraverseList`,
+  `appTraverseList_`); `traverse_`, `for_`, `sequence_` on `SnocList`,
+  `List1` and `Vect`, and `traverse`, `for`, `sequence` on `SnocList` and
+  `List1`, in `IO` are transformed to the loops on lists in `IO`; `many` of
+  `Data.String.Parser` (and `some`, `takeWhile`, `takeWhile1`, `spaces`,
+  which use it) is a loop.  The results and the order of the effects are
+  those of the chains of `<*>` and `*>` (test `allbackends/applchain001`,
+  `allbackends/applchain002`, `node/applchain_browser`).  They built a chain
+  of closures as long as the list, each of which ran the rest before it
+  returned, and overflowed the stack of the browser at a few thousand
+  elements: of 172 shapes (`traverse` and friends, `foldr (*>)`, `foldr (<*)`,
+  loops through `when` and recursive loops in 14 monads; containers;
+  parsers; `Control.App`) on 10^5 elements in the browser, 101 overflowed;
+  now 20 do (`foldr (<*)` in 11 monads, `traverse` on `Vect` in `IO`, the
+  containers in `State`, `many` and `some` of `Text.Parser`; see the
+  documentation of the JavaScript backends).  Faster with the other back
+  ends too (`perf stat -e instructions:u`): on 10^6 elements, the 22 cases
+  measured take 41% to 90% fewer instructions with Chez (`traverse` in
+  `StateT s IO` 81%, in `Writer` 46%) and 1% to 51% fewer with RefC
+  (`traverse` in `StateT s IO` 32%, in `Writer` 13%, `foldlM` in `StateT s
+  IO` 1%).
 * `and` and `or` on lists are transformed (`%transform`) to loops (`listAnd`,
   `listOr`) that force the elements in the same order: through the `foldMap`
   of `Foldable List` they built a chain of `&&` (`||`) as long as the list,
