@@ -243,8 +243,8 @@ A closure that reaches foreign code in another way, such as inside an
 these calls directly, as before.
 
 The library builds ranges (``[1..n]``), and runs ``traverse_``, ``for_`` and
-``sequence_`` on lists in ``IO``, with loops; ``map``, ``filter`` and
-``(++)`` on lists are tail recursive.
+``sequence_`` on lists in ``IO``, with loops; ``map``, ``filter``, ``(++)``
+and ``concat`` on lists are tail recursive.
 
 In the browser, a function that returns a constructor with a call of itself
 in a field (tail recursion modulo cons: ``zipWith f (x :: xs) (y :: ys) = f

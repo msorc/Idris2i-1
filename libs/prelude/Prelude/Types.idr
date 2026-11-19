@@ -1173,3 +1173,7 @@ Range Char where
   rangeFromThenTo x y z = map chr $ rangeFromThenTo (ord x) (ord y) (ord z)
   rangeFrom x = map chr $ rangeFrom (ord x)
   rangeFromThen x y = map chr $ rangeFromThen (ord x) (ord y)
+
+-- `concat` of lists, as `concatMap` above: the `foldMap` of `Foldable List`
+-- is a left fold, which copies the accumulator at every step.
+%transform "listConcat" concat {t = List} {a = List b} xs = listBindOnto {a = List b} {b} id [] xs

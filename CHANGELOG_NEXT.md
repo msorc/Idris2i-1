@@ -1142,6 +1142,11 @@ should target this file (`CHANGELOG_NEXT`).
   longer need a stack as deep as the list with JavaScript, and are faster with
   every backend: `length [1..10^6]` takes 63% fewer instructions with Chez and
   32% fewer with RefC, `for_ [1..10^6]` in `IO` 80% and 61% fewer.
+* `concat` of a list of lists is transformed (`%transform`) to a loop
+  (`listBindOnto`), as `concatMap` already was: through the `foldMap` of
+  `Foldable List`, a left fold, it copied its accumulator at every step and
+  took quadratic time (20,000 lists of two elements: 15.3G instructions to
+  0.25G with Chez, 12.0G to 0.02G with RefC).
 * Arrays (`Data.IOArray`, and `Data.Linear.Array` of `contrib`) are cheap
   enough to build data structures on.  Reading and writing an element were
   calls through the `HasIO` dictionary that built closures for the action
