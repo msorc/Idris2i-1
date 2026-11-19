@@ -641,6 +641,16 @@ should target this file (`CHANGELOG_NEXT`).
   declared `noreturn` in the runtime, so that the C compiler does not make its
   call a jump (which hid the frame of the function that crashed).
 
+* A program that uses `setEnv`, `unsetEnv`, `enableRawMode` or
+  `resetRawMode` of `System` compiles: `idris_support.h` had no prototypes
+  for their C functions, and GCC 14 refuses the implicit declarations.  The
+  `%foreign` declaration of `isNull` in `Network.Socket.Data` names the header
+  that declares it, `idris_net.h`.  `support/refc/check-foreign.sh` checks
+  that every C function of the `%foreign` declarations of a set of Idris
+  sources that RefC calls is declared in the headers that the generated C
+  includes and defined by the support libraries; the test
+  `refc/foreigndecl001` runs it on the libraries.
+
 * A foreign function that returns a function (`PrimIO (Int -> Int)`) is a
   compile error, which says that the RefC backend does not support it: the
   generated C called a `makeFunction` that does not exist.

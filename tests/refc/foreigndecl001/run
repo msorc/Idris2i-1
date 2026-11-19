@@ -1,0 +1,21 @@
+. ../../testutils.sh
+
+idris2 --cg refc -o main Main.idr > /dev/null
+./build/exec/main < /dev/null
+
+# Every C function of a %foreign declaration of the libraries that RefC uses
+# has a prototype in the headers that the generated C includes, and a
+# definition in the support libraries (see support/refc/check-foreign.sh).
+# (without the number of functions, which changes with the libraries)
+# (the support directories are the first of IDRIS2_DATA, see testutils.sh,
+# with the runtime headers and the libraries)
+support="$(idris2_no_clean --libdir)/support"
+old_ifs=$IFS
+IFS=$SEP
+for d in ${IDRIS2_DATA:-}; do
+    if [ -f "$d/refc/runtime.h" ]; then support=$d; break; fi
+done
+IFS=$old_ifs
+libs=../../../libs
+sh ../../../support/refc/check-foreign.sh "$support/refc" "$support/c" \
+   "$libs/prelude" "$libs/base" "$libs/contrib" "$libs/network" "$libs/linear" | sed 's/^[0-9]* C functions/The C functions/'

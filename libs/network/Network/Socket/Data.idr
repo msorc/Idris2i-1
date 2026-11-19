@@ -64,7 +64,7 @@ EAGAIN =
 %foreign "C:idrnet_errno, libidris2_support, idris_net.h"
 prim__idrnet_errno : PrimIO Int
 
-%foreign "C:isNull, libidris2_support, idris_support.h"
+%foreign "C:isNull, libidris2_support, idris_net.h"
 prim__idrnet_isNull : (ptr : AnyPtr) -> PrimIO Int
 
 

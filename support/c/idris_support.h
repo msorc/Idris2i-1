@@ -21,6 +21,12 @@ int idris2_getArgCount();
 void idris2_setArgs(int argc, char *argv[]);
 char *idris2_getArg(int n);
 char *idris2_getEnvPair(int i);
+int idris2_setenv(const char *name, const char *value, int overwrite);
+int idris2_unsetenv(const char *name);
+
+// Raw mode of the terminal on stdin (no echo, no line buffering)
+int idris2_enableRawMode();
+void idris2_resetRawMode();
 
 int idris2_getPID();
 
