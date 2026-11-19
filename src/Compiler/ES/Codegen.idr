@@ -11,6 +11,7 @@ import Compiler.ES.Ast
 import Compiler.ES.Doc
 import Compiler.ES.ToAst
 import Compiler.ES.TailRec
+import Compiler.ES.Trmc
 import Compiler.ES.State
 import Compiler.NoMangle
 import Protocol.Hex
@@ -588,6 +589,10 @@ jsPrim nm docs = case (dropAllNS nm, docs) of
   (UN (Basic "prim__newArray"), [_,s,v,_]) => pure $ hcat ["(Array(", fromBigInt s, ").fill(", v, "))"]
   (UN (Basic "prim__arrayGet"), [_,x,p,_]) => pure $ hcat ["(", x, "[", fromBigInt p, "])"]
   (UN (Basic "prim__arraySet"), [_,x,p,v,_]) => pure $ hcat ["(", x, "[", fromBigInt p, "]=", v, ")"]
+  -- tail recursion modulo cons (see `Compiler.ES.Trmc`)
+  (UN (Basic "prim__js_trmcHolder"), []) => pure "({})"
+  (UN (Basic "prim__js_trmcFill"), [d,f,v]) => pure $ hcat ["(", d, "[", f, "]=", v, ")"]
+  (UN (Basic "prim__js_trmcResult"), [h]) => pure $ hcat ["(", h, ".a1)"]
   (UN (Basic "prim__codegen"), []) => do
     (cg :: _) <- ccTypes <$> get ESs
         | _ => pure "\"javascript\""
@@ -897,8 +902,16 @@ compileToES c s cg tm ccTypes = do
   let allDefs =  (mainExpr, EmptyFC, MkNmFun [] $ forget cdata.mainExpr)
               :: cdata.namedDefs
 
+      -- the functions with tail recursion modulo cons as loops: in the
+      -- browser, whose stack is small, unless the `no-trmc` directive says
+      -- otherwise, and with Node (whose main expression runs on a large
+      -- stack, where the loops are slower) with the `trmc` directive
+      trmc    = not ("no-trmc" `elem` directives)
+                && (("trmc" `elem` directives) || not ("node" `elem` ccTypes))
+      trmcd   = if trmc then trmcDefs allDefs else allDefs
+
       -- tail-call optimized set of toplevel functions
-      defs    = TailRec.functions tailRec allDefs
+      defs    = TailRec.functions tailRec trmcd
 
       -- tail calls to unknown functions go through a trampoline, unless
       -- the `no-trampoline` directive says otherwise

@@ -1124,6 +1124,14 @@ should target this file (`CHANGELOG_NEXT`).
   `while` loop instead of going through `__tailRec`, which allocated an object
   per round: 5 to 25% fewer instructions on the benchmarks with Node
   (`mergeInt` -23%, `triples` -25%).
+* In the browser (`--cg javascript`), functions with tail recursion modulo
+  cons (`zipWith f (x :: xs) (y :: ys) = f x y :: zipWith f xs ys`) are
+  compiled to loops that make the cell first and fill it later, so that
+  `zip`, `zipWith`, `take`, `intersperse`, `sort`, `lines`, `words` and the
+  like (and such functions of programs) no longer overflow the stack at a
+  few thousand elements.  `--directive no-trmc` turns this off; with Node,
+  whose main expression has a large stack, it costs 8 to 15% on the
+  benchmarks and is off unless `--directive trmc` is given.
 
 ### Library changes
 

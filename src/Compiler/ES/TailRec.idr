@@ -375,6 +375,7 @@ functions loop dfs =
 -- check their result.
 
 -- The tail calls of an expression: `Nothing` for an unknown function.
+export
 tailCallees : NamedCExp -> List (Maybe Name)
 tailCallees (NmLet _ _ _ z) = tailCallees z
 tailCallees (NmApp _ (NmRef _ n) _) = [Just n]

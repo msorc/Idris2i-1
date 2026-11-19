@@ -223,7 +223,9 @@ similar in browsers), which they cannot grow, and they do not eliminate tail
 calls.  The code generators make up for this as follows.
 
 Tail calls of a toplevel function to itself, or between toplevel functions
-that call each other, are compiled to loops.  This covers the usual loops in
+that call each other, are compiled to loops (a function that only calls
+itself becomes a ``while`` loop, functions that call each other a loop
+through a function of the group).  This covers the usual loops in
 ``IO`` as well (``loop n = do act n; loop (n - 1)``), since the inliner turns
 them into such calls.
 
@@ -241,14 +243,30 @@ A closure that reaches foreign code in another way, such as inside an
 these calls directly, as before.
 
 The library builds ranges (``[1..n]``), and runs ``traverse_``, ``for_`` and
-``sequence_`` on lists in ``IO``, with loops.
+``sequence_`` on lists in ``IO``, with loops; ``map``, ``filter`` and
+``(++)`` on lists are tail recursive.
 
-Recursion that is not a tail call needs a stack as deep as the recursion:
-``foldr``, ``sort`` and ``sortBy``, ``traverse`` and ``for`` on a list,
-``zip``, ``take``, ``lines``, ``unwords`` and the like use one frame per
-element.  With Node, the main expression therefore runs on a stack of its own
-of 1GB, in a worker thread, as it does with the RefC backend, which is enough
-for lists of millions of elements.  The ``IDRIS2_MAIN_STACK_SIZE``
+In the browser, a function that returns a constructor with a call of itself
+in a field (tail recursion modulo cons: ``zipWith f (x :: xs) (y :: ys) = f
+x y :: zipWith f xs ys``) is compiled to a loop too: it makes the cell first,
+with a hole that the call, now a tail call, fills.  This covers ``zip``,
+``zipWith``, ``take``, ``intersperse``, ``iterateN``, ``delete``, the merge
+of ``sort``, ``lines``, ``words``, ``unwords``, ``transpose`` and the like,
+and such functions of the program, also with a cell inside a cell (``x :: y
+:: f xs``) or several calls in the cell (the last one is the hole).  The
+fields after the call must do nothing but allocate (variables, constants,
+constructors, lambdas): ``Node (f l) (g x) Leaf`` stays a recursion.  With
+Node, whose main expression runs on a large stack (see below) where these
+loops cost 8 to 15% on the benchmarks, ``--directive trmc`` makes them;
+``--directive no-trmc`` turns them off in the browser.
+
+Recursion that is neither needs a stack as deep as the recursion:
+``foldr``, ``traverse`` and ``for`` on a list (except ``IO``), ``foldlM``,
+and the functions that return a pair (``span``, ``break``, ``splitAt``,
+``partition``, ``unzip``, ``group``) use one frame per element.  With
+Node, the main expression therefore runs on a stack of its own of 1GB, in a
+worker thread, as it does with the RefC backend, which is enough for lists
+of millions of elements.  The ``IDRIS2_MAIN_STACK_SIZE``
 environment variable gives the size of this stack in bytes; with ``0``, or
 when the generated file is loaded with ``require`` instead of being the
 script that Node runs, the program runs on the main thread.  The worker
@@ -261,14 +279,15 @@ when foreign code first uses ``process.stdin`` in the worker, the main thread
 starts reading file descriptor 0 as a stream and passes the input on to
 ``process.stdin`` of the worker, so that such code works as on the main
 thread.  As there, a program should not read stdin both ways: each would get
-part of the input.  Starting the worker costs about 25ms and 12MB.  Deep recursion is slow with V8, as
-every garbage collection walks the whole stack: ``traverse`` on a list of a
-million elements takes 12 times as long as on one of 100,000.
+part of the input.  Starting the worker costs about 25ms and 12MB.  Deep
+recursion is slow with V8, as every garbage collection walks the whole
+stack: ``traverse`` on a list of a million elements takes 12 times as long
+as on one of 100,000.
 
-The browser has no such worker: there, recursion that is not a tail call
-overflows the stack at a few thousand elements (``foldr`` over 6000,
-``sort`` of 10,000).  Use ``foldl``, tail-recursive functions, or
-``Data.SnocList`` there for longer lists.
+The browser has no such worker: there, the recursion that is left
+overflows the stack at a few thousand elements (``foldr`` over 6000).  Use
+``foldl``, tail-recursive functions, or ``Data.SnocList`` there for longer
+lists.
 
 Directives
 ----------
@@ -309,3 +328,7 @@ file:
 ``idris2 --cg node --directive no-trampoline`` (or ``--cg javascript``)
 makes the tail calls to unknown functions directly, without the trampoline
 described in the section on the stack depth above.
+
+``idris2 --cg javascript --directive no-trmc`` compiles the functions with
+tail recursion modulo cons as recursions, and ``idris2 --cg node --directive
+trmc`` compiles them as loops (see the section on the stack depth).

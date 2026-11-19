@@ -33,6 +33,7 @@ modules =
     Compiler.ES.Node,
     Compiler.ES.State,
     Compiler.ES.TailRec,
+    Compiler.ES.Trmc,
     Compiler.ES.ToAst,
 
     Compiler.Interpreter.VMCode,
