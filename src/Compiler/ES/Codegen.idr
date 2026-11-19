@@ -12,6 +12,7 @@ import Compiler.ES.Doc
 import Compiler.ES.ToAst
 import Compiler.ES.TailRec
 import Compiler.ES.Trmc
+import Compiler.ES.Stack
 import Compiler.ES.State
 import Compiler.NoMangle
 import Protocol.Hex
@@ -925,8 +926,16 @@ compileToES c s cg tm ccTypes = do
                 && (("trmc" `elem` directives) || not ("node" `elem` ccTypes))
       trmcd   = if trmc then trmcDefs allDefs else allDefs
 
+      -- the other functions that call themselves as loops on an explicit
+      -- stack (see `Compiler.ES.Stack`): like the loops above, in the
+      -- browser unless the `no-explicit-stack` directive says otherwise,
+      -- and with Node with the `explicit-stack` directive
+      stack   = not ("no-explicit-stack" `elem` directives)
+                && (("explicit-stack" `elem` directives) || not ("node" `elem` ccTypes))
+      stackd  = if stack then stackDefs trmcd else trmcd
+
       -- tail-call optimized set of toplevel functions
-      defs    = TailRec.functions tailRec trmcd
+      defs    = TailRec.functions tailRec stackd
 
       -- tail calls to unknown functions go through a trampoline, unless
       -- the `no-trampoline` directive says otherwise

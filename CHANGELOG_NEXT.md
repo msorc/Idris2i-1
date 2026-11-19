@@ -1177,6 +1177,25 @@ should target this file (`CHANGELOG_NEXT`).
   few thousand elements.  `--directive no-trmc` turns this off; with Node,
   whose main expression has a large stack, it costs 8 to 15% on the
   benchmarks and is off unless `--directive trmc` is given.
+* In the browser (`--cg javascript`), the other functions that call
+  themselves where the call is not a tail call are compiled to loops on an
+  explicit stack in the heap: a call in an argument, a `case` scrutinee or a
+  `let` value pushes a frame with what is left to do after it, and the loop
+  goes on with the call.  So `foldr` on lists, `traverse`, `for` and
+  `sequence` on lists in `Maybe` and `Either`, `span`, `break`, `splitAt`,
+  `partition`, `unzip`, `group`, `findIndex` and the like, the `treeInt`
+  benchmark and such functions of programs no longer overflow the stack at
+  a few thousand elements.  With this, the loops of tail recursion modulo
+  cons through a `case` in a field (`tails`) and the library changes below,
+  of 90 library functions run on 10^5 elements in the browser 27 overflowed
+  the stack, now 2 (`traverse` in `State`, `foldr (*>)` in `IO`).  The
+  order of evaluation stays the same (a call where it would not stays a
+  recursion).
+  `--directive no-explicit-stack` turns this off; with Node it is off unless
+  `--directive explicit-stack` is given.  It costs nothing measurable on the
+  benchmarks (with `--directive trmc` on Node), 5 to 8% on lists of 1000
+  elements and 2.4 times the instructions on `fib`; on 10^6 elements it takes
+  72 to 87% fewer instructions than Node's recursion on its large stack.
 * Node: `getLine` dropped no newline at the end of the line, `fEOF stdin` was
   never true (stdin was a new object at every use), and `fGetChar`,
   `fGetChars`, `fPoll`, `sleep`, `usleep`, `getEnvironment`, `enableRawMode`

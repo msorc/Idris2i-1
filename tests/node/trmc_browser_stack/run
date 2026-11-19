@@ -10,6 +10,7 @@ node ./build/exec/trmc.js
 idris2 --directive trmc -o trmc Trmc.idr
 IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/trmc
 
-# Without the loops, the stack overflows.
-idris2 --cg javascript --directive no-trmc -o notrmc.js Trmc.idr
+# Without the loops (and without those of `Compiler.ES.Stack`), the stack
+# overflows.
+idris2 --cg javascript --directive no-trmc --directive no-explicit-stack -o notrmc.js Trmc.idr
 node ./build/exec/notrmc.js 2>&1 | grep -c 'Maximum call stack size exceeded'

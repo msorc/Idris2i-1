@@ -242,9 +242,10 @@ A closure that reaches foreign code in another way, such as inside an
 (an object of class ``__TC``).  ``--directive no-trampoline`` makes all
 these calls directly, as before.
 
-The library builds ranges (``[1..n]``), and runs ``traverse_``, ``for_`` and
-``sequence_`` on lists in ``IO``, with loops; ``map``, ``filter``, ``(++)``
-and ``concat`` on lists are tail recursive.
+The library builds ranges (``[1..n]``), runs ``traverse_``, ``for_``,
+``sequence_``, ``traverse``, ``for``, ``sequence`` and ``foldlM`` on lists in
+``IO``, and ``and`` and ``or`` on lists, with loops; ``map``, ``filter``,
+``(++)`` and ``concat`` on lists are tail recursive.
 
 In the browser, a function that returns a constructor with a call of itself
 in a field (tail recursion modulo cons: ``zipWith f (x :: xs) (y :: ys) = f
@@ -252,18 +253,45 @@ x y :: zipWith f xs ys``) is compiled to a loop too: it makes the cell first,
 with a hole that the call, now a tail call, fills.  This covers ``zip``,
 ``zipWith``, ``take``, ``intersperse``, ``iterateN``, ``delete``, the merge
 of ``sort``, ``lines``, ``words``, ``unwords``, ``transpose`` and the like,
-and such functions of the program, also with a cell inside a cell (``x :: y
-:: f xs``) or several calls in the cell (the last one is the hole).  The
+``tails`` and such functions of the program, also with a cell inside a cell
+(``x :: y :: f xs``), several calls in the cell (the last one is the hole),
+or the call in a ``case`` in the cell (``xs :: case xs of ...``, if the
+other fields only allocate).  The
 fields after the call must do nothing but allocate (variables, constants,
 constructors, lambdas): ``Node (f l) (g x) Leaf`` stays a recursion.  With
 Node, whose main expression runs on a large stack (see below) where these
 loops cost 8 to 15% on the benchmarks, ``--directive trmc`` makes them;
 ``--directive no-trmc`` turns them off in the browser.
 
-Recursion that is neither needs a stack as deep as the recursion:
-``foldr``, ``traverse`` and ``for`` on a list (except ``IO``), ``foldlM``,
-and the functions that return a pair (``span``, ``break``, ``splitAt``,
-``partition``, ``unzip``, ``group``) use one frame per element.  With
+In the browser, the other functions that call themselves where the call is
+not a tail call (``foldr c n (x :: xs) = c x (foldr c n xs)``, or ``span``,
+whose call is the scrutinee of a ``case``: ``let (ys, zs) = span p xs in
+(x :: ys, zs)``) are compiled to loops on an explicit stack: a call of the
+function in an argument, a ``case`` scrutinee or a ``let`` becomes a jump
+back to the start of the loop, which first pushes a frame with what is left
+to do after the call (and the variables that it needs) on a stack in the
+heap; a value returned goes to the frame on top of the stack.  This covers
+``foldr`` (and what is defined with it) on lists, ``traverse``, ``for`` and
+``sequence`` on lists in ``Maybe``, ``Either`` and the like, the functions
+that return a pair (``span``, ``break``, ``splitAt``, ``partition``,
+``unzip``, ``group``), recursion on trees (``size l + size r``, the
+``treeInt`` benchmark) and such functions of the program.  The order of
+evaluation stays the same: a call whose loop would change it (a ``case`` or
+a ``let`` inside an argument after the call, which the code generator would
+compute before the call) stays a recursion, as do calls under a lambda or
+in a lazy value, and functions in a group of several that call each other by
+tail calls.  With Node, ``--directive explicit-stack`` makes these loops,
+and ``--directive no-explicit-stack`` turns them off in the browser.  They
+cost little on lists (5 to 8% more instructions with lists of 1000 elements
+on Node, none on the benchmarks) but more on shallow recursion that does
+little else (2.4 times the instructions for ``fib``); on deep recursion they
+are faster than Node's large stack (``foldr`` on 10^6 elements takes 72%
+fewer instructions).
+
+What is left needs a stack as deep as the recursion: recursion through
+several functions that call each other where the calls are not tail calls,
+and through closures: running a chain of actions as long as the list, as
+``traverse`` builds in ``State`` or ``foldr (*>) (pure ())`` in ``IO``.  With
 Node, the main expression therefore runs on a stack of its own of 1GB, in a
 worker thread, as it does with the RefC backend, which is enough for lists
 of millions of elements.  The ``IDRIS2_MAIN_STACK_SIZE``
@@ -285,9 +313,8 @@ stack: ``traverse`` on a list of a million elements takes 12 times as long
 as on one of 100,000.
 
 The browser has no such worker: there, the recursion that is left
-overflows the stack at a few thousand elements (``foldr`` over 6000).  Use
-``foldl``, tail-recursive functions, or ``Data.SnocList`` there for longer
-lists.
+overflows the stack at a few thousand levels.  Use ``foldl``,
+tail-recursive functions, or ``Data.SnocList`` there for longer lists.
 
 Signals
 -------
@@ -411,3 +438,5 @@ described in the section on the stack depth above.
 ``idris2 --cg javascript --directive no-trmc`` compiles the functions with
 tail recursion modulo cons as recursions, and ``idris2 --cg node --directive
 trmc`` compiles them as loops (see the section on the stack depth).
+Likewise, ``--directive no-explicit-stack`` and ``--directive
+explicit-stack`` turn the loops on an explicit stack off and on.
