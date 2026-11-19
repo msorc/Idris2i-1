@@ -89,29 +89,33 @@ updateLimit Func n opts
              else (x, l) :: set n v xs
 updateLimit t n opts = pure (Just opts)
 
--- Count an unfolding of a definition against the steps of the options, if
--- they have any (and an argument that is quoted, see countClosure).  When
--- they have run out, the evaluation stops with an error, and the counter is
--- -1, which tells whoever set it (see TTImp.PartialEval) that the error is
--- that one.
-export
-countStep : FC -> Maybe (IORef Int) -> Core ()
-countStep fc Nothing = pure ()
-countStep fc (Just r)
+-- Count a step against the steps of the options, if they have any (an
+-- unfolding of a definition, or an argument that is quoted, see
+-- stepClosure), and go on.  When they have run out, the evaluation stops
+-- with an error, and the counter is -1, which tells whoever set it (see
+-- TTImp.PartialEval) that the error is that one.  (Inlined: the evaluations
+-- without steps, nearly all of them, only test the option.)
+countStep : FC -> IORef Int -> Core ()
+countStep fc r
     = do k <- coreLift (readIORef r)
          if k <= 0
             then do coreLift (writeIORef r (-1))
                     throw (GenericMsg fc "Out of reduction steps")
             else coreLift (writeIORef r (k - 1))
 
--- Count the quoting of a closure against the steps of its options: a normal
--- form can be much bigger than the unfoldings it took (the elements of
--- `iterate S Z`, which a quote that looks under delays reaches, are ever
--- bigger), and the work of quoting it is bounded too.
-export
-countClosure : Closure vars -> Core ()
-countClosure (MkClosure opts _ _ _) = countStep EmptyFC (steps opts)
-countClosure (MkNFClosure opts _ _) = countStep EmptyFC (steps opts)
+export %inline
+stepThen : FC -> Maybe (IORef Int) -> Core a -> Core a
+stepThen fc Nothing k = k
+stepThen fc (Just r) k = countStep fc r >> k
+
+-- Count the quoting of a closure against the steps of its options, and go
+-- on: a normal form can be much bigger than the unfoldings it took (the
+-- elements of `iterate S Z`, which a quote that looks under delays reaches,
+-- are ever bigger), and the work of quoting it is bounded too.
+export %inline
+stepClosure : Closure vars -> Core a -> Core a
+stepClosure (MkClosure opts _ _ _) k = stepThen EmptyFC (steps opts) k
+stepClosure (MkNFClosure opts _ _) k = stepThen EmptyFC (steps opts) k
 
 data CaseResult a
      = Result a
@@ -549,8 +553,9 @@ parameters (defs : Defs) (topopts : EvalOpts)
                                        pure "Cannot reduce under-applied \{show def}"
                                      pure def
                        Just (locs', stk') =>
-                            do countStep fc (steps opts)
-                               (Result (MkTermEnv newLoc res)) <- evalTree env locs' opts fc stk' tree
+                            do (Result (MkTermEnv newLoc res)) <-
+                                      stepThen fc (steps opts)
+                                        (evalTree env locs' opts fc stk' tree)
                                     | _ => do logC "eval.def.stuck" 50 $ do
                                                 def <- toFullNames def
                                                 pure "evalTree failed on \{show def}"

@@ -532,7 +532,7 @@ autoLimits = (NS partialEvalNS (UN $ Basic "autoSpecLimits"), 0)
 -- How many steps it takes at most to normalise a static argument, or to
 -- reduce a clause of a copy: a step is the unfolding of a definition, or the
 -- quoting of an argument of the result (the evaluation fails past that, see
--- Core.Normalise.Eval.countStep).  A term that takes more is not reduced:
+-- Core.Normalise.Eval.stepThen).  A term that takes more is not reduced:
 -- a call of a function that does not terminate took forever (and overflowed
 -- the stack of the compiler), an infinite structure filled the memory, and a
 -- big term takes long, and makes a big copy.  (Specialising is an
@@ -1349,9 +1349,9 @@ mutual
               Core (List (Term (bound ++ free)))
   quoteArgs q defs bounds env [] = pure []
   quoteArgs q defs bounds env (a :: args)
-      = do countClosure a
-           pure $ (!(quoteGenNF q defs bounds env !(evalClosure defs a)) ::
-                !(quoteArgs q defs bounds env args))
+      = stepClosure a $
+          do a' <- quoteGenNF q defs bounds env !(evalClosure defs a)
+             pure (a' :: !(quoteArgs q defs bounds env args))
 
   quoteArgsWithFC : {auto c : Ref Ctxt Defs} ->
                     {auto m : Ref MD Metadata} ->
@@ -1542,8 +1542,7 @@ mutual
            pure (TDelayed fc r argQ)
   quoteGenNF q defs bound env (NDelay fc r ty arg)
       -- unlike main evaluator, we want to look under Delays
-      = do countClosure arg
-           argNF <- evalClosure defs arg
+      = do argNF <- stepClosure arg $ evalClosure defs arg
            argQ <- quoteGenNF q defs bound env argNF
            tyNF <- evalClosure defs ty
            tyQ <- quoteGenNF q defs bound env tyNF
