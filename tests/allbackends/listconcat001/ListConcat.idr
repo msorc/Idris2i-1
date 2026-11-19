@@ -49,7 +49,7 @@ app2 f x y = f x y
 
 -- A monoid that records the order in which the pieces are combined, to
 -- see that the result is the same for every way of folding.  It has the
--- default `foldMapListImpl`, a left fold, so it is only used on short lists.
+-- default `foldMapListImpl`, which combines the pieces in a balanced way.
 record Trace where
   constructor MkTrace
   items : List Int
@@ -60,17 +60,22 @@ Semigroup Trace where
 Monoid Trace where
   neutral = MkTrace []
 
--- A monoid with its own `foldMapListImpl`.
+-- A monoid that depends on the order of the pieces (a rolling hash, with
+-- the power of 31 that goes with it to make it associative, and a modulus
+-- whose square fits in the 32 bits of `Int` with JavaScript), with the
+-- default `foldMapListImpl`.
 record Count where
   constructor MkCount
   n : Int
   h : Int
+  p : Int
 
 Semigroup Count where
-  MkCount a b <+> MkCount c d = MkCount (a + c) ((b * 31 + d) `mod` 1000003)
+  MkCount a b c <+> MkCount d e f =
+    MkCount (a + d) ((b * f + e) `mod` 32003) ((c * f) `mod` 32003)
 
 Monoid Count where
-  neutral = MkCount 0 0
+  neutral = MkCount 0 0 1
 
 pieceL : Int -> List Int
 pieceL i = [i, i + 1]
@@ -137,11 +142,10 @@ main = do
   putStrLn $ show (foldMap @{%search} @{Additive} (* 3) bigs)
 
   putStrLn "-- Other monoids"
-  let short = nums 2000
-  let tr = foldMap (\i => MkTrace [i]) short
+  let tr = foldMap (\i => MkTrace [i]) ints
   showL "Trace" tr.items
-  showL "Trace gen" (gFoldMap (\i => MkTrace [i]) short).items
-  let ct = foldMap (\i => MkCount 1 i) ints
+  showL "Trace gen" (gFoldMap (\i => MkTrace [i]) ints).items
+  let ct = foldMap (\i => MkCount 1 i 31) ints
   putStrLn $ "Count: " ++ show ct.n ++ " " ++ show ct.h
   let (a, b) = foldMap (\i => (the (List Int) [i], pieceS i)) (nums 1000)
   putStrLn $ show (hash a) ++ " " ++ show (shash b)
