@@ -814,6 +814,16 @@ should target this file (`CHANGELOG_NEXT`).
   times fewer instructions, and a workload of `Data.HashMap` (`Int` and
   `String` keys, `hashWithSalt` on `Bits64`) 19% fewer.  `--directive
   refc-no-workers` turns this off.
+* The functions in `IO` have workers too: a function whose actions take the
+  world (`f x = do ...`, which the compiler gives the world as a last
+  parameter) takes its fixed width integers as C integers, and gives the
+  result of its action as one.  The types of the parameters and results are
+  read through aliases (`Hash = Bits64`), newtypes over these types (a
+  `record` with one such field) and names of function types (`PrimIO a`).
+  A loop in `IO` with an `Int64` state that calls an `IO` step runs 9 times
+  fewer instructions and no longer allocates at every step; the sum of an
+  `IOArray` of `Bits64` 38% fewer, a loop over a `Bits64` alias or newtype
+  9 to 11 times fewer.
 * A `mod` or `div` of an `Int`, whose case for zero crashes, gives a C
   integer in the function that computes it: a loop with an `Int` state above
   2^32 that takes a `mod` runs 3.6 times fewer instructions.

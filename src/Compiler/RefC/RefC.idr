@@ -11,6 +11,9 @@ import Compiler.ANF
 import Compiler.Generated
 
 import Core.Directory
+import Core.Env
+import Core.Normalise
+import Core.Value
 
 import Idris.Env
 import Idris.Syntax
@@ -2441,31 +2444,90 @@ additionalFFIStub name argTypes retType =
 ||| The parameters `params` of the function `n` (in its compiled form) that have
 ||| a fixed width integer type, with their unboxed types, and the type of its
 ||| result if it is one.  The parameters are its arguments that are not
-||| dropped (see `mkDropSubst`), in order: if the type has fewer arguments
-||| than the function (whose result is a function, by a name), none are
-||| given; the result is known when it has as many.
+||| dropped (see `mkDropSubst`), in order.
+|||
+||| The type is evaluated (lazily: a part of it only when it is read), so
+||| that a name that stands for a type is seen through: an alias (`Hash =
+||| Bits64`), a function type behind a name (`PrimIO a`, `Endo = Bits64 ->
+||| Bits64`, when the function takes the arguments of its result).  A
+||| function whose result is `IO a` and that takes one more parameter than its
+||| type has arguments (the compiler gives it the world when the actions of its
+||| body are functions of the world: `f x = do ...`) takes the world, and gives
+||| the result of the action: `IO a`, a newtype over `PrimIO a = (1 w : %World)
+||| -> IORes a`, is that function, and `IORes a` (whose %World is erased) is
+||| `a`.  So is a newtype over a fixed width integer (`record Seed where
+||| constructor MkSeed; val : Bits64`) that integer.  If the type does not
+||| account for the parameters (the result is not known to be a function, a
+||| type computed from the arguments for instance), none are given; the
+||| result is known when every parameter is accounted for.
 intSignature : {auto c : Ref Ctxt Defs} -> Name -> List Int
             -> Core (SortedMap Int PrimType, Maybe PrimType)
 intSignature n params = do
     defs <- get Ctxt
     Just gdef <- lookupCtxtExact n (gamma defs)
       | Nothing => pure (empty, Nothing)
-    let (tys, res) = binders 0 (eraseArgs gdef) (type gdef)
-    pure $ if length params > length tys
-              then (empty, Nothing)
-              else ( fromList (mapMaybe (\(p, t) => map (p,) t) (zip params tys))
-                   , if length params == length tys then res else Nothing )
+    ty <- nf defs Env.empty (type gdef)
+    Just (tys, res) <- binders defs (eraseArgs gdef) 0 (length params) ty
+      | Nothing => pure (empty, Nothing)
+    pure (fromList (mapMaybe (\(p, t) => map (p,) t) (zip params tys)), res)
   where
-    intType : Term vs -> Maybe PrimType
-    intType (PrimVal _ (PrT t)) = unboxedType t
-    intType _ = Nothing
+    isPrimIO : String -> Name -> Bool
+    isPrimIO s (NS ns (UN (Basic s'))) = s == s' && ns == primIONS
+    isPrimIO _ _ = False
 
-    binders : Nat -> NatSet -> Term vs -> (List (Maybe PrimType), Maybe PrimType)
-    binders i es (Bind _ _ (Pi _ rig _ ty) sc)
-        = let (rest, res) = binders (S i) es sc in
-              if i `elem` es then (rest, res)
-                 else ((if rig /= erased then intType ty else Nothing) :: rest, res)
-    binders _ _ t = ([], intType t)
+    -- The type of the field of a newtype over a fixed width integer, of a
+    -- type constructor: its only constructor has one argument that is not
+    -- erased (or a %World), whose type is the integer type.  Its values are
+    -- those of the field (see `getNewType` in Compiler.CompileExpr).
+    newtypeField : Defs -> Name -> Core (Maybe PrimType)
+    newtypeField defs tn
+        = do Just (TCon _ _ _ _ _ (Just [con]) _) <- lookupDefExact tn (gamma defs)
+               | _ => pure Nothing
+             Just cdef <- lookupCtxtExact con (gamma defs)
+               | Nothing => pure Nothing
+             let DCon _ _ (Just (_, pos)) = definition cdef
+               | _ => pure Nothing
+             pure (field pos (type cdef))
+      where
+        field : Nat -> Term vs -> Maybe PrimType
+        field Z (Bind _ _ (Pi _ _ _ (PrimVal _ (PrT t))) _) = unboxedType t
+        field (S k) (Bind _ _ (Pi _ _ _ _) sc) = field k sc
+        field _ _ = Nothing
+
+    -- The fixed width integer type of a value of the type `t`.
+    intType : Defs -> ClosedNF -> Core (Maybe PrimType)
+    intType defs (NPrimVal _ (PrT t)) = pure (unboxedType t)
+    intType defs (NTCon _ tn _ args)
+        = do tn <- toFullNames tn
+             case args of
+                  [(_, a)] => if isPrimIO "IORes" tn
+                                 then intType defs !(evalClosure defs a)
+                                 else newtypeField defs tn
+                  _ => newtypeField defs tn
+    intType _ _ = pure Nothing
+
+    -- The types of the `k` parameters left, from the binder `i` of the type
+    -- on, and the type of the result.
+    binders : Defs -> NatSet -> Nat -> Nat -> ClosedNF
+           -> Core (Maybe (List (Maybe PrimType), Maybe PrimType))
+    binders defs es i k (NBind fc _ (Pi _ rig _ ty) sc)
+        = if i `elem` es
+             then binders defs es (S i) k !(sc defs (toClosure defaultOpts Env.empty (Erased fc Placeholder)))
+             else case k of
+               Z => pure (Just ([], Nothing)) -- (the result is a function)
+               S k => do
+                 t <- if rig == erased then pure Nothing
+                                       else intType defs !(evalClosure defs ty)
+                 rest <- binders defs es (S i) k
+                           !(sc defs (toClosure defaultOpts Env.empty (Erased fc Placeholder)))
+                 pure (map (mapFst (t ::)) rest)
+    binders defs es i Z t = pure (Just ([], !(intType defs t)))
+    -- the world, given to the action of the result
+    binders defs es i (S Z) (NTCon _ tn _ [(_, a)])
+        = if isPrimIO "IO" !(toFullNames tn)
+             then pure (Just ([Nothing], !(intType defs !(evalClosure defs a))))
+             else pure Nothing
+    binders _ _ _ _ _ = pure Nothing
 
 ||| The optimisations that a directive turns off, for measurements and to
 ||| find the culprit of a bug.  `--directive refc-size-reuse` turns on the

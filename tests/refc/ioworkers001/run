@@ -1,0 +1,16 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr > /dev/null
+$VALGRIND ./build/exec/main
+# The workers (see `Worker` in Compiler.RefC.RefC) of the functions in IO
+# take the world, and give the result of the action as a C integer;
+# `mixHash` and `nextSeed` read the integer type through an alias and a
+# newtype, `addTo` takes the argument of its result, a function by a name.
+# `refLoop` (whose result is ()) takes its Int as a C integer.
+c=build/exec/main.c
+for f in stepIO fnvIO lcgI64 bigInt addB8IO negI16IO mulI32IO addB32IO subI8IO addB16IO divI64IO primStep refLoop sumArr mixHash mixHashIO nextSeed seedLoop addTo; do
+  echo "$f: $(grep "^[A-Za-z0-9_]* *\*\{0,1\}idris2_raw_Main_$f\$" $c | sort -u)"
+done
+# (the loop of fnvIO calls the worker of stepIO and makes no value)
+echo "fnvIO makes values: $(awk -v RS= '/idris2_raw_Main_fnvIO\n\(/' $c | grep -c 'idris2_mkBits64\|idris2_vp_to_Bits64')"
+rm -rf build
