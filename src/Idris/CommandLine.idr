@@ -186,6 +186,9 @@ data CLOpt
   ZshCompletionScript String |
    ||| Turn on %default total globally
   Total |
+   ||| A function that uses an implementation of an interface is not covering
+   ||| when one of the implementation's methods is not
+  MethodTotality |
    ||| Disable common subexpression elimination
   NoCSE |
    ||| Specialise functions by the implementations of their interfaces
@@ -283,6 +286,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
            optSeparator,
            MkOpt ["--total"] [] [Total]
               (Just "Require functions to be total by default"),
+           MkOpt ["--method-totality"] [] [MethodTotality]
+              (Just "Count the methods of the implementations a function uses in its totality"),
            MkOpt ["-Werror"] [] [WarningsAsErrors]
               (Just "Treat warnings as errors"),
            MkOpt ["-Wno-shadowing"] [] [IgnoreShadowingWarnings]

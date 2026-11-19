@@ -1,0 +1,26 @@
+1/1: Building Lib (Lib.idr)
+2/2: Building Use (Use.idr)
+Error: direct is not covering.
+
+Use:10:1--10:16
+ 06 | import Lib
+ 07 |
+ 08 | %default total
+ 09 |
+ 10 | direct : T -> T
+      ^^^^^^^^^^^^^^^
+
+Calls non covering function Lib.Foo implementation at Lib:1
+Lib.Foo implementation at Lib:1 is not covering, because of Lib.foo
+Error: indirect is not covering.
+
+Use:13:1--13:18
+ 09 |
+ 10 | direct : T -> T
+ 11 | direct = foo
+ 12 |
+ 13 | indirect : T -> T
+      ^^^^^^^^^^^^^^^^^
+
+Calls non covering function Lib.useFoo
+Lib.useFoo is not covering, because of Lib.Foo implementation at Lib:1

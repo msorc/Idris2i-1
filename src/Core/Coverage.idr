@@ -354,14 +354,27 @@ getMissing fc n ty ctree
         = trimArgs defs (acc :< x) !(sc defs $ toClosure defaultOpts Env.empty x) xs
     trimArgs _ acc _ _ = pure $ toList acc
 
+||| The functions (and implementations) that the given definition flags as
+||| not covering once the methods of implementations are counted.
+export
+partialMethods : List DefFlag -> Maybe (List Name)
+partialMethods [] = Nothing
+partialMethods (PartialMethods ns :: _) = Just ns
+partialMethods (_ :: fs) = partialMethods fs
+
 -- For the given name, get the names it refers to which are not themselves
 -- covering.
 -- Also need to go recursively into case blocks, since we only calculate
 -- references for them at the top level clause
+-- With `methods`, a name is also not covering when it is flagged as using
+-- an implementation of an interface with a method that is not covering
+-- (`PartialMethods`); that flag is recorded whether or not the method
+-- totality check is on, so that the check is the same whatever the options
+-- the imported modules were checked with.
 export
 getNonCoveringRefs : {auto c : Ref Ctxt Defs} ->
-                     FC -> Name -> Core (List Name)
-getNonCoveringRefs fc n
+                     FC -> (methods : Bool) -> Name -> Core (List Name)
+getNonCoveringRefs fc methods n
    = do defs <- get Ctxt
         Just d <- lookupCtxtExact n (gamma defs)
            | Nothing => undefinedName fc n
@@ -369,7 +382,7 @@ getNonCoveringRefs fc n
         let cases = filter isCase !(traverse toFullNames ds)
 
         -- Case blocks aren't recursive, so we're safe!
-        cbad <- traverse (getNonCoveringRefs fc) cases
+        cbad <- traverse (getNonCoveringRefs fc methods) cases
         topbad <- filterM (notCovering defs) ds
         pure (topbad ++ concat cbad)
   where
@@ -386,7 +399,7 @@ getNonCoveringRefs fc n
     notCovering defs n
         = case !(lookupCtxtExact n (gamma defs)) of
                Just def => case isCovering (totality def) of
-                                IsCovering => pure False
+                                IsCovering => pure (methods && isJust (partialMethods (flags def)))
                                 _ => pure True
                _ => pure False
 

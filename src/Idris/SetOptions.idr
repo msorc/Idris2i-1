@@ -562,6 +562,9 @@ preOptions (BashCompletionScript fun :: _)
 preOptions (ZshCompletionScript fun :: _)
     = do coreLift $ putStrLn $ zshCompletionScript fun
          pure Abort
+preOptions (MethodTotality :: opts)
+    = do updateSession ({ methodTotality := True })
+         preOptions opts
 preOptions (Total :: opts)
     = do updateSession ({ totalReq := Total })
          preOptions opts

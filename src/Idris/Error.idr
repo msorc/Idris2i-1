@@ -1,5 +1,6 @@
 module Idris.Error
 
+import Core.Coverage
 import Core.Directory
 import Core.Env
 
@@ -456,6 +457,26 @@ importHint n
                 <+> reflow "; import one of them" <+> dot
                 <+> line
 
+||| For each of the given non covering functions that is not covering because
+||| of the methods of implementations (see `PartialMethods`), say which: the
+||| name of an implementation does not say what is wrong with it.
+implCoverageNotes : {auto c : Ref Ctxt Defs} ->
+                    List Name -> Core (Doc IdrisAnn)
+implCoverageNotes ns
+    = do notes <- traverse note ns
+         pure $ concatWith (<+>) (mapMaybe id notes)
+  where
+    note : Name -> Core (Maybe (Doc IdrisAnn))
+    note fn
+        = do defs <- get Ctxt
+             Just gdef <- lookupCtxtExact fn (gamma defs)
+                  | Nothing => pure Nothing
+             let Just ms = partialMethods (flags gdef)
+                  | Nothing => pure Nothing
+             pure $ Just $ line <+> pretty0 fn
+                    <++> reflow "is not covering, because of"
+                    <++> concatWith (surround (comma <+> space)) (pretty0 <$> ms)
+
 perrorRaw : {auto c : Ref Ctxt Defs} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto o : Ref ROpts REPLOpts} ->
@@ -547,9 +568,10 @@ perrorRaw (NotCovering fc n (NonCoveringCall ns))
     = pure $ errorDesc (pretty0 !(prettyName n) <++> reflow "is not covering.")
         <+> line <+> !(ploc fc) <+> line
         <+> reflow "Calls non covering function" <+>
-        case ns of
+        (case ns of
              [fn] => space <+> pretty0 fn
-             _ => pretty0 's' <+> colon <++> concatWith (surround (comma <+> space)) (pretty0 <$> ns)
+             _ => pretty0 's' <+> colon <++> concatWith (surround (comma <+> space)) (pretty0 <$> ns))
+        <+> !(implCoverageNotes ns)
 perrorRaw (NotTotal fc n r)
     = pure $ errorDesc (code (pretty0 !(prettyName n)) <++> reflow "is not total," <++> pretty0 r)
         <+> line <+> !(ploc fc) <+> !(callPath r)

@@ -1,0 +1,7 @@
+. ../../../testutils.sh
+
+# Accepted without the flag
+check Cov.idr
+rm -rf build
+
+check --method-totality Cov.idr

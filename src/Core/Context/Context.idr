@@ -245,6 +245,11 @@ data DefFlag
          -- full names.  It is reused for the same function and arguments
          -- only, not for others whose hash, which names the copy, is the
          -- same.
+    | PartialMethods (List Name)
+         -- For the record of an implementation of an interface: those of
+         -- its methods (and parent implementations) that are not covering.
+         -- A function that uses the implementation is not covering either
+         -- when the method totality check is on (see Core.Coverage).
 %name DefFlag dflag
 
 export
@@ -263,6 +268,7 @@ Eq DefFlag where
     (==) (ConType x) (ConType y) = x == y
     (==) (Identity x) (Identity y) = x == y
     (==) (PositiveParams x) (PositiveParams y) = toList x == toList y
+    (==) (PartialMethods xs) (PartialMethods ys) = xs == ys
     (==) (SpecStatics f xs) (SpecStatics g ys) = f == g && sameStatics xs ys
       where
         sameStatics : List ClosedTerm -> List ClosedTerm -> Bool
@@ -288,6 +294,7 @@ Show DefFlag where
   show (Identity x) = "identity " ++ show x
   show (PositiveParams x) = "positiveparams " ++ show (toList x)
   show (SpecStatics _ _) = "specstatics"
+  show (PartialMethods ns) = "partialmethods " ++ show ns
 
 public export
 record SCCall where

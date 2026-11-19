@@ -286,6 +286,32 @@ should target this file (`CHANGELOG_NEXT`).
   too large.  Checking a file importing modules of `base` and `contrib` with
   five undefined names takes 4.7 G instructions instead of 25 G (one undefined
   name: 2.7 G instead of 7.5 G).
+* A `total` function that uses an implementation of an interface with a
+  method that is not covering is no longer total.  `div` and `mod` of
+  `Integral` are declared `partial`, and the implementations for the
+  primitive integer types and `Nat` do not define them for a zero divisor,
+  yet ``f x y = x `div` y`` was accepted in `%default total` code: the call
+  goes through the method's projection, which is covering, and the record
+  of the implementation was checked for coverage before its methods were
+  defined.  The error names the implementation and its methods: "`f` is not
+  covering.  Calls non covering function Prelude.Num.Integral implementation
+  at ...", followed by "Prelude.Num.Integral implementation at ... is not
+  covering, because of Prelude.Num.div, Prelude.Num.mod".  When the
+  implementation is a constraint argument (`Integral a => ...`), the
+  function is total relative to it, and the function that chooses the
+  implementation is checked.  The check is per implementation, not per
+  method: passing `Integral Int` on counts even when only its other methods
+  are used, as by the ranges of `Int` (`[x .. y]`).  Write `assert_total`
+  where the divisor is evidently not zero (or the partial methods are not
+  used), or make the function `covering` or `partial`.  Covering functions
+  are not affected by default; with the new `--method-totality` flag they
+  are checked the same way.  Whatever the flag, what makes an
+  implementation, or a function using one, not covering this way is
+  recorded in the TTC, so the check sees through modules checked without
+  the flag.  (The non-termination of a method was already accounted for.)
+  `prim__div_Double`, and so `/` on `Double`, is now total: dividing a
+  `Double` by zero gives an infinity or NaN on every backend.  The TTC
+  version changes.
 * A function that matches on a type is no longer total when it takes out of
   the type, and uses, a variable that can hold a function over types: with
   `data I : (Type -> Bool) -> Type`, the clause `J (I f) = f` makes `J` an

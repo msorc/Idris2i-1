@@ -1,0 +1,114 @@
+1/1: Building Methods (Methods.idr)
+Error: useAbsFoo is not covering.
+
+Methods:23:1--23:19
+ 19 | absFoo : Foo a => a -> a
+ 20 | absFoo = foo
+ 21 |
+ 22 | -- ...but whoever supplies the dictionary is not
+ 23 | useAbsFoo : T -> T
+      ^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Foo implementation at Methods:1
+Main.Foo implementation at Methods:1 is not covering, because of Main.foo
+Error: useCov is not total, possibly not terminating due to function Main.cov being reachable via Main.Cov implementation at Methods:2 -> Main.cov
+
+Methods:45:1--45:16
+ 41 |
+ 42 | Cov T where
+ 43 |   cov x = cov x
+ 44 |
+ 45 | useCov : T -> T
+      ^^^^^^^^^^^^^^^
+
+Calls leading to the non-terminating function:
+    Main.Cov implementation at Methods:2 called at Methods:46:10--46:13
+    Main.cov called at Methods:42:1--43:16
+
+Error: useFoo is not covering.
+
+Methods:15:1--15:16
+ 11 |
+ 12 | Foo T where
+ 13 |   foo A = B
+ 14 |
+ 15 | useFoo : T -> T
+      ^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Foo implementation at Methods:1
+Main.Foo implementation at Methods:1 is not covering, because of Main.foo
+Error: useLoop is not total, possibly not terminating due to function Main.loop being reachable via Main.Loop implementation at Methods:3 -> Main.loop
+
+Methods:34:1--34:17
+ 30 |
+ 31 | Loop T where
+ 32 |   loop x = loop x
+ 33 |
+ 34 | useLoop : T -> T
+      ^^^^^^^^^^^^^^^^
+
+Calls leading to the non-terminating function:
+    Main.Loop implementation at Methods:3 called at Methods:35:11--35:15
+    Main.loop called at Methods:31:1--32:18
+
+Error: useNamed is not covering.
+
+Methods:63:1--63:22
+ 59 | -- Named implementations
+ 60 | [partialNamed] Foo Nat where
+ 61 |   foo Z = Z
+ 62 |
+ 63 | useNamed : Nat -> Nat
+      ^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.partialNamed
+Main.partialNamed is not covering, because of Main.foo
+1/1: Building Defaults (Defaults.idr)
+Error: useDefault is not covering.
+
+Defaults:22:1--22:20
+ 18 | Dflt Bool where
+ 19 |   dflt = not
+ 20 |   other = id
+ 21 |
+ 22 | useDefault : T -> T
+      ^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Dflt implementation at Defaults:1
+Main.Dflt implementation at Defaults:1 is not covering, because of Main.dflt
+Error: useOther is not covering.
+
+Defaults:29:1--29:18
+ 25 | useOverridden : Bool -> Bool
+ 26 | useOverridden = dflt
+ 27 |
+ 28 | -- Not using the partial method does not help: the dictionary is partial
+ 29 | useOther : T -> T
+      ^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Dflt implementation at Defaults:1
+Main.Dflt implementation at Defaults:1 is not covering, because of Main.dflt
+Error: useSub is not covering.
+
+Defaults:52:1--52:16
+ 48 |
+ 49 | useViaParent : T -> T
+ 50 | useViaParent = viaParent
+ 51 |
+ 52 | useSub : T -> T
+      ^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Sub implementation at Defaults:2
+Main.Sub implementation at Defaults:2 is not covering, because of Main.Base implementation at Defaults:3
+Error: useViaParent is not covering.
+
+Defaults:49:1--49:22
+ 45 |
+ 46 | viaParent : Sub a => a -> a
+ 47 | viaParent = base
+ 48 |
+ 49 | useViaParent : T -> T
+      ^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Sub implementation at Defaults:2
+Main.Sub implementation at Defaults:2 is not covering, because of Main.Base implementation at Defaults:3

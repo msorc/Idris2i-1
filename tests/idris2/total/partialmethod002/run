@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+check --method-totality Methods.idr
+check --method-totality Defaults.idr

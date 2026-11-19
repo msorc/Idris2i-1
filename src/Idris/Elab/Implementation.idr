@@ -1,5 +1,6 @@
 module Idris.Elab.Implementation
 
+import Core.Coverage
 import Core.Env
 import Core.Metadata
 import Core.Unify
@@ -271,12 +272,15 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
                names' <- traverse applyEnv (impName :: mtops)
                let nest' = { names $= (names' ++) } nest
 
+               -- it's the methods we're interested in, not the implementation
+               -- (and its coverage must not count the methods of its parents
+               -- as a total function's would: see step 5.5)
+               setFlag vfc impName (SetTotal PartialOK)
+
                traverse_ (processDecl [] nest' env) [impFn]
                unsetFlag vfc impName BlockedHint
 
                setFlag vfc impName TCInline
-               -- it's the methods we're interested in, not the implementation
-               setFlag vfc impName (SetTotal PartialOK)
 
                -- 4. (TODO: Order method bodies to be in declaration order, in
                --    case of dependencies)
@@ -287,6 +291,14 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
 
                log "elab.implementation" 10 $ "Implementation body: " ++ show body'
                traverse_ (processDecl [] nest' env) body'
+
+               -- 5.5. The record was checked for coverage before the method
+               --    bodies existed, when the methods counted as covering.
+               --    Now that they are defined, flag the methods that are not
+               --    covering, so that resolving this implementation in a
+               --    covering or total function is reported there when the
+               --    method totality check is on.
+               updateImplCoverage impName
 
                -- 6. Add transformation rules for top level methods
                traverse_ (addTransform impName upds) (methods cdata)
@@ -301,6 +313,20 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
     where
     vfc : FC
     vfc = virtualiseFC ifc
+
+    updateImplCoverage : Name -> Core ()
+    updateImplCoverage n
+        = do defs <- get Ctxt
+             Just gdef <- lookupCtxtExact n (gamma defs)
+                  | Nothing => pure ()
+             [] <- getNonCoveringRefs vfc True n
+                  | ns => do ns <- traverse toFullNames ns
+                             log "elab.implementation" 3 $
+                                 show n ++ " has methods that are not covering: " ++ show ns
+                             let flags' = PartialMethods ns
+                                            :: filter (isNothing . partialMethods . pure) (flags gdef)
+                             ignore $ addDef n ({ flags := flags' } gdef)
+             pure ()
 
     applyEnv : Name ->
                Core (Name, (Maybe Name, List (Var vars), FC -> NameType -> Term vars))

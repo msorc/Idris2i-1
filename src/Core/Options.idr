@@ -234,6 +234,8 @@ record Session where
   showShadowingWarning : Bool
   errorFormat : ErrorFormat -- how to report errors and warnings
   warnWhereRecompute : Bool -- warn about local constants recomputed at each use
+  methodTotality : Bool -- a function using an implementation is not covering
+                        -- when one of the implementation's methods is not
 
   -- Experimental
   checkHashesInsteadOfModTime : Bool
@@ -318,7 +320,7 @@ defaultSession : Session
 defaultSession = MkSessionOpts False CoveringOnly False False RefC [] 1000 False False
                                defaultLogLevel Nothing False Nothing Nothing
                                Nothing Nothing False 1 False False True
-                               HumanErrors False False [] False False False
+                               HumanErrors False False False [] False False False
                                False
 
 export

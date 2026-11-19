@@ -358,6 +358,60 @@ total, a function ``f`` must:
 
 -  Not call any non-total functions
 
+Totality of interface methods
+-----------------------------
+
+A method of an interface is called through an implementation of the
+interface, so a function that calls a method is only as total as the
+implementation it uses. An interface can declare a method ``partial`` (or
+``covering``), which allows its implementations to define the method
+partially. For example, ``div`` and ``mod`` of ``Integral`` are declared
+``partial``, and the implementations for the primitive integer types (and
+``Nat``) do not define division by zero. An implementation whose methods are
+not all covering is not covering either, as far as a total function is
+concerned, so:
+
+.. code-block:: idris
+
+    total
+    half : Int -> Int
+    half x = x `div` 2
+
+is rejected:
+
+::
+
+    Error: half is not covering.
+
+    Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:...
+    Prelude.Num.Integral implementation at Prelude.Num:... is not covering, because of Prelude.Num.div, Prelude.Num.mod
+
+When the implementation is not known, because it is an argument of the
+function (``Integral a => a -> a -> a``), the function is total relative to
+its argument: it is the function that chooses the implementation which is
+checked. A method that does not terminate makes the implementation, and
+everything which uses it, not total in the same way.
+
+The check is per implementation, not per method: a total function that uses
+``Integral Int`` at all, for instance by passing it on to the ``Range``
+implementation behind ``[x .. y]`` on ``Int``, is rejected, even though the
+ranges use none of the methods of ``Integral``.
+
+If the divisor is evidently not zero (or the partial methods are not used),
+``assert_total`` says so:
+
+.. code-block:: idris
+
+    total
+    half : Int -> Int
+    half x = assert_total $ x `div` 2 -- 2 is not zero
+
+Otherwise the function should be ``covering`` or ``partial``, or use a total
+alternative such as ``divNatNZ`` from ``Data.Nat``.
+
+Functions that are only required to be ``covering`` (the default) are not
+checked this way, unless the ``--method-totality`` flag is given.
+
 Directives and Compiler Flags for Totality
 ------------------------------------------
 

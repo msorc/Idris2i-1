@@ -1088,6 +1088,7 @@ TTC DefFlag where
   toBuf (Identity x) = do tag 12; toBuf x
   toBuf (PositiveParams x) = do tag 14; toBuf x
   toBuf (SpecStatics f xs) = do tag 16; toBuf f; toBuf xs
+  toBuf (PartialMethods ns) = do tag 17; toBuf ns
 
   fromBuf
       = case !getTag of
@@ -1106,6 +1107,7 @@ TTC DefFlag where
              14 => do x <- fromBuf; pure (PositiveParams x)
              15 => pure Deprecate
              16 => do f <- fromBuf; xs <- fromBuf; pure (SpecStatics f xs)
+             17 => do ns <- fromBuf; pure (PartialMethods ns)
              _ => corrupt "DefFlag"
 
 export

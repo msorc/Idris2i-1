@@ -1015,7 +1015,7 @@ processDef opts nest env fc n_in cs_in
 
          md <- get MD -- don't need the metadata collected on the coverage check
 
-         cov <- logTime 3 ("Checking Coverage " ++ show n) $ checkCoverage nidx ty mult cs
+         cov <- logTime 3 ("Checking Coverage " ++ show n) $ checkCoverage treq nidx ty mult cs
          setCovering fc n cov
          put MD md
 
@@ -1099,10 +1099,10 @@ processDef opts nest env fc n_in cs_in
                           pure Nothing)
     getClause (Right c) = pure (Just c)
 
-    checkCoverage : Int -> ClosedTerm -> RigCount ->
+    checkCoverage : TotalReq -> Int -> ClosedTerm -> RigCount ->
                     List (Either RawImp Clause) ->
                     Core Covering
-    checkCoverage n ty mult cs
+    checkCoverage treq n ty mult cs
         = do covcs' <- traverse getClause cs -- Make stand in LHS for impossible clauses
              log "declare.def" 5 $ unlines
                $ "Using clauses :"
@@ -1129,7 +1129,23 @@ processDef opts nest env fc n_in cs_in
                                               -- only in non-erased functions (Issues #1998, #3357)
              let miss = catMaybes missMatch
              if isNil miss
-                then do [] <- getNonCoveringRefs fc (Resolved n)
-                           | ns => toFullNames (NonCoveringCall ns)
-                        pure IsCovering
+                then do bad <- getNonCoveringRefs fc False (Resolved n)
+                        -- Whether it is covering once the methods of the
+                        -- implementations it uses are counted too: record
+                        -- that, whatever the option, so that the modules
+                        -- importing this one can check it
+                        badM <- if null bad
+                                   then getNonCoveringRefs fc True (Resolved n)
+                                   else pure bad
+                        when (null bad && not (null badM)) $
+                          setFlag fc (Resolved n)
+                                  (PartialMethods !(traverse toFullNames badM))
+                        -- A total function counts them; so does a covering
+                        -- one with --method-totality
+                        session <- getSession
+                        let methods = treq == Total || methodTotality session
+                        let bad : List Name = if methods then badM else bad
+                        case bad of
+                             [] => pure IsCovering
+                             ns => toFullNames (NonCoveringCall ns)
                 else pure (MissingCases miss)

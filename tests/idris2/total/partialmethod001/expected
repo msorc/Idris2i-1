@@ -1,0 +1,85 @@
+1/1: Building Div (Div.idr)
+Error: guarded is not covering.
+
+Div:25:1--25:28
+ 21 | viaAbstract : Int -> Int
+ 22 | viaAbstract x = abstract x 3
+ 23 |
+ 24 | -- A guard does not help: the dictionary is partial
+ 25 | guarded : Int -> Int -> Int
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
+Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: known is not covering.
+
+Div:8:1--8:26
+ 4 | import Data.Nat
+ 5 |
+ 6 | %default total
+ 7 |
+ 8 | known : Int -> Int -> Int
+     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
+Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: knownInteger is not covering.
+
+Div:14:1--14:34
+ 10 |
+ 11 | knownMod : Bits8 -> Bits8 -> Bits8
+ 12 | knownMod x y = x `mod` y
+ 13 |
+ 14 | knownInteger : Integer -> Integer
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:2
+Prelude.Num.Integral implementation at Prelude.Num:2 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: knownMod is not covering.
+
+Div:11:1--11:35
+ 07 |
+ 08 | known : Int -> Int -> Int
+ 09 | known x y = x `div` y
+ 10 |
+ 11 | knownMod : Bits8 -> Bits8 -> Bits8
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:3
+Prelude.Num.Integral implementation at Prelude.Num:3 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: nat is not covering.
+
+Div:29:1--29:24
+ 25 | guarded : Int -> Int -> Int
+ 26 | guarded x y = if y == 0 then 0 else x `div` y
+ 27 |
+ 28 | -- `Integral Nat` (from Data.Nat) is partial as well
+ 29 | nat : Nat -> Nat -> Nat
+      ^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Data.Nat.Integral implementation at Data.Nat:1
+Data.Nat.Integral implementation at Data.Nat:1 is not covering, because of Data.Nat.div, Data.Nat.mod
+Error: range is not covering.
+
+Div:47:1--47:24
+ 43 | coveringOnly : Int -> Int -> Int
+ 44 | coveringOnly x y = x `div` y
+ 45 |
+ 46 | -- Ranges of Int take `Integral Int`: the check is per implementation
+ 47 | range : Int -> List Int
+      ^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
+Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: viaAbstract is not covering.
+
+Div:21:1--21:25
+ 17 | -- Total relative to the dictionary: the caller supplies it
+ 18 | abstract : Integral a => a -> a -> a
+ 19 | abstract x y = x `mod` y
+ 20 |
+ 21 | viaAbstract : Int -> Int
+      ^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
+Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
