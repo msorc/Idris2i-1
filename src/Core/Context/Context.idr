@@ -239,11 +239,12 @@ data DefFlag
          -- when the module that defines it is complete, so that a module
          -- that imports it can check its uses without the constructors, and
          -- without the types that they mention, which it may not load.
-    | SpecStatics (List ClosedTerm)
-         -- For a specialised copy (see TTImp.PartialEval): the static
-         -- arguments that it was made by, in full names.  It is reused for
-         -- the same arguments only, not for others whose hash, which names
-         -- the copy, is the same.
+    | SpecStatics Name (List ClosedTerm)
+         -- For a specialised copy (see TTImp.PartialEval): the function it
+         -- is a copy of, and the static arguments that it was made by, in
+         -- full names.  It is reused for the same function and arguments
+         -- only, not for others whose hash, which names the copy, is the
+         -- same.
 %name DefFlag dflag
 
 export
@@ -262,7 +263,7 @@ Eq DefFlag where
     (==) (ConType x) (ConType y) = x == y
     (==) (Identity x) (Identity y) = x == y
     (==) (PositiveParams x) (PositiveParams y) = toList x == toList y
-    (==) (SpecStatics xs) (SpecStatics ys) = sameStatics xs ys
+    (==) (SpecStatics f xs) (SpecStatics g ys) = f == g && sameStatics xs ys
       where
         sameStatics : List ClosedTerm -> List ClosedTerm -> Bool
         sameStatics [] [] = True
@@ -286,7 +287,7 @@ Show DefFlag where
   show (ConType ci) = "contype " ++ show ci
   show (Identity x) = "identity " ++ show x
   show (PositiveParams x) = "positiveparams " ++ show (toList x)
-  show (SpecStatics _) = "specstatics"
+  show (SpecStatics _ _) = "specstatics"
 
 public export
 record SCCall where

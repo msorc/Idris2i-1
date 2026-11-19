@@ -54,7 +54,10 @@ getStatic (Static t) = Just t
 -- This one mixes every word into all the bits of the state.)  The names in
 -- the arguments are full names; the binders of the arguments are not
 -- hashed, nor their locations, as they are not compared either (see
--- copyName).
+-- copyName).  Of the name of a copy (an argument can be one, as an
+-- implementation specialised by --spec-interfaces), only the root is: the
+-- copies of a function by the same arguments that two modules make have
+-- different namespaces, and they are the same arguments (see sameCopies).
 namespace SpecKey
   export
   mixKey : Int -> Int -> Int
@@ -73,8 +76,9 @@ namespace SpecKey
   export
   keyName : Int -> Name -> Int
   keyName h (NS ns n)
-      = let ss = unsafeUnfoldNamespace ns in
-            keyName (mixKey (foldl keyString (mixKey h 1) ss) (cast (length ss))) n
+      = if isPartialEvalNS ns then keyName (mixKey h 10) n else
+          let ss = unsafeUnfoldNamespace ns in
+              keyName (mixKey (foldl keyString (mixKey h 1) ss) (cast (length ss))) n
   keyName h (UN un) = keyUN (mixKey h 2) un
   keyName h (MN s i) = mixKey (keyString (mixKey h 3) s) i
   keyName h (PV n i) = mixKey (keyName (mixKey h 4) n) i
@@ -549,10 +553,10 @@ mkSpecDef : {auto c : Ref Ctxt Defs} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto o : Ref ROpts REPLOpts} ->
             FC -> GlobalDef -> (isAuto : Bool) ->
-            Name -> (statics : List ClosedTerm) ->
+            Name -> (spec : (Name, List ClosedTerm)) ->
             List (Nat, ArgMode) -> Name -> List (FC, Term vars) ->
             Core (Term vars)
-mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
+mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
     = handleUnify {unResolve = True}
        (do defs <- get Ctxt
            setAllPublic True
@@ -635,7 +639,7 @@ mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
            --    that import this one; a copy that is not used is not reused
            --    by them either.
            let defflags : List DefFlag
-                 = SetTotal PartialOK :: SpecStatics statics
+                 = SetTotal PartialOK :: SpecStatics fnfull statics
                      :: filter (not . isSetTotal) (propagateFlags (flags gdef))
            log "specialise.flags" 20 "Defining \{show pename} with flags: \{show defflags}"
            peidx <- addDef pename
@@ -829,7 +833,7 @@ mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
     isSetTotal _ = False
 
     isSpecStatics : DefFlag -> Bool
-    isSpecStatics (SpecStatics _) = True
+    isSpecStatics (SpecStatics _ _) = True
     isSpecStatics _ = False
 
     identityFlag : List (Nat, ArgMode) -> Nat -> Maybe Nat
@@ -842,7 +846,7 @@ mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
     propagateFlags : List DefFlag -> List DefFlag
     propagateFlags = mapMaybe $ \case
       Deprecate => Nothing
-      SpecStatics _ => Nothing
+      SpecStatics _ _ => Nothing
       Overloadable => Nothing
       Identity k => Identity <$> identityFlag sargs k
       fl => Just fl
@@ -924,12 +928,76 @@ specArgsOf inCopy fc fn gdef
              refs <- fullRefs d
              pure (size <= 10 && not (any (== fnfull) refs))
 
+-- The pairs of names by which two terms differ, when they are the same
+-- otherwise (but for their locations and the names of their binders, as
+-- eqTerm).  (Not under binders, nor in the arguments of holes: they must be
+-- the same there, as the copies they could name are rarely there.)
+namespace NameDiffs
+  export
+  diffs : Term vs -> Term vs' -> List (Name, Name) -> Maybe (List (Name, Name))
+  diffs (Ref _ _ n) (Ref _ _ m) acc = Just (if n == m then acc else (n, m) :: acc)
+  diffs (Bind _ _ b sc) (Bind _ _ b' sc') acc
+      = if eqBinderBy eqTerm b b' then diffs sc sc' acc else Nothing
+  diffs (App _ f a) (App _ g b) acc = diffs f g acc >>= diffs a b
+  diffs (As _ _ a p) (As _ _ b q) acc = diffs a b acc >>= diffs p q
+  diffs (TDelayed _ _ t) (TDelayed _ _ u) acc = diffs t u acc
+  diffs (TDelay _ _ t x) (TDelay _ _ u y) acc = diffs t u acc >>= diffs x y
+  diffs (TForce _ _ t) (TForce _ _ u) acc = diffs t u acc
+  diffs x y acc = if eqTerm x y then Just acc else Nothing
+
+  export
+  diffsList : List (Term vs) -> List (Term vs') -> List (Name, Name) ->
+              Maybe (List (Name, Name))
+  diffsList [] [] acc = Just acc
+  diffsList (x :: xs) (y :: ys) acc = diffs x y acc >>= diffsList xs ys
+  diffsList _ _ _ = Nothing
+
+-- Are these pairs of names the names of the same copies: copies of the same
+-- function by the same arguments, but for the copies these name, which are
+-- the same in turn?  Two modules that do not import each other make two
+-- such copies when they need one (`Show (List Name)` by --spec-interfaces),
+-- with the names of their namespaces (see copyName), and the copies made
+-- by them (`show` by `Show (List Name)`) are the same, and reused for each
+-- other.  (`fuel`: how deep the copies are looked into; the copies they
+-- name were made before them, so it is never short in practice.)
+sameCopies : {auto c : Ref Ctxt Defs} ->
+             (fuel : Nat) -> List (Name, Name) -> Core Bool
+sameCopies _ [] = pure True
+sameCopies Z _ = pure False
+sameCopies (S k) ((n, m) :: rest)
+    = do let True = isCopy n && isCopy m
+               | False => pure False
+         defs <- get Ctxt
+         Just dn <- lookupCtxtExact n (gamma defs)
+           | Nothing => pure False
+         Just dm <- lookupCtxtExact m (gamma defs)
+           | Nothing => pure False
+         let Just (fn, sn) = specOf (flags dn)
+           | Nothing => pure False
+         let Just (fm, sm) = specOf (flags dm)
+           | Nothing => pure False
+         let True = fn == fm
+           | False => pure False
+         let Just ds = diffsList sn sm []
+           | Nothing => pure False
+         if !(sameCopies k ds) then sameCopies (S k) rest else pure False
+  where
+    isCopy : Name -> Bool
+    isCopy (NS ns _) = isPartialEvalNS ns
+    isCopy _ = False
+
+    specOf : List DefFlag -> Maybe (Name, List ClosedTerm)
+    specOf [] = Nothing
+    specOf (SpecStatics f xs :: _) = Just (f, xs)
+    specOf (_ :: fs) = specOf fs
+
 -- The name of the copy by these static arguments.  A copy is named by the
 -- key of its arguments, in the namespace of the copies of the module that
 -- makes it: `_PE.M.PE_f_key`, made in module M.  It is reused, by M and by
 -- the modules that import M, for the arguments that it was made by only (its
--- SpecStatics); a copy of the key that was made by other arguments, which
--- has the same key, is not.
+-- SpecStatics, and the copies that the arguments name may be other copies
+-- that are the same, see sameCopies); a copy of the key that was made by
+-- other arguments, which has the same key, is not.
 --  * The name of an existing copy by these arguments: one made by this
 --    module, or by any module it imports, is found among the names of the
 --    same root (`PE_f_key`) in a `_PE` namespace.
@@ -973,9 +1041,21 @@ copyName fnfull statics key k
     findCopy defs ((n, i) :: ns)
         = do Just d <- lookupCtxtExact (Resolved i) (gamma defs)
                | Nothing => findCopy defs ns
-             if SpecStatics statics `elem` flags d
-                then pure (Just n)
-                else findCopy defs ns
+             case specOf (flags d) of
+                  Just (f, s) =>
+                    if f /= fnfull then findCopy defs ns else
+                      case diffsList statics s [] of
+                           Just [] => pure (Just n)
+                           Just ds => if !(sameCopies 20 ds)
+                                         then pure (Just n)
+                                         else findCopy defs ns
+                           Nothing => findCopy defs ns
+                  Nothing => findCopy defs ns
+      where
+        specOf : List DefFlag -> Maybe (Name, List ClosedTerm)
+        specOf [] = Nothing
+        specOf (SpecStatics f xs :: _) = Just (f, xs)
+        specOf (_ :: fs) = specOf fs
 
 -- Specialise a function name according to arguments. Return the specialised
 -- application on success, or Nothing if it's not specialisable (due to static
@@ -1078,7 +1158,7 @@ specialise {vars} inCopy er fc env gdef fn stk
                              pure Nothing
                      else do
                        when (isAuto && new) $ update Ctxt { autoSpecCount $= S }
-                       Just <$> mkSpecDef fc gdef isAuto pename statics sargs fn stk
+                       Just <$> mkSpecDef fc gdef isAuto pename (fnfull, statics) sargs fn stk
              Just _ => pure Nothing
 
 -- The positions of the arguments of quantity 0 in a type of a function or a

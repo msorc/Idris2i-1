@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+# Which module copies which function (Main copies none of Base)
+idris2 --spec-interfaces --log specialise.declare:5 -o main Main.idr \
+  | sed -n 's/.*Specialising \(Base\.[A-Za-z0-9]*\).* -> _PE\.\([A-Za-z]*\)\..*/\2 \1/p'
+./build/exec/main

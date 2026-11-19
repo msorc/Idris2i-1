@@ -128,7 +128,9 @@ should target this file (`CHANGELOG_NEXT`).
   each other never make two copies of one name: when the hashes of their
   arguments were the same, a module importing both called one copy for
   both.  A module reuses the copies that the modules it imports made by the
-  same arguments, as before.  The hidden option `--debug-spec-collide`
+  same arguments, as before, also when the arguments name copies that two
+  modules made alike (`total2` at a copy of `Sz (List Int)` made in each,
+  by --spec-interfaces).  The hidden option `--debug-spec-collide`
   gives all the copies of a function the same hash, for testing.
   A copy that is not used (one that calls itself, or misses cases) is no
   longer reused by the modules that import the module that made it.
