@@ -538,6 +538,30 @@ we'll need to come up with a value to use ``a``, for example
 
     showType (Nat -> a) = "Function from Nat to " ++ showType (a Z)
 
+A function that matches on a type is total only if what it takes out of the
+type is harmless. Taking out a type (the ``a`` of ``List a``), a value of a
+small type (the ``n`` of ``Vect n a``) or a family over a small type (the
+``a : Nat -> Type`` above) is fine. Taking out and using something that can
+hold a function over types is not: given
+
+.. code-block:: idris
+
+    data I : (Type -> Bool) -> Type where
+
+    J : Type -> (Type -> Bool)
+    J (I f) = f
+    J _ = \_ => True
+
+``J`` undoes ``I``, so ``Type -> Bool`` fits inside ``Type``, and the diagonal
+argument then gives a closed proof of ``Void``. Idris therefore reports::
+
+  Error: J is not total, since matching on a type gives it f, which can hold a function over types
+
+The same holds for the codomain of a function type whose domain is not a
+small type (``(Type -> p)``, or ``(a -> p)`` for an unknown ``a``), and for a
+variable whose type is a type variable or a data type that stores types.
+Such a function is still accepted as a ``covering`` or ``partial`` function.
+
 Note that multiplicities on the binders, and the ability to pattern match
 on *non-erased* types mean that the following two types are distinct
 

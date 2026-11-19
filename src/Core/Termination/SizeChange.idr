@@ -3,6 +3,7 @@ module Core.Termination.SizeChange
 import Core.Context.Log
 
 import Core.Termination.References
+import Core.Termination.TypeCase
 
 import Libraries.Data.NameMap
 
@@ -251,7 +252,16 @@ addFunctions : {auto c : Ref Ctxt Defs} ->
 addFunctions defs [] pred work
     = pure $ Right (work, pred)
 addFunctions defs (d1 :: ds) pred work
-    = do calls <- foldlC resolveCall [] d1.sizeChange
+    = do Nothing <- typeCaseEscape defs d1
+            | Just v =>
+              do let g = d1.fullname
+                 let bad = NotTerminating (BadTypeCase v)
+                 case prefixCallSeq pred g of
+                      [] => pure $ Left bad -- the function being checked
+                      init => do setTerminating d1.location g bad
+                                 setPrefixTerminating init g
+                                 pure $ Left (NotTerminating (BadPath init g))
+         calls <- foldlC resolveCall [] d1.sizeChange
          let Nothing = find isNonTerminating calls
             | Just (d2, l, _) =>
               do let g = d2.fullname

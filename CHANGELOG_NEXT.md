@@ -255,6 +255,18 @@ should target this file (`CHANGELOG_NEXT`).
   too large.  Checking a file importing modules of `base` and `contrib` with
   five undefined names takes 4.7 G instructions instead of 25 G (one undefined
   name: 2.7 G instead of 7.5 G).
+* A function that matches on a type is no longer total when it takes out of
+  the type, and uses, a variable that can hold a function over types: with
+  `data I : (Type -> Bool) -> Type`, the clause `J (I f) = f` makes `J` an
+  inverse of `I`, which embeds `Type -> Bool` in `Type` and let
+  `%default total` code prove `Void` (#1326, #1116).  The variable must have
+  type `Type`, a small type (no `Type` in it, no type variable, no data type
+  that stores a type) or be a family from a small type to `Type`; this also
+  covers the codomain that a pattern `(a -> b)` binds as a function from `a`,
+  and `case` and `with` blocks.  Variables that are bound but not used, and
+  types that a clause mentions without matching on them, are not affected.
+  The error reads "`J` is not total, since matching on a type gives it `f`,
+  which can hold a function over types".  The TTC version changes.
 * The strict positivity check no longer accepts data types that hide a
   negative occurrence of themselves, which let `%default total` code prove
   `Void`:

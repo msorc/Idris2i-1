@@ -1,0 +1,7 @@
+. ../../../testutils.sh
+
+check Good.idr
+check Fun.idr
+check Cantor.idr
+check Arrow.idr
+check Hidden.idr

@@ -278,6 +278,9 @@ data PartialReason
        -- sequence of mutually-recursive function calls leading to a non-terminating function
        | BadPath (List (FC, Name)) Name
        | RecPath (List (FC, Name))
+       -- a clause takes this variable out of a type by pattern matching and
+       -- its type is neither Type nor small (see Core.Termination.TypeCase)
+       | BadTypeCase Name
 
 export
 Show PartialReason where
@@ -292,6 +295,8 @@ Show PartialReason where
       = "possibly not terminating due to function " ++ show n ++ " being reachable via " ++ showSep " -> " (map show init)
   show (RecPath loop)
       = "possibly not terminating due to recursive path " ++ showSep " -> " (map (show . snd) loop)
+  show (BadTypeCase v)
+      = "since matching on a type gives it " ++ show v ++ ", which can hold a function over types"
 
 export
 Pretty Void PartialReason where
@@ -308,6 +313,9 @@ Pretty Void PartialReason where
       <++> concatWith (surround (pretty " -> ")) (pretty <$> map snd init)
   pretty (RecPath loop)
     = reflow "possibly not terminating due to recursive path" <++> concatWith (surround (pretty " -> ")) (pretty <$> map snd loop)
+  pretty (BadTypeCase v)
+    = reflow "since matching on a type gives it" <++> pretty v
+      <+> comma <++> reflow "which can hold a function over types"
 
 public export
 data Terminating

@@ -544,6 +544,7 @@ TTC PartialReason where
   toBuf (BadCall xs) = do tag 1; toBuf xs
   toBuf (BadPath xs n) = do tag 2; toBuf xs; toBuf n
   toBuf (RecPath xs) = do tag 3; toBuf xs
+  toBuf (BadTypeCase n) = do tag 4; toBuf n
 
   fromBuf
       = case !getTag of
@@ -555,6 +556,8 @@ TTC PartialReason where
                      pure (BadPath xs n)
              3 => do xs <- fromBuf
                      pure (RecPath xs)
+             4 => do n <- fromBuf
+                     pure (BadTypeCase n)
              _ => corrupt "PartialReason"
 
 export
