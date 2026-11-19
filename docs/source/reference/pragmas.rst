@@ -283,11 +283,18 @@ Specialise a function according to a list of arguments.
 
 Where it is called with known values of these arguments, the function is
 replaced by a copy of it for these values, which is evaluated as far as
-possible (so a function that builds an infinite structure, a ``Stream`` with
-``iterate`` say, should not be specialised).  The arguments are the names that
-they have in the type of the function: in ``f : (a -> a -> Ordering) -> ...``,
-the argument has no name, and must be given one, ``(order : a -> a ->
-Ordering)``, to be specialised by.
+possible.  The evaluation is bounded: when normalising a static argument, or
+reducing a clause of the copy, takes more than 100,000 steps (unfoldings of
+definitions, and arguments of the result), as when the argument calls a
+function that does not terminate, the function builds an infinite structure (a
+``Stream`` with ``iterate``, say), or the argument is huge, or when ten copies
+of the function are being made one in another (a recursive call by a static
+argument that grows), no copy is made and the function is called as it is
+(``--log specialise:3`` and ``--log specialise.fail:1`` show where).  Such
+functions gain nothing from ``%spec``, and cost compile time until the bound is
+reached.  The arguments are the names that they have in the type of the
+function: in ``f : (a -> a -> Ordering) -> ...``, the argument has no name, and
+must be given one, ``(order : a -> a -> Ordering)``, to be specialised by.
 
 With the command line option ``--spec-interfaces`` (experimental), the
 functions that take implementations of interfaces are specialised by them

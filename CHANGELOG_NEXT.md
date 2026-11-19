@@ -148,6 +148,23 @@ should target this file (`CHANGELOG_NEXT`).
   copy called `prim__mod_Int`.  A copy is as covering as its function and
   the names in its arguments; one that misses cases that its function does
   not miss is not used.
+* Specialising by `%spec` no longer overflows the stack of the compiler, or
+  runs forever, when a static argument is a call of a function that does not
+  terminate (`f (loop 0)`), when the body of the copy does not terminate (`f
+  loop` where `f` calls its argument, or a function that calls itself with a
+  bigger static argument, `count x y = if y == 0 then x else count (S x) y`),
+  or when a recursive call that cannot be reduced makes a copy by a static
+  argument that grows (`g x (S y) = g (S x) y`: a copy for every `x`), or
+  when the copy builds an infinite structure (`index n (iterate f 0)` ran
+  out of memory).  Nor does it take long on a static argument that is total
+  but huge (`f (length (replicate 300000 ()))` took 31 s and 900 MB).
+  Normalising a static argument, and reducing a clause of a copy, take at
+  most 100,000 steps (a step is the unfolding of a definition, or an
+  argument of the result that is quoted), and at most ten copies of a
+  function are made one in another; past that, no copy is made and the
+  function is called as it is (`--log specialise:3` and `--log
+  specialise.fail:1` say so, `--log specialise.steps:10` shows how many
+  steps each reduction takes).
 * `%spec` on a name that is not the name of an argument of the function is an
   error: it was ignored (in `f : (a -> a -> Ordering) -> ...`, the argument
   has no name).

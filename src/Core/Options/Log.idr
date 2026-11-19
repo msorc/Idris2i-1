@@ -160,6 +160,7 @@ knownTopics = [
     ("specialise.auto", Just "Which functions --spec-interfaces specialises, and by which arguments"),
     ("specialise.fail", Just "Generating the specialised function failed"),
     ("specialise.flags", Just "Listing the definition flags propagated to the specialised function"),
+    ("specialise.steps", Just "How many steps normalising a static argument, or reducing a clause of a copy, takes (see TTImp.PartialEval.specSteps)"),
     ("totality", Nothing),
     ("totality.positivity", Nothing),
     ("totality.requirement", Nothing),

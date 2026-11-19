@@ -529,6 +529,61 @@ fullRefs d = traverse toFullNames (keys (refersTo d))
 autoLimits : (Name, Nat)
 autoLimits = (NS partialEvalNS (UN $ Basic "autoSpecLimits"), 0)
 
+-- How many steps it takes at most to normalise a static argument, or to
+-- reduce a clause of a copy: a step is the unfolding of a definition, or the
+-- quoting of an argument of the result (the evaluation fails past that, see
+-- Core.Normalise.Eval.countStep).  A term that takes more is not reduced:
+-- a call of a function that does not terminate took forever (and overflowed
+-- the stack of the compiler), an infinite structure filled the memory, and a
+-- big term takes long, and makes a big copy.  (Specialising is an
+-- optimisation: the function is called instead.)  The compiler itself takes
+-- at most about 16,000 steps for one.
+-- The totality of the functions is no guide: their termination is mostly
+-- not checked (not at all in a `covering` module, and in a `total` one only
+-- at the end of the module, while the copies are made as each definition
+-- is), and a total function can take long too.
+specSteps : Int
+specSteps = 100000
+
+-- Run an evaluation with at most specSteps steps, and say if they were
+-- enough (Nothing if not).
+withSteps : {auto c : Ref Ctxt Defs} ->
+            (what : Lazy String) -> (EvalOpts -> Core a) -> Core (Maybe a)
+withSteps what act
+    = do r <- coreLift (newIORef specSteps)
+         res <- catch (Just <$> act ({ steps := Just r } defaultOpts))
+                      (outOfSteps r)
+         left <- coreLift (readIORef r)
+         log "specialise.steps" 10 $
+           if left < 0 then "\{what} does not reduce in \{show specSteps} steps"
+                       else "Steps to reduce \{what}: \{show (specSteps - left)}"
+         pure res
+  where
+    outOfSteps : IORef Int -> Error -> Core (Maybe a)
+    outOfSteps r err
+        = do left <- coreLift (readIORef r)
+             if left < 0 then pure Nothing else throw err
+
+-- The normal form of a term, if it takes at most specSteps steps.
+normaliseSteps : {auto c : Ref Ctxt Defs} ->
+                 {vars : _} ->
+                 (what : Lazy String) -> Defs -> Env Term vars -> Term vars ->
+                 Core (Maybe (Term vars))
+normaliseSteps what defs env tm
+    = do Just tm' <- withSteps what (\opts => normaliseOpts opts defs env tm)
+           | Nothing => do log "specialise" 3 "Not specialising by \{what}: it does not reduce in \{show specSteps} steps"
+                           pure Nothing
+         pure (Just tm')
+
+-- How many copies of a function `%spec` makes one in another at most: the
+-- copy of a function that calls itself where the call cannot be reduced
+-- (a variable is matched) calls the copy by the arguments of the call,
+-- which are not the same as the ones the copy was made by when they grow
+-- or shrink (`g x (S y) = g (S x) y`, `%spec x`), and the copies made that
+-- way never ended.
+specRepeat : Nat
+specRepeat = 10
+
 -- Get the reducible names in a function to be partially evaluated. In practice,
 -- that's all the functions it refers to
 -- TODO: May want to take care with 'partial' names?
@@ -682,9 +737,12 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
            md <- get MD
            fnfull <- toFullNames fn
            stack <- autoSpecStack <$> get Ctxt
-           when isAuto $ update Ctxt { autoSpecStack := fnfull :: stack }
+           sstack <- specStack <$> get Ctxt
+           if isAuto then update Ctxt { autoSpecStack := fnfull :: stack }
+                     else update Ctxt { specStack := fnfull :: sstack }
            let done = do put MD md
-                         when isAuto $ update Ctxt { autoSpecStack := stack }
+                         if isAuto then update Ctxt { autoSpecStack := stack }
+                                   else update Ctxt { specStack := sstack }
            processDecl [InPartialEval] (MkNested []) Env.empty
                        (IDef fc (Resolved peidx) newpats)
              `catch` (\err => do done; throw err)
@@ -1112,6 +1170,18 @@ specialise {vars} inCopy er fc env gdef fn stk
                    "Not specialising \{show !(toFullNames fn)}: argument \{show i} has size \{show (termSize tm)}"
                  pure Nothing
 
+    normaliseStatics : (isAuto : Bool) -> Defs -> Name -> List (Nat, ArgMode) ->
+                       Core (Maybe (List (Nat, ArgMode)))
+    normaliseStatics True defs fnfull as = pure (Just as)
+    normaliseStatics False defs fnfull [] = pure (Just [])
+    normaliseStatics False defs fnfull ((i, Dynamic) :: as)
+        = map ((i, Dynamic) ::) <$> normaliseStatics False defs fnfull as
+    normaliseStatics False defs fnfull ((i, Static tm) :: as)
+        = do Just tm' <- normaliseSteps "argument \{show i} of \{show fnfull}"
+                                        defs Env.empty tm
+               | Nothing => pure Nothing
+             map ((i, Static tm') ::) <$> normaliseStatics False defs fnfull as
+
     specialiseBy : NatSet -> Bool -> Core (Maybe (Term vars))
     specialiseBy specs isAuto = do
         fnfull <- toFullNames fn
@@ -1125,9 +1195,11 @@ specialise {vars} inCopy er fc env gdef fn stk
         -- practice: the normal form of an implementation whose methods use
         -- implementations of the same type can be infinite, see
         -- autoReducible.)
-        sargs <- if isAuto then pure sargs
-                    else for sargs $ traversePair $ traverseArgMode $ \ tm =>
-                           normalise defs Env.empty tm
+        -- (A static argument whose normal form takes more than specSteps
+        -- steps to compute, which may have none, as the call of a function
+        -- that does not terminate, is not specialised by.)
+        Just sargs <- normaliseStatics isAuto defs fnfull sargs
+            | Nothing => pure Nothing
         statics <- traverse toFullNames $ mapMaybe getStatic $ map snd sargs
         -- (the function name is in the key too, to avoid namespace clashes;
         -- --debug-spec-collide leaves out the arguments, to test copyName)
@@ -1148,8 +1220,14 @@ specialise {vars} inCopy er fc env gdef fn stk
                   -- a finger tree, would make a copy for every depth of the
                   -- type, up to the limit of the module)
                   let stack = autoSpecStack defs
+                  let sstack = specStack defs
                   if isAuto && new && autoSpecCount defs >= autoSpecLimit
                      then pure Nothing
+                     else if not isAuto && new
+                             && count (== fnfull) sstack >= specRepeat
+                     then do log "specialise" 3 $
+                               "Not specialising \{show fnfull}: \{show (count (== fnfull) sstack)} copies of it are being made, one in another"
+                             pure Nothing
                      else if isAuto && new
                              && (count (== fnfull) stack >= autoSpecRepeat
                                  || length stack >= autoSpecMaxDepth)
@@ -1271,7 +1349,8 @@ mutual
               Core (List (Term (bound ++ free)))
   quoteArgs q defs bounds env [] = pure []
   quoteArgs q defs bounds env (a :: args)
-      = pure $ (!(quoteGenNF q defs bounds env !(evalClosure defs a)) ::
+      = do countClosure a
+           pure $ (!(quoteGenNF q defs bounds env !(evalClosure defs a)) ::
                 !(quoteArgs q defs bounds env args))
 
   quoteArgsWithFC : {auto c : Ref Ctxt Defs} ->
@@ -1463,7 +1542,8 @@ mutual
            pure (TDelayed fc r argQ)
   quoteGenNF q defs bound env (NDelay fc r ty arg)
       -- unlike main evaluator, we want to look under Delays
-      = do argNF <- evalClosure defs arg
+      = do countClosure arg
+           argNF <- evalClosure defs arg
            argQ <- quoteGenNF q defs bound env argNF
            tyNF <- evalClosure defs ty
            tyQ <- quoteGenNF q defs bound env tyNF
@@ -1530,8 +1610,16 @@ applySpecialise env (Just ls) tmin -- specialising, evaluate RHS while looking
          ls <- if fst autoLimits `elem` map fst ls
                   then traverse (\(n, k) => pure (!(toResolvedNames n), k)) ls
                   else pure []
-         nf <- nfOpts ({ reduceLimit := ls } defaultOpts) defs env tm
-         tm' <- evalRHS env nf
+         -- The reduction stops after specSteps steps: the copy of a
+         -- function that does not terminate on its static arguments, or that
+         -- calls one that does not, would be reduced forever.  The copy is
+         -- not used then (the error makes mkSpecDef fall back to the
+         -- function).
+         Just tm' <- withSteps "a clause of a copy" $ \opts =>
+                       do nf <- nfOpts ({ reduceLimit := ls } opts) defs env tm
+                          evalRHS env nf
+           | Nothing => throw (GenericMsg emptyFC
+                          "A clause of the copy does not reduce in \{show specSteps} steps")
          -- A copy made by --spec-interfaces that grows too big when it is
          -- reduced is not used (the error makes mkSpecDef fall back to the
          -- function): it would cost more to compile, and to store, than it

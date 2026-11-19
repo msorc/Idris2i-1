@@ -1,0 +1,17 @@
+LOG specialise.fail:1: Partial evaluation of Main.lazyArg failed:
+EmptyFC:A clause of the copy does not reduce in 100000 steps
+LOG specialise.fail:1: Partial evaluation of Main.case block in applyTo failed:
+EmptyFC:A clause of the copy does not reduce in 100000 steps
+LOG specialise:3: Not specialising Main.case block in count: 10 copies of it are being made, one in another
+LOG specialise:3: Not specialising Main.acc: 10 copies of it are being made, one in another
+LOG specialise:3: Not specialising by argument 0 of Main.plusLen: it does not reduce in 100000 steps
+LOG specialise.fail:1: Partial evaluation of Main.nth failed:
+EmptyFC:A clause of the copy does not reduce in 100000 steps
+0
+0
+3
+8
+300000
+5
+8
+2

@@ -1163,6 +1163,8 @@ record Defs where
   autoSpecStack : List Name
      -- ^ The functions whose copies made that way are being elaborated, one
      -- in another (innermost first)
+  specStack : List Name
+     -- ^ The same, for the copies made by `%spec`
   timings : StringMap (Bool, Integer)
      -- ^ record of timings from logTimeRecord
   timer : Maybe (Integer, String)
@@ -1237,6 +1239,7 @@ initDefs
            , autoSpecs = empty
            , autoSpecCount = 0
            , autoSpecStack = []
+           , specStack = []
            , timings = empty
            , timer = Nothing
            , warnings = []
