@@ -1,0 +1,11 @@
+. ../../../testutils.sh
+
+idris2 --exec main Main.idr
+rm -rf build
+idris2 --debug-spec-collide --dumpcases cases --exec main Main.idr
+# the copies of every module, by name
+grep '^_PE' cases | sed 's/ =.*//' | sed 's/PE_pick_[0-9a-f]*/PE_pick_KEY/' | safesort
+rm -rf build cases
+idris2 --debug-spec-collide --spec-interfaces --exec main Main.idr
+rm -rf build
+idris2 --debug-spec-collide --cg chez --exec main Main.idr

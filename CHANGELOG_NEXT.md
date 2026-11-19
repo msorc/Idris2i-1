@@ -123,8 +123,15 @@ should target this file (`CHANGELOG_NEXT`).
   made for `pick Ab`.  The copies are named by a hash that mixes better, and
   a copy records the arguments that it was made by (in the TTC file): it is
   only reused for them, and the next hash names a copy by other arguments.
-  (Two modules that do not import each other can still make two copies of
-  one name, when the hashes of their arguments are the same.)
+* The copies are named in the namespace of the module that makes them
+  (`_PE.M.PE_f_...`, made in `M`), so that two modules that do not import
+  each other never make two copies of one name: when the hashes of their
+  arguments were the same, a module importing both called one copy for
+  both.  A module reuses the copies that the modules it imports made by the
+  same arguments, as before.  The hidden option `--debug-spec-collide`
+  gives all the copies of a function the same hash, for testing.
+  A copy that is not used (one that calls itself, or misses cases) is no
+  longer reused by the modules that import the module that made it.
 * A specialised copy made by `%spec` is no longer checked against the default
   totality of the module where it is made (neither was one made by
   `--spec-interfaces`).  The copy runs the code of the implementations it is

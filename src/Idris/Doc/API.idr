@@ -232,12 +232,10 @@ dumpModuleAPI mod
     -- generated names: case, with and where blocks, the functions of the
     -- methods of an implementation, the parent constraints of an interface.
     -- (nor the specialised copies of functions made by `%spec`, which
-    -- are in the namespace `_PE`)
+    -- are in the namespace `_PE` and the namespaces in it)
     userName : Name -> Bool
     userName (NS ns n)
-        = case unsafeUnfoldNamespace ns of
-               ("_PE" :: _) => False
-               _ => userName n
+        = if isPartialEvalNS ns then False else userName n
     userName (UN (Basic _)) = True
     userName (UN (Field _)) = True
     userName n = unnamedImpl n

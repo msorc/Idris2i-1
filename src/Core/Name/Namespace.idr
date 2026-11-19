@@ -284,6 +284,17 @@ export
 partialEvalNS : Namespace
 partialEvalNS = mkNamespace "_PE"
 
+||| The namespace of the specialised copies of functions made by a module:
+||| `_PE` followed by the namespace of the module (see TTImp.PartialEval).
+export
+partialEvalNSOf : (moduleNS : Namespace) -> Namespace
+partialEvalNSOf ns = partialEvalNS <.> ns
+
+||| Is the namespace that of specialised copies, `_PE` or a namespace in it?
+export
+isPartialEvalNS : Namespace -> Bool
+isPartialEvalNS = isParentOf partialEvalNS
+
 export
 builtinNS : Namespace
 builtinNS = mkNamespace "Builtin"

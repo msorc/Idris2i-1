@@ -20,6 +20,7 @@ import Protocol.Hex
 
 import Libraries.Data.ANameMap
 import Libraries.Data.NameMap
+import Libraries.Data.UserNameMap
 import Libraries.Data.NatSet
 import Libraries.Data.WithDefault
 import Libraries.Data.SnocList.SizeOf
@@ -662,6 +663,12 @@ mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
                  fn <- toFullNames fn
                  pure "Partial evaluation of \{show fn} failed:\n\{show err}"
               update Ctxt { peFailures $= insert pename () }
+              -- (the copy may be defined already, and is saved in the TTC
+              -- file: without its SpecStatics, the modules that import this
+              -- one do not reuse it, see copyName)
+              defs <- get Ctxt
+              whenJust !(lookupCtxtExact pename (gamma defs)) $ \ d =>
+                ignore $ addDef pename ({ flags $= filter (not . isSpecStatics) } d)
               pure (applyStackWithFC (Ref fc Func fn) stk))
   where
     -- A specialisation made because of --spec-interfaces only reduces the
@@ -778,6 +785,10 @@ mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
     isSetTotal (SetTotal _) = True
     isSetTotal _ = False
 
+    isSpecStatics : DefFlag -> Bool
+    isSpecStatics (SpecStatics _) = True
+    isSpecStatics _ = False
+
     identityFlag : List (Nat, ArgMode) -> Nat -> Maybe Nat
     identityFlag [] k = pure k
     identityFlag ((pos, mode) :: sargs) k
@@ -870,25 +881,58 @@ specArgsOf inCopy fc fn gdef
              refs <- fullRefs d
              pure (size <= 10 && not (any (== fnfull) refs))
 
--- The name of the copy by these static arguments: the one of their key,
--- unless there is a copy of that name made by other arguments (whose key is
--- the same); then the one of the next key.
--- (Two modules that do not import each other can still make two copies of
--- the same name by different arguments, when their keys are the same.)
+-- The name of the copy by these static arguments.  A copy is named by the
+-- key of its arguments, in the namespace of the copies of the module that
+-- makes it: `_PE.M.PE_f_key`, made in module M.  It is reused, by M and by
+-- the modules that import M, for the arguments that it was made by only (its
+-- SpecStatics); a copy of the key that was made by other arguments, which
+-- has the same key, is not.
+--  * The name of an existing copy by these arguments: one made by this
+--    module, or by any module it imports, is found among the names of the
+--    same root (`PE_f_key`) in a `_PE` namespace.
+--  * Otherwise, the name of the key in the namespace of this module, unless
+--    this module made a copy of that name by other arguments: then the name
+--    of the next key.
+-- The key is only 64 bits, so two modules that do not import each other
+-- can make copies of the same key by different arguments; they used to have
+-- the same name `_PE.PE_f_key`, and a module importing both saw only the
+-- one it read first (Core.Binary.addGlobalDef does not replace a complete
+-- definition), and used it for both.  In the namespaces of their modules,
+-- they are two names, and each is called by the code made with it.  (Two
+-- such modules that make a copy by the same arguments make two copies of
+-- one root, then; a module importing both reuses one of them.)
+-- A copy that was not used (see mkSpecDef) has no SpecStatics: it is never
+-- reused by another module, and this module knows it from peFailures.
 copyName : {auto c : Ref Ctxt Defs} ->
            Name -> List ClosedTerm -> Int -> Nat -> Core (Maybe Name)
 copyName fnfull statics key k
-    = do let pename = NS partialEvalNS
-                        (UN $ Basic ("PE_" ++ nameRoot fnfull ++ "_" ++ asHex (cast key)))
-         defs <- get Ctxt
-         Just d <- lookupCtxtExact pename (gamma defs)
-           | Nothing => pure (Just pename)
-         if SpecStatics statics `elem` flags d
-            then pure (Just pename)
-            else do log "specialise" 3 $
-                      "The key of \{show pename} is that of other arguments"
-                    if k >= 8 then pure Nothing
-                       else copyName fnfull statics (mixKey key 1) (S k)
+    = do defs <- get Ctxt
+         let root = Basic ("PE_" ++ nameRoot fnfull ++ "_" ++ asHex (cast key))
+         let pename = NS (partialEvalNSOf (moduleNS defs)) (UN root)
+         if isJust (lookup pename (peFailures defs)) then pure (Just pename) else do
+           let others = maybe [] (mapMaybe copyOf) $
+                          lookup root (possibles (gamma defs))
+           Nothing <- findCopy defs others
+             | Just found => pure (Just found)
+           Just _ <- lookupCtxtExact pename (gamma defs)
+             | Nothing => pure (Just pename)
+           log "specialise" 3 $
+             "The key of \{show pename} is that of other arguments"
+           if k >= 8 then pure Nothing
+              else copyName fnfull statics (mixKey key 1) (S k)
+  where
+    copyOf : PossibleName -> Maybe (Name, Int)
+    copyOf (Direct n@(NS ns _) i) = if isPartialEvalNS ns then Just (n, i) else Nothing
+    copyOf _ = Nothing
+
+    findCopy : Defs -> List (Name, Int) -> Core (Maybe Name)
+    findCopy defs [] = pure Nothing
+    findCopy defs ((n, i) :: ns)
+        = do Just d <- lookupCtxtExact (Resolved i) (gamma defs)
+               | Nothing => findCopy defs ns
+             if SpecStatics statics `elem` flags d
+                then pure (Just n)
+                else findCopy defs ns
 
 -- Specialise a function name according to arguments. Return the specialised
 -- application on success, or Nothing if it's not specialisable (due to static
