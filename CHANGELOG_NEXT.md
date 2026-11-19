@@ -316,11 +316,20 @@ should target this file (`CHANGELOG_NEXT`).
   covering, because of Prelude.Num.div, Prelude.Num.mod".  When the
   implementation is a constraint argument (`Integral a => ...`), the
   function is total relative to it, and the function that chooses the
-  implementation is checked.  The check is per implementation, not per
-  method: passing `Integral Int` on counts even when only its other methods
-  are used, as by the ranges of `Int` (`[x .. y]`).  Write `assert_total`
-  where the divisor is evidently not zero (or the partial methods are not
-  used), or make the function `covering` or `partial`.  Covering functions
+  implementation is checked.  The check is per method: only an
+  implementation of which the function may use a method that is not
+  covering counts, so the ranges of `Int` and `Integer` (`[x .. y]`, which
+  pass `Integral Int` on to the `Range` implementation but use none of its
+  methods), `+` through the `Num` parent of `Integral`, and the covering
+  methods of an implementation are total.  What a function may use of an
+  implementation is found by following it through matches, constructors
+  (constraint tuples, implementations built from others) and the functions
+  it is given to, in this module or others; anything else (applying it,
+  `let`, returning it, a function whose definition is unknown) uses all of
+  it.  Default methods, and methods using other methods of their
+  implementation, count as not covering when those are not.  Write
+  `assert_total` where the divisor is evidently not zero, or make the
+  function `covering` or `partial`.  Covering functions
   are not affected by default; with the new `--method-totality` flag they
   are checked the same way.  Whatever the flag, what makes an
   implementation, or a function using one, not covering this way is

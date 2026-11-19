@@ -76,18 +76,6 @@ Defaults:22:1--22:20
 
 Calls non covering function Main.Dflt implementation at Defaults:1
 Main.Dflt implementation at Defaults:1 is not covering, because of Main.dflt
-Error: useOther is not covering.
-
-Defaults:29:1--29:18
- 25 | useOverridden : Bool -> Bool
- 26 | useOverridden = dflt
- 27 |
- 28 | -- Not using the partial method does not help: the dictionary is partial
- 29 | useOther : T -> T
-      ^^^^^^^^^^^^^^^^^
-
-Calls non covering function Main.Dflt implementation at Defaults:1
-Main.Dflt implementation at Defaults:1 is not covering, because of Main.dflt
 Error: useSub is not covering.
 
 Defaults:52:1--52:16

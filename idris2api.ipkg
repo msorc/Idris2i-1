@@ -70,6 +70,7 @@ modules =
     Core.Context.TTC,
     Core.Core,
     Core.Coverage,
+    Core.Coverage.Methods,
     Core.Directory,
     Core.Env,
     Core.FC,

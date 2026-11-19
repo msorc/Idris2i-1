@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+check Lib.idr
+check Use.idr

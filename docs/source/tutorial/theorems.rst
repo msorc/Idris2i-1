@@ -392,10 +392,42 @@ its argument: it is the function that chooses the implementation which is
 checked. A method that does not terminate makes the implementation, and
 everything which uses it, not total in the same way.
 
-The check is per implementation, not per method: a total function that uses
-``Integral Int`` at all, for instance by passing it on to the ``Range``
-implementation behind ``[x .. y]`` on ``Int``, is rejected, even though the
-ranges use none of the methods of ``Integral``.
+The check is per method: a total function may use an implementation whose
+methods are not all covering, as long as it cannot use one of those methods.
+For instance, ``[x .. y]`` on ``Int`` passes ``Integral Int`` on to the
+``Range`` implementation for ``(Integral a, Ord a, Neg a)``, which uses only
+``Ord`` and ``Neg`` (and the ``Num`` parent of ``Neg``), so it is total; and
+a function using only the covering methods of an implementation, or only its
+covering parents, is total. To find out what a function may use of an
+implementation, Idris looks at what is done with it, following it through
+the definitions of the functions it is given to:
+
+-  Matching on it (as the projections of methods and parents do) uses the
+   fields that the match binds and that are used in turn.
+
+-  Giving it to a function uses what that function uses of that argument,
+   given what is used of the function's result. This crosses modules, and
+   follows recursion.
+
+-  Putting it in a constructor (as a constraint tuple does, or an
+   implementation built from other implementations, such as
+   ``Show a => Show (List a)``) uses it as much as that field of the result
+   is used.
+
+-  Anything else uses all of it: applying it, binding it with ``let``,
+   returning it or storing it where the use is not followed (as in a record
+   that the function returns), giving it to a function that is not applied
+   to all its arguments or whose definition is not known (a primitive, or a
+   foreign function), or a chain of definitions too deep or too long to
+   follow.
+
+A method that is used is checked as it is evaluated: an implementation's
+methods that are not functions are evaluated with the implementation, used
+or not. The default methods of an implementation, and its methods that use
+its other methods, count as not covering when the methods they use are not.
+What is under ``assert_total`` in the function being checked is not
+checked, but a generic function that uses a method of its constraint under
+``assert_total`` still uses that method.
 
 If the divisor is evidently not zero (or the partial methods are not used),
 ``assert_total`` says so:

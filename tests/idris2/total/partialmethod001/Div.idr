@@ -21,7 +21,7 @@ abstract x y = x `mod` y
 viaAbstract : Int -> Int
 viaAbstract x = abstract x 3
 
--- A guard does not help: the dictionary is partial
+-- A guard does not help: `div` is used
 guarded : Int -> Int -> Int
 guarded x y = if y == 0 then 0 else x `div` y
 
@@ -43,7 +43,7 @@ covering
 coveringOnly : Int -> Int -> Int
 coveringOnly x y = x `div` y
 
--- Ranges of Int take `Integral Int`: the check is per implementation
+-- Ranges of Int take `Integral Int`, but use none of its methods: fine
 range : Int -> List Int
 range n = [0 .. n]
 

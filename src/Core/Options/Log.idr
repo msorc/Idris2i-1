@@ -162,6 +162,7 @@ knownTopics = [
     ("specialise.flags", Just "Listing the definition flags propagated to the specialised function"),
     ("specialise.steps", Just "How many steps normalising a static argument, or reducing a clause of a copy, takes (see TTImp.PartialEval.specSteps)"),
     ("totality", Nothing),
+    ("totality.methods", Just "Which methods of implementations with methods that are not covering a function may use"),
     ("totality.positivity", Nothing),
     ("totality.requirement", Nothing),
     ("totality.termination", Nothing),

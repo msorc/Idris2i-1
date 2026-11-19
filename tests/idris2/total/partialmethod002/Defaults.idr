@@ -25,7 +25,7 @@ useDefault = dflt
 useOverridden : Bool -> Bool
 useOverridden = dflt
 
--- Not using the partial method does not help: the dictionary is partial
+-- Not using the partial method: fine
 useOther : T -> T
 useOther = other
 

@@ -1,6 +1,7 @@
 module Idris.Elab.Implementation
 
 import Core.Coverage
+import Core.Coverage.Methods
 import Core.Env
 import Core.Metadata
 import Core.Unify
@@ -237,6 +238,9 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
                                    addOpenHint n') nusing
 
                -- 2. Elaborate top level function types for this interface
+               -- (the names defined from here on are those of the
+               -- implementation: see step 5.5)
+               firstMethEntry <- getNextEntry
                defs <- get Ctxt
                fns <- topMethTypes [] impName methImps impsp
                                       (implParams cdata) (params cdata)
@@ -298,7 +302,7 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
                --    covering, so that resolving this implementation in a
                --    covering or total function is reported there when the
                --    method totality check is on.
-               updateImplCoverage impName
+               updateImplCoverage firstMethEntry impName
 
                -- 6. Add transformation rules for top level methods
                traverse_ (addTransform impName upds) (methods cdata)
@@ -314,19 +318,84 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
     vfc : FC
     vfc = virtualiseFC ifc
 
-    updateImplCoverage : Name -> Core ()
-    updateImplCoverage n
+    -- Set the PartialMethods flag of a name to the given names (none: no
+    -- flag), and say whether that changed it
+    setPartialMethods : Name -> List Name -> Core Bool
+    setPartialMethods n ns
         = do defs <- get Ctxt
              Just gdef <- lookupCtxtExact n (gamma defs)
+                  | Nothing => pure False
+             let new = if null ns then Nothing else Just ns
+             if partialMethods (flags gdef) == new
+                then pure False
+                else do let flags' = filter (isNothing . partialMethods . pure) (flags gdef)
+                        ignore $ addDef n ({ flags := maybe flags' (\ ns => PartialMethods ns :: flags') new } gdef)
+                        pure True
+
+    -- The fields of the record that are not covering (with the methods
+    -- of the implementations they use counted)
+    flagImpl : Name -> Core Bool
+    flagImpl n
+        = do ns <- maybe (traverse toFullNames =<< getNonCoveringRefs vfc True n) pure
+                         !(implNonCoveringRefs n)
+             log "elab.implementation" 3 $
+                 show n ++ " has methods that are not covering: " ++ show ns
+             setPartialMethods n ns
+
+    -- A function defined with the implementation was checked when the
+    -- implementation was not flagged yet, and when the methods after it
+    -- were not defined: check it again, as a total function would, but
+    -- only add to its flag
+    recheck : Name -> Name -> Core Bool
+    recheck impn r
+        = do defs <- get Ctxt
+             Just gdef <- lookupCtxtExact r (gamma defs)
+                  | Nothing => pure False
+             let PMDef {} = definition gdef
+                  | _ => pure False
+             let IsCovering = isCovering (totality gdef)
+                  | _ => pure False
+             bad <- getNonCoveringRefs vfc False r
+             ns <- if null bad
+                      then methodNonCoveringRefs vfc r
+                      else traverse toFullNames bad
+             if null ns then pure False else setPartialMethods r ns
+
+    -- The names defined since `start` (the methods, the functions they
+    -- define, and the record), other than case blocks, which are checked
+    -- with the functions they belong to
+    implNames : Int -> Name -> Core (List Name)
+    implNames start impn
+        = do end <- getNextEntry
+             defs <- get Ctxt
+             impn <- toFullNames impn
+             ns <- traverse toFullNames (map Resolved [start .. end - 1])
+             pure $ filter (\ n => isJust (lookup n (toSave defs))
+                                   && not (isCase n) && n /= impn) ns
+      where
+        isCase : Name -> Bool
+        isCase (NS _ n) = isCase n
+        isCase (CaseBlock {}) = True
+        isCase _ = False
+
+    updateImplCoverage : Int -> Name -> Core ()
+    updateImplCoverage start n
+        = do ignore $ flagImpl n
+             defs <- get Ctxt
+             Just gdef <- lookupCtxtExact n (gamma defs)
                   | Nothing => pure ()
-             [] <- getNonCoveringRefs vfc True n
-                  | ns => do ns <- traverse toFullNames ns
-                             log "elab.implementation" 3 $
-                                 show n ++ " has methods that are not covering: " ++ show ns
-                             let flags' = PartialMethods ns
-                                            :: filter (isNothing . partialMethods . pure) (flags gdef)
-                             ignore $ addDef n ({ flags := flags' } gdef)
-             pure ()
+             -- If no method is flagged, nothing defined with them used what
+             -- was not covering: only the record could make them so
+             when (isJust (partialMethods (flags gdef))) $
+               do ns <- implNames start n
+                  fixpoint (length ns + 2) ns
+      where
+        fixpoint : Nat -> List Name -> Core ()
+        fixpoint Z _ = pure ()
+        fixpoint (S k) ns
+            = do changed <- traverse (recheck n) ns
+                 changedImpl <- flagImpl n
+                 when (or (map delay changed) || changedImpl) $ fixpoint k ns
 
     applyEnv : Name ->
                Core (Name, (Maybe Name, List (Var vars), FC -> NameType -> Term vars))

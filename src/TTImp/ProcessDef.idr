@@ -4,6 +4,7 @@ import Core.Case.CaseBuilder
 import Core.Case.CaseTree
 import Core.Case.CaseTree.Pretty
 import Core.Coverage
+import Core.Coverage.Methods
 import Core.Env
 import Core.Hash
 import Core.LinearCheck
@@ -1134,12 +1135,13 @@ processDef opts nest env fc n_in cs_in
                         -- implementations it uses are counted too: record
                         -- that, whatever the option, so that the modules
                         -- importing this one can check it
+                        -- (only the methods it may use count: see
+                        -- Core.Coverage.Methods)
                         badM <- if null bad
-                                   then getNonCoveringRefs fc True (Resolved n)
+                                   then methodNonCoveringRefs fc (Resolved n)
                                    else pure bad
                         when (null bad && not (null badM)) $
-                          setFlag fc (Resolved n)
-                                  (PartialMethods !(traverse toFullNames badM))
+                          setFlag fc (Resolved n) (PartialMethods badM)
                         -- A total function counts them; so does a covering
                         -- one with --method-totality
                         session <- getSession

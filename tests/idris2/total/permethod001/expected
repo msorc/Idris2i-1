@@ -1,0 +1,169 @@
+1/1: Building PerMethod (PerMethod.idr)
+Error: boxed is not covering.
+
+PerMethod:107:1--107:14
+ 103 |   constructor MkBox
+ 104 |   {auto dict : Pick a}
+ 105 |   val : a
+ 106 |
+ 107 | boxed : Box T
+       ^^^^^^^^^^^^^
+
+Calls non covering function Main.Pick implementation at PerMethod:1
+Main.Pick implementation at PerMethod:1 is not covering, because of Main.pick
+Error: divInt is not covering.
+
+PerMethod:24:1--24:27
+ 20 | rangeBits : Bits8 -> List Bits8
+ 21 | rangeBits x = [x .. 10]
+ 22 |
+ 23 | -- `div` and `mod` themselves are still not covering
+ 24 | divInt : Int -> Int -> Int
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
+Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: half2Int is not covering.
+
+PerMethod:54:1--54:22
+ 50 |
+ 51 | half2 : Integral a => a -> a
+ 52 | half2 x = plus (half x) x
+ 53 |
+ 54 | half2Int : Int -> Int
+      ^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
+Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: halfInt is not covering.
+
+PerMethod:41:1--41:21
+ 37 | -- ... but not `div` through a function that uses it
+ 38 | half : Integral a => a -> a
+ 39 | half x = x `div` 2
+ 40 |
+ 41 | halfInt : Int -> Int
+      ^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
+Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: modInteger is not covering.
+
+PerMethod:27:1--27:32
+ 23 | -- `div` and `mod` themselves are still not covering
+ 24 | divInt : Int -> Int -> Int
+ 25 | divInt x y = x `div` y
+ 26 |
+ 27 | modInteger : Integer -> Integer
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:2
+Prelude.Num.Integral implementation at Prelude.Num:2 is not covering, because of Prelude.Num.div, Prelude.Num.mod
+Error: unboxed is not covering.
+
+PerMethod:110:1--110:12
+ 106 |
+ 107 | boxed : Box T
+ 108 | boxed = MkBox A
+ 109 |
+ 110 | unboxed : T
+       ^^^^^^^^^^^
+
+Calls non covering function Main.Pick implementation at PerMethod:1
+Main.Pick implementation at PerMethod:1 is not covering, because of Main.pick
+Error: useIdent is not covering.
+
+PerMethod:218:1--218:18
+ 214 |   konst = case the Bool True of
+ 215 |                True => A
+ 216 |   ident x = x
+ 217 |
+ 218 | useIdent : T -> T
+       ^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Konst implementation at PerMethod:2
+Main.Konst implementation at PerMethod:2 is not covering, because of Main.konst
+Error: useListDesc is not covering.
+
+PerMethod:203:1--203:31
+ 199 |
+ 200 | useListName : List T -> String
+ 201 | useListName = name
+ 202 |
+ 203 | useListDesc : List T -> String
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Desc implementation at PerMethod:3
+Main.Desc implementation at PerMethod:3 is not covering, because of Main.desc
+Error: useNamedPick is not covering.
+
+PerMethod:183:1--183:26
+ 179 |
+ 180 | useNamedKeep : Nat -> Nat
+ 181 | useNamedKeep = keep @{partialNamed}
+ 182 |
+ 183 | useNamedPick : Nat -> Nat
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.partialNamed
+Main.partialNamed is not covering, because of Main.pick
+Error: usePick is not covering.
+
+PerMethod:72:1--72:17
+ 68 |
+ 69 | useKeep : T -> T
+ 70 | useKeep = keep
+ 71 |
+ 72 | usePick : T -> T
+      ^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Pick implementation at PerMethod:1
+Main.Pick implementation at PerMethod:1 is not covering, because of Main.pick
+Error: usePickBoth is not covering.
+
+PerMethod:97:1--97:24
+ 93 |
+ 94 | pickBoth : (Pick a, Eq a) => a -> Bool
+ 95 | pickBoth x = pick x == x
+ 96 |
+ 97 | usePickBoth : T -> Bool
+      ^^^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Pick implementation at PerMethod:1
+Main.Pick implementation at PerMethod:1 is not covering, because of Main.pick
+Error: useSibUses is not covering.
+
+PerMethod:149:1--149:20
+ 145 |
+ 146 | useSibSafe : T -> T
+ 147 | useSibSafe = sibSafe
+ 148 |
+ 149 | useSibUses : T -> T
+       ^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Sib implementation at PerMethod:4
+Main.Sib implementation at PerMethod:4 is not covering, because of Main.sibRisky, Main.sibUses
+Error: useViaParent is not covering.
+
+PerMethod:172:1--172:22
+ 168 |
+ 169 | viaParent : Sub a => a -> a
+ 170 | viaParent = base
+ 171 |
+ 172 | useViaParent : T -> T
+       ^^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Sub implementation at PerMethod:5
+Main.Sub implementation at PerMethod:5 is not covering, because of Main.Base implementation at PerMethod:6
+Error: useViaRisky is not covering.
+
+PerMethod:131:1--131:21
+ 127 |
+ 128 | useViaSafe : T -> T
+ 129 | useViaSafe = viaSafe
+ 130 |
+ 131 | useViaRisky : T -> T
+       ^^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Main.Dflt implementation at PerMethod:7
+Main.Dflt implementation at PerMethod:7 is not covering, because of Main.risky, Main.viaRisky
