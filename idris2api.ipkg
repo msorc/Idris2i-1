@@ -23,6 +23,7 @@ modules =
     Compiler.Opts.ConstantFold,
     Compiler.Opts.Constructor,
     Compiler.Opts.Identity,
+    Compiler.Opts.EtaIO,
     Compiler.Opts.InlineHeuristics,
     Compiler.Opts.ToplevelConstants,
 

@@ -1,0 +1,18 @@
+shareLet: [11, 11, 11], computed 0 times
+shareLetInl: [11, 11, 11], computed 0 times
+shareCase: [11, 11, 11], computed 3 times
+shareArg: [55, 55, 55], computed 0 times
+shareArgB: [55, 55, 55], computed 3 times
+shareCallback: [10, 10, 10], computed 3 times
+shareCallback': [15, 15, 15], computed 0 times
+shareLazy: [10, 10, 10], computed 0 times
+cheapLoop: [36, 36, 36], computed 0 times
+cheapWhere: [78, 78, 78], computed 0 times
+list: [3, 5, 7, 36, 3, 5, 7, 36, 3, 5, 7, 36], computed 6 times
+9
+[10, 12, 15]
+1000
+10
+10
+5050
+15

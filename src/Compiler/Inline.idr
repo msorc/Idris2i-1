@@ -3,6 +3,7 @@ module Compiler.Inline
 import Compiler.CaseOpts
 import Compiler.CompileExpr
 import Compiler.Opts.ConstantFold
+import Compiler.Opts.EtaIO
 import Compiler.Opts.Identity
 import Compiler.Opts.InlineHeuristics
 
@@ -454,8 +455,36 @@ mutual
                     && (not (n `elem` rec))
                     && (not (NoInline `elem` gdefFlags))
                    then do ap <- tryApply {vars} {params} (n :: rec) stk env def
-                           pure $ fromMaybe (unloadApp arity stk (CRef fc n)) ap
+                           case ap of
+                             Just v => pure v
+                             Nothing =>
+                               if gotWorld def && S (length stk) == arity
+                                  then lacksWorld (n :: rec) arity def
+                                  else pure $ unloadApp arity stk (CRef fc n)
                    else pure $ unloadApp arity stk (CRef fc n)
+    where
+      -- A function that was given the world (see Compiler.Opts.EtaIO),
+      -- applied to all its arguments but the world, as it was inlined before
+      -- it was given the world: it is inlined in a lambda of the world.  Its
+      -- arguments are computed outside the lambda (unless they are cheap,
+      -- `dupOk`), once, as they were by the application of before.
+      lacksWorld : List Name -> Nat -> CDef -> Core Val
+      lacksWorld rec arity def
+          = do (stk', shared) <- bindArgs stk
+               wn <- genVar "world" Nothing
+               Just v <- tryApply {vars} {params} rec (stk' ++ [CRef fc wn]) env def
+                    | Nothing => pure (unloadApp arity stk (CRef fc n))
+               pure $ foldr (\(xn, e), sc => CLet fc xn YesInline e (anyScope sc))
+                            (CLam fc wn (anyScope v)) shared
+        where
+          bindArgs : Stack -> Core (Stack, List (Name, Val))
+          bindArgs [] = pure ([], [])
+          bindArgs (a :: as)
+              = do (as', shared) <- bindArgs as
+                   if dupOk a
+                      then pure (a :: as', shared)
+                      else do xn <- genVar "parg" Nothing
+                              pure (CRef fc xn :: as', (xn, a) :: shared)
 
   extendLoc : {auto l : Ref LVar Int} ->
               (named : Bool) -> FC -> Subst -> EEnv vars -> (args' : List Name) ->
@@ -603,7 +632,27 @@ fixArityTm (CRef fc n) args
          let arity = case compexpr gdef of
                           Just def => getArity def
                           _ => 0
-         pure $ expandToArity arity (CApp fc (CRef fc n) []) args
+         -- A partial application lacks arguments, which `expandToArity` adds
+         -- by lambdas, so that the arguments that it is given are computed
+         -- when it is applied, every time.  When the function was given the
+         -- world (see Compiler.Opts.EtaIO), it was a full application before,
+         -- whose arguments were computed once, and an action made by it (`let
+         -- act = loop (expensive x) in act >> act`) shares them: they are
+         -- computed outside the lambda (unless they are cheap, `dupOk`).
+         if length args < arity && maybe False gotWorld (compexpr gdef)
+            then pure $ shareArgs 0 arity (CRef fc n) [] args
+            else pure $ expandToArity arity (CApp fc (CRef fc n) []) args
+  where
+    -- `f` applied to the arguments `done` (reversed) and `rest`, whose
+    -- arguments that are not values are let bound
+    shareArgs : Int -> Nat -> CExp vs -> List (CExp vs) -> List (CExp vs) -> CExp vs
+    shareArgs i arity f done [] = expandToArity arity (CApp fc f []) (reverse done)
+    shareArgs i arity f done (a :: rest)
+        = if dupOk a
+             then shareArgs i arity f (a :: done) rest
+             else CLet fc (MN "parg" i) YesInline a
+                    (shareArgs (i + 1) arity (weaken f) (CLocal fc First :: map weaken done)
+                               (map weaken rest))
 fixArityTm (CLam fc x sc) args
     = pure $ expandToArity Z (CLam fc x !(fixArityTm sc [])) args
 fixArityTm (CLet fc x inl val sc) args
@@ -850,6 +899,9 @@ compileAndInlineAll
         = do traverse_ inlineDef cns
              traverse_ mergeLamDef cns
              traverse_ caseLamDef cns
+             -- (in the last round, once the lambdas that the inliner makes
+             -- are merged: see Compiler.Opts.EtaIO)
+             when (k == Z) $ etaIO cns
              traverse_ fixArityDef cns
              traverse_ inlineHeuristics cns
              traverse_ constantFold cns

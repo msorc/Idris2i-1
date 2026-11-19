@@ -59,6 +59,7 @@ knownTopics = [
     ("compiler.inline.eval", Just "Log function definitions before and after inlining."),
     ("compiler.inline.heuristic", Just "Log names the inlining heuristic(s) have decided to inline."),
     ("compiler.inline.io_bind", Just "Log the attempts to inline `io_bind`."),
+    ("compiler.inline.ioeta", Just "Log the functions in IO that are given the world as a parameter."),
     ("compiler.interpreter", Just "Log the call-stack of the VMCode interpreter."),
     ("compiler.javascript.doc", Just "Generating doc comments for the JS backend."),
     ("compiler.newtype.world", Just "Inlining matches on newtypes."),
