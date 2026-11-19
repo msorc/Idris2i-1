@@ -122,7 +122,8 @@ spine (CApp _ f args) acc = spine f (args ++ acc)
 spine f acc = (f, acc)
 
 -- A primitive operation that does a constant amount of work and allocates no
--- string.
+-- string.  (A crash, the missing case of a `div` or `mod` for instance, is
+-- not work that is computed again.)
 cheapOp : PrimFn ar -> Bool
 cheapOp StrTail = False
 cheapOp StrCons = False
@@ -131,7 +132,6 @@ cheapOp StrReverse = False
 cheapOp StrSubstr = False
 cheapOp (Cast StringType _) = False
 cheapOp (Cast _ StringType) = False
-cheapOp Crash = False
 cheapOp _ = True
 
 ||| Whether computing the expression again, at every run of an action that
@@ -280,9 +280,33 @@ push w tm = case spine tm [] of
 -- `eraseArgs`): the compiled function does not take those.
 returnsIO : {auto c : Ref Ctxt Defs} -> NatSet -> Nat -> ClosedTerm -> Core Bool
 returnsIO es k ty
-    = do defs <- get Ctxt
-         go defs 0 k !(nf defs Env.empty ty)
+    = if !(surelyNot 0 k ty)
+         then pure False
+         else do defs <- get Ctxt
+                 go defs 0 k !(nf defs Env.empty ty)
   where
+    -- A look at the type as it is, before it is evaluated: the result is
+    -- surely not an action when it is a type constructor other than IO, a
+    -- primitive type or a universe.  (A name of a function, `PrimIO a` or an
+    -- alias, is evaluated.)
+    surelyNot : Nat -> Nat -> Term vs -> Core Bool
+    surelyNot i k (Bind _ _ (Pi {}) sc)
+        = if i `elem` es
+             then surelyNot (S i) k sc
+             else case k of
+                    S k => surelyNot (S i) k sc
+                    Z => pure False
+    surelyNot i Z t
+        = case getFn t of
+               Ref _ (TyCon _) tn =>
+                   do NS ns (UN (Basic "IO")) <- toFullNames tn
+                           | _ => pure True
+                      pure (ns /= primIONS)
+               PrimVal {} => pure True
+               TType {} => pure True
+               _ => pure False
+    surelyNot _ _ _ = pure False
+
     go : Defs -> Nat -> Nat -> ClosedNF -> Core Bool
     go defs i k t@(NBind fc _ (Pi _ _ _ argty) sc)
         = if i `elem` es
