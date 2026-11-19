@@ -57,6 +57,12 @@ traced : List Int -> List Int
 traced [] = []
 traced (x :: xs) = trace "field \{show x}" x :: traced xs
 
+-- the hole in a `case` in a field (`tails`)
+suffixSums : List Int -> List Int
+suffixSums xs = sum xs :: case xs of
+  [] => []
+  (_ :: rest) => if length rest > 3 then suffixSums rest else []
+
 -- a lazy field is not a hole
 lazyNats : Int -> Stream Int
 lazyNats k = k :: lazyNats (k + 1)
@@ -76,3 +82,5 @@ main = do
   printLn (rightDepth (mirror (spine n)) 0)
   printLn (traced [1, 2, 3])
   printLn (take 3 (lazyNats 7))
+  printLn (length (tails xs))
+  printLn (suffixSums [1, 2, 3, 4, 5, 6])

@@ -96,18 +96,36 @@ parameters (self : Name) (arity : Nat)
 
   mutual
     -- A cell with a call of `self` (or a cell with one) in a field: the
-    -- position of the last such field after which the fields are safe.
+    -- position of the last such field after which the fields are safe.  The
+    -- field can also be a `case` or a `let` with such a call (or cell) in a
+    -- tail position (`xs :: case xs of ...`), if the fields before it are
+    -- safe too: the code generator computes the `case` before the other
+    -- fields, the loop after them.
     cellField : NamedCExp -> Maybe Nat
-    cellField (NmCon _ _ ci _ as) = if isCell ci then go 0 Nothing as else Nothing
+    cellField (NmCon _ _ ci _ as) = if isCell ci then go 0 [] Nothing as else Nothing
       where
-        go : Nat -> Maybe Nat -> List NamedCExp -> Maybe Nat
-        go _ found [] = found
-        go i found (a :: rest)
-            = go (S i) (if hasHole a && all safe rest then Just i else found) rest
+        go : Nat -> List NamedCExp -> Maybe Nat -> List NamedCExp -> Maybe Nat
+        go _ _ found [] = found
+        go i before found (a :: rest)
+            = let hole = (hasHole a || (branches a && all safe before))
+                         && all safe rest in
+                  go (S i) (a :: before) (if hole then Just i else found) rest
     cellField _ = Nothing
 
     hasHole : NamedCExp -> Bool
     hasHole e = isJust (selfCall e) || isJust (cellField e)
+
+    -- A `case` or a `let` with a hole in a tail position.
+    branches : NamedCExp -> Bool
+    branches (NmLet _ _ _ b) = tailHole b
+    branches (NmConCase _ _ alts def)
+        = any (\(MkNConAlt _ _ _ _ b) => tailHole b) alts || maybe False tailHole def
+    branches (NmConstCase _ _ alts def)
+        = any (\(MkNConstAlt _ b) => tailHole b) alts || maybe False tailHole def
+    branches _ = False
+
+    tailHole : NamedCExp -> Bool
+    tailHole e = hasHole e || branches e
 
   -- Is there such a cell in tail position?
   hasCell : NamedCExp -> Bool
