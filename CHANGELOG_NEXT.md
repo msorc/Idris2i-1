@@ -1074,6 +1074,15 @@ should target this file (`CHANGELOG_NEXT`).
   bytes (20,000 calls of the test `chez/ffiScoped001` keep 8MB with `C`,
   nothing with `C__scoped_callbacks`).  The other backends take the `C`
   specifier.
+* A program that dies of a fatal error with backtraces on (see above) no
+  longer eats the memory of the machine when it cannot write them (stderr
+  closed, or a full disk, or `| head`): the error of the write reached the
+  handler that prints the backtrace, which wrote, failed, and started again.
+  Such an error is now ignored, and the program ends with its exit code (1, or
+  255 after an error of Chez).  The test `chez/backtraceCrash001` no longer
+  depends on the place of `idris_crash` in `Builtin.idr` and of the missing
+  case of `div` in the Prelude, on what Chez inlines without the directive,
+  or on the thread that dies getting the CPU within two seconds.
 
 #### JavaScript Backends
 

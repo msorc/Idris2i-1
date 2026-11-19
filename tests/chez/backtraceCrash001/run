@@ -6,17 +6,33 @@
 # functions (and where they are defined) that `--directive chez-backtrace`
 # puts in the program.  The functions of the program are not inlined by Chez
 # then.  The same on a forked thread.
+#
+# The output must not depend on the machine, so:
+#  - the places in the libraries (Builtin:204:1) move when the libraries
+#    change: they are replaced, those of Main (the program) are kept;
+#  - the thread that dies is given the time to print: the main thread waits
+#    for it to run (not for a fixed time), then a second more;
+#  - what Chez inlines (without the directive) is not tested: only that the
+#    functions of the program that are in the backtrace are named.
+
+# The output of a program, with the places in the libraries replaced
+bt() {
+  out=$(./build/exec/bt "$@" 2>&1)
+  code=$?
+  echo "$out" |
+    sed -E -e '/\(Main:/!s/\(([A-Za-z.]+):[0-9]+:[0-9]+\)/(\1:LINE)/' \
+           -e 's/ at (Prelude[A-Za-z.]*):[0-9]+:[0-9]+--[0-9]+:[0-9]+/ at \1:LINE/'
+  echo "exit code: $code"
+}
 
 idris2 --cg chez --directive chez-backtrace -o bt Main.idr
 for c in crash case div chez deep; do
   echo "--- $c"
-  ./build/exec/bt $c main 2>&1
-  echo "exit code: $?"
+  bt $c main
 done
 for c in crash chez; do
   echo "--- $c on a thread"
-  ./build/exec/bt $c thread 2>&1
-  echo "exit code: $?"
+  bt $c thread
 done
 
 # IDRIS2_CHEZ_BACKTRACE=0 turns them off.
@@ -26,16 +42,34 @@ echo "exit code: $?"
 IDRIS2_CHEZ_BACKTRACE=0 ./build/exec/bt chez main 2>&1
 echo "exit code: $?"
 
+# An error while printing the backtrace (stderr full, here) ends the program,
+# and does not start it all over again with more and more memory.
+if [ -w /dev/full ]; then
+  echo "--- stderr full"
+  (ulimit -v 4000000 2>/dev/null; ./build/exec/bt crash main 2>/dev/full; echo "exit code: $?")
+  (ulimit -v 4000000 2>/dev/null; ./build/exec/bt chez main 2>/dev/full; echo "exit code: $?")
+fi
+
 # Without the directive, they are off unless IDRIS2_CHEZ_BACKTRACE=1, and the
 # names of the functions are those of the Scheme code turned back into Idris
-# names.  Chez inlines most of the functions here.
+# names.  Chez inlines most of the functions here, and which ones depends on
+# its version: look at the message of the error, the heading of the backtrace,
+# whether some of the functions of the program are named and whether the long
+# one is cut.
 echo "--- no directive"
 idris2 --cg chez -o plain Main.idr
 ./build/exec/plain case main 2>&1
 echo "exit code: $?"
+plain() {
+  out=$(IDRIS2_CHEZ_BACKTRACE=1 ./build/exec/plain "$@" 2>&1)
+  code=$?
+  echo "$out" | grep -v '^  '
+  echo "$out" | grep -q '^  Main\.' && echo "(Main functions named)"
+  echo "$out" | grep -q 'more frames' && echo "(frames left out)"
+  echo "exit code: $code"
+}
 for c in case chez deep; do
-  IDRIS2_CHEZ_BACKTRACE=1 ./build/exec/plain $c main 2>&1
-  echo "exit code: $?"
+  plain $c main
 done
 
 rm -rf build

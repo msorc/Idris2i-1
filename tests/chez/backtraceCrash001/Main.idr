@@ -1,5 +1,6 @@
 module Main
 
+import Data.IORef
 import System
 import System.Concurrency
 
@@ -50,6 +51,14 @@ run "chez" = show (toInteger (1.0 / 0.0))
 run "deep" = show (depth 100000)
 run _ = "which crash?"
 
+-- Wait until the flag is set, at most 30 seconds.
+covering
+waitFor : IORef Bool -> Nat -> IO ()
+waitFor flag Z = pure ()
+waitFor flag (S n) = do
+  set <- readIORef flag
+  if set then pure () else usleep 10000 >> waitFor flag n
+
 partial
 main : IO ()
 main = do
@@ -57,8 +66,13 @@ main = do
     | _ => putStrLn "which crash, and where?"
   case wher of
     "thread" => do
-      _ <- fork (putStrLn (run what))
+      -- (the thread tells that it runs; whatever the load of the machine,
+      -- the main thread then gives it a second to print the backtrace and
+      -- end before it goes on)
+      started <- newIORef False
+      _ <- fork (writeIORef started True >> putStrLn (run what))
       -- (an error that Chez raises ends the thread only)
-      sleep 2
+      waitFor started 3000
+      sleep 1
       putStrLn "the main thread goes on"
     _ => putStrLn (run what)

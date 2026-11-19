@@ -773,15 +773,19 @@
 
 ;; Print the Idris functions of the continuation k on the port p.
 (define (blodwen-bt-print k p)
-  (blodwen-bt-printer (unbox blodwen-bt-names) k p))
+  ;; (an error while printing, a closed stream for instance, must not reach
+  ;; the handler below: it would print, fail, and so on until the memory is
+  ;; gone)
+  (guard (e [#t (void)])
+    (blodwen-bt-printer (unbox blodwen-bt-names) k p)))
 
 ;; Print the backtrace of the continuation k, if backtraces are on.
 (define (blodwen-backtrace k)
   (when (blodwen-bt-on?)
-    (flush-output-port (current-output-port))
+    (guard (e [#t (void)]) (flush-output-port (current-output-port)))
     (let ([p (current-error-port)])
       (blodwen-bt-print k p)
-      (flush-output-port p))))
+      (guard (e [#t (void)]) (flush-output-port p)))))
 
 ;; Errors that Chez raises and that nobody handles: the message, as the
 ;; default handler prints it, then the backtrace, then what the default
@@ -790,13 +794,14 @@
   (lambda (c)
     (if (and (serious-condition? c) (blodwen-bt-on?))
         (let ([p (console-error-port)])
-          (flush-output-port (console-output-port))
-          (display-condition c p)
-          (newline p)
+          (guard (e [#t (void)]) (flush-output-port (console-output-port)))
+          (guard (e [#t (void)])
+            (display-condition c p)
+            (newline p))
           ;; (the handler runs in the continuation of the error; that of
           ;; the condition, if any, is empty after a signal)
           (blodwen-bt-print (call/cc (lambda (k) k)) p)
-          (flush-output-port p)
+          (guard (e [#t (void)]) (flush-output-port p))
           (reset))
         (old c))))
 
