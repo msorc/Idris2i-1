@@ -1177,15 +1177,12 @@ public export
            then countFrom x (+ (y - x))
            else countFrom x (\n => n - (x - y))
 
--- The ranges of `Int` take `Integral Int`, whose `div` and `mod` are
--- partial, but use none of its methods: they are total.
 public export
 Range Char where
-  rangeFromTo x y = map chr $ assert_total $ rangeFromTo (ord x) (ord y)
-  rangeFromThenTo x y z
-      = map chr $ assert_total $ rangeFromThenTo (ord x) (ord y) (ord z)
-  rangeFrom x = map chr $ assert_total $ rangeFrom (ord x)
-  rangeFromThen x y = map chr $ assert_total $ rangeFromThen (ord x) (ord y)
+  rangeFromTo x y = map chr $ rangeFromTo (ord x) (ord y)
+  rangeFromThenTo x y z = map chr $ rangeFromThenTo (ord x) (ord y) (ord z)
+  rangeFrom x = map chr $ rangeFrom (ord x)
+  rangeFromThen x y = map chr $ rangeFromThen (ord x) (ord y)
 
 ||| `and` on a list, as a loop: through the `foldMap` of `Foldable List`, a
 ||| left fold, `and` builds a chain of `&&` as long as the list, nested to the

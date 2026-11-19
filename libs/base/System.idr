@@ -88,9 +88,7 @@ getArgs : {auto hio : HasIO io} -> io (List String)
 getArgs = do
             n <- primIO prim__getArgCount
             if n > 0
-              -- the ranges of Int use no method of Integral Int, so not
-              -- its partial div and mod
-              then for (assert_total [0..n-1]) $ primIO . prim__getArg
+              then for [0..n-1] $ primIO . prim__getArg
               else pure []
 
 %foreign libc "getenv"
