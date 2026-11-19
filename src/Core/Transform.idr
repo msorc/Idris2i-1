@@ -2,6 +2,8 @@ module Core.Transform
 
 import Core.Context
 import Core.Env
+import Core.Context.Log
+import Core.Normalise
 
 import Libraries.Data.NameMap
 
@@ -95,18 +97,44 @@ tryApply trans@(MkTransform {vars} n _ lhs rhs) tm
                         Just (App fc f' a)
                  _ => Nothing
 
-covering
-apply : List Transform -> Term vars -> (Bool, Term vars)
-apply [] tm = (False, tm)
-apply (t :: ts) tm
-    = case tryApply t tm of
-           Nothing => apply ts tm
-           Just res => (True, res)
-
 data Upd : Type where
 
+-- An application whose implicit arguments were found late (the monad of
+-- `traverse f xs` in `runState s (traverse f xs)`, say) can still have solved
+-- holes in them, which match no rule, and a rule that only looks at the
+-- implementation (the one that makes a method of a known implementation a
+-- call of the implementation's function) would take it first.  So a rule that
+-- does not match the application as it is is tried again on the application
+-- with the holes replaced by their solutions (and the names resolved, as they
+-- are in the rules), before the next rule is.
 covering
-trans : {auto c : Ref Ctxt Defs} ->
+applyHoles : {vars : _} ->
+             {auto c : Ref Ctxt Defs} ->
+             Env Term vars -> List Transform -> Term vars -> Core (Bool, Term vars)
+applyHoles env ts tm = go Nothing ts
+  where
+    solved : Maybe (Term vars) -> Core (Term vars)
+    solved (Just tm') = pure tm'
+    solved Nothing
+        = do defs <- get Ctxt
+             toResolvedNames !(normaliseHoles defs env tm)
+
+    go : Maybe (Term vars) -> List Transform -> Core (Bool, Term vars)
+    go _ [] = pure (False, tm)
+    go cache (t :: ts)
+        = case tryApply t tm of
+               Just res => pure (True, res)
+               Nothing =>
+                   do tm' <- solved cache
+                      case tryApply t tm' of
+                           Just res =>
+                               do logTerm "transform.holes" 5 "Matched with its holes solved" tm'
+                                  pure (True, res)
+                           Nothing => go (Just tm') ts
+
+covering
+trans : {vars : _} ->
+        {auto c : Ref Ctxt Defs} ->
         {auto u : Ref Upd Bool} ->
         Env Term vars -> List (FC, Term vars) -> Term vars ->
         Core (Term vars)
@@ -115,7 +143,7 @@ trans env stk (Ref fc Func fn)
          case lookup fn (transforms defs) of
               Nothing => pure (unload stk (Ref fc Func fn))
               Just ts => do let fullapp = unload stk (Ref fc Func fn)
-                            let (u, tm') = apply ts fullapp
+                            (u, tm') <- applyHoles env ts fullapp
                             update Upd (|| u)
                             pure tm'
 trans env stk (Meta fc n i args)
@@ -141,7 +169,8 @@ trans env stk (TForce fc r tm)
 trans env stk tm = pure $ unload stk tm
 
 covering
-transLoop : {auto c : Ref Ctxt Defs} ->
+transLoop : {vars : _} ->
+            {auto c : Ref Ctxt Defs} ->
             Nat -> Env Term vars -> Term vars -> Core (Term vars)
 transLoop Z env tm = pure tm
 transLoop (S k) env tm
@@ -155,7 +184,8 @@ transLoop (S k) env tm
 
 export
 covering
-applyTransforms : {auto c : Ref Ctxt Defs} ->
+applyTransforms : {vars : _} ->
+                  {auto c : Ref Ctxt Defs} ->
                   Env Term vars -> Term vars -> Core (Term vars)
 applyTransforms env tm
     = do resolveTransforms

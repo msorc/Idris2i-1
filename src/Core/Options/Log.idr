@@ -175,6 +175,7 @@ knownTopics = [
     ("totality.termination.sizechange.needsChecking", Nothing),
     ("transform.lhs", Nothing),
     ("transform.rhs", Nothing),
+    ("transform.holes", Nothing),
     ("ttc.read", Nothing),
     ("ttc.read.cache", Just "What the cache of TTC files has, uses and forgets."),
     ("ttc.write", Nothing),

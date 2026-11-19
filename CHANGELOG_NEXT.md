@@ -487,6 +487,12 @@ should target this file (`CHANGELOG_NEXT`).
   `--check` of a module takes 6% to 21% fewer (Idris.REPL of the compiler:
   21%, Data.Nat.Factor of contrib: 13%).  The TTC and `.ttm` files are the
   same as before.
+* A `%transform` rule now also matches an application whose implicit
+  arguments are solved holes, as in `runState s (traverse f xs)` (where the
+  applicative of `traverse` is found from the type of `runState`): no rule
+  for a particular monad (those of the library for `IO` and `State`)
+  applied there, as the rule that makes a method call a call of its
+  implementation took it first.
 
 ### Building/Packaging changes
 
