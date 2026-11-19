@@ -1,0 +1,13 @@
+. ../../testutils.sh
+
+idris2 -o pipes Pipes.idr
+./build/exec/pipes
+echo "-- the child reads our stdin"
+printf 'from stdin\n' | ./build/exec/pipes stdin
+echo "-- main thread: popen for reading still runs the command first"
+IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/pipes runners
+echo "-- main thread: what needs the worker stops with an error"
+IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/pipes writers 2>&1
+echo "exit code $?"
+IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/pipes both 2>&1
+echo "exit code $?"

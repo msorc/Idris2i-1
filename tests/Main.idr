@@ -101,7 +101,6 @@ idrisTestsAllBackends cg = testsInDir "allbackends"
       [ -- RefC implements IEEE standard and distinguishes between 0.0 and -0.0
         -- unlike other backends. So turn this test for now.
         toMaybe (cg == C) "issue2362"
-      , toMaybe (cg == Node) "popen2"
         -- Unfortunately the behaviour of Double is platform dependent so the
         -- following test is turned off.
       , Just "evaluator005"

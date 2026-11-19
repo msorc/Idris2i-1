@@ -1,0 +1,61 @@
+line: Right "one\n"
+char: Right 't'
+rest: Right "wo\n"
+eof: True
+pclose: 3
+seq: 100000 lines, 588895 characters
+pclose: 0
+nonexistent: Right ""
+pclose: 127
+first: Right "first\n"
+second: Right "second\n"
+end: Right ""
+pclose: 0
+("hello\nthere\n", 2)
+("", 0)
+("no newline", 0)
+got "a\n"
+got "b\n"
+got "\n"
+got "last"
+code 5
+("x y|it's", 0)
+before
+HELLO
+WORLD
+done
+pclose: 0
+after
+pid: True
+echoed: Right "alpha\n"
+echoed: Right "beta\n"
+echoed: Right "gamma\n"
+rest: Right "end\n"
+eof: True
+popen2Wait: 4
+wc: Right "1048576\n"
+popen2Wait: 0
+p2: Right "p2:two\n"
+p1: Right "one\n"
+waits: (0, 0)
+empty: Right ""
+popen2Wait: 7
+-- the child reads our stdin
+cat: Right "from stdin\n"
+pclose: 0
+-- main thread: popen for reading still runs the command first
+("hello\nthere\n", 2)
+("", 0)
+("no newline", 0)
+got "a\n"
+got "b\n"
+got "\n"
+got "last"
+code 5
+("x y|it's", 0)
+-- main thread: what needs the worker stops with an error
+before
+Error: popen for writing is not available when the program runs on the main thread (IDRIS2_MAIN_STACK_SIZE=0): the exit of the command could not be seen
+exit code 1
+Error: popen2 is not available when the program runs on the main thread (IDRIS2_MAIN_STACK_SIZE=0): the exit of the process could not be seen
+exit code 1

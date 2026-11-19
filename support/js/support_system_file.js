@@ -261,67 +261,144 @@ function support_system_file_removeFile (filename) {
   }
 }
 
-// IMPLEMENTATION NOTE:
-// If in the future Idris's NodeJS backend supports executing async code, the
-// far superior and more true-to-C way to implement popen/pclose would be to
-// spawn in popen (instead of spawnSync) and then in pclose await the processes
-// completion.
+// Child processes: popen, pclose and popen2.
 //
-// Note doing the above makes it impossible to support the use-case for popen of
-// writing to the child process's stdin between popen and pclose.
-function support_system_file_popen (cmd, m) {
-  const mode = support_system_file_parseMode(m)
-  if (mode != 'r') {
-    process.__lasterr = 'The NodeJS popen FFI only supports opening for reading currently.'
+// The process is started by the main thread, and the worker thread that runs
+// `main` reads and writes its pipes through the descriptors that it gets
+// (a descriptor belongs to the process, not to a thread), with `readSync` and
+// `writeSync`, like any file.  (The main thread has the event loop that sees
+// the process exit: see `__idris2_spawnChild` in node_main.js.)  So the child
+// runs at the same time as the program and the pipes behave as in C: the
+// child blocks when the pipe is full, and the program when it reads an empty
+// one.  Without the worker thread (IDRIS2_MAIN_STACK_SIZE=0) nobody could
+// tell when the child has exited, and only popen for reading is available,
+// which runs the command to its end first.
+//
+// A file that is a pipe has `child` (the process id) and `pipe` ('in' or
+// 'out' of the child), which closing it gives back to the main thread.
+
+function support_system_file_fatal(msg) {
+  process.stderr.write('Error: ' + msg + '\n')
+  process.exit(1)
+}
+
+function support_system_file_pipeFile(fd, name, child, pipe) {
+  return { fd: fd, buffer: Buffer.alloc(0), name: name, eof: false,
+           chunked: pipe === 'out', child: child, pipe: pipe }
+}
+
+// The child that `sh -c cmd` starts, with a pipe to its stdin and/or from its
+// stdout; null (and `lasterr`) if it could not be started.
+function support_system_file_spawnChild(cmd, stdin, stdout) {
+  try {
+    return __idris2_rpc({ op: 'spawn', cmd: cmd, stdin: stdin, stdout: stdout })
+  } catch (e) {
+    process.__lasterr = e
     return null
   }
+}
 
+function support_system_file_popenFallback (cmd) {
   const tmp_file = require('os').tmpdir() + "/" + require('crypto').randomBytes(15).toString('hex')
-  const write_fd = support_system_file_fs.openSync(
-    tmp_file,
-    'w'
-  )
-
-  var io_setting
-  switch (mode) {
-    case "r":
-      io_setting = ['ignore', write_fd, 2]
-      break
-    case "w":
-    case "a":
-      io_setting = [write_fd, 'ignore', 2]
-      break
-    default:
-      process.__lasterr = 'The popen function cannot be used for reading and writing simultaneously.'
-      return null
-  }
-
+  const write_fd = support_system_file_fs.openSync(tmp_file, 'w')
   const { status, error  } = support_system_file_child_process.spawnSync(
     cmd,
     [],
-    { stdio: io_setting, shell: true }
+    { stdio: ['ignore', write_fd, 2], shell: true }
   )
-
   support_system_file_fs.closeSync(write_fd)
-
   if (error) {
     process.__lasterr = error
     return null
   }
-
-  const read_ptr = support_system_file_openFile(
-    tmp_file,
-    'r'
-  )
-
+  const read_ptr = support_system_file_openFile(tmp_file, 'r')
   return { ...read_ptr, exit_code: status }
 }
 
+function support_system_file_popen (cmd, m) {
+  const mode = support_system_file_parseMode(m)
+  if (mode !== 'r' && mode !== 'w') {
+    // C's popen fails with EINVAL for any other mode
+    process.__lasterr = { errno: -require('os').constants.errno.EINVAL }
+    return null
+  }
+  if (__idris2_rpc === null) {
+    if (mode === 'r') return support_system_file_popenFallback(cmd)
+    support_system_file_fatal('popen for writing is not available when the program runs on the main thread '
+      + '(IDRIS2_MAIN_STACK_SIZE=0): the exit of the command could not be seen')
+  }
+  const reading = mode === 'r'
+  const c = support_system_file_spawnChild(cmd, reading ? 'inherit' : 'pipe', reading ? 'pipe' : 'inherit')
+  if (c === null) return null
+  return support_system_file_pipeFile(reading ? c.out : c.in, cmd, c.pid, reading ? 'out' : 'in')
+}
+
+// Closes the descriptor of a file, or gives a pipe back to the main thread.
+function support_system_file_close (file_ptr) {
+  if (file_ptr.child !== undefined) {
+    if (!file_ptr.closed) __idris2_rpc({ op: 'closePipe', pid: file_ptr.child, which: file_ptr.pipe })
+    file_ptr.closed = true
+    return
+  }
+  support_system_file_fs.closeSync(file_ptr.fd)
+}
+
+// The exit status of the child once it has exited (the same as `system`:
+// 128 + the signal that killed it).
+function support_system_file_waitChild (pid) {
+  if (__idris2_rpc === null) {
+    support_system_file_fatal('waiting for a child process is not available when the program runs '
+      + 'on the main thread (IDRIS2_MAIN_STACK_SIZE=0)')
+  }
+  try {
+    return __idris2_rpc({ op: 'wait', pid: pid })
+  } catch (e) {
+    process.__lasterr = e
+    return -1
+  }
+}
+
 function support_system_file_pclose (file_ptr) {
-  const { fd, name, exit_code } = file_ptr
-  support_system_file_fs.closeSync(fd)
-  support_system_file_removeFile(name)
-  return exit_code
+  if (file_ptr.child === undefined) {
+    // (the fallback: the command has run already)
+    const { fd, name, exit_code } = file_ptr
+    support_system_file_fs.closeSync(fd)
+    support_system_file_removeFile(name)
+    return exit_code
+  }
+  support_system_file_close(file_ptr)
+  return support_system_file_waitChild(file_ptr.child)
+}
+
+// A subprocess: { pid, in, out }, where `in` is the file that the program
+// writes (the child's stdin) and `out` the file that it reads.
+function support_system_file_popen2 (cmd) {
+  if (__idris2_rpc === null) {
+    support_system_file_fatal('popen2 is not available when the program runs on the main thread '
+      + '(IDRIS2_MAIN_STACK_SIZE=0): the exit of the process could not be seen')
+  }
+  const c = support_system_file_spawnChild(cmd, 'pipe', 'pipe')
+  if (c === null) return null
+  return { pid: c.pid,
+           in: support_system_file_pipeFile(c.in, cmd, c.pid, 'in'),
+           out: support_system_file_pipeFile(c.out, cmd, c.pid, 'out') }
+}
+
+function support_system_file_popen2ChildPid (p) { return p.pid }
+
+// (only Windows has a handler to wait with)
+function support_system_file_popen2ChildHandler (p) { return null }
+
+function support_system_file_popen2FileIn (p) { return p.in }
+
+function support_system_file_popen2FileOut (p) { return p.out }
+
+function support_system_file_popen2WaitByPid (pid) {
+  return support_system_file_waitChild(pid)
+}
+
+function support_system_file_popen2WaitByHandler (handler) {
+  support_system_file_fatal('popen2Wait: there is no process handler on this platform')
 }
 
 function support_system_file_filetime(file_ptr) {

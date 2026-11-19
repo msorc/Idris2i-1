@@ -54,6 +54,68 @@ function __idris2_setSignal(name, num, mode) {
 // thread in the worker).
 let __idris2_controlSignal = __idris2_setSignal
 
+// The request to the main thread, as a function that waits for the answer
+// and returns its value: null when `main` runs on the main thread.
+let __idris2_rpc = null
+
+// The child processes that System.File's popen and popen2 started (on the
+// main thread, whose event loop runs while `main` waits in its worker, and
+// sees them exit), by process id: { child, status, waiters }.
+const __idris2_children = new Map()
+
+function __idris2_signalNumber(name) {
+  const n = require('os').constants.signals[name]
+  return n === undefined ? 1 : n
+}
+
+// A child process `sh -c cmd` whose stdin and stdout are each a 'pipe' (a
+// descriptor of the process that the worker reads or writes with `fs`) or
+// 'inherit'.  The streams of the pipes are not read here: libuv would take
+// the data from the pipe into memory.  Returns the process id and the
+// descriptors (-1 for what is inherited).
+function __idris2_spawnChild(cmd, stdin, stdout) {
+  const child = require('child_process').spawn('/bin/sh', ['-c', cmd],
+    { stdio: [stdin, stdout, 'inherit'] })
+  child.on('error', () => {})
+  if (child.pid === undefined) {
+    const e = new Error('spawn /bin/sh ENOENT')
+    e.code = 'ENOENT'
+    e.errno = -2
+    throw e
+  }
+  const entry = { child: child, status: null, waiters: [] }
+  child.on('exit', (code, signal) => {
+    entry.status = code !== null ? code : 128 + __idris2_signalNumber(signal)
+    for (const w of entry.waiters) w(entry.status)
+    entry.waiters = []
+  })
+  __idris2_children.set(child.pid, entry)
+  if (child.stdout !== null) child.stdout._handle.readStop()
+  return { pid: child.pid,
+           in: child.stdin !== null ? child.stdin._handle.fd : -1,
+           out: child.stdout !== null ? child.stdout._handle.fd : -1 }
+}
+
+// Calls `reply` with the exit status of the child, once it has exited.
+function __idris2_waitChild(pid, reply) {
+  const entry = __idris2_children.get(pid)
+  if (entry === undefined) {
+    const e = new Error('no child process ' + pid)
+    e.code = 'ECHILD'
+    throw e
+  }
+  __idris2_children.delete(pid)
+  if (entry.status !== null) reply(entry.status)
+  else entry.waiters.push(reply)
+}
+
+function __idris2_closeChildPipe(pid, which) {
+  const entry = __idris2_children.get(pid)
+  if (entry === undefined) return
+  const stream = which === 'in' ? entry.child.stdin : entry.child.stdout
+  if (stream !== null) stream.destroy()
+}
+
 function __idris2_mainStackMb() {
   const s = process.env.IDRIS2_MAIN_STACK_SIZE
   if (s === undefined || s === '') return __idris2_mainDefaultStackMb
@@ -107,6 +169,7 @@ function __idris2_runInWorker(wt, mb) {
     if (m === null || typeof m !== 'object' || m.__idris2Rpc === undefined) return
     const r = m.__idris2Rpc
     try {
+      let value
       switch (r.op) {
         case 'chdir':
           process.chdir(r.dir)
@@ -135,8 +198,18 @@ function __idris2_runInWorker(wt, mb) {
           listeners.delete(r.signal)
           break
         }
+        case 'spawn':
+          value = __idris2_spawnChild(r.cmd, r.stdin, r.stdout)
+          break
+        case 'closePipe':
+          __idris2_closeChildPipe(r.pid, r.which)
+          break
+        case 'wait':
+          // answered when the child has exited
+          __idris2_waitChild(r.pid, status => __idris2_rpcAnswer(shared, { ok: true, value: status }))
+          return
       }
-      __idris2_rpcAnswer(shared, { ok: true })
+      __idris2_rpcAnswer(shared, { ok: true, value: value })
     } catch (e) {
       __idris2_rpcAnswer(shared, { ok: false, message: e.message, code: e.code, errno: e.errno })
     }
@@ -167,7 +240,9 @@ function __idris2_setUpWorker(wt) {
       e.errno = answer.errno
       throw e
     }
+    return answer.value
   }
+  __idris2_rpc = rpc
 
   // Synchronous output, in order with the writes of `fs.writeSync`.
   const syncWrite = (stream, fd, tty) => {

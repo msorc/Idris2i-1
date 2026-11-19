@@ -12,7 +12,7 @@ import public System.File.Types
 prim__open : String -> String -> PrimIO FilePtr
 
 %foreign supportC "idris2_closeFile"
-         "node:lambda:(fp) => require('fs').closeSync(fp.fd)"
+         supportNode "close"
 prim__close : FilePtr -> PrimIO ()
 
 ||| Open the given file name with the specified mode.
