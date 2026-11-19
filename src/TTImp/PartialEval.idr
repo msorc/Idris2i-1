@@ -962,8 +962,12 @@ specialise {vars} inCopy er fc env gdef fn stk
                     else for sargs $ traversePair $ traverseArgMode $ \ tm =>
                            normalise defs Env.empty tm
         statics <- traverse toFullNames $ mapMaybe getStatic $ map snd sargs
-        -- (the function name is in the key too, to avoid namespace clashes)
-        let key = foldl keyTerm (keyName 0x5bd1e995 fnfull) statics
+        -- (the function name is in the key too, to avoid namespace clashes;
+        -- --debug-spec-collide leaves out the arguments, to test copyName)
+        let fnkey = keyName 0x5bd1e995 fnfull
+        let key = if defs.options.session.debugSpecCollide
+                     then fnkey
+                     else foldl keyTerm fnkey statics
         Just pename <- copyName fnfull statics key 0
           | Nothing => pure Nothing
         defs <- get Ctxt

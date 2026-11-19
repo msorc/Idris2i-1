@@ -259,6 +259,7 @@ settings mainNS mainFile
                 , "totalreq \{show (totalReq sess)}"
                 , "noprelude \{show (noprelude sess)}"
                 , "debugelabcheck \{show (debugElabCheck sess)}"
+                , "debugspeccollide \{show (debugSpecCollide sess)}"
                 , "wholeprogram \{show (wholeProgram sess)}"
                 , "incremental \{show (map show (incrementalCGs sess))}"
                 , "build_dir \{show (build_dir d)}"

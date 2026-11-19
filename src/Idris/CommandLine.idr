@@ -155,6 +155,8 @@ data CLOpt
    ||| by BuildJobs
   BuildOneModule String String |
   DebugElabCheck |
+   ||| Make the keys of all the specialised copies of a function the same
+  DebugSpecCollide |
   AltErrorCount Nat |
    ||| Treat warnings as errors
   WarningsAsErrors |
@@ -406,6 +408,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               Nothing, -- dump VM Code to the given file
            MkOpt ["--debug-elab-check"] [] [DebugElabCheck]
               Nothing, -- do more elaborator checks (currently conversion in LinearCheck)
+           MkOpt ["--debug-spec-collide"] [] [DebugSpecCollide]
+              Nothing, -- give all the specialised copies of a function the same key, to test what happens when they collide
            MkOpt ["--alt-error-count"] [RequiredNat "alternative count"] (\c => [AltErrorCount c])
               (Just "Outputs errors for the given number of alternative parsing attempts."),
 

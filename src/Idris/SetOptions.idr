@@ -478,6 +478,9 @@ preOptions (Timing tm :: opts)
 preOptions (DebugElabCheck :: opts)
     = do setDebugElabCheck True
          preOptions opts
+preOptions (DebugSpecCollide :: opts)
+    = do updateSession ({ debugSpecCollide := True })
+         preOptions opts
 preOptions (AltErrorCount c :: opts)
     = do setSession ({ logErrorCount := c } !getSession)
          preOptions opts

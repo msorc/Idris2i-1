@@ -1135,6 +1135,7 @@ partitionOpts opts = foldr pOptUpdate (MkPFR [] [] False) opts
     optType (DumpLifted f)         = POpt
     optType (DumpVMCode f)         = POpt
     optType DebugElabCheck         = POpt
+    optType DebugSpecCollide       = POpt
     optType (SetCG f)              = POpt
     optType (IncrementalCG _)      = POpt
     optType (Directive d)          = POpt

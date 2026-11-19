@@ -247,6 +247,10 @@ record Session where
      -- specialise the calls of functions with known implementations of their
      -- interface constraints, as if they were declared %spec on them
      -- (see TTImp.PartialEval)
+  debugSpecCollide : Bool
+     -- (for testing) the key of every specialised copy of a function is the
+     -- same, whatever its static arguments, so that the copies collide (see
+     -- TTImp.PartialEval.copyName)
 
 public export
 record PPrinter where
@@ -315,6 +319,7 @@ defaultSession = MkSessionOpts False CoveringOnly False False RefC [] 1000 False
                                defaultLogLevel Nothing False Nothing Nothing
                                Nothing Nothing False 1 False False True
                                HumanErrors False False [] False False False
+                               False
 
 export
 defaultElab : ElabDirectives
