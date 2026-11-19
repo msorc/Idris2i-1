@@ -528,6 +528,10 @@ should target this file (`CHANGELOG_NEXT`).
   first compiler of that bootstrap, which only builds the libraries and the
   second one, is compiled with `-O1` and without LTO (`BOOT_CFLAGS` changes
   this).  An `IDRIS2_CFLAGS` or `CFLAGS` from the user still takes precedence.
+* The RefC backend generates the C of a big program faster: it cut the
+  program in units with the `div` of `Nat`, which counts down in unary (as
+  many steps as the size of the C in bytes); the C of the compiler takes 6.8%
+  fewer instructions to generate.
 * With the RefC backend, `make` builds the libraries that do not depend on each
   other at the same time (`contrib` and `linear`, then `test`, `papers` and
   `network`), dividing `IDRIS2_JOBS` between them; `LIBS_PARALLEL=1` builds them

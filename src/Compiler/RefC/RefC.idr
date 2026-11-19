@@ -3373,6 +3373,12 @@ canonDefs nb = map (\(n, d) => (n, case d of
                                         MkAError anf => MkAError (mapANFNames (canonName nb emptyNS) anf)
                                         _ => d))
 
+-- The division of Nats, as Integers: the `div` of Nat (Data.Nat) counts
+-- down in unary, which takes as many steps as the dividend (a size in bytes,
+-- here, which made it 6% of the code generation of the compiler).
+natDiv : Nat -> Nat -> Nat
+natDiv x y = integerToNat (natToInteger x `div` natToInteger (max 1 y))
+
 -- The smallest power of two that is at least `k`.
 pow2AtLeast : Nat -> Nat
 pow2AtLeast k = go 1
@@ -3383,7 +3389,7 @@ pow2AtLeast k = go 1
 ||| The number of units of a program of `bytes` bytes: a power of two, which
 ||| a program has to grow a lot to change, of at most `maxChunks`.
 unitCount : (chunkSize : Nat) -> (bytes : Nat) -> Nat
-unitCount chunkSize bytes = min maxChunks (pow2AtLeast (max 1 (bytes `div` chunkSize)))
+unitCount chunkSize bytes = min maxChunks (pow2AtLeast (max 1 (bytes `natDiv` chunkSize)))
 
 ||| The unit of every definition (of `n` units).  The definitions of a module
 ||| are in the same unit, a module that is bigger than a quarter of a unit
@@ -3396,12 +3402,12 @@ groupUnits n defs
     -- (not in a `where`: it would be computed at every use)
     -- (nor with a type: a definition with a type is a function that is
     -- called at every use, even if it has no parameters)
-    = let atom = max 1 (foldl (\s, d => s + d.defSize) 0 defs `div` n `div` 4)
+    = let atom = max 1 (foldl (\s, d => s + d.defSize) 0 defs `natDiv` (n * 4))
 
           sizes = foldl (\m, d => insert d.defModule (d.defSize + fromMaybe 0 (lookup d.defModule m)) m)
                         (the (SortedMap String Nat) empty) defs
 
-          pieces = map (\s => if s <= atom then the Nat 1 else pow2AtLeast (minus (s + atom) 1 `div` atom)) sizes
+          pieces = map (\s => if s <= atom then the Nat 1 else pow2AtLeast (minus (s + atom) 1 `natDiv` atom)) sizes
 
           unitOf : DefOut -> Nat
           unitOf d
@@ -3584,7 +3590,7 @@ generateCSourceFileParts defs0 outn =
      split <- refcSplitSize
      let nunits = the Nat $ if totalSize < fromMaybe minSplitSize split || isWindows
                      then 0
-                     else unitCount (maybe minChunkSize (\n => max 1 (n `div` 16)) split) totalSize
+                     else unitCount (maybe minChunkSize (\n => max 1 (n `natDiv` 16)) split) totalSize
      let text : List String -> String
          text ls = fastConcat (map (++ "\n") ls)
      let base = if Data.String.isSuffixOf ".c" outn
