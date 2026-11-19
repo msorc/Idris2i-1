@@ -519,6 +519,17 @@ should target this file (`CHANGELOG_NEXT`).
   for a particular monad (those of the library for `IO` and `State`)
   applied there, as the rule that makes a method call a call of its
   implementation took it first.
+* `%transform` rules: the right-hand side of a rule may contain binders (a
+  lambda, a section, or a function type in an implicit argument, as in
+  `[| f x ::: g xs |]`), which made the rule fail to apply; holes in it that
+  were solved late (the implicit arguments of `map` in `map sequence (f
+  xs)`) are replaced by their solutions, instead of staying holes that the
+  modules using the rule did not know ("Linearity checking failed on
+  metavar"); and the rules of a module are tried in the same order when it
+  is imported as within it (the last first): when read from a TTC they were
+  tried the other way round, so the rule that an implementation adds for its
+  methods took the place of a later rule on the same method (`traverse` on a
+  `List1` in `IO`).
 * A function in `IO` whose body gives its action without a bind first (`loop
   acc n = if n == 0 then pure acc else loop (acc + n) (n - 1)`, a `let` or a
   case before the action, a `where` helper, a `PrimIO` action) is given the

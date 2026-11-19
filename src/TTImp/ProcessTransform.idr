@@ -32,5 +32,11 @@ processTransform eopts nest env fc tn_in lhs rhs
          rhstm <- wrapError (InRHS fc tn_in) $
                        checkTermSub tidx InExpr (InTrans :: eopts) nest' env' env sub' rhs (gnf env' lhsty)
          clearHoleLHS
+         -- The rule is applied in other modules too, where the holes that
+         -- were solved after they were made (the implicit arguments of `map`
+         -- in `map sequence (f xs)`, say) are not known: put in their
+         -- solutions.
+         defs <- get Ctxt
+         rhstm <- normaliseHoles defs env' rhstm
          logTerm "transform.rhs" 3 "Transform RHS" rhstm
          addTransform fc (MkTransform tn env' lhstm rhstm)

@@ -36,6 +36,13 @@ addMatch idx p val ms
                            then Just ms
                            else Nothing
 
+-- The matches under a binder of the rule: its variables are one further out,
+-- and so are the variables of the terms.
+weakenMatch : MatchVars lhsvars vs -> MatchVars (x :: lhsvars) (x :: vs)
+weakenMatch None = None
+weakenMatch (Match idx p val rest)
+    = Match (S idx) (Later p) (weaken val) (weakenMatch rest)
+
 -- LHS of a rule must be a function application, so there's not much work
 -- to do here!
 match : MatchVars vars vs ->
@@ -58,9 +65,12 @@ tryReplace ms (Meta fc n i as)
     = do as' <- traverse (tryReplace ms) as
          pure (Meta fc n i as')
 tryReplace ms (Bind fc x b sc)
-    = Nothing -- TODO: can't do this yet... need to be able to weaken ms
-              -- Rules are unlikely to have binders usually but we should
-              -- still support it eventually
+    -- A binder in the rule (a lambda, or a function type in an implicit
+    -- argument: `pure {a = b -> List b -> List1 b} (:::)`): its variable
+    -- stands for itself, and the matched terms are weakened past it.
+    = do b' <- traverse (tryReplace ms) b
+         sc' <- tryReplace (Match 0 First (Local fc Nothing 0 First) (weakenMatch ms)) sc
+         pure (Bind fc x b' sc')
 tryReplace ms (App fc f a)
     = do f' <- tryReplace ms f
          a' <- tryReplace ms a

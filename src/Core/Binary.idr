@@ -525,10 +525,15 @@ updateCGDirectives : {auto c : Ref Ctxt Defs} ->
                      SortedSet (CG, String) -> Core ()
 updateCGDirectives cgs = update Ctxt { cgdirectives $= union cgs }
 
+-- The rules of a module are saved newest first (see `addTransform`); they are
+-- added again oldest first, so that, as in the module, a rule is tried before
+-- the ones before it (a rule on a method before the one that the
+-- implementation adds, which turns the method into the function of the
+-- implementation).
 export
 updateTransforms : {auto c : Ref Ctxt Defs} ->
                    List (Name, Transform) -> Core ()
-updateTransforms ts = update Ctxt { pendingTransforms $= (++ ts) }
+updateTransforms ts = update Ctxt { pendingTransforms $= (++ reverse ts) }
 
 export
 updateFExports : {auto c : Ref Ctxt Defs} ->

@@ -1,0 +1,6 @@
+the rule
+the rule
+[1, 2, 1, 2]
+Just (1, [2, 3])
+Just [2, 4, 6]
+Nothing
