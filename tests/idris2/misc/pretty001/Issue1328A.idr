@@ -13,12 +13,15 @@ prop1 = ?undef_1
 prop2 : (a `InCtx`) b
 prop2 = ?undef_2
 
+covering -- div is partial
 def0 : (m, n : Integer) -> Integer
 def0 m n = m `div` n
 
+covering -- div is partial
 def1 : (m, n : Integer) -> Integer
 def1 m n = (`div` n) m
 
+covering -- div is partial
 def2 : (m, n : Integer) -> Integer
 def2 m n = (m `div`) n
 

@@ -2,9 +2,11 @@
 ||| so calls what they call: here `prim__mod_Int`, which is not covering, from
 ||| `mod` of `Integral Int`, where `bucket` only calls the method `hash`.  The
 ||| copies must not be checked against the default totality of this module.
+||| (It is `covering`: a total function could not use `mod` of `Integral Int`
+||| through `Hash Few`.)
 module Covering
 
-%default total
+%default covering
 
 interface Hash a where
   hash : a -> Int

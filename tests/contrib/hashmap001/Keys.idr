@@ -39,7 +39,8 @@ Show Few where
 
 export
 Hashable Few where
-  hashWithSalt s x = hashWithSalt s (x.n `mod` 7)
+  -- the divisors are not zero
+  hashWithSalt s x = hashWithSalt s (assert_total $ x.n `mod` 7)
 
 -- Hashes that differ in the high bits (of the 30 that the maps use) and in the
 -- two lowest, so that the tries are as deep as they get.
@@ -58,7 +59,8 @@ Show High where
 
 export
 Hashable High where
-  hashWithSalt _ x = cast (x.n `mod` 32) * 0x2000000 + cast (x.n `mod` 3)
+  hashWithSalt _ x = assert_total $ -- the divisors are not zero
+    cast (x.n `mod` 32) * 0x2000000 + cast (x.n `mod` 3)
 
 
 ||| Print the name of a check and whether it passed.

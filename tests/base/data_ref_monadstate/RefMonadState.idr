@@ -13,6 +13,9 @@ fancy = do
   put $ 20 + n
   pure "`\{show n}`"
 
+-- the ranges of Integer pass on `Integral Integer`, whose div and mod are
+-- partial
+covering
 main : IO ()
 main = do
   ref <- newRef 18
