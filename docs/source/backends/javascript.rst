@@ -392,10 +392,11 @@ Data.Buffer
 Every accessor of ``Data.Buffer`` works with Node, and gives the bytes and
 the values of the Chez and RefC backends: ``Int8``, ``Int16``, ``Int32``,
 ``Bits8`` to ``Bits64``, ``Int64`` (``BigInt``, exact beyond 2^53) and
-``Double``, in little-endian order.  ``setInt`` and ``getInt`` use four bytes,
-as ``Int`` has 32 bits with JavaScript (eight with the others).  The
-accessors do not check the offset; Node raises a ``RangeError`` for one out of
-bounds.
+``Double``, in little-endian order.  ``Int`` has 32 bits with JavaScript (64
+with the others) and takes eight bytes in the buffer, as with the others:
+``setInt`` writes the value sign-extended to 64 bits, and ``getInt`` reads
+the low 32 bits of the eight bytes.  The accessors do not check the offset;
+Node raises a ``RangeError`` for one out of bounds.
 
 Directives
 ----------

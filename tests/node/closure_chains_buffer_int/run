@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 --cg node -o bufint BufInt.idr
+./build/exec/bufint

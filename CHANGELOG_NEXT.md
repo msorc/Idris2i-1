@@ -1272,8 +1272,11 @@ should target this file (`CHANGELOG_NEXT`).
 * Node: `Data.Buffer` has `getInt8`, `setInt8`, `getInt16`, `getInt64` and
   `setInt64` (it had none, so a program that used them did not compile), and
   `setByte` wraps its value to a byte as the other backends do; every accessor
-  gives the bytes and values of Chez and RefC (`Int` aside, which has four
-  bytes).
+  gives the bytes and values of Chez and RefC.  `setInt` and `getInt` take
+  eight bytes, as with the others (they took four, as `Int` has 32 bits with
+  JavaScript): `setInt` writes the value sign-extended to 64 bits, so a
+  negative `Int` reads back as the same `Int64` and the same `Int` with every
+  backend, and `getInt` reads the low 32 bits.
 * Node: `popen`, `pclose` and `popen2` start a child process with pipes that
   runs at the same time as the program (`popen` for writing and `popen2` did
   not exist, `popen` for reading ran the command first and gave it no stdin),

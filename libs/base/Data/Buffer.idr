@@ -242,10 +242,16 @@ getInt64 buf offset
 
 ------------------------------------------------------------------------
 -- Int (backend-dependent: 64 on scheme, refc, and 32 on js)
+--
+-- It takes eight bytes in the buffer with every backend: with JavaScript,
+-- `setInt` writes the value sign-extended to 64 bits (the bytes that the
+-- others write for it) and `getInt` reads the low 32 bits (the value that a
+-- cast of the 64 bit integer to `Int` gives).  Both raise a `RangeError`
+-- unless the eight bytes are in the buffer.
 
 %foreign "scheme:blodwen-buffer-setint"
          "RefC:setBufferInt64LE"
-         "node:lambda:(buf,offset,value)=>buf.writeInt32LE(value, offset)"
+         "node:lambda:(buf,offset,value)=>{buf.writeInt32LE(value >> 31, offset + 4); buf.writeInt32LE(value, offset)}"
 prim__setInt : Buffer -> (offset : Int) -> (val : Int) -> PrimIO ()
 
 export %inline
@@ -255,7 +261,7 @@ setInt buf offset val
 
 %foreign "scheme:blodwen-buffer-getint"
          "RefC:getBufferInt64LE"
-         "node:lambda:(buf,offset)=>buf.readInt32LE(offset)"
+         "node:lambda:(buf,offset)=>(buf.readInt32LE(offset + 4), buf.readInt32LE(offset))"
 prim__getInt : Buffer -> (offset : Int) -> PrimIO Int
 
 export %inline
