@@ -117,6 +117,15 @@ should target this file (`CHANGELOG_NEXT`).
 * Two blocks of a function no longer get the same specialised copy when they
   are specialised by the same arguments: their names hashed the same (the
   hash left out their index), so the copy of one block ran for the other.
+* A specialised copy made by `%spec` is no longer checked against the default
+  totality of the module where it is made (neither was one made by
+  `--spec-interfaces`).  The copy runs the code of the implementations it is
+  given, which calls what the methods hide from the totality checker: a
+  `total` function calling `lookup` of `Data.HashMap` with a `Hashable`
+  whose `hashWithSalt` used `mod` was reported not covering, because its
+  copy called `prim__mod_Int`.  A copy is as covering as its function and
+  the names in its arguments; one that misses cases that its function does
+  not miss is not used.
 * `%spec` on a name that is not the name of an argument of the function is an
   error: it was ignored (in `f : (a -> a -> Ordering) -> ...`, the argument
   has no name).

@@ -491,16 +491,18 @@ mkSpecDef {vars} fc gdef isAuto pename sargs fn stk
            -- Add as RigW - if it's something else, we don't need it at
            -- runtime anyway so this is wasted effort, therefore a failure
            -- is okay!
-           -- (a copy made by --spec-interfaces is code of the program that
-           -- was checked already: it is not checked again, against the
-           -- default totality of the module where it is made, which may ask
-           -- more of it than its function did; its callers still see how
-           -- total it is)
-           let flags0 : List DefFlag = propagateFlags (flags gdef)
+           -- (a copy, made by `%spec` or by --spec-interfaces, is code of
+           -- the program that was checked already: it is not checked again,
+           -- against the default totality of the module where it is made,
+           -- which may ask more of it than its function did.  Nor could it
+           -- be: the copy runs the code of the implementations it is given,
+           -- which a method hides from the totality checker, so it calls
+           -- what they call, like `prim__mod_Int` (not covering) from `mod`
+           -- of `Integral Int`, where its function only called `mod`.  How
+           -- covering it is is taken from its function, see copyCovering.)
            let defflags : List DefFlag
-                 = if isAuto
-                      then SetTotal PartialOK :: filter (not . isSetTotal) flags0
-                      else flags0
+                 = SetTotal PartialOK
+                     :: filter (not . isSetTotal) (propagateFlags (flags gdef))
            log "specialise.flags" 20 "Defining \{show pename} with flags: \{show defflags}"
            peidx <- addDef pename
                   $ the (GlobalDef -> GlobalDef) { flags := defflags }
@@ -549,6 +551,7 @@ mkSpecDef {vars} fc gdef isAuto pename sargs fn stk
                        (IDef fc (Resolved peidx) newpats)
              `catch` (\err => do done; throw err)
            done
+           copyCovering (Resolved peidx) (keys specnames)
            -- A copy made by --spec-interfaces of a function that does not
            -- call itself must not call itself either: that happens when the
            -- function could not be reduced, and the call left was
@@ -643,6 +646,43 @@ mkSpecDef {vars} fc gdef isAuto pename sargs fn stk
              pefull <- toFullNames pename
              fnfull <- toFullNames fn
              pure (any (== pefull) perefs && not (any (== fnfull) fnrefs))
+
+    -- Set how covering the copy is to how covering a call of the function
+    -- by the static arguments is: that of the function and of the names in
+    -- the arguments.  What the copy calls itself is not looked at (see
+    -- the flags of the copy).  A copy that misses cases that its function
+    -- does not miss is wrong (the patterns of the function do not all
+    -- survive the specialisation), and is not used.
+    copyCovering : Name -> List Name -> Core ()
+    copyCovering pen staticrefs
+        = do defs <- get Ctxt
+             Just pedef <- lookupCtxtExact pen (gamma defs)
+               | Nothing => pure ()
+             let fncov = isCovering (totality gdef)
+             case isCovering (totality pedef) of
+                  IsCovering => pure ()
+                  MissingCases cs =>
+                    case fncov of
+                         MissingCases _ => pure ()
+                         _ => do setAllPublic False
+                                 cs' <- traverse toFullNames cs
+                                 throw (GenericMsg fc
+                                   "\{show pename} misses cases that \{show fn} does not: \{show cs'}")
+                  NonCoveringCall _ =>
+                    do bad <- filterM (notCovering defs) staticrefs
+                       let bad = case fncov of
+                                      IsCovering => bad
+                                      _ => fn :: bad
+                       setCovering fc pen
+                         (if null bad then IsCovering else NonCoveringCall bad)
+      where
+        notCovering : Defs -> Name -> Core Bool
+        notCovering defs n
+            = do Just d <- lookupCtxtExact n (gamma defs)
+                   | Nothing => pure False
+                 pure $ case isCovering (totality d) of
+                             IsCovering => False
+                             _ => True
 
     isSetTotal : DefFlag -> Bool
     isSetTotal (SetTotal _) = True
