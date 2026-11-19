@@ -16,6 +16,44 @@
 
 const __idris2_mainDefaultStackMb = 1024
 
+// The signals that System.Signal collects (see support_system_signal.js):
+// bit n is set when signal number n has arrived and not been handled yet.
+// It is shared by the main thread, which receives the signals, and the
+// worker that runs `main`, so that the worker sees a signal at once (the
+// event loop of the worker does not run while `main` does).
+let __idris2_signalWord = null
+
+function __idris2_signalBits() {
+  if (__idris2_signalWord === null)
+    __idris2_signalWord = new Int32Array(new SharedArrayBuffer(4))
+  return __idris2_signalWord
+}
+
+function __idris2_markSignal(num) {
+  const bits = __idris2_signalBits()
+  Atomics.or(bits, 0, 1 << num)
+  Atomics.notify(bits, 0)
+}
+
+// What System.Signal does with a signal on the main thread: 'collect' it,
+// 'ignore' it, or leave it to its 'default' action.  (Only the listener of
+// System.Signal is replaced: listeners that other code added stay.)
+const __idris2_signalHandlers = new Map()
+
+function __idris2_setSignal(name, num, mode) {
+  const old = __idris2_signalHandlers.get(name)
+  const h = mode === 'collect' ? () => __idris2_markSignal(num)
+          : mode === 'ignore' ? () => {} : undefined
+  if (h !== undefined) process.on(name, h)  // (may throw: SIGKILL, SIGSTOP)
+  if (old !== undefined) process.removeListener(name, old)
+  if (h !== undefined) __idris2_signalHandlers.set(name, h)
+  else __idris2_signalHandlers.delete(name)
+}
+
+// The same, from the thread that runs `main` (set to an RPC to the main
+// thread in the worker).
+let __idris2_controlSignal = __idris2_setSignal
+
 function __idris2_mainStackMb() {
   const s = process.env.IDRIS2_MAIN_STACK_SIZE
   if (s === undefined || s === '') return __idris2_mainDefaultStackMb
@@ -42,6 +80,8 @@ function __idris2_rpcAnswer(shared, answer) {
 
 function __idris2_runInWorker(wt, mb) {
   const shared = new SharedArrayBuffer(8 + __idris2_rpcSize)
+  const signals = new SharedArrayBuffer(4)
+  __idris2_signalWord = new Int32Array(signals)
   // (only a terminal is looked at: `process.stdout` of a pipe would make the
   // pipe non-blocking)
   const tty = (fd, s) => require('tty').isatty(fd)
@@ -51,7 +91,8 @@ function __idris2_runInWorker(wt, mb) {
     worker = new wt.Worker(__filename, {
       argv: process.argv.slice(2),
       env: wt.SHARE_ENV,
-      workerData: { __idris2Main: shared, stdout: tty(1, () => process.stdout),
+      workerData: { __idris2Main: shared, signals: signals,
+                    stdout: tty(1, () => process.stdout),
                     stderr: tty(2, () => process.stderr) },
       resourceLimits: { stackSizeMb: mb }
     })
@@ -74,6 +115,9 @@ function __idris2_runInWorker(wt, mb) {
             listeners.set(r.signal, h)
             process.on(r.signal, h)
           }
+          break
+        case 'signal':
+          __idris2_setSignal(r.signal, r.num, r.mode)
           break
         case 'unlisten': {
           const h = listeners.get(r.signal)
@@ -138,6 +182,10 @@ function __idris2_setUpWorker(wt) {
   syncWrite(process.stderr, 2, data.stderr)
 
   process.chdir = dir => rpc({ op: 'chdir', dir: String(dir) })
+
+  __idris2_signalWord = new Int32Array(data.signals)
+  __idris2_controlSignal = (name, num, mode) =>
+    rpc({ op: 'signal', signal: name, num: num, mode: mode })
 
   // Signals reach the main thread only.  The worker's listeners run when the
   // worker's event loop does, as they would on the main thread.

@@ -1,0 +1,20 @@
+survived an ignored SIGABRT
+(True, True)
+True
+True
+True
+done
+survived an ignored SIGABRT
+(True, True)
+True
+True
+True
+done
+got SIGUSR1
+woken up
+got SIGUSR1
+done
+raising
+killed: 1
+raising
+killed: 1

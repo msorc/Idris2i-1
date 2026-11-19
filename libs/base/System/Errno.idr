@@ -8,7 +8,7 @@ module System.Errno
 prim__getErrno : PrimIO Int
 
 %foreign "C:idris2_strerror, libidris2_support, idris_support.h"
-         "node:lambda:errno=>'Error code: '+errno"
+         "node:support:strerror,support_system"
 prim__strerror : Int -> PrimIO String
 
 ||| Fetch libc `errno` global variable.

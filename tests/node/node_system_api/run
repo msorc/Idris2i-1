@@ -1,0 +1,10 @@
+. ../../testutils.sh
+
+rm -rf wd
+idris2 -o sysall SysAll.idr
+./build/exec/sysall < /dev/null > worker.out
+cat worker.out
+echo "-- main thread"
+IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/sysall < /dev/null > main.out
+diff worker.out main.out && echo "same output"
+rm -rf wd worker.out main.out

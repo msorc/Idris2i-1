@@ -1,0 +1,9 @@
+. ../../testutils.sh
+
+idris2 -o signals Signals.idr
+idris2 -o default Default.idr
+./build/exec/signals self
+IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/signals self
+./build/exec/signals others
+(./build/exec/default; echo "killed: $(( $? > 128 ))") 2> /dev/null
+(IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/default; echo "killed: $(( $? > 128 ))") 2> /dev/null

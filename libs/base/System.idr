@@ -32,11 +32,13 @@ libc fn = "C:" ++ fn ++ ", libc 6"
 %foreign "scheme,racket:blodwen-sleep"
          "RefC:refc_sleep"
          supportC "idris2_sleep"
+         supportNode "sleep"
 prim__sleep : Int -> PrimIO ()
 
 %foreign "scheme,racket:blodwen-usleep"
          "RefC:refc_usleep"
          supportC "idris2_usleep"
+         supportNode "usleep"
 prim__usleep : Int -> PrimIO ()
 
 ||| Sleep for the specified number of seconds or, if signals are supported,
@@ -94,6 +96,7 @@ getArgs = do
 prim__getEnv : String -> PrimIO (Ptr String)
 
 %foreign supportC "idris2_getEnvPair"
+         supportNode "getEnvPair"
 prim__getEnvPair : Int -> PrimIO (Ptr String)
 %foreign supportC "idris2_setenv"
          supportNode "setEnv"
@@ -103,9 +106,11 @@ prim__setEnv : String -> String -> Int -> PrimIO Int
 prim__unsetEnv : String -> PrimIO Int
 
 %foreign "C:idris2_enableRawMode, libidris2_support, idris_support.h"
+         supportNode "enableRawMode"
 prim__enableRawMode : (1 x : %World) -> IORes Int
 
 %foreign "C:idris2_resetRawMode, libidris2_support, idris_support.h"
+         supportNode "resetRawMode"
 prim__resetRawMode : (1 x : %World) -> IORes ()
 
 ||| `enableRawMode` enables raw mode for stdin, allowing characters

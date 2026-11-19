@@ -1,0 +1,68 @@
+currentDir: True
+createDir: Right ()
+createDir again: Left File Exists
+changeDir: True
+changeDir missing: False
+currentDir after: True
+writeFile: Right ()
+appendFile: Right ()
+readFile: Right "one\ntwo\n\nlast!"
+readFile missing: Left File Not Found
+readFilePage: Right (False, ["two\n", "\n"])
+exists: (True, False)
+firstExists: Just "a.txt"
+listDir: Right ["a.txt", "sub"]
+listDir missing: Left File Not Found
+nextDirEntry: Right Nothing
+openDir missing: File Not Found
+removeDir: False
+fileSize: Right 14
+isTTY: False
+fPoll: True
+fGetLine: Right "one\n"
+fGetChar: Right 't'
+fGetChars: Right "wo"
+fSeekLine: Right ()
+fEOF: False
+fGetLine: Right "\n"
+fGetLine last: Right "last!"
+fEOF: True
+fGetLine at end: Right ""
+fileModifiedTime: True
+fileTime: True
+fRead: Right "one\ntwo\n\nlast!"
+openFile missing: File Not Found
+fPutStr: Right ()
+fPutStrLn: Right ()
+readFile b: Right "xy\n"
+copyFile: Right
+readFile c: Right "xy\n"
+chmodRaw: Right ()
+chmodRaw missing: Left File Not Found
+buffer size: 3
+writeBufferToFile: Right
+readFile d: Right "xy\n"
+removeFile: Right ()
+removeFile missing: Left File Not Found
+system: 3
+run: ("hi\n", 0)
+popen fGetLine: Right "popen\n"
+pclose: 0
+setEnv: True
+getEnv: Just "1"
+getEnvironment: Just "1"
+unsetEnv: True
+getEnv after: Nothing
+getArgs: 1
+getPID: True
+time: True
+sleep: True
+os: unix
+isWindows: False
+getNProcessors: Just True
+termCols: True
+getErrno: True
+enableRawMode: Left
+end: False
+-- main thread
+same output
