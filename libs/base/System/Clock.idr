@@ -254,8 +254,9 @@ public export
 fromNano : {type : ClockType} -> (n : Integer) -> Clock type
 fromNano n =
   let scale       = 1000000000
-      seconds     = n `div` scale
-      nanoseconds = n `mod` scale
+      -- scale is not zero
+      seconds     = assert_total $ n `div` scale
+      nanoseconds = assert_total $ n `mod` scale
    in MkClock seconds nanoseconds
 
 ||| Compute difference between two clocks of the same type.

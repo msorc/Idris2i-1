@@ -129,10 +129,11 @@ natLimbs : Bits64 -> Integer -> Bits64
 natLimbs s n =
   if n < 18446744073709551616
      then mix s (cast n)
-     else natLimbs (mix s (cast (n `mod` 18446744073709551616)))
+     else natLimbs (mix s (cast (assert_total $ n `mod` 18446744073709551616)))
                    -- n >= 2^64, so n `div` 2^64 is a smaller non-negative
-                   -- number; the recursion stops when n < 2^64.
-                   (assert_smaller n (n `div` 18446744073709551616))
+                   -- number; the recursion stops when n < 2^64.  (The
+                   -- divisor is not zero.)
+                   (assert_smaller n (assert_total $ n `div` 18446744073709551616))
 
 hashInteger : Bits64 -> Integer -> Bits64
 hashInteger s n =

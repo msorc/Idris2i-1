@@ -22,6 +22,11 @@ spec a b = loop (unpack a) (unpack b) where
                        , loop xs ys        -- substitute y for x
                        ]
 
+-- The ranges of Int take `Integral Int`, whose `div` and `mod` are partial,
+-- but use none of its methods
+ints : Int -> Int -> List Int
+ints x y = assert_total [x .. y]
+
 ||| Dynamic programming
 export
 compute : HasIO io => String -> String -> io Nat
@@ -38,8 +43,8 @@ compute a b = do
   -- * delete all of the first
   -- * insert all of the second
   -- i.e. the cost is the length of the non-zero suffix
-  for_ [0..w] $ \ i => write mat i 0 i -- deletions
-  for_ [0..h] $ \ j => write mat 0 j j -- insertions
+  for_ (ints 0 w) $ \ i => write mat i 0 i -- deletions
+  for_ (ints 0 h) $ \ j => write mat 0 j j -- insertions
 
   -- We introduce a specialised `read` for ease of use
   let get = \i, j => case !(read {io} mat i j) of
@@ -49,8 +54,8 @@ compute a b = do
 
   -- We fill the matrix from the bottom up, using the same formula we used
   -- in the specification's `loop`.
-  for_ [1..h] $ \ j => do
-    for_ [1..w] $ \ i => do
+  for_ (ints 1 h) $ \ j => do
+    for_ (ints 1 w) $ \ i => do
       -- here we change Levenshtein slightly so that we may only substitute
       -- alpha / numerical characters for similar ones. This avoids suggesting
       -- "#" as a replacement for an out of scope "n".
