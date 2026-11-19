@@ -1,0 +1,64 @@
+-- List monoid
+concat: 400000 894120
+concat gen: 400000 894120
+concat par: 400000 894120
+concatMap: 400000 894120
+concatMap gen: 400000 894120
+concatMap par: 400000 894120
+foldMap: 400000 894120
+foldMap gen: 400000 894120
+foldMap par: 400000 894120
+-- String monoid
+concat: 1288895 338751
+concat gen: 1288895 338751
+concat par: 1288895 338751
+concatMap: 1288895 338751
+concatMap gen: 1288895 338751
+concatMap par: 1288895 338751
+foldMap: 1288895 338751
+foldMap gen: 1288895 338751
+foldMap par: 1288895 338751
+joinBy: 1488894 680878
+unwords: 1488894 338305
+unlines: 1488895 389876
+fastConcat: 1288895 338751
+-- SnocList monoid
+concat: 400000 894120
+concat gen: 400000 894120
+concat par: 400000 894120
+concatMap: 400000 894120
+concatMap gen: 400000 894120
+foldMap par: 400000 894120
+-- Additive Integer
+40000200000
+40000200000
+20000100000 3628800
+60000300000
+-- Other monoids
+Trace: 2000 481763
+Trace gen: 2000 481763
+Count: 200000 905564
+681531 254427
+Just 6
+LT EQ
+""[]
+-- Other Foldables
+List1: 400002 561232
+List1 String: 1288897 462973
+SnocList: 400000 894120
+SnocList String: 1288895 338751
+SnocList SnocList: 400000 894120
+Vect: 100000 312358
+Vect String: 288894 56385
+[3, 3]
+""
+-- Small
+[1, 2, 3, 4, 5]
+"abc"
+"123"
+[1, 10, 2, 20, 3, 30]
+[1, 2, 3, 4, 5]
+"1,2,3,"
+[1, 2, 2, 3, 3, 4]
+[1, 2, 2, 3, 3, 4]
+"1,2,3,"
