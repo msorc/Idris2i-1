@@ -254,9 +254,12 @@ The code generator does the following, each of which a directive turns off
   newtypes over these types (a ``record`` with one field of such a type).  A
   function in ``IO`` whose actions take the world (``f x = do ...``) has a
   worker too: it takes the world as its last parameter, and gives the result
-  of the action as a C integer.  (A function in ``IO`` whose body is not a
-  function of the world, ``loop acc n = if n == 0 then pure acc else ...``,
-  gives an action: its worker takes the integers but gives the action.)
+  of the action as a C integer.  So does a function in ``IO`` whose body
+  gives its action without a bind first (``loop acc n = if n == 0 then pure
+  acc else loop ...``), which the compiler gives the world as a parameter
+  when what the body computes before its action is cheap.  (When it is not,
+  ``f x = let y = expensive x in pure y``, the function gives an action: its
+  worker takes the integers but gives the action.)
 - ``refc-no-trmc``: a function that makes a cell of a call to itself
   (``map f (x :: xs) = f x :: map f xs``) loops instead of recursing: it makes
   the cell first, with a hole for the result of the call, so that it needs no

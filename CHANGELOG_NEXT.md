@@ -493,6 +493,27 @@ should target this file (`CHANGELOG_NEXT`).
   for a particular monad (those of the library for `IO` and `State`)
   applied there, as the rule that makes a method call a call of its
   implementation took it first.
+* A function in `IO` whose body gives its action without a bind first (`loop
+  acc n = if n == 0 then pure acc else loop (acc + n) (n - 1)`, a `let` or a
+  case before the action, a `where` helper, a `PrimIO` action) is given the
+  world as a parameter, which is pushed into the body (into the alternatives
+  of a case, the scope of a let, the end of a call), instead of returning a
+  closure waiting for the world.  This is done when what the body computes
+  before its action is cheap (primitive operations on numbers, constructors,
+  closures, partial applications, and cases and lets of these), so that an
+  action made once and run many times (`let act = f x in act >> act`)
+  computes again only such operations: `f x = let y = expensive x in pure y`
+  keeps its closure.  The arguments of a partial application of such a
+  function that are not cheap are computed once, outside the lambda that the
+  application is made into.  On every back end; with RefC, the worker of such
+  a function gives its result as a C integer.  A loop in `IO` that calls an
+  `IO` step whose body is an `if` runs 5.4 times fewer instructions with RefC
+  (9% fewer with Chez), a loop over an `IOArray` through such helpers 33%
+  fewer (19% with Chez); the programs of `benchmark/` run the same
+  instructions.  `--typecheck` of libs/base takes 0.09% more instructions
+  (the pass), and the compiler compiled by itself is as fast and as large as
+  when it is compiled without the pass.  See `Compiler.Opts.EtaIO`; the tests
+  `allbackends/ioeta001` (sharing) and `refc/ioeta001`.
 
 ### Building/Packaging changes
 
