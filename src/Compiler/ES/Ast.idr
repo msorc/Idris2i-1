@@ -178,6 +178,12 @@ mutual
                 -> (def       : Maybe $ Stmt $ Just e)
                 -> Stmt (Just e)
 
+    ||| In a function whose body is a loop (see `selfLoop` of
+    ||| `Compiler.ES.TailRec.Function`), a tail call to itself: the new
+    ||| values of its parameters (the variables that hold the arguments of
+    ||| the next round), and back to the start of the loop.
+    Continue    : List (Var, Exp) -> Stmt (Just Returns)
+
     ||| A runtime exception.
     Error       : {0 any : _} -> String -> Stmt (Just any)
 

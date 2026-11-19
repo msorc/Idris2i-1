@@ -761,6 +761,36 @@ mutual
             d <- stmt b
             pure ((Text $ jsConstant c, Nothing), d)
 
+  -- the arguments of the next round, then back to the start of the loop
+  -- (an argument that is the parameter itself is left as it is)
+  stmt (Continue as) = do
+    nm <- get NoMangleMap
+    Just (_, ps) <- loopFun <$> get ESs
+      | Nothing => error "a jump outside of a loop"
+    let changed = filter (\(v, e) => not (same ps v e)) as
+    case changed of
+      [(v, e)] => do
+        d <- exp e
+        pure $ vcat [hcat [var nm v, softEq, d, ";"], "continue;"]
+      _ => do
+        ts <- traverse (\_ => nextLocal) changed
+        es <- traverse (exp . snd) changed
+        let tmps = zipWith (\t, d => constant (var nm t) d) ts es
+            sets = zipWith (\(v, _), t => hcat [var nm v, softEq, var nm t, ";"])
+                           changed ts
+        pure $ vcat (tmps ++ sets ++ ["continue;"])
+    where
+      sameVar : Var -> Var -> Bool
+      sameVar (VName x) (VName y) = x == y
+      sameVar (VLoc x) (VLoc y) = x == y
+      sameVar (VRef x) (VRef y) = x == y
+      sameVar _ _ = False
+
+      same : List (Var, Var) -> Var -> Exp -> Bool
+      same ps v (EMinimal (MVar w))
+          = any (\(o, i) => sameVar o v && sameVar i w) ps
+      same _ _ _ = False
+
   stmt (Error x)   = pure $ jsCrashExp (jsStringDoc x) <+> ";"
   stmt (Block ss s) = do
     docs <- traverse stmt $ forget ss
@@ -781,7 +811,7 @@ def :  {auto c : Ref Ctxt Defs}
     -> {auto nm : Ref NoMangleMap NoMangleMap}
     -> Function
     -> Core String
-def (MkFunction n as body) = do
+def (MkFunction n as body loop) = do
   reset
   defs <- get Ctxt
   mty <- do log "compiler.javascript.doc" 50 $ "Looking up \{show n}"
@@ -793,8 +823,20 @@ def (MkFunction n as body) = do
             pure (Just (shown ty))
   ref  <- getOrRegisterRef n
   args <- traverse registerLocal as
+  -- a loop gets its arguments in variables of its own, which a tail call to
+  -- itself sets, and binds its parameters to them at every round (so that a
+  -- closure keeps the values of its round)
+  outer <- if loop then traverse (\_ => nextLocal) as else pure args
+  when loop $ update ESs { loopFun := Just (n, zip outer args) }
   mde  <- mode <$> get ESs
-  b    <- stmt Returns body >>= stmt
+  b0   <- stmt Returns body >>= stmt
+  nm   <- get NoMangleMap
+  let b = if loop
+             then "while" <+> SoftSpace <+> "(true)" <+> SoftSpace <+> block (vcat
+                    (zipWith (\p, o => constant (var nm p) (var nm o)) args outer
+                     ++ [b0]))
+             else b0
+  let args = outer
   let cmt = comment $ hsep (shown n :: toList ((":" <++>) <$> mty))
   if null args && n /= mainExpr
     -- zero argument toplevel functions are converted to

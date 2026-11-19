@@ -129,7 +129,7 @@ mutual
           go ns (NmLam _ n x) = go (n :: ns) x
           go ns x             = do
             vs <- traverse registerLocal (reverse ns)
-            ELam vs <$> stmt Returns x
+            ELam vs <$> outsideLoop (stmt Returns x)
 
   -- convert a `NamedCExp` to a sequence of statements.
   export
@@ -159,11 +159,15 @@ mutual
   -- when applying a function, we potentially need to
   -- lift both, the function expression itself and the argument
   -- list, to the surrounding scope.
-  stmt e (NmApp _ x xs) = do
-    (mbx, vx)    <- liftFun x
-    (mbxs, args) <- liftArgs xs
-    k            <- callee x
-    pure . prepend (mbx ++ mbxs) $ assign e (EApp k vx args)
+  -- in the loop of a function (see `Continue`), a tail call to itself
+  stmt Returns (NmApp fc x@(NmRef _ n) xs) = do
+    Just (self, ps) <- loopFun <$> get ESs
+      | Nothing => app Returns x xs
+    if self == n && length ps == length xs
+       then do (mbxs, args) <- liftArgs xs
+               pure . prepend mbxs $ Continue (zip (map fst ps) args)
+       else app Returns x xs
+  stmt e (NmApp _ x xs) = app e x xs
 
   stmt e (NmCon _ n ci tg xs) = do
     (mbxs, args) <- liftArgs xs
@@ -185,7 +189,7 @@ mutual
     k         <- callee (NmLocal EmptyFC (MN "forced" 0))
     pure . prepend mbx $ assign e (EApp k vx [])
 
-  stmt e (NmDelay _ _ x) = assign e . ELam [] <$> stmt Returns x
+  stmt e (NmDelay _ _ x) = assign e . ELam [] <$> outsideLoop (stmt Returns x)
 
   -- No need for a `switch` if we only have a single branch.
   -- It's still necessary to lift the scrutinee, however,
@@ -224,6 +228,18 @@ mutual
   stmt e (NmErased _)    = pure . assign e $ EErased
 
   stmt _ (NmCrash _ x)   = pure $ Error x
+
+  -- an application
+  app :  {auto c : Ref ESs ESSt}
+      -> (e : Effect)
+      -> NamedCExp
+      -> List NamedCExp
+      -> Core (Stmt $ Just e)
+  app e x xs = do
+    (mbx, vx)    <- liftFun x
+    (mbxs, args) <- liftArgs xs
+    k            <- callee x
+    pure . prepend (mbx ++ mbxs) $ assign e (EApp k vx args)
 
   -- a single branch in a pattern match on constructors
   conAlt :  { auto c : Ref ESs ESSt }

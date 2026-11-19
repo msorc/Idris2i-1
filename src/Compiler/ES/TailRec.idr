@@ -224,6 +224,10 @@ record Function where
   name : Name
   args : List Name
   body : NamedCExp
+  ||| Its tail calls to itself are jumps back to its start: the code
+  ||| generator makes its body a loop (`while (true)`, see
+  ||| `Compiler.ES.ToAst`).
+  selfLoop : Bool
 
 tcFunction : Int -> Name
 tcFunction = MN "$tcOpt"
@@ -293,7 +297,7 @@ convertTcGroup loop g@(MkTcGroup gindex fs) =
   let functions = sortBy (comparing index) $ values fs
       branches  = map (conAlt g) functions
       switch    = NmConCase EmptyFC (local tcArgName) branches Nothing
-   in MkFunction tcFun [tcArgName] switch :: map toFun functions
+   in MkFunction tcFun [tcArgName] switch False :: map toFun functions
 
   where tcFun : Name
         tcFun = tcFunction gindex
@@ -308,7 +312,7 @@ convertTcGroup loop g@(MkTcGroup gindex fs) =
                         DATACON (Just ix) exps
               tcFun = NmRef EmptyFC tcFun
               body  = NmApp EmptyFC (NmRef EmptyFC loop) [tcFun,tcArg]
-           in MkFunction n args body
+           in MkFunction n args body False
 
 -- Tail recursion optimizations: Converts all groups of
 -- mutually tail recursive functions to an imperative loop.
@@ -319,14 +323,21 @@ tailRecOptim :  List TcGroup
              -> List Function
 tailRecOptim groups names loop ts =
   let regular = mapMaybe toFun ts
-      tailOpt = concatMap (convertTcGroup loop) groups
+      tailOpt = concatMap convert groups
    in tailOpt ++ regular
 
   where toFun : (Name,List Name,NamedCExp) -> Maybe Function
         toFun (n,args,exp) =
           if contains n names
              then Nothing
-             else Just $ MkFunction n args exp
+             else Just $ MkFunction n args exp False
+
+        -- A function that only calls itself is a loop of its own, without
+        -- the objects that `__tailRec` passes around.
+        convert : TcGroup -> List Function
+        convert g@(MkTcGroup _ fs) = case values fs of
+          [MkTcFunction n _ args@(_ :: _) x] => [MkFunction n args x True]
+          _ => convertTcGroup loop g
 
 ||| Converts a list of toplevel definitions (potentially
 ||| several groups of mutually tail-recursive functions)

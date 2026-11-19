@@ -1120,6 +1120,10 @@ should target this file (`CHANGELOG_NEXT`).
     sets the size (`0` runs on the main thread).  The browser keeps its
     limit for such recursion.
 * `getChar` with Node reads file descriptor 0 instead of `process.stdin.fd`.
+* A toplevel function whose only tail calls are to itself is compiled to a
+  `while` loop instead of going through `__tailRec`, which allocated an object
+  per round: 5 to 25% fewer instructions on the benchmarks with Node
+  (`mergeInt` -23%, `triples` -25%).
 
 ### Library changes
 

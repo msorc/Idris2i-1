@@ -114,6 +114,11 @@ record ESSt where
   ||| `Nothing` if tail calls to unknown functions are not trampolined.
   bouncing : Maybe (SortedSet Name)
 
+  ||| The function whose body is a loop and that is being compiled, with
+  ||| the variables of the arguments of the next round and those of its
+  ||| parameters (see `Continue`)
+  loopFun : Maybe (Name, List (Var, Var))
+
 --------------------------------------------------------------------------------
 --          Local Variables
 --------------------------------------------------------------------------------
@@ -243,10 +248,21 @@ init :  (mode  : CGMode)
      -> (bouncing : Maybe (SortedSet Name))
      -> ESSt
 init mode isArg isFun ccs noMangle bouncing =
-  MkESSt mode isArg isFun 0 0 empty empty empty ccs noMangle bouncing
+  MkESSt mode isArg isFun 0 0 empty empty empty ccs noMangle bouncing Nothing
 
 ||| Reset the local state before defining a new toplevel
 ||| function.
 export
 reset : {auto c : Ref ESs ESSt} -> Core ()
-reset = update ESs $ { loc := 0, locals := empty }
+reset = update ESs $ { loc := 0, locals := empty, loopFun := Nothing }
+
+||| Runs the action outside the loop of the function (in the body of a
+||| lambda or of a delayed value, where a call is no jump).
+export
+outsideLoop : {auto c : Ref ESs ESSt} -> Core a -> Core a
+outsideLoop act = do
+  l <- loopFun <$> get ESs
+  update ESs $ { loopFun := Nothing }
+  r <- act
+  update ESs $ { loopFun := l }
+  pure r
