@@ -175,3 +175,40 @@ print = putStr . show
 %inline export
 printLn : HasIO io => Show a => a -> io ()
 printLn = putStrLn . show
+
+-- (These are at the end of the file, so that the positions in it that the
+-- expected output of refc/callingConvention shows stay.)
+
+||| `traverse` on a list in `IO`, as a loop.  `traverse` builds a chain of
+||| `<*>` as long as the list, and running it needs a stack as deep as the
+||| list on the JavaScript backends; this passes the world on from one action
+||| to the next and collects the results in a `SnocList`.  Uses of
+||| `traverse`, `for` and `sequence` on lists in `IO` are transformed to this.
+public export
+ioTraverseList : (a -> IO b) -> List a -> IO (List b)
+ioTraverseList f xs = fromPrim (go [<] xs)
+  where
+    go : SnocList b -> List a -> (1 w : %World) -> IORes (List b)
+    go sy [] w = MkIORes (sy <>> []) w
+    go sy (x :: xs) w = case toPrim (f x) w of
+                             MkIORes y w' => go (sy :< y) xs w'
+
+%transform "ioTraverseList" traverse {t = List} {f = IO} = ioTraverseList
+%transform "ioForList" for {t = List} {f = IO} xs f = ioTraverseList f xs
+%transform "ioSequenceList" sequence {t = List} {f = IO} {a} xs = ioTraverseList {a = IO a} {b = a} id xs
+
+||| `foldlM` on a list in `IO`, as a loop.  `foldlM` builds a chain of `>>=`
+||| as long as the list, nested to the left, and running it needs a stack as
+||| deep as the list on the JavaScript backends; this passes the world and
+||| the accumulator on from one action to the next instead.  Uses of `foldlM`
+||| on lists in `IO` are transformed to this.
+public export
+ioFoldlMList : (acc -> a -> IO acc) -> acc -> List a -> IO acc
+ioFoldlMList f a0 xs = fromPrim (go a0 xs)
+  where
+    go : acc -> List a -> (1 w : %World) -> IORes acc
+    go a [] w = MkIORes a w
+    go a (x :: xs) w = case toPrim (f a x) w of
+                            MkIORes a' w' => go a' xs w'
+
+%transform "ioFoldlMList" foldlM {t = List} {m = IO} = ioFoldlMList

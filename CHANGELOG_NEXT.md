@@ -1216,6 +1216,15 @@ should target this file (`CHANGELOG_NEXT`).
   longer need a stack as deep as the list with JavaScript, and are faster with
   every backend: `length [1..10^6]` takes 63% fewer instructions with Chez and
   32% fewer with RefC, `for_ [1..10^6]` in `IO` 80% and 61% fewer.
+* `traverse`, `for` and `sequence` on lists in `IO` are transformed
+  (`%transform`) to a loop that passes the world on and collects the results
+  in a `SnocList` (`ioTraverseList`), and `foldlM` on lists in `IO` to one
+  that passes the accumulator on (`ioFoldlMList`), instead of building a
+  chain of `<*>` or `>>=` as long as the list and running it nested.  They no
+  longer need a stack as deep as the list with JavaScript, and are faster with
+  every backend (10 times a list of 10^6 elements): `traverse` 81% fewer
+  instructions with RefC and 76% with Chez (peak memory 349MB to 52MB, 430MB
+  to 102MB), `sequence` 55% and 56%, `foldlM` 59% and 90%.
 * `concat` of a list of lists is transformed (`%transform`) to a loop
   (`listBindOnto`), as `concatMap` already was: through the `foldMap` of
   `Foldable List`, a left fold, it copied its accumulator at every step and
