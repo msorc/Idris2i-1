@@ -307,6 +307,67 @@ has returned, although ``ignoreSignal`` works.  ``raiseSignal`` and
 once in both cases, as ``raise`` does in C.  ``SIGKILL`` and ``SIGSTOP``
 cannot be collected or ignored.
 
+No helper thread can receive the signals of other processes for the main
+thread: Node delivers a signal to its main thread only, and a signal for which
+only a worker thread has a listener has its default action (it ends the
+program).  So that limit stays.
+
+Child processes
+---------------
+
+``popen`` (for reading and for writing), ``pclose``, ``popen2``,
+``popen2Wait``, ``system``, ``run`` and ``runProcessingOutput`` work with
+Node as with the C backends.  The child runs at the same time as the
+program, and the pipes behave as in C: a program that reads an empty pipe
+waits, and the child waits when it writes to a pipe that is full (so
+``popen2`` has the deadlocks that its documentation warns of).  The main
+thread, whose event loop runs while ``main`` runs in its worker thread,
+starts the child and sees it exit; ``main`` reads and writes the pipes with
+the file descriptors that it is given, and asks the main thread to close a
+pipe and to wait for the exit.  The exit status is the exit code of the
+command, or 128 plus the number of the signal that killed it, as for
+``system``.  Output that the child writes to its inherited stdout
+or stderr appears when the child writes it, so a program that wants it in
+order with its own output flushes stdout first (``fflush stdout``).  Windows
+is not supported by ``popen``, ``popen2`` and ``popen2Wait``.
+
+When ``main`` runs on the main thread (``IDRIS2_MAIN_STACK_SIZE=0``) nothing
+could tell that a child has exited, so ``popen2``, and ``popen`` for writing,
+stop the program with an error, and ``popen`` for reading runs the command to
+its end first, as it did before.
+
+Threads
+-------
+
+A JavaScript program has one thread, and a worker thread shares no objects
+with it, so an Idris closure cannot run in another thread.  The JavaScript
+back ends therefore have no ``fork``, and no ``System.Future`` (``fork``,
+``await``, ``forkIO``): they stop the program with a message and exit code 1.
+The remaining primitives of ``System.Concurrency`` mean something in a program
+with a single thread, and have that meaning: a ``Mutex`` is a recursive lock,
+a ``Semaphore`` a counter, a ``Channel`` a queue of one value,
+``setThreadData`` and ``getThreadData`` a variable, ``getThreadId`` is 0, a
+``Barrier`` for one thread does not wait, ``conditionWaitTimeout`` and
+``channelGetWithTimeout`` wait for the timeout, and ``channelGetNonBlocking``
+looks at the channel.  Whatever would have to wait for a thread that does not
+exist (``channelGet`` on an empty channel, ``channelPut`` on a full one,
+``semaphoreWait`` at zero, ``conditionWait``, ``barrierWait`` for several
+threads) stops the program with a message instead of hanging.  Running the
+forked action when ``fork`` is called, or when the program first waits, would
+turn programs that use ``sleep`` or a channel to order the threads into
+programs that print something else, so it is not done.
+
+Data.Buffer
+-----------
+
+Every accessor of ``Data.Buffer`` works with Node, and gives the bytes and
+the values of the Chez and RefC backends: ``Int8``, ``Int16``, ``Int32``,
+``Bits8`` to ``Bits64``, ``Int64`` (``BigInt``, exact beyond 2^53) and
+``Double``, in little-endian order.  ``setInt`` and ``getInt`` use four bytes,
+as ``Int`` has 32 bits with JavaScript (eight with the others).  The
+accessors do not check the offset; Node raises a ``RangeError`` for one out of
+bounds.
+
 Directives
 ----------
 

@@ -1174,6 +1174,21 @@ should target this file (`CHANGELOG_NEXT`).
   returns.  See the section on signals in the documentation of the backends.
 * Node: foreign code that reads `process.stdin` as a stream gets the input
   when `main` runs in its worker thread.
+* Node: `Data.Buffer` has `getInt8`, `setInt8`, `getInt16`, `getInt64` and
+  `setInt64` (it had none, so a program that used them did not compile), and
+  `setByte` wraps its value to a byte as the other backends do; every accessor
+  gives the bytes and values of Chez and RefC (`Int` aside, which has four
+  bytes).
+* Node: `popen`, `pclose` and `popen2` start a child process with pipes that
+  runs at the same time as the program (`popen` for writing and `popen2` did
+  not exist, `popen` for reading ran the command first and gave it no stdin),
+  and `popen2Wait` returns its exit status.  With `IDRIS2_MAIN_STACK_SIZE=0`,
+  `popen2` and `popen` for writing stop the program with an error.
+* JavaScript: `fork`, `threadWait` and `System.Future` stop the program with a
+  message (a program that used them did not compile); `Mutex`, `Semaphore`, `Barrier`, `Channel`, `Condition` and the
+  thread data of `System.Concurrency` work for a program with one thread, and
+  what would wait for another thread stops it with a message instead of
+  hanging.  See the section on threads in the documentation of the backends.
 
 ### Library changes
 

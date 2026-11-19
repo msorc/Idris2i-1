@@ -1,0 +1,17 @@
+first is x: True
+eof after the first: False
+eof after the end: True
+eof after another: True
+line at the end: ""
+-- empty
+first is x: False
+eof after the first: True
+eof after the end: True
+eof after another: True
+line at the end: ""
+-- main thread
+first is x: True
+eof after the first: False
+eof after the end: True
+eof after another: True
+line at the end: ""
