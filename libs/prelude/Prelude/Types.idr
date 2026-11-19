@@ -211,6 +211,7 @@ Semigroup (Maybe a) where
 public export
 Monoid (Maybe a) where
   neutral = Nothing
+  foldMapListImpl f xs = foldMapListGo f neutral xs
 
 public export
 Functor Maybe where

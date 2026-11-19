@@ -219,6 +219,7 @@ Semigroup v => Semigroup (SortedMap k v) where
 export
 (Ord k, Semigroup v) => Monoid (SortedMap k v) where
   neutral = empty
+  foldMapListImpl f xs = foldMapListGo f neutral xs
 
 export %inline
 Cast (SortedDMap k (const v)) (SortedMap k v) where

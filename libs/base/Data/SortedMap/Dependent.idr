@@ -494,3 +494,4 @@ DecEq k => ({x : k} -> Semigroup (v x)) => Semigroup (SortedDMap k v) where
 export
 DecEq k => Ord k => ({x : k} -> Semigroup (v x)) => Monoid (SortedDMap k v) where
   neutral = empty
+  foldMapListImpl f xs = foldMapListGo f neutral xs

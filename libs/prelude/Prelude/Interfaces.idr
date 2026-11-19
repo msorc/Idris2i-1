@@ -21,12 +21,66 @@ interface Semigroup ty where
   constructor MkSemigroup
   (<+>) : ty -> ty -> ty
 
-||| `foldl (\acc, x => acc <+> f x) z xs`, as a loop.  The default of
-||| `foldMapListImpl`.
+||| `foldl (\acc, x => acc <+> f x) z xs`, as a loop: the pieces are combined
+||| from the left.  For a `<+>` whose cost does not grow with its left
+||| argument (adding numbers, inserting into a map, `SnocList`), the best way
+||| to implement `foldMapListImpl`; see `foldMapListBalanced` for the
+||| others.
 public export
 foldMapListGo : Semigroup ty => (a -> ty) -> ty -> List a -> ty
 foldMapListGo f acc [] = acc
 foldMapListGo f acc (x :: xs) = foldMapListGo f (acc <+> f x) xs
+
+||| The same as `foldMapListGo` for a `<+>` that is associative, with the
+||| pieces combined in a balanced way instead of from the left.  The default
+||| of `foldMapListImpl`.
+|||
+||| A left fold costs, for a `<+>` that copies its left argument (`List`,
+||| `String`, a user type that wraps them), a copy of all that has been
+||| collected at every step: time quadratic in the number of elements.  Here
+||| the pieces are combined from the left in chunks of 16, and the results
+||| for the chunks are kept as a stack of partial results, as the digits of a
+||| binary counter: a new one is put on top, and as long as the number of
+||| chunks so far is even the top two are combined (the older on the left).
+||| The stack holds one partial result for every 1 in the binary form of the
+||| number of chunks, each a combination of 2^k neighbouring ones, and the
+||| ones at the end are combined from the smallest.  However `<+>` costs in
+||| its two arguments, each piece is combined `O(log n)` times with one of its
+||| size, or sits in a chunk of at most 16: `O(n log n)` for `n` pieces of
+||| constant size where `<+>` costs the sum of the sizes of its arguments, and
+||| `O(n)` where it does not depend on them, whether `<+>` copies its left or
+||| its right argument.  The order of the operands is kept, so a `<+>` that is
+||| not commutative is fine; one that is not associative is not (the nesting
+||| differs from that of a left fold from the 17th piece on).
+|||
+||| The accumulator `z` is on the left of the first piece, as in a left fold,
+||| so that the result is the same as that of `foldMapListGo` for up to 16
+||| pieces, `z` for no pieces and `z <+> f x` for one.
+public export
+foldMapListBalanced : Semigroup ty => (a -> ty) -> ty -> List a -> ty
+foldMapListBalanced f acc [] = acc
+foldMapListBalanced f acc (x :: xs) = loop 15 1 (acc <+> f x) xs []
+  where
+    -- Put the result `v` for the chunk number `k` on the stack `us` of the
+    -- results for the chunks before it: combine as long as `k` is even.
+    push : Int -> ty -> List ty -> List ty
+    push k v [] = [v]
+    push k v (u :: us) =
+      if prim__and_Int k 1 == 0 then push (prim__shr_Int k 1) (u <+> v) us else v :: u :: us
+
+    -- Combine from the smallest, the newest, to the largest: their sizes add
+    -- up to little more than the largest one.
+    finish : ty -> List ty -> ty
+    finish r [] = r
+    finish r (u :: us) = finish (u <+> r) us
+
+    -- `c` more pieces fit into the chunk `k` that is `cur` so far.
+    loop : Int -> Int -> ty -> List a -> List ty -> ty
+    loop c k cur [] us = finish cur us
+    loop c k cur (y :: ys) us =
+      if c == 0
+         then loop 15 (k + 1) (f y) ys (push k cur us)
+         else loop (c - 1) k (cur <+> f y) ys us
 
 ||| Sets equipped with a single binary operation that is associative, along with
 ||| a neutral element for that binary operation.  Must satisfy the following
@@ -42,17 +96,22 @@ interface Semigroup ty => Monoid ty where
   constructor MkMonoid
   neutral : ty
 
-  ||| `foldMap` of a list: combine the images of its elements with `<+>`,
-  ||| from the left.  `foldMap` for `List` is this, so `concat`, `concatMap`
-  ||| and `foldMap` over a list take the cost of the monoid's way of
-  ||| combining many values.  It is a method because the best way depends on
-  ||| the monoid: appending a piece to a growing `List` or `String` on the
-  ||| left copies all of it every time, so those collect the pieces and build
-  ||| the result once.  Implementations must agree with the default,
-  ||| `foldl (\acc, x => acc <+> f x) neutral`.
+  ||| `foldMap` of a list: combine the images of its elements with `<+>`.
+  ||| `foldMap` for `List` is this, so `concat`, `concatMap` and `foldMap`
+  ||| over a list take the cost of the monoid's way of combining many values.
+  ||| It is a method because the best way depends on the monoid.  The
+  ||| default, `foldMapListBalanced`, combines neighbours in a balanced way,
+  ||| which is fast for a `<+>` that copies one of its arguments, on either
+  ||| side, as that of a wrapper of a `List`, a `String` or a `SnocList`: a
+  ||| left fold copies all that has been collected at every step.  A monoid
+  ||| whose `<+>` is cheap in its left argument (numbers, maps, `SnocList`)
+  ||| does less work with `foldMapListGo f neutral`, the left fold; `List`
+  ||| and `String` build the result at once.  The result must be that of a
+  ||| left fold, `foldl (\acc, x => acc <+> f x) neutral`, if `<+>` is
+  ||| associative.
   ||| @ f The function to apply to each element.
   foldMapListImpl : (f : fmElem -> ty) -> List fmElem -> ty
-  foldMapListImpl f xs = foldMapListGo f neutral xs
+  foldMapListImpl f xs = foldMapListBalanced f neutral xs
 
 public export
 Semigroup () where
@@ -79,6 +138,7 @@ Semigroup Ordering where
 public export
 Monoid Ordering where
   neutral = EQ
+  foldMapListImpl f xs = foldMapListGo f neutral xs
 
 public export
 Semigroup b => Semigroup (a -> b) where
@@ -417,10 +477,12 @@ namespace Num
     public export
     [Additive] Num a => Monoid a using Semigroup.Additive where
       neutral = 0
+      foldMapListImpl f xs = foldMapListGo f neutral xs
 
     public export
     [Multiplicative] Num a => Monoid a using Semigroup.Multiplicative where
       neutral = 1
+      foldMapListImpl f xs = foldMapListGo f neutral xs
 
 ||| Add together all the elements of a structure.
 public export %tcinline

@@ -469,6 +469,7 @@ module Prelude.Interfaces
   public export total choiceMap : {0 b : Type} -> {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Alternative f => Prelude.Interfaces.Foldable t => (a -> f b) -> t a -> f b
   public export total concat : {0 t : Type -> Type} -> {0 a : Type} -> Prelude.Interfaces.Monoid a => Prelude.Interfaces.Foldable t => t a -> a
   public export total concatMap : {0 a : Type} -> {0 t : Type -> Type} -> {0 m : Type} -> Prelude.Interfaces.Monoid m => Prelude.Interfaces.Foldable t => (a -> m) -> t a -> m
+  public export total foldMapListBalanced : {0 a : Type} -> {0 ty : Type} -> Prelude.Interfaces.Semigroup ty => (a -> ty) -> ty -> Prelude.Basics.List a -> ty
   public export total foldMapListGo : {0 a : Type} -> {0 ty : Type} -> Prelude.Interfaces.Semigroup ty => (a -> ty) -> ty -> Prelude.Basics.List a -> ty
   public export total for : {0 b : Type} -> {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Traversable t => t a -> (a -> f b) -> f (t b)
   public export total for_ : {0 b : Type} -> {0 a : Type} -> {0 t : Type -> Type} -> {0 f : Type -> Type} -> Prelude.Interfaces.Applicative f => Prelude.Interfaces.Foldable t => t a -> (a -> f b) -> f Builtin.Unit

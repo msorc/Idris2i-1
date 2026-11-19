@@ -94,6 +94,7 @@ Ord k => Semigroup (SortedSet k) where
 export
 Ord k => Monoid (SortedSet k) where
   neutral = empty
+  foldMapListImpl f xs = foldMapListGo f neutral xs
 
 export
 Eq k => Eq (SortedSet k) where

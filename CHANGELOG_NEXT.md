@@ -1440,22 +1440,49 @@ should target this file (`CHANGELOG_NEXT`).
   method, `foldMapListImpl : (a -> ty) -> List a -> ty` (`foldMap` of a
   list), which `foldMap` of `Foldable List` calls:
   `List` builds the result with a loop (`listBindOnto`) and `String` with
-  `fastConcat`, and the default is the left fold as before, so that every
-  other monoid (`Sum`, `Any`, `SortedMap` union, `SnocList`, ...) combines in
-  the same order and at the same cost as before.  The rules of `listConcat`
+  `fastConcat`.  The rules of `listConcat`
   and `listConcatMap` are gone (the method does the same), those of
   `fastConcat` and `fastConcatMap` stay.  The `Foldable` instances of
   `SnocList`, `Vect` and `List1` give their elements to the method too
   (`foldMap` of a `List1` or `Vect` was quadratic for `List` and `String`, and
   that of a `SnocList` for `String` and `SnocList`; for a `Vect` and a cheap
-  monoid it now costs a conversion to a list).  A monoid that wraps a list or
-  a string in its own type is still combined from the left, with its cost:
-  define `foldMapListImpl` for it (the default is `foldMapListGo f neutral`).
-  The constructor `MkMonoid` takes the method as a second argument, so a use
-  of it must pass one: `\f => foldMapListGo @{sg} f z` for the semigroup `sg`
-  and the neutral element `z`.  New public names:
-  `foldMapListImpl`, `foldMapListGo` and `concatStrings` (`fastConcat` that
-  reduces at compile time, transformed to it).
+  monoid it now costs a conversion to a list).  The default of the method,
+  `foldMapListBalanced`, is for the monoids that wrap a list, a string or a
+  snoc list in a type of their own (a `newtype`, a log record with a field of
+  lists, a document, a pair of lists), which the left fold of before made
+  quadratic: it combines the pieces in chunks of 16 from the left, and the
+  chunks as a binary counter does (a stack of partial results, the two on
+  top combined as long as their number is even, the stack combined from the
+  top at the end), with the same order of operands and, for a `<+>` that is
+  associative, the same result; a list of 16 pieces or fewer is combined
+  from the left as before, with `neutral` at the left end, and the stack
+  has `O(log n)` entries, so it needs no more stack than a loop.  It costs
+  `O(n log n)` for `n` pieces whose `<+>` copies its left or its right
+  argument, where the left fold took `O(n^2)` for one of them and `O(n)` for
+  the other (a newtype over a `SnocList` of 10^6 pieces: 473M instructions
+  with RefC and 836M with Chez before, 776M and 1.6G now), and the same
+  number of calls of `<+>`.  A newtype over `List Int` of 40,000 pieces took
+  24.0G instructions with RefC and 30.4G with Chez, now 37M and 272M (10^6
+  pieces: 0.97G and 1.9G); a record with a counter and a `String` 513M and
+  2.5G, now 86M and 404M; a pair of lists 72G and 133G, now 81M and 336M.
+  A monoid whose `<+>` costs no more than a few instructions pays for the
+  stack: with 10^6 pieces, a record around an `Int` that adds takes 372M
+  instructions with RefC and 468M with Chez before and 382M and 555M now,
+  one around a `Bool` that `||`s 314M and 469M before and 379M and 557M now.
+  `Additive`, `Multiplicative`, `Ordering`,
+  `Maybe`, `SnocList`, the maps and sets of `Data.SortedMap`,
+  `Data.SortedSet`, `Data.SortedMap.Dependent`, `Data.HashMap` and
+  `Data.HashSet` keep the left fold, `foldMapListGo f neutral`, in their
+  `foldMapListImpl`, as it is the best for them (a union of sets is 4 times
+  as slow with the balanced one), and so can a user monoid like them.  The
+  constructor `MkMonoid` takes the method as a second argument, so a use of it
+  must pass one: `\f => foldMapListBalanced @{sg} f z` for the semigroup
+  `sg` and the neutral element `z`.  A `<+>` that is not associative gives
+  another result from the 17th piece on (the nesting of the balanced fold is
+  not specified).  New public names:
+  `foldMapListImpl`, `foldMapListGo` (the left fold), `foldMapListBalanced`
+  and `concatStrings` (`fastConcat` that reduces at compile time,
+  transformed to it).
 * Arrays (`Data.IOArray`, and `Data.Linear.Array` of `contrib`) are cheap
   enough to build data structures on.  Reading and writing an element were
   calls through the `HasIO` dictionary that built closures for the action

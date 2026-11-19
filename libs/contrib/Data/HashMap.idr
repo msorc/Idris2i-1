@@ -594,3 +594,4 @@ export
 export
 (Hashable k, Semigroup v) => Monoid (HashMap k v) where
   neutral = empty
+  foldMapListImpl f xs = foldMapListGo f neutral xs

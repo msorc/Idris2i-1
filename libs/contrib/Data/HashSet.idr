@@ -146,6 +146,7 @@ Hashable a => Semigroup (HashSet a) where
 export
 Hashable a => Monoid (HashSet a) where
   neutral = empty
+  foldMapListImpl f xs = foldMapListGo f neutral xs
 
 ||| Two sets are equal if they have the same elements.
 export

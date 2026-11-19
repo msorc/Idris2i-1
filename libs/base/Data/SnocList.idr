@@ -90,6 +90,7 @@ Semigroup (SnocList a) where
 public export
 Monoid (SnocList a) where
   neutral = Lin
+  foldMapListImpl f xs = foldMapListGo f neutral xs
 
 public export
 Foldable SnocList where
