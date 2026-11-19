@@ -161,10 +161,7 @@ maxColumnIndex = foldMap @{%search} @{Monoid.Deep @{MkSemigroup max}} (Just . ma
 
 namespace Pretty
   header : (columnWidth : Int) -> (length : Nat) -> List (Doc ann)
-  -- (the ranges of Integer use no method of Integral Integer, so not its
-  -- partial div and mod)
-  header columnWidth length
-      = map (fill columnWidth . byShow) (take length (assert_total [0..]))
+  header columnWidth length = map (fill columnWidth . byShow) (take length [0..])
 
   row : Pretty ann a => Vector a -> List (Doc ann)
   row xs = go rowLength xs
