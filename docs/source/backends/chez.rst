@@ -46,6 +46,28 @@ that.
 If you invoke ``idris2 --cg chez`` with the ``-o execname`` flag, it will generate an executable script
 ``build/exec/execname``, again with support files in ``build/exec/execname_app``.
 
+Separate compilation
+====================
+
+``--cg chez-sep`` compiles a program in separate units: the
+definitions are split into compilation units (a namespace, or the namespaces
+that depend on one another), each is a Chez library of its own in
+``build/exec/execname_app`` (``Main.so``, ``Data-List.so``, ...), and the
+program (``mainprog.so``) imports them.  A rebuild generates and compiles again
+only the units whose code changed and the units that import them (Chez does
+not accept a library that was compiled against another instance of one that it
+imports), all of them when the support library (``support.so``) changed, and
+the units whose ``.so`` file is missing.  The ``.hash`` file of a unit tells
+what it was built from; ``--log compiler.scheme.chez:3`` tells which units are
+generated.  The Scheme sources are removed after they are compiled.
+
+::
+
+    $ idris2 --cg chez-sep -p contrib -o prog Main.idr
+    $ ./build/exec/prog
+
+The backtraces below work the same way with it (``--directive chez-backtrace``
+and ``IDRIS2_CHEZ_BACKTRACE``).
 
 Chez Directives
 ===============

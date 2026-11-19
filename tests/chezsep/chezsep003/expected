@@ -1,0 +1,17 @@
+--- first build
+Lib-Base Lib-Mid Lib-Other Main 
+other 11 v1
+--- nothing changed
+
+other 11 v1
+--- Lib.Base changed
+Lib-Base Lib-Mid Main 
+other 21 v1
+--- Main changed
+Main 
+other 21 v2
+--- the compiled file of Lib.Mid is missing
+Lib-Mid Main 
+other 21 v2
+--- Lib.Other was not compiled again in all of this
+same

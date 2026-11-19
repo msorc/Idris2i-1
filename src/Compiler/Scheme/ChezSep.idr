@@ -82,42 +82,52 @@ startChezWinSh chez appDirSh targetSh = """
   DIR=$(dirname "$(readlink -f -- "$0" || cygpath -a -- "$0")")
   PATH="$DIR/\{ appDirSh }:$PATH"
 
-  "\{ chez }" --program "$DIR/\{ targetSh }" "$@"
   "\{ chez }" -q \
     --libdirs "$DIR/\{ appDirSh }" \
     --program "$DIR/\{ targetSh }" \
     "$@"
   """
 
+||| Run Chez on a script that compiles Scheme files, then remove the script.
+||| (The script is a file, not a pipe into Chez, so that the arguments are not
+||| quoted twice, and an error of Chez stops it and is reported.)
+runChezCompile : (chez : String) -> (libDir : String) -> (what : String) ->
+                 (script : Builder) -> Core ()
+runChezCompile chez libDir what script = do
+  let scriptFile = libDir </> "compile-" ++ what ++ ".script"
+  Right () <- coreLift $ writeFile scriptFile (build script)
+     | Left err => throw (FileErr scriptFile err)
+  status <- coreLift $ system [chez, "-q", "--libdirs", libDir, "--script", scriptFile]
+  ignore $ coreLift $ removeFile scriptFile
+  unless (status == 0) $
+    throw (InternalError "Chez exited with return code \{show status} when compiling \{what}")
+
+||| Compile the `compile` (`compile-library` or `compile-program`) of each file,
+||| and delete the SS file, to prevent it from interfering with the SO file.
+||| We keep the .hash files, though, so we still keep track of what to rebuild.
+compileChezFiles : (compile : String) -> (chez : String) -> (libDir : String) ->
+                   (what : String) -> (ssFiles : List String) -> Core ()
+compileChezFiles compile chez libDir what ssFiles =
+  runChezCompile chez libDir what $ concat $
+    [ "(parameterize ([optimize-level 3] [compile-file-message #f])\n"
+    ] ++
+    [ "  (" ++ fromString compile ++ " " ++ chezString ssFile ++ ")\n"
+      ++ "  (delete-file " ++ chezString ssFile ++ ")\n"
+    | ssFile <- ssFiles
+    ] ++ [")\n"]
+
 -- TODO: parallelise this
 compileChezLibraries : (chez : String) -> (libDir : String) -> (ssFiles : List String) -> Core ()
-compileChezLibraries chez libDir ssFiles = coreLift_ $ system
-  [ "echo"
-  , unwords
-    [ "'(parameterize ([optimize-level 3] [compile-file-message #f]) (compile-library " ++ build (chezString ssFile) ++ "))'"
-      ++ " '(delete-file " ++ build (chezString ssFile) ++ ")'"
-      -- we must delete the SS file to prevent it from interfering with the SO files
-      -- we keep the .hash file, though, so we still keep track of what to rebuild
-    | ssFile <- ssFiles
-    ]
-  , "|", chez, "-q", "--libdirs", libDir
-  ]
+compileChezLibraries chez libDir ssFiles =
+  compileChezFiles "compile-library" chez libDir "libraries" ssFiles
 
 compileChezLibrary : (chez : String) -> (libDir : String) -> (ssFile : String) -> Core ()
-compileChezLibrary chez libDir ssFile = coreLift_ $ system
-  [ "echo"
-  , "'(parameterize ([optimize-level 3] [compile-file-message #f]) (compile-library " ++ build (chezString ssFile) ++ "))'"
-  , "'(delete-file " ++ build (chezString ssFile) ++ ")'"
-  , "|", chez, "-q", "--libdirs", libDir
-  ]
+compileChezLibrary chez libDir ssFile =
+  compileChezFiles "compile-library" chez libDir "support" [ssFile]
 
 compileChezProgram : (chez : String) -> (libDir : String) -> (ssFile : String) -> Core ()
-compileChezProgram chez libDir ssFile = coreLift_ $ system
-  [ "echo"
-  , "'(parameterize ([optimize-level 3] [compile-file-message #f]) (compile-program " ++ build (chezString ssFile) ++ "))'"
-  , "'(delete-file " ++ build (chezString ssFile) ++ ")'"
-  , "|", chez, "-q", "--libdirs", libDir
-  ]
+compileChezProgram chez libDir ssFile =
+  compileChezFiles "compile-program" chez libDir "program" [ssFile]
 
 chezNS : Namespace -> String
 chezNS ns = case showNSWithSep "-" ns of
@@ -132,13 +142,56 @@ chezLibraryName cu = chezNS (foldl1 min cu.namespaces)
 touch : String -> Core ()
 touch s = coreLift_ $ system ["touch", s]
 
+||| Is the code of this name (the .hash file kept by the last successful build) different
+||| from the hash, or is its compiled file missing?
+outdatedFile : (appdir : String) -> (name : String) -> (hash : String) -> Core Bool
+outdatedFile appdir name hash =
+  coreLift (readFile (appdir </> name <.> "hash")) >>= \case
+    Left err => pure True
+    Right fileHash =>
+      if fileHash /= hash
+         then pure True
+         else not <$> coreLift (exists (appdir </> name <.> "so"))
+
 record ChezLib where
   constructor MkChezLib
   name : String
+  hash : String      -- of the code and the imports, kept after compiling
   isOutdated : Bool  -- needs recompiling
 
+||| Keep the hashes of the code that Chez has compiled
+keepHashes : (appdir : String) -> Maybe String -> List ChezLib -> Core ()
+keepHashes appdir supportHash libs = do
+  case supportHash of
+    Just h => Core.writeFile (appdir </> "support.hash") h
+    Nothing => pure ()
+  for_ libs $ \lib => when lib.isOutdated $
+    Core.writeFile (appdir </> lib.name <.> "hash") lib.hash
+
+||| The units that must be recompiled: the changed ones, and the units that
+||| import them, directly or not.  (Chez refuses a compiled library that imports
+||| another one that was compiled again afterwards: "requires a different
+||| compilation instance".)
+propagateChanges : List (CompilationUnit def) ->
+                   SortedSet CompilationUnitId -> SortedSet CompilationUnitId
+propagateChanges cus outdated =
+  let outdated' = foldl add outdated cus
+  in if length (Prelude.toList outdated') == length (Prelude.toList outdated)
+        then outdated
+        else propagateChanges cus outdated'
+  where
+    add : SortedSet CompilationUnitId -> CompilationUnit def -> SortedSet CompilationUnitId
+    add acc cu =
+      if any (\d => contains d acc) (Prelude.toList cu.dependencies)
+         then insert cu.id acc
+         else acc
+
 ||| Compile a TT expression to a bunch of Chez Scheme files
-compileToSS : Ref Ctxt Defs -> String -> String -> ClosedTerm -> Core (Bool, List ChezLib)
+||| Returns the hash of the support library, if it must be compiled again, and
+||| the units.  The hashes are kept (`keepHashes`) once Chez has compiled the
+||| code, so that a failure does not make the next build believe that the units
+||| are up to date.
+compileToSS : Ref Ctxt Defs -> String -> String -> ClosedTerm -> Core (Maybe String, List ChezLib)
 compileToSS c chez appdir tm = do
   -- process native libraries
   ds <- getDirectives Chez
@@ -156,47 +209,47 @@ compileToSS c chez appdir tm = do
   -- copy the support library
   support <- readDataFile "chez/support-sep.ss"
   let supportHash = show $ hash support
-  supportChanged <-
-    coreLift (readFile (appdir </> "support.hash")) >>= \case
-      Left err => pure True
-      Right fileHash => pure (fileHash /= supportHash)
-  when supportChanged $ do
+  supportChanged <- outdatedFile appdir "support" supportHash
+  when supportChanged $
     Core.writeFile (appdir </> "support.ss") support
-    Core.writeFile (appdir </> "support.hash") supportHash
 
   -- TODO: add extraRuntime
   -- the problem with this is that it's unclear what to put in the (export) clause of the library
   -- extraRuntime <- getExtraRuntime ds
 
+  -- the names of the imports of the units (and of the units)
+  let imports : CompilationUnit (FC, NamedDef) -> List String
+      imports cu =
+        [ maybe "unqualified" chezLibraryName (SortedMap.lookup cuid cui.byId)
+        | cuid <- Prelude.toList cu.dependencies
+        ]
+  -- (the code of a unit is not the same with `--directive chez-backtrace`)
+  let unitHash : CompilationUnit (FC, NamedDef) -> String
+      unitHash cu = show (hash cu) ++ "-" ++ show (hash (unwords (imports cu)))
+                    ++ (if bt then "-backtrace" else "")
+
+  -- find the units to compile: those that changed (their hash or their SO file),
+  -- all of them when the support library changed, and those that import them
+  changed <- for cui.compilationUnits $ \cu =>
+    if supportChanged then pure True
+       else outdatedFile appdir (chezLibraryName cu) (unitHash cu)
+  let outdated = propagateChanges cui.compilationUnits $ SortedSet.fromList
+        [cu.id | (cu, ch) <- zip cui.compilationUnits changed, ch]
+
   -- for each compilation unit, generate code
   chezLibs <- for cui.compilationUnits $ \cu => do
     let chezLib = chezLibraryName cu
-
-    -- check if the hash has changed
-    -- TODO: also check that the .so file exists
-    -- (the code of a unit is not the same with `--directive chez-backtrace`)
-    let cuHash = show (hash cu) ++ (if bt then "-backtrace" else "")
-    hashChanged <-
-      coreLift (readFile (appdir </> chezLib <.> "hash")) >>= \case
-        Left err       => pure True
-        Right fileHash => pure (fileHash /= cuHash)
+    let cuHash = unitHash cu
+    let isOutdated = contains cu.id outdated
 
     -- generate code only when necessary
-    when hashChanged $ do
+    when isOutdated $ do
       defs <- get Ctxt
       l <- newRef {t = List String} Loaded ["libc", "libc 6"]
       s <- newRef {t = List String} Structs []
 
       -- create imports + exports + header + footer
-      let imports = unwords
-            [ "(" ++
-                maybe
-                  "unqualified"
-                  chezLibraryName
-                  (SortedMap.lookup cuid cui.byId)
-              ++ ")"
-            | cuid <- Prelude.toList cu.dependencies
-            ]
+      let imports = unwords ["(" ++ i ++ ")" | i <- imports cu]
       let exports = sepBy " " $ catMaybes
             -- constructors don't generate Scheme definitions
             [ case d of
@@ -225,9 +278,7 @@ compileToSS c chez appdir tm = do
         ++ loadlibs  -- foreign library load statements
         ++ [footer]
 
-      Core.writeFile (appdir </> chezLib <.> "hash") cuHash
-
-    pure (MkChezLib chezLib hashChanged)
+    pure (MkChezLib chezLib cuHash isOutdated)
 
   -- main module
   main <- schExp empty (Chez.chezExtPrim empty defaultLaziness) Chez.chezString defaultLaziness 0 ctm
@@ -240,7 +291,7 @@ compileToSS c chez appdir tm = do
     , schFooter
     ]
 
-  pure (supportChanged, chezLibs)
+  pure (toMaybe supportChanged supportHash, chezLibs)
 
 makeSh : String -> String -> String -> String -> Core ()
 makeSh chez outShRel appDirSh targetSh =
@@ -271,24 +322,28 @@ compileExpr makeitso c s tmpDir outputDir tm outfile = do
 
   -- generate the code
   chez <- coreLift $ findChez
-  (supportChanged, chezLibs) <- compileToSS c chez appDirRel tm
+  (supportHash, chezLibs) <- compileToSS c chez appDirRel tm
 
   -- compile the code
   logTime 2 "Make SO" $ when makeitso $ do
     -- compile the support code
-    when supportChanged $ do
+    when (isJust supportHash) $ do
       log "compiler.scheme.chez" 3 $ "Compiling support"
       compileChezLibrary chez appDirRel (appDirRel </> "support.ss")
 
-    -- compile every compilation unit
-    compileChezLibraries chez appDirRel
-      [appDirRel </> lib.name <.> "ss" | lib <- chezLibs, lib.isOutdated]
+    -- compile every compilation unit that changed
+    let outdated = [appDirRel </> lib.name <.> "ss" | lib <- chezLibs, lib.isOutdated]
+    unless (null outdated) $
+      compileChezLibraries chez appDirRel outdated
 
     -- touch them in the right order to make the timestamps right
     -- even for the libraries that were not recompiled
     for_ chezLibs $ \lib => do
       log "compiler.scheme.chez" 3 $ "Touching " ++ lib.name
       touch (appDirRel </> lib.name <.> "so")
+
+    -- the units are compiled: keep their hashes
+    keepHashes appDirRel supportHash chezLibs
 
     -- compile the main program
     compileChezProgram chez appDirRel (appDirRel </> "mainprog.ss")

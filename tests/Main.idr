@@ -152,6 +152,12 @@ chezTests = testsInDir "chez" "Chez backend"
   {codegen = Just Chez}
   {pred = not . ("channels009" ==)}
 
+||| `--cg chez-sep`: every module is a Chez library of its own.  The tests ask
+||| for this back end themselves, so the pool needs Chez but no code generator.
+chezSepTests : IO TestPool
+chezSepTests = testsInDir "chezsep" "Chez backend with separate compilation"
+  {requirements = [Chez]}
+
 refcTests : IO TestPool
 refcTests = testsInDir "refc" "Reference counting C backend" {codegen = Just C}
 
@@ -241,6 +247,7 @@ main = do
       , linearLibraryTests
       , contribLibraryTests
       , chezTests
+      , chezSepTests
       , refcTests
       , racketTests
       , nodeTests

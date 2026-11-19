@@ -1,0 +1,12 @@
+. ../../testutils.sh
+
+# Modules of the program, and of base and contrib (Data.SortedMap), each one
+# a Chez library of its own
+idris2 --cg chez-sep -p contrib -o multi Main.idr
+./build/exec/multi
+echo "exit code: $?"
+
+# The launcher does not depend on the directory it is run in
+(cd build && ./exec/multi | tail -n 1)
+
+rm -rf build

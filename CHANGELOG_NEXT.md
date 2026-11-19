@@ -1074,6 +1074,22 @@ should target this file (`CHANGELOG_NEXT`).
   bytes (20,000 calls of the test `chez/ffiScoped001` keep 8MB with `C`,
   nothing with `C__scoped_callbacks`).  The other backends take the `C`
   specifier.
+* `--cg chez-sep` (separate compilation: every namespace group is a Chez
+  library of its own, compiled again only when it changed) works again: it
+  made no program at all.  Since a refactoring of 2023 its compile commands
+  (`echo '...' | chez`) went through the escaping version of `system`, which
+  quoted the `|`, so Chez never ran, and the empty `.so` files that `touch`
+  made were all that there was (`failed for ... mainprog.so: no such file or
+  directory`).  The compile scripts are now files that Chez runs with
+  `--script`, and the compiler stops with Chez's error when one fails.  The
+  rebuild is also right now: a unit that imports one that changed is compiled
+  again too (Chez refuses it otherwise, "requires a different compilation
+  instance"), as is every unit when the support library changed; the hash of
+  a unit is kept once Chez has compiled it, and a unit whose `.so` file is
+  missing is compiled again.  The start script for Windows no longer runs the
+  program twice.  The tests `chezsep/chezsep001` to `chezsep004` (hello world,
+  base and contrib, rebuilds, backtraces) run when Chez is there; there were
+  none.
 * A program that dies of a fatal error with backtraces on (see above) no
   longer eats the memory of the machine when it cannot write them (stderr
   closed, or a full disk, or `| head`): the error of the write reached the

@@ -1,0 +1,56 @@
+. ../../testutils.sh
+
+# Backtraces of a fatal error (see chez/backtraceCrash001) with separate
+# compilation: the support library is a Chez library of its own, and the
+# table of the names of the functions is given by the main program to the
+# library, whose functions are compiled in separate units.  They work as they
+# do in a whole program.
+
+# The output of a program, with the places in the libraries replaced
+bt() {
+  out=$(./build/exec/bt "$@" 2>&1)
+  code=$?
+  echo "$out" |
+    sed -E -e '/\(Main:/!s/\(([A-Za-z.]+):[0-9]+:[0-9]+\)/(\1:LINE)/' \
+           -e 's/ at (Prelude[A-Za-z.]*):[0-9]+:[0-9]+--[0-9]+:[0-9]+/ at \1:LINE/'
+  echo "exit code: $code"
+}
+
+idris2 --cg chez-sep --directive chez-backtrace -o bt Main.idr
+for c in crash case div chez deep; do
+  echo "--- $c"
+  bt $c main
+done
+for c in crash chez; do
+  echo "--- $c on a thread"
+  bt $c thread
+done
+
+# An error while printing the backtrace (stderr full, here) ends the program,
+# and does not start it all over again with more and more memory.
+if [ -w /dev/full ]; then
+  echo "--- stderr full"
+  (ulimit -v 4000000 2>/dev/null; ./build/exec/bt crash main 2>/dev/full; echo "exit code: $?")
+fi
+
+echo "--- off"
+IDRIS2_CHEZ_BACKTRACE=0 ./build/exec/bt crash main 2>&1
+echo "exit code: $?"
+
+# Without the directive: only with IDRIS2_CHEZ_BACKTRACE=1, and which functions
+# are named depends on what Chez inlines
+echo "--- no directive"
+idris2 --cg chez-sep -o plain Main.idr
+./build/exec/plain case main 2>&1
+echo "exit code: $?"
+out=$(IDRIS2_CHEZ_BACKTRACE=1 ./build/exec/plain case main 2>&1)
+echo "$out" | grep -v '^  '
+echo "$out" | grep -q '^  Main\.' && echo "(Main functions named)"
+
+# The directive changes the code of the units: a build with it after one
+# without it compiles them again
+echo "--- directive after none"
+idris2 --cg chez-sep --directive chez-backtrace -o plain Main.idr
+./build/exec/plain crash main 2>&1 | sed -n 1,2p
+
+rm -rf build

@@ -1,0 +1,47 @@
+. ../../testutils.sh
+
+# Only the units that changed are compiled again, and those that import them
+# (Chez refuses a library that was compiled against another instance of one
+# that it imports).  The units that are generated are logged.
+#
+#   Main -> Lib.Mid -> Lib.Base
+#   Main -> Lib.Other
+
+# the units of the program that are generated
+build() {
+  idris2 --cg chez-sep --log compiler.scheme.chez:3 -o prog Main.idr |
+    sed -n 's/^LOG compiler.scheme.chez:3: Generating code for //p' |
+    grep -E '^(Main|Lib-)' | sort | tr '\n' ' '
+  echo
+  ./build/exec/prog
+}
+# inode of the compiled file of a unit: it changes when it is compiled again
+inode() {
+  ls -i "build/exec/prog_app/$1.so" | cut -d ' ' -f 1
+}
+
+rm -rf work
+mkdir -p work/Lib
+cp v1/Main.idr work/
+cp v1/Lib/*.idr work/Lib/
+cd work
+
+echo "--- first build"
+build
+other1=$(inode Lib-Other)
+echo "--- nothing changed"
+build
+echo "--- Lib.Base changed"
+cp ../v2/Lib/Base.idr Lib/
+build
+echo "--- Main changed"
+cp ../v2/Main.idr .
+build
+echo "--- the compiled file of Lib.Mid is missing"
+rm build/exec/prog_app/Lib-Mid.so
+build
+echo "--- Lib.Other was not compiled again in all of this"
+if [ "$other1" = "$(inode Lib-Other)" ]; then echo same; else echo changed; fi
+
+cd ..
+rm -rf work
