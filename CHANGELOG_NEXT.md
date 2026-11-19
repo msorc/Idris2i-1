@@ -1311,6 +1311,22 @@ should target this file (`CHANGELOG_NEXT`).
   every backend (10 times a list of 10^6 elements): `traverse` 81% fewer
   instructions with RefC and 76% with Chez (peak memory 349MB to 52MB, 430MB
   to 102MB), `sequence` 55% and 56%, `foldlM` 59% and 90%.
+* `traverse`, `for`, `sequence`, `traverse_`, `for_` and `sequence_` on lists
+  in `State` (`StateT s Identity`) are transformed (`%transform`) to loops
+  that pass the state on (`stateTraverseList`, `stateTraverseList_`), and
+  `*>` in `IO` and in `State` to a function that runs its second action as a
+  tail call (`ioSeqRight`, `stateSeqRight`).  `traverse` in `State` and
+  `foldr (*>) (pure ())` in `IO` built a chain of closures as long as the
+  list, each of which called the next one before it returned, and overflowed
+  the stack of the browser at a few thousand elements.  Of 89 library
+  functions run on 10^5 elements in the browser, 5 overflowed the stack
+  (`traverse` and `traverse_` in `State`, `foldr (*>)` in `IO` and in
+  `State`, `traverse` in `Writer`) and 2 ran for minutes (`concat` and
+  `concatMap` of a list of lists, whose rule did not apply for the reason
+  above); now only `traverse` in `Writer` overflows.  Faster with every
+  backend, too: `traverse` in `State` on 10^6 elements takes 65% fewer
+  instructions with Chez, 52% with RefC and 98% with Node, `foldr (*>)` in
+  `IO` 32%, 34% and 67% fewer.
 * `and` and `or` on lists are transformed (`%transform`) to loops (`listAnd`,
   `listOr`) that force the elements in the same order: through the `foldMap`
   of `Foldable List` they built a chain of `&&` (`||`) as long as the list,

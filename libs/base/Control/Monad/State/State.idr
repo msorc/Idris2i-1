@@ -90,6 +90,53 @@ implementation Monad m => Monad (StateT stateType m) where
                do (st', v) <- f st
                   runStateT st' $ k v
 
+--------------------------------------------------------------------------------
+--          Loops over lists in State
+--------------------------------------------------------------------------------
+
+-- `traverse` on a list builds a chain of `<*>` as long as the list, and the
+-- state function of `<*>` calls the one of the rest of the chain before it
+-- returns: running it needs a stack as deep as the list, which overflows on
+-- the JavaScript backends.  So do a chain of `*>`.  In `State` (whose monad,
+-- `Identity`, needs nothing after its continuation), the functions below are
+-- loops that pass the state on from one element to the next instead, and the
+-- uses of `traverse`, `for`, `sequence`, `traverse_`, `for_`, `sequence_` on
+-- lists, and of `*>`, in `State` are transformed to them.
+
+||| `traverse` on a list in `State`, as a loop.
+public export
+stateTraverseList : (a -> StateT s Identity b) -> List a -> StateT s Identity (List b)
+stateTraverseList f xs = ST $ \st => Id (go st [<] xs)
+  where
+    go : s -> SnocList b -> List a -> (s, List b)
+    go st acc [] = (st, acc <>> [])
+    go st acc (x :: xs) = case runIdentity (runStateT' (f x) st) of
+                               (st', y) => go st' (acc :< y) xs
+
+||| `traverse_` on a list in `State`, as a loop.
+public export
+stateTraverseList_ : (a -> StateT s Identity b) -> List a -> StateT s Identity ()
+stateTraverseList_ f xs = ST $ \st => Id (go st xs)
+  where
+    go : s -> List a -> (s, ())
+    go st [] = (st, ())
+    go st (x :: xs) = case runIdentity (runStateT' (f x) st) of
+                           (st', _) => go st' xs
+
+||| `*>` in `State`, where the second action is a tail call.
+public export
+stateSeqRight : StateT s Identity a -> StateT s Identity b -> StateT s Identity b
+stateSeqRight a b = ST $ \st => case runIdentity (runStateT' a st) of
+                                     (st', _) => runStateT' b st'
+
+%transform "stateTraverseList" traverse {t = List} {f = StateT s Identity} = stateTraverseList
+%transform "stateForList" for {t = List} {f = StateT s Identity} xs f = stateTraverseList f xs
+%transform "stateSequenceList" sequence {t = List} {f = StateT s Identity} {a} xs = stateTraverseList {a = StateT s Identity a} {b = a} id xs
+%transform "stateTraverseList_" traverse_ {t = List} {f = StateT s Identity} = stateTraverseList_
+%transform "stateForList_" for_ {t = List} {f = StateT s Identity} xs f = stateTraverseList_ f xs
+%transform "stateSequenceList_" sequence_ {t = List} {f = StateT s Identity} {a} xs = stateTraverseList_ {a = StateT s Identity a} {b = a} id xs
+%transform "stateSeqRight" (*>) {f = StateT s Identity} = stateSeqRight
+
 public export
 implementation MonadTrans (StateT stateType) where
     lift x = ST $ \st => (st,) <$> x

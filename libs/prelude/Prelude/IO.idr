@@ -212,3 +212,14 @@ ioFoldlMList f a0 xs = fromPrim (go a0 xs)
                             MkIORes a' w' => go a' xs w'
 
 %transform "ioFoldlMList" foldlM {t = List} {m = IO} = ioFoldlMList
+
+||| `*>` in `IO`, where the second action is a tail call.  `a *> b` is
+||| `map (const id) a <*> b`, which runs `b` and then gives its value on: a
+||| chain of `*>` as long as a list (`foldr (*>) (pure ()) actions`) then
+||| needs a stack as deep as the list on the JavaScript backends.  Uses of
+||| `*>` in `IO` are transformed to this.
+public export
+ioSeqRight : IO a -> IO b -> IO b
+ioSeqRight a b = io_bind a (\_ => b)
+
+%transform "ioSeqRight" (*>) {f = IO} = ioSeqRight

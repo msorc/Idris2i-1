@@ -367,6 +367,7 @@ module Prelude.IO
   export total getChar : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io Char
   export total getLine : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io String
   public export total ioFoldlMList : {0 a : Type} -> {0 acc : Type} -> (acc -> a -> PrimIO.IO acc) -> acc -> Prelude.Basics.List a -> PrimIO.IO acc
+  public export total ioSeqRight : {0 b : Type} -> {0 a : Type} -> PrimIO.IO a -> PrimIO.IO b -> PrimIO.IO b
   public export total ioTraverseList : {0 b : Type} -> {0 a : Type} -> (a -> PrimIO.IO b) -> Prelude.Basics.List a -> PrimIO.IO (Prelude.Basics.List b)
   public export total ioTraverseList_ : {0 b : Type} -> {0 a : Type} -> (a -> PrimIO.IO b) -> Prelude.Basics.List a -> PrimIO.IO Builtin.Unit
   export total onCollect : {0 t : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => PrimIO.Ptr t -> (PrimIO.Ptr t -> PrimIO.IO Builtin.Unit) -> io (PrimIO.GCPtr t)

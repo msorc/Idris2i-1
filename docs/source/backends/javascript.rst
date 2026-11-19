@@ -244,8 +244,11 @@ these calls directly, as before.
 
 The library builds ranges (``[1..n]``), runs ``traverse_``, ``for_``,
 ``sequence_``, ``traverse``, ``for``, ``sequence`` and ``foldlM`` on lists in
-``IO``, and ``and`` and ``or`` on lists, with loops; ``map``, ``filter``,
-``(++)`` and ``concat`` on lists are tail recursive.
+``IO``, all of them but ``foldlM`` on lists in ``State`` (``StateT s
+Identity``), and ``and`` and ``or`` on lists, with loops; ``map``,
+``filter``, ``(++)`` and ``concat`` on lists are tail recursive, and so is
+``*>`` in ``IO`` and in ``State`` in its second action (``foldr (*>) (pure
+())`` on a list of actions).
 
 In the browser, a function that returns a constructor with a call of itself
 in a field (tail recursion modulo cons: ``zipWith f (x :: xs) (y :: ys) = f
@@ -290,8 +293,20 @@ fewer instructions).
 
 What is left needs a stack as deep as the recursion: recursion through
 several functions that call each other where the calls are not tail calls,
-and through closures: running a chain of actions as long as the list, as
-``traverse`` builds in ``State`` or ``foldr (*>) (pure ())`` in ``IO``.  With
+and through closures: running a chain of actions as long as the list where
+each action runs the rest before it returns, as ``traverse`` builds in an
+applicative that the library does not turn into a loop (``StateT s m``
+over another monad, ``Writer``, a parser), or ``foldr (<*)``.  Making every
+call of a closure that is not a tail call go through the explicit stack (in
+effect, compiling the whole program in continuation-passing style) would
+cost much more than these loops: on small programs written by hand in that
+style, 3 to 3.7 times the instructions of direct calls on a chain of
+closures and on ``fib`` through a closure (1.1 times on ``map`` with a
+closure).  Capturing the stack when it gets deep and resuming it on an empty
+one (with an exception that each frame catches and adds its variables to)
+costs 10 to 40% while the stack is shallow, 13 times the heap stack once it
+is deep, and needs every function to be compiled so that it can resume in
+the middle.  Neither is done.  With
 Node, the main expression therefore runs on a stack of its own of 1GB, in a
 worker thread, as it does with the RefC backend, which is enough for lists
 of millions of elements.  The ``IDRIS2_MAIN_STACK_SIZE``
