@@ -1469,8 +1469,9 @@ should target this file (`CHANGELOG_NEXT`).
   stack: with 10^6 pieces, a record around an `Int` that adds takes 372M
   instructions with RefC and 468M with Chez before and 382M and 555M now,
   one around a `Bool` that `||`s 314M and 469M before and 379M and 557M now.
-  `Additive`, `Multiplicative`, `Ordering`,
-  `Maybe`, `SnocList`, the maps and sets of `Data.SortedMap`,
+  `Additive`, `Multiplicative`, `Ordering`, `Any` and `All` (the ones of
+  `any`, `all`, `and` and `or`), `Maybe`, `SnocList`, the maps and sets of
+  `Data.SortedMap`,
   `Data.SortedSet`, `Data.SortedMap.Dependent`, `Data.HashMap` and
   `Data.HashSet` keep the left fold, `foldMapListGo f neutral`, in their
   `foldMapListImpl`, as it is the best for them (a union of sets is 4 times

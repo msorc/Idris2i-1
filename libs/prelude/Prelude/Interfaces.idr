@@ -413,10 +413,12 @@ namespace Bool.Lazy
     public export
     [Any] Monoid (Lazy Bool) using Semigroup.Any where
       neutral = delay False
+      foldMapListImpl f xs = foldMapListGo @{Semigroup.Any} f (delay False) xs
 
     public export
     [All] Monoid (Lazy Bool) using Semigroup.All where
       neutral = delay True
+      foldMapListImpl f xs = foldMapListGo @{Semigroup.All} f (delay True) xs
 
 ||| The conjunction of all elements of a structure containing lazy boolean
 ||| values.  `and` short-circuits from left to right, evaluating until either an
@@ -446,10 +448,12 @@ namespace Bool
     public export
     [Any] Monoid Bool using Bool.Semigroup.Any where
       neutral = False
+      foldMapListImpl f xs = foldMapListGo @{Bool.Semigroup.Any} f False xs
 
     public export
     [All] Monoid Bool using Bool.Semigroup.All where
       neutral = True
+      foldMapListImpl f xs = foldMapListGo @{Bool.Semigroup.All} f True xs
 
 ||| The disjunction of the collective results of applying a predicate to all
 ||| elements of a structure.  `any` short-circuits from left to right.
