@@ -1132,6 +1132,20 @@ should target this file (`CHANGELOG_NEXT`).
   few thousand elements.  `--directive no-trmc` turns this off; with Node,
   whose main expression has a large stack, it costs 8 to 15% on the
   benchmarks and is off unless `--directive trmc` is given.
+* Node: `getLine` dropped no newline at the end of the line, `fEOF stdin` was
+  never true (stdin was a new object at every use), and `fGetChar`,
+  `fGetChars`, `fPoll`, `sleep`, `usleep`, `getEnvironment`, `enableRawMode`
+  and `resetRawMode` had no implementation; `fPutStr` of an empty string
+  failed, and `strerror` gave no message.  A line is no longer read with a
+  copy of the line per byte, and a file open for reading only is read in
+  chunks: the benchmarks that read files take 53% (`mergeStr`) and 20%
+  (`spellcheck`) fewer instructions.
+* Node: `System.Signal` works (it did not at all): the signals are received
+  by the main thread and seen by `handleNextCollectedSignal` at once while
+  `main` runs in its worker thread; on the main thread, only once `main`
+  returns.  See the section on signals in the documentation of the backends.
+* Node: foreign code that reads `process.stdin` as a stream gets the input
+  when `main` runs in its worker thread.
 
 ### Library changes
 

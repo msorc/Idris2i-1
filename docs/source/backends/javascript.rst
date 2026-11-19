@@ -289,6 +289,24 @@ overflows the stack at a few thousand elements (``foldr`` over 6000).  Use
 ``foldl``, tail-recursive functions, or ``Data.SnocList`` there for longer
 lists.
 
+Signals
+-------
+
+With Node, ``System.Signal`` works as with the other backends, with one
+limit.  Node runs the listeners of signals on its main thread, from its
+event loop, which does not run while the program does; so the listeners of
+``collectSignal`` live on the main thread, and record a signal in memory
+that the thread of ``main`` shares, where ``handleNextCollectedSignal``
+reads it.  When ``main`` runs in its worker thread (the default), the idle
+main thread records the signals of other processes as they arrive, and a
+signal cuts ``sleep`` and ``usleep`` short, as in C.  When ``main`` runs on
+the main thread (``IDRIS2_MAIN_STACK_SIZE=0``, or a program loaded with
+``require``), signals from other processes are only recorded after ``main``
+has returned, although ``ignoreSignal`` works.  ``raiseSignal`` and
+``sendSignal`` to the program itself handle a collected or ignored signal at
+once in both cases, as ``raise`` does in C.  ``SIGKILL`` and ``SIGSTOP``
+cannot be collected or ignored.
+
 Directives
 ----------
 
