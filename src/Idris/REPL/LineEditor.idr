@@ -557,8 +557,10 @@ columns : (width : Nat) -> List String -> String
 columns width candidates =
   let shown = take maxListed candidates
       cell = foldl (\m, c => max m (stringWidth c)) 0 shown + 2
-      perRow = max 1 (integerToNat (cast (cast {to = Int} (if width < 2 then 80 else width)
-                                           `div` cast {to = Int} cell)))
+      -- cell is at least 2, so the divisor is not zero
+      perRow = max 1 (integerToNat (cast (assert_total $
+                                            cast {to = Int} (if width < 2 then 80 else width)
+                                              `div` cast {to = Int} cell)))
       pad : String -> String
       pad c = c ++ pack (replicate (cell `minus` stringWidth c) ' ')
       row : List String -> String

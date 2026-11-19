@@ -70,7 +70,9 @@ withinChars bound as w b
        -- Every insertion or deletion costs 1, and substitutions do not change
        -- the length, so the distance is at least the difference of lengths
        guard (abs (w - h) <= bound)
-       d <- rows bound as 1 [0..w] (fastUnpack b)
+       -- (the ranges of Int use no method of Integral Int, so not its
+       -- partial div and mod)
+       d <- rows bound as 1 (assert_total [0..w]) (fastUnpack b)
        guard (d <= bound)
        pure d
 
