@@ -1162,6 +1162,9 @@ should target this file (`CHANGELOG_NEXT`).
     sets the size (`0` runs on the main thread).  The browser keeps its
     limit for such recursion.
 * `getChar` with Node reads file descriptor 0 instead of `process.stdin.fd`.
+* The smallest Double literals (subnormal numbers, `4.9e-324`) were 1 in the
+  generated code, and a negative constant after an operator (`x - (-5)` on
+  `Integer`) made a syntax error.
 * A toplevel function whose only tail calls are to itself is compiled to a
   `while` loop instead of going through `__tailRec`, which allocated an object
   per round: 5 to 25% fewer instructions on the benchmarks with Node

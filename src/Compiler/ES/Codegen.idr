@@ -321,21 +321,36 @@ boolOp o lhs rhs = "(" <+> binOp o lhs rhs <+> "?1:0)"
 jsPrimType : PrimType -> String
 jsPrimType _ = "#t"
 
+-- a number literal, in parentheses if it is negative: `x - -5n` would be
+-- `(x--5n)`, which is no JavaScript
+jsNumber : String -> String
+jsNumber s = if isPrefixOf "-" s then "(" ++ s ++ ")" else s
+
+-- a `Double` literal: `show` prints Chez's notation, with the bits of a
+-- subnormal number after a bar (`5e-324|1`, which JavaScript reads as
+-- `5e-324 | 1`) and `+inf.0`, `-inf.0` and `+nan.0`.  The digits before the
+-- bar read back as the same number.
+jsDouble : Double -> String
+jsDouble f = if f /= f then "NaN"
+             else if f == 1.0 / 0.0 then "Infinity"
+             else if f == -1.0 / 0.0 then "(-Infinity)"
+             else jsNumber (fst (break (== '|') (show f)))
+
 -- convert an Idris constant to its JS representation
 jsConstant : Constant -> String
-jsConstant (I i)    = show i
-jsConstant (I8 i)   = show i
-jsConstant (I16 i)  = show i
-jsConstant (I32 i)  = show i
-jsConstant (I64 i)  = show i ++ "n"
-jsConstant (BI i)   = show i ++ "n"
+jsConstant (I i)    = jsNumber $ show i
+jsConstant (I8 i)   = jsNumber $ show i
+jsConstant (I16 i)  = jsNumber $ show i
+jsConstant (I32 i)  = jsNumber $ show i
+jsConstant (I64 i)  = jsNumber $ show i ++ "n"
+jsConstant (BI i)   = jsNumber $ show i ++ "n"
 jsConstant (B8 i)   = show i
 jsConstant (B16 i)  = show i
 jsConstant (B32 i)  = show i
 jsConstant (B64 i)  = show i ++ "n"
 jsConstant (Str s)  = jsString s
 jsConstant (Ch c)   = jsString $ singleton c
-jsConstant (Db f)   = show f
+jsConstant (Db f)   = jsDouble f
 jsConstant (PrT t)  = jsPrimType t
 jsConstant WorldVal = esName "idrisworld"
 
