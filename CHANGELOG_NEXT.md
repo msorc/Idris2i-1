@@ -779,6 +779,17 @@ should target this file (`CHANGELOG_NEXT`).
   hash runs 3 times fewer instructions, a popcount by bit twiddling 9 times
   fewer.  The values are still made (and allocated, for the large `Bits64`,
   `Int64` and `Int`) where they are passed to another function or stored.
+* The fixed width integers also cross the calls as C integers: a function
+  whose parameters of these types are C integers, or whose result is one
+  that it computes, has a worker, a C function that takes and gives the C
+  integers, which the calls of the function by name call.  Closures, partial
+  applications and the trampoline call the function itself, which unboxes
+  the arguments and jumps to the worker.  A hash step called by a loop, a
+  PRNG, a non tail recursion on `Bits64` or a mutual recursion with a
+  `Bits64` accumulator no longer allocate at every call: they run 5 to 11
+  times fewer instructions, and a workload of `Data.HashMap` (`Int` and
+  `String` keys, `hashWithSalt` on `Bits64`) 19% fewer.  `--directive
+  refc-no-workers` turns this off.
 * An `Int` literal of more than 32 bits (`0xffffffff`) is a C constant: it
   was an `Integer` converted at each use, as the constant folding leaves the
   casts to `Int` of large values to the backend.

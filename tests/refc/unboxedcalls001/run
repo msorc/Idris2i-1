@@ -1,0 +1,15 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr > /dev/null
+$VALGRIND ./build/exec/main
+# The workers (see `Worker` in Compiler.RefC.RefC): the loop of `fnv` calls
+# the worker of `step` and makes no value, `sumSq` gives a C integer, `ping`
+# and `pong` jump to the workers of each other, and `keyOf`, which gives the
+# value of a field, has none.
+c=build/exec/main.c
+for f in step fnv sumSq sumList ping pong goC bounce keyOf; do
+  echo "$f: $(grep "^[A-Za-z0-9_]* *\*\{0,1\}idris2_raw_Main_$f\$" $c | sort -u)"
+done
+echo "fnv makes values: $(awk -v RS= '/idris2_raw_Main_fnv\n\(/' $c | grep -c 'idris2_mkBits64\|idris2_vp_to_Bits64')"
+echo "ping jumps to pong: $(awk -v RS= '/idris2_raw_Main_ping\n\(/' $c | grep -c 'IDRIS2_MUSTTAIL return idris2_raw_Main_pong(')"
+rm -rf build

@@ -57,8 +57,13 @@ extern Idris2_Value const idris2_tailCallMarker;
 // one (IDRIS2_TAIL_APPLY): GCC refuses to compile such a call ("cannot
 // tail-call: target is not able to optimize the call into a sibling call").
 // The calls in tail position go through the trampoline there.
+//
+// Nor on other platforms with 32 bit pointers: the workers of the functions
+// take 64 bit integers (see `Worker` in RefC.idr), which take two registers
+// there, where the caller got one for a value.
 #if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 15 &&             \
     !defined(__wasm__) && !defined(__i386__) && !defined(__arm__) &&           \
+    defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__ == 8 &&                 \
     !defined(IDRIS2_NO_MUSTTAIL)
 #define IDRIS2_MUSTTAIL __attribute__((musttail))
 #endif

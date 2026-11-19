@@ -243,6 +243,14 @@ The code generator does the following, each of which a directive turns off
   trampolined.
 - ``refc-no-local-closures``: a closure that a function makes and applies only
   once is not made: the application is a call.
+- ``refc-no-workers``: a function whose parameters of a fixed width integer
+  type (``Int``, ``Bits64``, ...) are C integers in its body, or whose result
+  is one that it computes, has a second C function, its worker, that takes
+  and gives these C integers; its calls by name call the worker, so that the
+  integers are not boxed (allocated, for those that do not fit in 32 bits) by
+  the caller and unboxed by the callee.  The closures and partial
+  applications of the function call the function itself, which calls the
+  worker.
 - ``refc-no-trmc``: a function that makes a cell of a call to itself
   (``map f (x :: xs) = f x :: map f xs``) loops instead of recursing: it makes
   the cell first, with a hole for the result of the call, so that it needs no

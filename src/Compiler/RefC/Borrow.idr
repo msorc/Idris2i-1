@@ -225,6 +225,10 @@ record Ctx where
   ||| the C name and the number of parameters of the function, when it has
   ||| tail recursion modulo cons
   trmc : Maybe (String, Nat)
+  ||| the parameters (by position) that the worker of a function called with
+  ||| this number of arguments takes as C integers (see `Worker` in
+  ||| Compiler.RefC.RefC): the caller only reads its arguments there
+  raw : String -> Nat -> Maybe (List Bool)
 
 ||| A use of `v` that needs it owned.  When `v` is a borrowed parameter, it
 ||| must be owned.  When it is a field of a borrowed value (see `par`), that
@@ -261,11 +265,19 @@ analyse c t bor par (AAppName _ _ n args) f
           nargs = length args in
           if c.foreign g nargs then f
           else if nargs > c.maxArgs then markParams c par args f
-          else case signatureOf c.sigs g nargs of
-                    Nothing => markParams c par args f
+          else
+            -- (the arguments of the parameters that are C integers are only
+            -- read)
+            let raw = fromMaybe (map (const False) args) (c.raw g nargs)
+                passed = map fst (filter (not . snd) (zip args raw)) in
+            case signatureOf c.sigs g nargs of
+                    Nothing => markParams c par passed f
                     Just s =>
                       let pairs = zip args s
-                          f = markParams c par (map fst (filter (not . snd) pairs)) f in
+                          f = markParams c par
+                                (map (\((a, _), _) => a)
+                                     (filter (\((_, b), r) => not b && not r)
+                                             (zip pairs raw))) f in
                           if t
                              then foldl (\f', (k, (a, b)) =>
                                            if b && isOwned bor a
@@ -321,11 +333,11 @@ record Fun where
 ||| The fixpoint of the analysis, over the functions `funs` (by C name),
 ||| starting from the signatures `sigs`.
 fixpoint : (key : Name -> String) -> (foreign : String -> Nat -> Bool) ->
-           (maxArgs : Nat) -> (trmc : String -> Bool) ->
+           (raw : String -> Nat -> Maybe (List Bool)) -> (maxArgs : Nat) -> (trmc : String -> Bool) ->
            SortedMap String Fun -> (callers : SortedMap String (List String)) ->
            Signatures -> List String -> Signatures
-fixpoint key foreign maxArgs trmc funs callers sigs [] = sigs
-fixpoint key foreign maxArgs trmc funs callers sigs (g :: todo)
+fixpoint key foreign raw maxArgs trmc funs callers sigs [] = sigs
+fixpoint key foreign raw maxArgs trmc funs callers sigs (g :: todo)
     -- (every function is analysed, also those that own all their
     -- parameters: their calls in tail position may make other functions
     -- own theirs)
@@ -334,7 +346,7 @@ fixpoint key foreign maxArgs trmc funs callers sigs (g :: todo)
              let s = fromMaybe (map (const False) fn.params) (lookup g sigs)
                  bps = fromList (map fst (filter snd (zip fn.params s)))
                  c = MkCtx sigs key foreign maxArgs bps
-                       (if trmc g then Just (g, length fn.params) else Nothing)
+                       (if trmc g then Just (g, length fn.params) else Nothing) raw
                  found = analyse c True bps empty fn.body (MkFound empty [])
                  -- this function
                  s' = zipWith (\p, b => b && not (contains p found.owned)) fn.params s
@@ -353,8 +365,8 @@ fixpoint key foreign maxArgs trmc funs callers sigs (g :: todo)
                  -- a function whose signature changed is analysed again,
                  -- with its callers
                  again = concatMap (\h => h :: fromMaybe [] (lookup h callers)) changed in
-                 fixpoint key foreign maxArgs trmc funs callers sigs (again ++ todo)
-           Nothing => fixpoint key foreign maxArgs trmc funs callers sigs todo
+                 fixpoint key foreign raw maxArgs trmc funs callers sigs (again ++ todo)
+           Nothing => fixpoint key foreign raw maxArgs trmc funs callers sigs todo
   where
     index' : Nat -> List Bool -> Bool
     index' _ [] = False
@@ -381,10 +393,11 @@ export
 inferBorrowing : (key : Name -> String) ->
                  (foreign : String -> Nat -> Bool) ->
                  (unboxed : String -> SortedSet Int) ->
+                 (raw : String -> Nat -> Maybe (List Bool)) ->
                  (maxArgs : Nat) ->
                  (trmc : String -> Bool) ->
                  List (String, ANFDef) -> Signatures
-inferBorrowing key foreign unboxed maxArgs trmc defs
+inferBorrowing key foreign unboxed raw maxArgs trmc defs
     = let funs = mapMaybe (\case
                              (n, MkAFun args body) => Just (n, MkFun args body)
                              _ => Nothing) defs
@@ -403,7 +416,7 @@ inferBorrowing key foreign unboxed maxArgs trmc defs
                              foldl (\m', g => insert g (n :: fromMaybe [] (lookup g m')) m')
                                    m (Prelude.toList (calleesOf fn.body)))
                           empty funs in
-          fixpoint key foreign maxArgs trmc (fromList funs) callers start (map fst funs)
+          fixpoint key foreign raw maxArgs trmc (fromList funs) callers start (map fst funs)
   where
     calleesOf : ANF -> SortedSet String
     calleesOf body = fromList (map key (namesIn body []))

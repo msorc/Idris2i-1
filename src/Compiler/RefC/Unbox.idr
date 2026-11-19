@@ -26,6 +26,17 @@
 ||| a `let`.  Other uses (by a foreign function, or a primitive taking values)
 ||| keep the variable a value.
 |||
+||| Across the functions: a function whose parameters (or result) are C
+||| integers has a worker that takes (or gives) them as such (see `Worker` in
+||| Compiler.RefC.RefC).  An argument of such a parameter, in a call of the
+||| function by name, is used as an integer of its type; the result of such a
+||| call is an integer of its type.  So the variables found depend on the
+||| workers of the functions called, which depend on the variables found in
+||| them: the analysis is made again for the callers of the functions whose
+||| workers changed (`unboxedProgram` in RefC).  A worker may also return a
+||| parameter that it takes as a C integer (`Returned`): its callers pass the
+||| integer.
+|||
 ||| The parameters are told from their types (in the context): the type of a
 ||| variable cannot be told from its uses, as it may depend on the value of
 ||| another argument (and it would be wrong to unbox it in the branches where it
@@ -268,6 +279,9 @@ data Use
     Numeric PrimType
   | ||| as a value (`avarToC`): one can be made from a C integer
     Boxed
+  | ||| as the result of the function (a value, unless its worker gives a C
+    ||| integer, see `rawResultOK`)
+    Returned
   | ||| as it is: it must be a value
     Raw
   | ||| as the new value of a parameter (by its position), in a call of the
@@ -294,15 +308,41 @@ record Calls where
   ||| Is it a call of a foreign function, which takes the variables as they
   ||| are (see `foreignCall`)?
   isForeign : Name -> List AVar -> Bool
+  ||| The types of the parameters that a function called with this number of
+  ||| arguments takes as C integers, in order, when it has a worker (see
+  ||| `Worker` in Compiler.RefC.RefC).
+  rawArgs : Name -> Nat -> Maybe (List (Maybe PrimType))
+  ||| The type of the C integer that the worker of a function called with
+  ||| this number of arguments gives, if it gives one.
+  rawResult : Name -> Nat -> Maybe PrimType
+  ||| Does the function called with this number of arguments always give a
+  ||| value, never a pending tail call (see `returnsValue` in RefC)?
+  isValueFn : Name -> Nat -> Bool
+
+||| The calls of a function that knows no worker of any function.
+export
+noWorkers : (isSelf : Name -> List AVar -> Bool) ->
+            (isForeign : Name -> List AVar -> Bool) -> Calls
+noWorkers s f = MkCalls s f (\_, _ => Nothing) (\_, _ => Nothing) (\_, _ => False)
+
+-- The uses of the arguments of a call: an argument of a parameter that the
+-- worker of the function takes as a C integer is used as an integer of that
+-- type.
+argUses : Calls -> Name -> List AVar -> Uses -> Uses
+argUses c n args us
+    = case c.rawArgs n (length args) of
+           Just ts => foldl (\us', (a, t) => addUse (maybe Boxed Numeric t) a us') us
+                            (zip args ts)
+           Nothing => addUses Boxed args us
 
 usesIn : Calls -> (tail : Bool) -> ANF -> Uses -> Uses
-usesIn c t (AV _ v) us = addUse Boxed v us
+usesIn c t (AV _ v) us = addUse (if t then Returned else Boxed) v us
 usesIn c t (AAppName _ _ n args) us
     = if c.isForeign n args then addUses Raw args us
       else if t && c.isSelf n args
          then foldl (\us', (k, a) => addUse (SelfArg k) a us') us
                     (zip [0 .. length args] args)
-         else addUses Boxed args us
+         else argUses c n args us
 usesIn c t (AUnderApp _ _ _ args) us = addUses Boxed args us
 usesIn c t (AApp _ _ f a) us = addUse Boxed f (addUse Boxed a us)
 usesIn c t (ALet _ _ val body) us = usesIn c t body (usesIn c False val us)
@@ -335,6 +375,21 @@ hasIntOp (AConstCase _ _ alts def)
     = any (\(MkAConstAlt _ b) => hasIntOp b) alts || any hasIntOp def
 hasIntOp _ = False
 
+||| Does the expression have an operation on C integers, or a call of a
+||| worker that takes or gives one?
+export
+hasIntWork : Calls -> ANF -> Bool
+hasIntWork c (AOp _ _ op _) = isJust (operandType op) || isJust (resultType op)
+hasIntWork c (AAppName _ _ n args)
+    = let k = length args in
+          isJust (c.rawResult n k) || maybe False (any isJust) (c.rawArgs n k)
+hasIntWork c (ALet _ _ val body) = hasIntWork c val || hasIntWork c body
+hasIntWork c (AConCase _ _ alts def)
+    = any (\(MkAConAlt _ _ _ _ b) => hasIntWork c b) alts || any (hasIntWork c) def
+hasIntWork c (AConstCase _ _ alts def)
+    = any (\(MkAConstAlt _ b) => hasIntWork c b) alts || any (hasIntWork c) def
+hasIntWork _ _ = False
+
 ||| The values of the `let`s.
 letValues : ANF -> SortedMap Int ANF -> SortedMap Int ANF
 letValues (ALet _ v val body) ls = letValues body (letValues val (insert v val ls))
@@ -350,8 +405,8 @@ letValues _ ls = ls
 ||| `cIntFromANF` in RefC), given the variables that are C integers, if it
 ||| can be.
 export
-valueType : SortedMap Int PrimType -> ANF -> Maybe PrimType
-valueType u e = case go e of
+valueType : Calls -> SortedMap Int PrimType -> ANF -> Maybe PrimType
+valueType c u e = case go e of
                      Just (Just t) => Just t
                      _ => Nothing
   where
@@ -360,6 +415,10 @@ valueType u e = case go e of
     go (AOp _ _ op _) = map Just (resultType op)
     go (APrimVal _ c) = map Just (constType c)
     go (AV _ (ALocal v)) = map Just (lookup v u)
+    -- (a call, not in tail position, of a worker that gives a C integer)
+    go (AAppName _ _ n args)
+        = if c.isForeign n args then Nothing
+             else map Just (c.rawResult n (length args))
     go (ALet _ _ _ body) = go body
     go (AConstCase _ _ alts def)
         = do ts <- traverse (\(MkAConstAlt _ b) => go b) alts
@@ -374,11 +433,14 @@ valueType u e = case go e of
 ||| The variables of a function (its parameters `params`, of which those of
 ||| fixed width integer types are `intParams`, with their unboxed types, and
 ||| the `let`s of its body) to keep in C integers, with their types.  `loops`
-||| tells whether the function calls itself in tail position.
+||| tells whether the function calls itself in tail position, `worker`
+||| whether it has a worker (see `Worker` in Compiler.RefC.RefC): then a
+||| parameter that it returns can be a C integer, as its callers pass one (and
+||| no value is made when the result of the worker is a C integer).
 export
-unboxedVars : Calls -> (loops : Bool) -> (params : List Int) ->
+unboxedVars : Calls -> (loops : Bool) -> (worker : Bool) -> (params : List Int) ->
               (intParams : SortedMap Int PrimType) -> ANF -> SortedMap Int PrimType
-unboxedVars c loops params ips body
+unboxedVars c loops worker params ips body
     -- (`us` and `lets` are computed once: as definitions of the `where`
     -- block, they would be computed at each use.)
     = let us = usesIn c True body empty
@@ -393,7 +455,7 @@ unboxedVars c loops params ips body
     candidates : List (Int, ANF) -> SortedMap Int PrimType -> SortedMap Int PrimType
     candidates ls u
         = let new = mapMaybe (\(v, val) => if isJust (lookup v u) then Nothing
-                                             else map (v,) (valueType u val)) ls in
+                                             else map (v,) (valueType c u val)) ls in
               if null new then u else candidates ls (mergeLeft u (fromList new))
 
     paramAt : Nat -> List Int -> Maybe Int
@@ -411,6 +473,7 @@ unboxedVars c loops params ips body
     -- a use as a value, which needs one to be made
     boxed : SortedMap Int PrimType -> PrimType -> Use -> Bool
     boxed u t Boxed = True
+    boxed u t Returned = True
     boxed u t (SelfArg k) = not (numeric u t (SelfArg k))
     boxed u t _ = False
 
@@ -419,6 +482,10 @@ unboxedVars c loops params ips body
     raw t Raw = True
     raw t (Numeric t') = t /= t'
     raw t _ = False
+
+    returned : Use -> Bool
+    returned Returned = True
+    returned _ = False
 
     isNumeric : PrimType -> Use -> Bool
     isNumeric t (Numeric t') = t == t'
@@ -429,13 +496,13 @@ unboxedVars c loops params ips body
         = let vs = fromMaybe [] (lookup v us) in
           not (any (raw t) vs) &&
           case lookup v lets of
-               Just val => valueType u val == Just t
+               Just val => valueType c u val == Just t
                            && any (numeric u t) vs
                            && length (filter (boxed u t) vs) <= 1
                -- a parameter: passing it on to itself is not a reason (it
                -- would only be unboxed and boxed again)
                Nothing => any (isNumeric t) vs
-                          && (loops || not (any (boxed u t) vs))
+                          && (loops || all (\x => not (boxed u t x) || (worker && returned x)) vs)
 
     -- The variables are removed until those left are all fine with each
     -- other (a parameter and the `let` giving its next value, for example).
@@ -446,6 +513,49 @@ unboxedVars c loops params ips body
               if length vs' == length vs
                  then u
                  else keep us lets (fromList vs')
+
+||| Can the worker of a function whose result has the fixed width integer
+||| type `t` give the C integer, rather than a value, given the variables `u`
+||| that are C integers?  So it can when every expression in tail position
+||| gives one: an operation, a literal, a variable that is a C integer of the
+||| type, a crash, a call of the function to itself (which jumps back to its
+||| start), or a call of a function that gives a C integer and never a
+||| pending tail call (`isValueFn`), and one of them is not a crash or a jump.
+||| A call of another function would not be a tail call any more; a call of a
+||| function that gives a C integer is not one either, but such a function
+||| makes no tail call itself (but those that jump), so the stack does not
+||| grow with a chain of them.  A variable that is a value is not unboxed to
+||| be returned: a caller that needs a value would make another one.
+export
+rawResultOK : Calls -> SortedMap Int PrimType -> PrimType -> ANF -> Bool
+rawResultOK c u t e = go e == Just True
+  where
+    -- Just True: fine, and gives a C integer; Just False: fine (a crash or
+    -- a jump); Nothing: not fine.
+    both : Maybe Bool -> Maybe Bool -> Maybe Bool
+    both (Just a) (Just b) = Just (a || b)
+    both _ _ = Nothing
+
+    go : ANF -> Maybe Bool
+    go (AV _ (ALocal v)) = if lookup v u == Just t then Just True else Nothing
+    go (APrimVal _ k) = if constType k == Just t then Just True else Nothing
+    go (AOp _ _ op _) = if resultType op == Just t then Just True else Nothing
+    go (ACrash _ _) = Just False
+    go (ALet _ _ _ body) = go body
+    go (AConCase _ _ alts def)
+        = foldl (\acc, (MkAConAlt _ _ _ _ b) => both acc (go b))
+                (maybe (Just False) go def) alts
+    go (AConstCase _ _ alts def)
+        = foldl (\acc, (MkAConstAlt _ b) => both acc (go b))
+                (maybe (Just False) go def) alts
+    go (AAppName _ _ n args)
+        = if c.isSelf n args then Just False
+          else if not (c.isForeign n args)
+                  && c.rawResult n (length args) == Just t
+                  && c.isValueFn n (length args)
+             then Just True
+             else Nothing
+    go _ = Nothing
 
 ||| The literal of the type `t` that the cast of the Integer `x` gives: the
 ||| Integer is wrapped around to the width of the type, as the casts of the

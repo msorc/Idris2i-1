@@ -263,6 +263,8 @@ data Foreigns : Type where
 data BorrowSigs : Type where
 data ValueFns : Type where
 data UnboxedVars : Type where
+data Workers : Type where
+data IntSigs : Type where
 data FunctionDefinitions : Type where
 data IndentLevel : Type where
 data HeaderFiles : Type where
@@ -568,6 +570,36 @@ stringLets (AConstCase _ _ alts def) acc
             (maybe acc (\d => stringLets d acc) def) alts
 stringLets _ acc = acc
 
+||| A function whose parameters of fixed width integer types (`Int`, `Bits64`,
+||| ...) are C integers in its body (see Compiler.RefC.Unbox), or whose result
+||| is a fixed width integer that its body computes as a C integer, has a
+||| worker: a C function that takes these parameters as C integers, and gives
+||| the result as one (`rawResult`, see `rawResultOK`).  Its saturated calls by
+||| name call the worker: an integer is neither boxed by the caller (which
+||| allocates for those that do not fit in a tagged pointer: `Bits64`, `Int64`
+||| and `Int` beyond 32 bits) nor unboxed by the callee.  The function itself
+||| becomes a wrapper that unboxes the arguments, calls the worker and boxes
+||| its result: it is what closures, partial applications and pending tail
+||| calls call, which pass values.  When the result is a value, the wrapper
+||| jumps to the worker (with musttail), so that the calls in tail position
+||| of the worker do not make the stack grow.
+|||
+||| `params` are the types of the C integers that the worker takes, by
+||| position (Nothing for a value).  The parameters that are C integers are
+||| never borrowed (see Compiler.RefC.Borrow): the caller passes the integer,
+||| and keeps what it owns.
+record Worker where
+  constructor MkWorker
+  params : List (Maybe PrimType)
+  rawResult : Maybe PrimType
+
+Eq Worker where
+  MkWorker ps r == MkWorker ps' r' = ps == ps' && r == r'
+
+||| The C name of the worker of the function whose C name is `cn`.
+workerName : String -> String
+workerName cn = "idris2_raw_" ++ cn
+
 ||| Environment for precise reference counting.
 ||| If variable borrowed (that is, it is not in the owned set) when used, call a function idris2_newReference.
 ||| If variable owned, then use it directly.
@@ -618,6 +650,8 @@ record Env where
   ||| The variables of the function that are bound to string constants, when
   ||| it reads or writes fields of foreign structs (see `stringLets`).
   stringVars : SortedMap Int String
+  ||| The workers of the functions (see `Worker`), by C name.
+  workers : SortedMap String Worker
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -934,6 +968,37 @@ trampolined env fn nargs call
          then call
          else "idris2_trampoline(\{call})"
 
+||| The C arguments of the parameters that a call passes values to, whose
+||| pairs say whether they are borrowed, and the values made for the call
+||| that are released after it: the arguments of the borrowed parameters are
+||| passed as they are (a C integer is made a value for the call), those of
+||| the others as `avarsToC` passes them, given the variables `owned` that
+||| they may take over.
+valueArgs : {auto a : Ref ArgCounter Nat}
+         -> {auto oft : Ref OutfileText Output}
+         -> {auto il : Ref IndentLevel Nat}
+         -> FC -> Env -> Owned -> List (AVar, Bool) -> Core (List String, List String)
+valueArgs _ _ _ [] = pure ([], [])
+valueArgs fc env owned ((ANull, _) :: rest) = mapFst ("NULL" ::) <$> valueArgs fc env owned rest
+valueArgs fc env owned ((v, True) :: rest)
+    = if isUnboxedIn env.unboxed v
+         then do
+           t <- ("boxVar_" ++) <$> getNextCounter
+           emit fc "Idris2_Value *\{t} = \{boxInt env.unboxed v};"
+           (as, bs) <- valueArgs fc env owned rest
+           pure (t :: as, t :: bs)
+         else do
+           (as, bs) <- valueArgs fc env owned rest
+           pure (varName v :: as, bs)
+valueArgs fc env owned ((v, False) :: rest)
+    = if isStaticIn env v
+         then mapFst (varName v ::) <$> valueArgs fc env owned rest
+      else if isUnboxedIn env.unboxed v
+         then mapFst (boxInt env.unboxed v ::) <$> valueArgs fc env owned rest
+         else if contains v owned
+            then mapFst (varName v ::) <$> valueArgs fc env (delete v owned) rest
+            else mapFst ("idris2_newReference(\{varName v})" ::) <$> valueArgs fc env owned rest
+
 ||| A call (not in tail position) of a function that borrows some of its
 ||| parameters (see Compiler.RefC.Borrow).  The variables that we own and pass
 ||| to borrowed parameters are released after the call: they are not given
@@ -947,7 +1012,7 @@ borrowedCall : {auto a : Ref ArgCounter Nat}
 borrowedCall fc env fn pairs = do
     let passedBorrowed = fromList (map fst (filter snd pairs))
     let released = intersection env.owned passedBorrowed
-    (args, boxes) <- cArgs (difference env.owned passedBorrowed) pairs
+    (args, boxes) <- valueArgs fc env (difference env.owned passedBorrowed) pairs
     let call = trampolined env fn (length pairs) "\{fn}(\{concat $ intersperse ", " args})"
     let drops = map varName (Prelude.toList released) ++ boxes
     if null drops
@@ -957,28 +1022,105 @@ borrowedCall fc env fn pairs = do
          emit fc "Idris2_Value *\{r} = \{call};"
          removeVars drops
          pure r
+
+||| The worker of the function with the C name `cn` called with `k` arguments
+||| (see `Worker`).
+workerOf : Env -> String -> Nat -> Maybe Worker
+workerOf env cn k
+    = do w <- lookup cn env.workers
+         if length w.params == k then Just w else Nothing
+
+||| The C integer of the type `t` of a variable (which stays as it is: a
+||| value is borrowed).  A C integer of another type (after `believe_me`) is
+||| converted as its value would be.
+intArg : {auto a : Ref ArgCounter Nat}
+      -> {auto oft : Ref OutfileText Output}
+      -> {auto il : Ref IndentLevel Nat}
+      -> FC -> Env -> PrimType -> AVar -> Core String
+intArg fc env t v@(ALocal i)
+    = case lookup i env.unboxed of
+           Just t' =>
+             if t' == t
+                then pure (intVarName i)
+                else do
+                  b <- ("boxVar_" ++) <$> getNextCounter
+                  r <- ("intVar_" ++) <$> getNextCounter
+                  emit fc "Idris2_Value *\{b} = \{boxC t' (intVarName i)};"
+                  emit fc "\{cIntType t} \{r} = \{unboxC t b};"
+                  emit fc "idris2_removeReference(\{b});"
+                  pure r
+           Nothing => pure (unboxC t (varName v))
+intArg _ _ _ ANull = pure "0"
+
+||| The C arguments of a call of a worker (see `Worker`), whose pairs say
+||| whether the parameters are borrowed, and the values to release after the
+||| call.  The C integers are computed first; the variables that we own and
+||| that are only passed as C integers are released before the call (which
+||| may then be a jump).  The other arguments are passed as `borrowedCall`
+||| passes them.
+workerArgs : {auto a : Ref ArgCounter Nat}
+          -> {auto oft : Ref OutfileText Output}
+          -> {auto il : Ref IndentLevel Nat}
+          -> FC -> Env -> Worker -> List (AVar, Bool) -> Core (List String, List String)
+workerArgs fc env w pairs = do
+    let ps = zip pairs w.params
+    let valuePairs = mapMaybe (\(p, t) => maybe (Just p) (const Nothing) t) ps
+    let valueVars = SortedSet.fromList (map fst valuePairs)
+    let rawVars = mapMaybe (\((v, _), t) => map (const v) t) ps
+    let releasedBefore = filter (\v => contains v env.owned && not (contains v valueVars))
+                                (nub rawVars)
+    ints <- traverse (\((v, _), mt) => case mt of
+               Nothing => pure Nothing
+               Just t => do
+                 e <- intArg fc env t v
+                 -- (read before the value is released)
+                 if Prelude.elem v releasedBefore && not (isUnboxedIn env.unboxed v)
+                    then do r <- ("intVar_" ++) <$> getNextCounter
+                            emit fc "\{cIntType t} \{r} = \{e};"
+                            pure (Just r)
+                    else pure (Just e)) ps
+    removeVars (map varName releasedBefore)
+    let passedBorrowed = fromList (map fst (filter snd valuePairs))
+    let released = intersection env.owned passedBorrowed
+    (vals, boxes) <- valueArgs fc env (difference env.owned passedBorrowed) valuePairs
+    pure (merge ints vals, map varName (Prelude.toList released) ++ boxes)
   where
-    cArgs : Owned -> List (AVar, Bool) -> Core (List String, List String)
-    cArgs _ [] = pure ([], [])
-    cArgs owned ((ANull, _) :: rest) = mapFst ("NULL" ::) <$> cArgs owned rest
-    cArgs owned ((v, True) :: rest)
-        = if isUnboxedIn env.unboxed v
-             then do
-               t <- ("boxVar_" ++) <$> getNextCounter
-               emit fc "Idris2_Value *\{t} = \{boxInt env.unboxed v};"
-               (as, bs) <- cArgs owned rest
-               pure (t :: as, t :: bs)
-             else do
-               (as, bs) <- cArgs owned rest
-               pure (varName v :: as, bs)
-    cArgs owned ((v, False) :: rest)
-        = if isStaticIn env v
-             then mapFst (varName v ::) <$> cArgs owned rest
-          else if isUnboxedIn env.unboxed v
-             then mapFst (boxInt env.unboxed v ::) <$> cArgs owned rest
-             else if contains v owned
-                then mapFst (varName v ::) <$> cArgs (delete v owned) rest
-                else mapFst ("idris2_newReference(\{varName v})" ::) <$> cArgs owned rest
+    merge : List (Maybe String) -> List String -> List String
+    merge (Just i :: is) vs = i :: merge is vs
+    merge (Nothing :: is) (v :: vs) = v :: merge is vs
+    merge _ _ = []
+
+||| A call (not in tail position) of the worker `w` of the function `n`: the
+||| C expression of its result, a C integer of the type that it gives (if it
+||| gives one) or a value.
+workerCall : {auto a : Ref ArgCounter Nat}
+          -> {auto oft : Ref OutfileText Output}
+          -> {auto il : Ref IndentLevel Nat}
+          -> FC -> Env -> Name -> Worker -> List AVar -> Core String
+workerCall fc env n w args = do
+    let (_, pairs) = withSignature env n args
+    (cargs, drops) <- workerArgs fc env w pairs
+    let call = "\{workerName (cName n)}(\{concat $ intersperse ", " cargs})"
+    let call = case w.rawResult of
+                    Just _ => call
+                    Nothing => trampolined env (cName n) (length args) call
+    if null drops
+       then pure call
+       else do
+         r <- ("callVar_" ++) <$> getNextCounter
+         emit fc "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}\{r} = \{call};"
+         removeVars drops
+         pure r
+
+||| A call (not in tail position) of the function `n`, which has a worker: a
+||| new value.
+workerCallValue : {auto a : Ref ArgCounter Nat}
+               -> {auto oft : Ref OutfileText Output}
+               -> {auto il : Ref IndentLevel Nat}
+               -> FC -> Env -> Name -> Worker -> List AVar -> Core String
+workerCallValue fc env n w args = do
+    e <- workerCall fc env n w args
+    pure $ maybe e (\t => boxC t e) w.rawResult
 
 makeClosure : {auto a : Ref ArgCounter Nat}
             -> {auto oft : Ref OutfileText Output}
@@ -1010,17 +1152,20 @@ makeTailCall : {auto a : Ref ArgCounter Nat}
 makeTailCall fc n args = do
     env <- get EnvTracker
     let (borrows, pairs) = withSignature env n args
+    let worker = workerOf env (cName n) (length args)
     if borrows && not (tailBorrowsOK env pairs)
        then do
          -- (the borrow analysis does not let this happen)
          emit fc "/* the call of \{cName n} below is not a tail call */"
-         borrowedCall fc env (cName n) pairs
+         case worker of
+              Just w => workerCallValue fc env n w args
+              Nothing => borrowedCall fc env (cName n) pairs
        else case env.self of
          Just (self, params) =>
            if self == cName n && length params == length args
               then selfTailCall env params (map snd pairs)
-              else otherCall env pairs
-         Nothing => otherCall env pairs
+              else otherCall env worker pairs
+         Nothing => otherCall env worker pairs
   where
     pendingCallVar : Core String
     pendingCallVar = do
@@ -1045,8 +1190,13 @@ makeTailCall fc n args = do
     -- callee does not take more arguments than the caller (they would not fit
     -- in the space of the arguments of the caller on the stack, depending on
     -- the ABI).  Other compilers use a pending tail call.
-    otherCall : Env -> List (AVar, Bool) -> Core String
-    otherCall env pairs =
+    -- A function whose worker gives a C integer (see `Worker`) is called by
+    -- its worker, and its result boxed: this is not a tail call, but such a
+    -- function makes no tail call itself (see `rawResultOK`).  The worker of
+    -- another one is jumped to.
+    otherCall : Env -> Maybe Worker -> List (AVar, Bool) -> Core String
+    otherCall env (Just w@(MkWorker _ (Just _))) pairs = workerCallValue fc env n w args
+    otherCall env worker pairs =
       if length args <= env.selfArity || length args <= 8
          then do
            let args' = sigArgsToC env env.owned pairs
@@ -1057,7 +1207,13 @@ makeTailCall fc n args = do
                         then "#ifdef IDRIS2_MUSTTAIL"
                         else "#if defined(IDRIS2_MUSTTAIL) && IDRIS2_MUSTTAIL_REG_ARGS >= \{show (length args)}"
            markJump
-           emit fc "IDRIS2_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
+           case worker of
+             Just w => do
+               -- (tailBorrowsOK: nothing is released after the call)
+               (wargs, _) <- workerArgs fc env w pairs
+               emit fc "IDRIS2_MUSTTAIL return \{workerName (cName n)}(\{concat $ intersperse ", " wargs});"
+             Nothing =>
+               emit fc "IDRIS2_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
            emit EmptyFC "#else"
            pc <- pendingCallVar
            emit EmptyFC "\{pc}->f = (void *)\{cName n};"
@@ -1334,8 +1490,9 @@ applyFirst env var body f a =
         { owned := insert (ALocal var) borrowVal } env)
 
 ||| What the translation of an expression gives: a value (which may be a
-||| pending call, in tail position), or a C integer (see Compiler.RefC.Unbox).
-data Result = AValue TailPositionStatus | AnInt PrimType
+||| pending call, in tail position), or a C integer (see Compiler.RefC.Unbox),
+||| in tail position for the result of a worker (see `Worker`).
+data Result = AValue TailPositionStatus | AnInt PrimType TailPositionStatus
 
 ||| Give the variable `var` the result of an expression, unless the
 ||| expression ended in a jump.
@@ -1354,7 +1511,7 @@ mutual
            -> {auto _ : Ref ConstDef ConstTable}
            -> ANF -> Result -> Core String
     cResult anf (AValue tailPosition) = cStatementsFromANF anf tailPosition
-    cResult anf (AnInt t) = cIntFromANF t anf
+    cResult anf (AnInt t tp) = cIntFromANF t tp anf
 
     letGeneric : {auto a : Ref ArgCounter Nat}
               -> {auto oft : Ref OutfileText Output}
@@ -1463,39 +1620,88 @@ mutual
         let valueEnv = { reuseMap $= (`intersectionMap` usedCons) } (moveFromOwnedToBorrowed env borrowVal)
         put EnvTracker valueEnv
         let t = fromMaybe IntType (lookup var env.unboxed)
-        emit fc $ "\{cIntType t} \{intVarName var} = \{!(cIntFromANF t value)};"
+        emit fc $ "\{cIntType t} \{intVarName var} = \{!(cIntFromANF t NotInTailPosition value)};"
         put EnvTracker ({ owned := borrowVal, reuseMap $= (`differenceMap` usedCons) } env)
         cResult body r
 
-    ||| The C integer of type `t` of an expression whose `valueType` is `t`.
-    ||| The variables that it uses up are released, as in
-    ||| `cStatementsFromANF`.
+    ||| The C integer of type `t` of an expression whose `valueType` is `t`,
+    ||| or that is in tail position in a worker that gives a C integer (see
+    ||| `rawResultOK`).  The variables that it uses up are released, as in
+    ||| `cStatementsFromANF`.  Any other expression gives a value, which is
+    ||| unboxed.
     cIntFromANF : {auto a : Ref ArgCounter Nat}
                -> {auto oft : Ref OutfileText Output}
                -> {auto il : Ref IndentLevel Nat}
                -> {auto e : Ref EnvTracker Env}
                -> {auto _ : Ref ConstDef ConstTable}
-               -> PrimType -> ANF -> Core String
-    cIntFromANF t (AV fc v) = pure $ intOperand !(get EnvTracker) t v
-    cIntFromANF t (APrimVal fc c) = pure $ cIntLiteral c
-    cIntFromANF t (AOp fc _ op args) = do
+               -> PrimType -> TailPositionStatus -> ANF -> Core String
+    cIntFromANF t tp (AV fc v) = do
         env <- get EnvTracker
-        let resultVar = "primVar_" ++ !(getNextCounter)
-        -- (the casts from Double, Char and Integer take values)
-        let operands = case operandType op of
-                         Just ot => map (intOperand env ot) args
-                         Nothing => map varName args
-        emit fc $ "\{cIntType t} \{resultVar} = \{intOpC op operands};"
-        removeVars $ map varName $ Prelude.toList $ intersection (fromList (toList args)) env.owned
-        pure resultVar
-    cIntFromANF t (ALet fc var value body) = do
+        if contains v env.owned && not (isUnboxedIn env.unboxed v)
+           then do
+             r <- ("intVar_" ++) <$> getNextCounter
+             emit fc "\{cIntType t} \{r} = \{unboxC t (varName v)};"
+             removeVars [varName v]
+             pure r
+           else intArg fc env t v
+    cIntFromANF t tp anf@(APrimVal fc c)
+        = if constType c == Just t then pure (cIntLiteral c) else fromValue t anf
+    cIntFromANF t tp anf@(AOp fc _ op args) = do
+        if resultType op /= Just t then fromValue t anf else do
+          env <- get EnvTracker
+          let resultVar = "primVar_" ++ !(getNextCounter)
+          -- (the casts from Double, Char and Integer take values)
+          let operands = case operandType op of
+                           Just ot => map (intOperand env ot) args
+                           Nothing => map varName args
+          emit fc $ "\{cIntType t} \{resultVar} = \{intOpC op operands};"
+          removeVars $ map varName $ Prelude.toList $ intersection (fromList (toList args)) env.owned
+          pure resultVar
+    cIntFromANF t tp (ALet fc var value body) = do
         env <- get EnvTracker
         if isJust (lookup var env.unboxed)
-           then letInt fc var value body (AnInt t)
-           else letGeneric fc var value body (AnInt t)
-    cIntFromANF t (AConstCase fc sc alts def) = constCase fc sc alts def (AnInt t)
-    cIntFromANF t (ACrash fc msg) = pure "(idris2_crashMsg(\{cStringQuoted msg}), 0)"
-    cIntFromANF t anf = throw $ InternalError "[refc] Not an integer expression: \{show anf}"
+           then letInt fc var value body (AnInt t tp)
+           else letGeneric fc var value body (AnInt t tp)
+    cIntFromANF t tp (AConstCase fc sc alts def) = constCase fc sc alts def (AnInt t tp)
+    cIntFromANF t tp (AConCase fc sc alts def) = conCase fc sc alts def (AnInt t tp)
+    cIntFromANF t tp (ACrash fc msg) = pure "(idris2_crashMsg(\{cStringQuoted msg}), 0)"
+    cIntFromANF t tp anf@(AAppName fc _ n args) = do
+        env <- get EnvTracker
+        let nargs = length args
+        let cn = cName n
+        if lookup cn env.foreigns == Just nargs || nargs > MaxExtractFunArgs
+           then fromValue t anf
+           else case (tp, env.self) of
+                  (InTailPosition, Just (self, params)) =>
+                    if self == cn && length params == nargs
+                       then makeTailCall fc n args
+                       else other env cn nargs
+                  _ => other env cn nargs
+      where
+        other : Env -> String -> Nat -> Core String
+        other env cn nargs = case workerOf env cn nargs of
+            Just w => if w.rawResult == Just t
+                         then workerCall fc env n w args
+                         else fromValue t anf
+            Nothing => fromValue t anf
+    cIntFromANF t tp anf = fromValue t anf
+
+    ||| The C integer of type `t` of the value of an expression (not in tail
+    ||| position), which is then released.
+    fromValue : {auto a : Ref ArgCounter Nat}
+             -> {auto oft : Ref OutfileText Output}
+             -> {auto il : Ref IndentLevel Nat}
+             -> {auto e : Ref EnvTracker Env}
+             -> {auto _ : Ref ConstDef ConstTable}
+             -> PrimType -> ANF -> Core String
+    fromValue t anf = do
+        v <- cStatementsFromANF anf NotInTailPosition
+        b <- ("boxVar_" ++) <$> getNextCounter
+        r <- ("intVar_" ++) <$> getNextCounter
+        emit EmptyFC "Idris2_Value *\{b} = \{v};"
+        emit EmptyFC "\{cIntType t} \{r} = \{unboxC t b};"
+        emit EmptyFC "idris2_removeReference(\{b});"
+        pure r
 
     concaseBody : {auto a : Ref ArgCounter Nat}
                  -> {auto e : Ref EnvTracker Env}
@@ -1532,8 +1738,9 @@ mutual
     cStatementsFromANF (AV fc x) _ = pure $ avarToC !(get EnvTracker) x
     cStatementsFromANF (AAppName fc _ n args) tailPosition = do
         let nargs = length args
+        let cn = cName n
         env <- get EnvTracker
-        if lookup (cName n) env.foreigns == Just nargs
+        if lookup cn env.foreigns == Just nargs
            then foreignCall fc env n args
            else case tailPosition of
             InTailPosition =>
@@ -1544,11 +1751,13 @@ mutual
                 then pure "idris2_trampoline(\{!(makeClosure fc n args 0)})"
                 else do
                     env <- get EnvTracker
-                    case withSignature env n args of
-                      (True, pairs) => borrowedCall fc env (cName n) pairs
+                    case workerOf env cn nargs of
+                     Just w => workerCallValue fc env n w args
+                     Nothing => case withSignature env n args of
+                      (True, pairs) => borrowedCall fc env cn pairs
                       _ => do
                         let args' = avarsToC env env.owned args
-                        pure $ trampolined env (cName n) nargs "\{cName n}(\{concat $ intersperse ", " args'})"
+                        pure $ trampolined env cn nargs "\{cn}(\{concat $ intersperse ", " args'})"
       where
         -- A full application of a foreign function calls the variant of
         -- its wrapper that borrows the arguments (see `createCFunctions`),
@@ -1814,109 +2023,8 @@ mutual
             constant (ALocal i) = lookup i env.stringVars
             constant ANull = Nothing
 
-    cStatementsFromANF (AConCase fc sc alts mDef) tailPosition = do
-        let sc' = varName sc
-        switchReturnVar <- getNewVarThatWillNotBeFreedAtEndOfBlock
-        emit fc "Idris2_Value * \{switchReturnVar} = NULL;"
-        env <- get EnvTracker
-        if tagSwitch
-           then do
-             -- (the constructors of the type all have tags: a `switch`)
-             emit emptyFC "switch (((Idris2_Constructor *)\{sc'})->tag) {"
-             for_ alts $ \alt@(MkAConAlt name _ tag _ _) => do
-                 emit emptyFC "case \{show (fromMaybe 0 (conTag tag))}: { /* \{show name} */"
-                 altBody env switchReturnVar alt
-                 emit emptyFC "  break;"
-                 emit emptyFC "}"
-             whenJust mDef $ \body => do
-                 emit emptyFC "default: {"
-                 concaseBody env switchReturnVar "" [] body (AValue tailPosition)
-                 emit emptyFC "}"
-             emit emptyFC "}"
-           else case (alts, mDef) of
-             -- The only constructor of its type (a record, the dictionary
-             -- of an interface): there is nothing to test.
-             ([alt@(MkAConAlt name coninfo (Just _) _ _)], Nothing) =>
-               if plain alt
-                  then do
-                    emit emptyFC "{ /* \{show name} */"
-                    altBody env switchReturnVar alt
-                    emit emptyFC "}"
-                  else ifChain env switchReturnVar
-             _ => ifChain env switchReturnVar
-        pure switchReturnVar
-      where
-        erasedCon : ConInfo -> Bool
-        erasedCon ci = ci == NIL || ci == NOTHING || ci == ZERO || ci == UNIT
-
-        -- Is the constructor of the alternative told by its tag?
-        plain : AConAlt -> Bool
-        plain (MkAConAlt _ ci tag _ _)
-            = not (erasedCon ci || ci == CONS || ci == JUST || ci == SUCC)
-              && isJust (conTag tag)
-
-        tagSwitch : Bool
-        tagSwitch = all plain alts && length alts >= 2
-
-        -- The body of an alternative, in the environment `env` of the case.
-        altBody : Env -> String -> AConAlt -> Core ()
-        altBody env switchReturnVar (MkAConAlt name coninfo tag args body) = do
-            let sc' = varName sc
-            let erased = erasedCon coninfo
-            let conArgs = ALocal <$> args
-            -- The fields of a borrowed value are borrowed (see
-            -- Compiler.RefC.Borrow): it keeps them alive.  Those of a value
-            -- that we hold are ours (we take references to them, or take
-            -- them over when it is not used any more).
-            let scBorrowed = contains sc env.borrowed
-            let ownedWithArgs : Owned
-                  = if scBorrowed then env.owned
-                       else union (fromList conArgs) $ if erased then delete sc env.owned else env.owned
-            let usedVars = freeVariables body
-            let (shouldDrop, actualOwned) = dropUnusedOwnedVars ownedWithArgs usedVars
-            let usedCons = usedReuseKeys env body
-            let (dropReuseCons, actualReuseMap) = dropUnusedReuseCons env.reuseMap usedCons
-            -- A field is read when the body uses it, or when the scrutinee is
-            -- dropped (addReuseConstructor then releases the unused fields);
-            -- otherwise it would be an unused variable.
-            let scDropped = isJust (find (== sc') shouldDrop)
-            increaseIndentation
-            _ <- foldlC (\k, arg => do
-                when (scDropped || contains (ALocal arg) usedVars) $
-                  emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
-                pure (S k) ) 0 args
-            (shouldDrop, actualReuseMap) <-
-                the (Core (List String, ReuseMap)) $
-                  if scBorrowed
-                     then pure (shouldDrop, actualReuseMap)
-                     else addReuseConstructor env.reuseMap sc' (reuseKey env name tag (length args)) name args usedCons shouldDrop actualReuseMap
-            removeVars shouldDrop
-            removeReuseConstructors dropReuseCons
-            put EnvTracker ({ owned := actualOwned, reuseMap := actualReuseMap
-                            , borrowed := if scBorrowed then SortedSet.union (fromList conArgs) env.borrowed
-                                                         else env.borrowed } env)
-            assignResult switchReturnVar !(cStatementsFromANF body tailPosition)
-            decreaseIndentation
-
-        ifChain : Env -> String -> Core ()
-        ifChain env switchReturnVar = do
-            let sc' = varName sc
-            _ <- foldlC (\els, alt@(MkAConAlt name coninfo tag args body) => do
-                if erasedCon coninfo then emit emptyFC "\{els}if (NULL == \{sc'} /* \{show name} \{show coninfo} */) {"
-                    else if coninfo == CONS || coninfo == JUST || coninfo == SUCC
-                    then emit emptyFC "\{els}if (NULL != \{sc'} /* \{show name} \{show coninfo} */) {"
-                    else do
-                        case conTag tag of
-                            Nothing   => emit emptyFC "\{els}if (! strcmp(idris2_constructorName(\{sc'}), idris2_constr_\{cName name})) {"
-                            Just tag' => emit emptyFC "\{els}if (((Idris2_Constructor *)\{sc'})->tag == \{show tag'} /* \{show name} */) {"
-                altBody env switchReturnVar alt
-                pure "} else ") "" alts
-            case mDef of
-                Nothing => pure ()
-                Just body => do
-                    emit emptyFC "} else {"
-                    concaseBody env switchReturnVar "" [] body (AValue tailPosition)
-            emit emptyFC "}"
+    cStatementsFromANF (AConCase fc sc alts mDef) tailPosition
+        = conCase fc sc alts mDef (AValue tailPosition)
 
     cStatementsFromANF (AConstCase fc sc alts def) tailPosition
         = constCase fc sc alts def (AValue tailPosition)
@@ -1981,6 +2089,121 @@ mutual
     -- Like the Scheme backends: print the message and stop.
     cStatementsFromANF (ACrash fc msg) _ = pure "idris2_crashMsg(\{cStringQuoted msg})"
 
+    ||| A `case` on constructors, which gives a value or a C integer.
+    conCase : {auto a : Ref ArgCounter Nat}
+           -> {auto oft : Ref OutfileText Output}
+           -> {auto il : Ref IndentLevel Nat}
+           -> {auto e : Ref EnvTracker Env}
+           -> {auto _ : Ref ConstDef ConstTable}
+           -> FC -> AVar -> List AConAlt -> Maybe ANF -> Result
+           -> Core String
+    conCase fc sc alts mDef r = do
+        let sc' = varName sc
+        switchReturnVar <- getNewVarThatWillNotBeFreedAtEndOfBlock
+        case r of
+             AnInt t _ => emit fc "\{cIntType t} \{switchReturnVar} = 0;"
+             AValue _ => emit fc "Idris2_Value * \{switchReturnVar} = NULL;"
+        env <- get EnvTracker
+        if tagSwitch
+           then do
+             -- (the constructors of the type all have tags: a `switch`)
+             emit emptyFC "switch (((Idris2_Constructor *)\{sc'})->tag) {"
+             for_ alts $ \alt@(MkAConAlt name _ tag _ _) => do
+                 emit emptyFC "case \{show (fromMaybe 0 (conTag tag))}: { /* \{show name} */"
+                 altBody env switchReturnVar alt
+                 emit emptyFC "  break;"
+                 emit emptyFC "}"
+             whenJust mDef $ \body => do
+                 emit emptyFC "default: {"
+                 concaseBody env switchReturnVar "" [] body r
+                 emit emptyFC "}"
+             emit emptyFC "}"
+           else case (alts, mDef) of
+             -- The only constructor of its type (a record, the dictionary
+             -- of an interface): there is nothing to test.
+             ([alt@(MkAConAlt name coninfo (Just _) _ _)], Nothing) =>
+               if plain alt
+                  then do
+                    emit emptyFC "{ /* \{show name} */"
+                    altBody env switchReturnVar alt
+                    emit emptyFC "}"
+                  else ifChain env switchReturnVar
+             _ => ifChain env switchReturnVar
+        pure switchReturnVar
+      where
+        erasedCon : ConInfo -> Bool
+        erasedCon ci = ci == NIL || ci == NOTHING || ci == ZERO || ci == UNIT
+
+        -- Is the constructor of the alternative told by its tag?
+        plain : AConAlt -> Bool
+        plain (MkAConAlt _ ci tag _ _)
+            = not (erasedCon ci || ci == CONS || ci == JUST || ci == SUCC)
+              && isJust (conTag tag)
+
+        tagSwitch : Bool
+        tagSwitch = all plain alts && length alts >= 2
+
+        -- The body of an alternative, in the environment `env` of the case.
+        altBody : Env -> String -> AConAlt -> Core ()
+        altBody env switchReturnVar (MkAConAlt name coninfo tag args body) = do
+            let sc' = varName sc
+            let erased = erasedCon coninfo
+            let conArgs = ALocal <$> args
+            -- The fields of a borrowed value are borrowed (see
+            -- Compiler.RefC.Borrow): it keeps them alive.  Those of a value
+            -- that we hold are ours (we take references to them, or take
+            -- them over when it is not used any more).
+            let scBorrowed = contains sc env.borrowed
+            let ownedWithArgs : Owned
+                  = if scBorrowed then env.owned
+                       else union (fromList conArgs) $ if erased then delete sc env.owned else env.owned
+            let usedVars = freeVariables body
+            let (shouldDrop, actualOwned) = dropUnusedOwnedVars ownedWithArgs usedVars
+            let usedCons = usedReuseKeys env body
+            let (dropReuseCons, actualReuseMap) = dropUnusedReuseCons env.reuseMap usedCons
+            -- A field is read when the body uses it, or when the scrutinee is
+            -- dropped (addReuseConstructor then releases the unused fields);
+            -- otherwise it would be an unused variable.
+            let scDropped = isJust (find (== sc') shouldDrop)
+            increaseIndentation
+            _ <- foldlC (\k, arg => do
+                when (scDropped || contains (ALocal arg) usedVars) $
+                  emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
+                pure (S k) ) 0 args
+            (shouldDrop, actualReuseMap) <-
+                the (Core (List String, ReuseMap)) $
+                  if scBorrowed
+                     then pure (shouldDrop, actualReuseMap)
+                     else addReuseConstructor env.reuseMap sc' (reuseKey env name tag (length args)) name args usedCons shouldDrop actualReuseMap
+            removeVars shouldDrop
+            removeReuseConstructors dropReuseCons
+            put EnvTracker ({ owned := actualOwned, reuseMap := actualReuseMap
+                            , borrowed := if scBorrowed then SortedSet.union (fromList conArgs) env.borrowed
+                                                         else env.borrowed } env)
+            assignResult switchReturnVar !(cResult body r)
+            decreaseIndentation
+
+        ifChain : Env -> String -> Core ()
+        ifChain env switchReturnVar = do
+            let sc' = varName sc
+            _ <- foldlC (\els, alt@(MkAConAlt name coninfo tag args body) => do
+                if erasedCon coninfo then emit emptyFC "\{els}if (NULL == \{sc'} /* \{show name} \{show coninfo} */) {"
+                    else if coninfo == CONS || coninfo == JUST || coninfo == SUCC
+                    then emit emptyFC "\{els}if (NULL != \{sc'} /* \{show name} \{show coninfo} */) {"
+                    else do
+                        case conTag tag of
+                            Nothing   => emit emptyFC "\{els}if (! strcmp(idris2_constructorName(\{sc'}), idris2_constr_\{cName name})) {"
+                            Just tag' => emit emptyFC "\{els}if (((Idris2_Constructor *)\{sc'})->tag == \{show tag'} /* \{show name} */) {"
+                altBody env switchReturnVar alt
+                pure "} else ") "" alts
+            case mDef of
+                Nothing => pure ()
+                Just body => do
+                    emit emptyFC "} else {"
+                    concaseBody env switchReturnVar "" [] body r
+            emit emptyFC "}"
+
+
     ||| A `case` on constants, which gives a value or a C integer.  A
     ||| scrutinee that is a C integer is switched on as it is.
     constCase : {auto a : Ref ArgCounter Nat}
@@ -1994,7 +2217,7 @@ mutual
         let sc' = varName sc
         switchReturnVar <- getNewVarThatWillNotBeFreedAtEndOfBlock
         case r of
-             AnInt t => emit fc "\{cIntType t} \{switchReturnVar} = 0;"
+             AnInt t _ => emit fc "\{cIntType t} \{switchReturnVar} = 0;"
              AValue _ => emit fc "Idris2_Value *\{switchReturnVar} = NULL;"
         env <- get EnvTracker
         case alts of
@@ -2216,29 +2439,33 @@ additionalFFIStub name argTypes retType =
     (concat $ intersperse ", " $ map cTypeOfCFType argTypes) ++ ") = (void*)idris2_missing_ffi;\n"
 
 ||| The parameters `params` of the function `n` (in its compiled form) that have
-||| the type `Int` or `Int64`.  They are its arguments that are not dropped
-||| (see `mkDropSubst`), in order: if the type has fewer arguments than the
-||| function (whose result is a function, by a name), none are given.
-intParams : {auto c : Ref Ctxt Defs} -> Name -> List Int -> Core (SortedMap Int PrimType)
-intParams n params = do
+||| a fixed width integer type, with their unboxed types, and the type of its
+||| result if it is one.  The parameters are its arguments that are not
+||| dropped (see `mkDropSubst`), in order: if the type has fewer arguments
+||| than the function (whose result is a function, by a name), none are
+||| given; the result is known when it has as many.
+intSignature : {auto c : Ref Ctxt Defs} -> Name -> List Int
+            -> Core (SortedMap Int PrimType, Maybe PrimType)
+intSignature n params = do
     defs <- get Ctxt
     Just gdef <- lookupCtxtExact n (gamma defs)
-      | Nothing => pure empty
-    let tys = binders 0 (eraseArgs gdef) (type gdef)
+      | Nothing => pure (empty, Nothing)
+    let (tys, res) = binders 0 (eraseArgs gdef) (type gdef)
     pure $ if length params > length tys
-              then empty
-              else fromList (mapMaybe (\(p, t) => map (p,) t) (zip params tys))
+              then (empty, Nothing)
+              else ( fromList (mapMaybe (\(p, t) => map (p,) t) (zip params tys))
+                   , if length params == length tys then res else Nothing )
   where
     intType : Term vs -> Maybe PrimType
     intType (PrimVal _ (PrT t)) = unboxedType t
     intType _ = Nothing
 
-    binders : Nat -> NatSet -> Term vs -> List (Maybe PrimType)
+    binders : Nat -> NatSet -> Term vs -> (List (Maybe PrimType), Maybe PrimType)
     binders i es (Bind _ _ (Pi _ rig _ ty) sc)
-        = let rest = binders (S i) es sc in
-              if i `elem` es then rest
-                 else (if rig /= erased then intType ty else Nothing) :: rest
-    binders _ _ _ = []
+        = let (rest, res) = binders (S i) es sc in
+              if i `elem` es then (rest, res)
+                 else ((if rig /= erased then intType ty else Nothing) :: rest, res)
+    binders _ _ t = ([], intType t)
 
 ||| The optimisations that a directive turns off, for measurements and to
 ||| find the culprit of a bug.  `--directive refc-size-reuse` turns on the
@@ -2271,20 +2498,132 @@ foldCasts : ANFDef -> ANFDef
 foldCasts (MkAFun args anf) = MkAFun args (foldIntegerCasts anf)
 foldCasts d = d
 
-||| The variables of the function `n` (C name `cn`) that are C integers (see
-||| Compiler.RefC.Unbox).
-unboxedOf : {auto c : Ref Ctxt Defs}
-         -> SortedMap String Nat -> Name -> String -> List Int -> ANF
-         -> Core (SortedMap Int PrimType)
-unboxedOf foreigns n cn args anf = do
-    let nargs = length args
-    let loops = nargs > 0 && nargs <= MaxExtractFunArgs
-                && hasSelfTailCall cn nargs anf
-    let calls = MkCalls (\m, as => loops && cName m == cn && length as == nargs)
-                        (\m, as => lookup (cName m) foreigns == Just (length as))
-    if hasIntOp anf
-       then unboxedVars calls loops args <$> intParams n args <*> pure anf
-       else pure empty
+||| What the analysis of the variables that are C integers in a function (see
+||| Compiler.RefC.Unbox) needs to know of the other functions: the arities of
+||| the foreign ones, those that always give a value (see `returnsValue`), and
+||| the workers found so far (see `Worker`), by C name.
+record Program where
+  constructor MkProgram
+  foreigns : SortedMap String Nat
+  valueFns : SortedMap String Nat
+  workers : SortedMap String Worker
+  ||| are there workers? (if not, the names of the calls need not be made)
+  anyWorkers : Bool
+
+||| The calls of the function `cn`, with `nargs` parameters, that `loops`
+||| (calls itself in tail position).
+callsOf : Program -> String -> Nat -> (loops : Bool) -> Calls
+callsOf p cn nargs loops
+    = MkCalls (\m, as => loops && cName m == cn && length as == nargs)
+              (\m, as => lookup (cName m) p.foreigns == Just (length as))
+              (\m, k => map params (worker m k))
+              (\m, k => worker m k >>= rawResult)
+              (\m, k => lookup (cName m) p.valueFns == Just k)
+  where
+    worker : Name -> Nat -> Maybe Worker
+    worker m k = do guard p.anyWorkers
+                    w <- lookup (cName m) p.workers
+                    if length w.params == k then Just w else Nothing
+
+||| The variables of the function `cn` (with the parameters `args`, of which
+||| `sig` gives the types that are fixed width integers, and the type of the
+||| result) that are C integers, and its worker if it has one (see `Worker`):
+||| its parameters that are C integers are those of the worker.  A function
+||| with tail recursion modulo cons (`trmc`) gives a value.
+analyseFun : Program -> (workers : Bool) -> (trmc : Bool) -> String -> List Int -> ANF
+          -> (sig : Core (SortedMap Int PrimType, Maybe PrimType))
+          -> Core (SortedMap Int PrimType, Maybe Worker)
+analyseFun p workers trmc cn args anf sig
+    = let nargs = length args
+          withWorker = nargs > 0 && nargs <= MaxExtractFunArgs
+          loops = withWorker && hasSelfTailCall cn nargs anf
+          calls = callsOf p cn nargs loops in
+          -- (the types are looked up only when there is something to find)
+          if not (hasIntWork calls anf) then pure (empty, Nothing) else do
+            (ips, res) <- sig
+            let u = unboxedVars calls loops (withWorker && workers) args ips anf
+            let raws = map (\a => lookup a u) args
+            let rr = if trmc then Nothing
+                        else do t <- res
+                                if rawResultOK calls u t anf then Just t else Nothing
+            pure (u, if withWorker && (any isJust raws || isJust rr)
+                        then Just (MkWorker raws rr) else Nothing)
+
+||| The variables that are C integers, and the workers, of the functions
+||| (by C name, with their names, parameters and bodies, and whether they have
+||| tail recursion modulo cons).  The workers of the functions that they call
+||| change what is found in a function: a variable passed to a parameter that
+||| a worker takes as a C integer, or bound to the C integer that a worker
+||| gives, can be one too.  So the functions are analysed again, while the
+||| workers of the functions that they call change, at most `maxRounds`
+||| times.  More is found every time (a parameter that a worker takes as a C
+||| integer stays one), and the code is right whatever is found: a C integer
+||| passed where a value is expected is made one, and conversely.
+unboxedProgram : {auto c : Ref Ctxt Defs}
+              -> (withWorkers : Bool)
+              -> SortedMap String Nat -> SortedMap String Nat
+              -> List (String, Name, List Int, ANF, Bool)
+              -> Core (SortedMap String (SortedMap Int PrimType), SortedMap String Worker)
+unboxedProgram withWorkers foreigns valueFns funs = do
+    let byName = SortedMap.fromList (map (\f@(cn, _, _, _, _) => (cn, f)) funs)
+    let callers = foldl (\m, (cn, _, _, anf, _) =>
+                           foldl (\m', g => insert g (cn :: fromMaybe [] (lookup g m')) m')
+                                 m (Prelude.toList (callees anf empty)))
+                        (the (SortedMap String (List String)) empty) funs
+    _ <- newRef IntSigs (the (SortedMap String (SortedMap Int PrimType, Maybe PrimType)) empty)
+    go maxRounds byName callers empty empty (map (\(cn, _, _, _, _) => cn) funs)
+  where
+    maxRounds : Nat
+    maxRounds = 8
+
+    callees : ANF -> SortedSet String -> SortedSet String
+    callees (AAppName _ _ n _) acc = insert (cName n) acc
+    callees (ALet _ _ v b) acc = callees v (callees b acc)
+    callees (AConCase _ _ alts def) acc
+        = foldl (\a, (MkAConAlt _ _ _ _ b) => callees b a)
+                (maybe acc (\d => callees d acc) def) alts
+    callees (AConstCase _ _ alts def) acc
+        = foldl (\a, (MkAConstAlt _ b) => callees b a)
+                (maybe acc (\d => callees d acc) def) alts
+    callees _ acc = acc
+
+    -- (the types of a function are looked up once)
+    sigOf : {auto r : Ref IntSigs (SortedMap String (SortedMap Int PrimType, Maybe PrimType))}
+         -> String -> Name -> List Int -> Core (SortedMap Int PrimType, Maybe PrimType)
+    sigOf cn n args
+        = case lookup cn !(get IntSigs) of
+               Just s => pure s
+               Nothing => do
+                 s <- if null args then pure (empty, Nothing) else intSignature n args
+                 update IntSigs (insert cn s)
+                 pure s
+
+    go : {auto r : Ref IntSigs (SortedMap String (SortedMap Int PrimType, Maybe PrimType))}
+      -> Nat
+      -> SortedMap String (String, Name, List Int, ANF, Bool)
+      -> SortedMap String (List String)
+      -> SortedMap String (SortedMap Int PrimType) -> SortedMap String Worker
+      -> List String
+      -> Core (SortedMap String (SortedMap Int PrimType), SortedMap String Worker)
+    go Z _ _ us ws _ = pure (us, ws)
+    go (S k) byName callers us ws todo
+        = do let p = MkProgram foreigns valueFns ws (not (null (SortedMap.toList ws)))
+             (us1, ws1, changed) <- foldlC (\(us', ws', changed), cn =>
+                 case lookup cn byName of
+                   Nothing => pure (us', ws', changed)
+                   Just (_, n, args, anf, trmc) => do
+                     (u, w0) <- analyseFun p withWorkers trmc cn args anf (sigOf cn n args)
+                     let w = if withWorkers then w0 else Nothing
+                     let us' = if null u then delete cn us' else insert cn u us'
+                     pure $ if w == lookup cn ws'
+                               then (us', ws', changed)
+                               else (us', maybe (delete cn ws') (\w' => insert cn w' ws') w,
+                                     cn :: changed))
+               (us, ws, the (List String) []) (Prelude.toList (SortedSet.fromList todo))
+             -- (the callers of the functions whose workers changed, and
+             -- these functions, which may call themselves)
+             let again = concatMap (\g => g :: fromMaybe [] (lookup g callers)) changed
+             if null again then pure (us1, ws1) else go k byName callers us1 ws1 again
 
 ||| Does the function `cn` with the parameters `args` always return a value,
 ||| never a pending tail call or a closure that its arguments complete (see
@@ -2363,6 +2702,7 @@ createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto vf : Ref ValueFns (SortedMap String Nat)}
                 -> {auto bs : Ref BorrowSigs Signatures}
                 -> {auto uv : Ref UnboxedVars (SortedMap String (SortedMap Int PrimType))}
+                -> {auto wk : Ref Workers (SortedMap String Worker)}
                 -> {auto a : Ref ArgCounter Nat}
                 -> {auto _ : Ref ConstDef ConstTable}
                 -> {auto f : Ref FunctionDefinitions (SortedMap String (List String))}
@@ -2383,7 +2723,16 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                else if nargs > MaxExtractFunArgs then "(Idris2_Value *idris2_arglist[\{show nargs}])"
                else ("\n(\n" ++ (showSep "\n" $ addCommaToList (map (\i =>  "  Idris2_Value * var_" ++ (show i)) args))) ++ "\n)"
     let fn = "Idris2_Value *\{cn}" ++ params
-    addProtos cn [fn ++ ";\n"]
+    -- The worker (see `Worker`): the parameters that are C integers in the
+    -- body are C integers, as the result may be.
+    worker <- lookup cn <$> get Workers
+    let wfn = map (\w => let ps = zipWith (\i, t => case t of
+                                                  Just t => "  \{cIntType t} \{intVarName i}"
+                                                  Nothing => "  Idris2_Value * var_\{show i}")
+                                          args w.params in
+                          "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}\{workerName cn}"
+                          ++ "\n(\n" ++ showSep "\n" (addCommaToList ps) ++ "\n)") worker
+    addProtos cn ((fn ++ ";\n") :: maybe [] (\w => [w ++ ";\n"]) wfn)
     -- A definition without arguments (a constant) is evaluated once, the
     -- first time that it is needed, like the top level constants of the
     -- Scheme backends: its body is in a function of its own, and its value is
@@ -2393,7 +2742,7 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
     let noinline = if opts.optBacktrace then "IDRIS2_BT_NOINLINE " else ""
     let body = if nargs == 0
                   then "\{noinline}static Idris2_Value *\{cafName cn}" ++ params
-                  else noinline ++ fn
+                  else noinline ++ fromMaybe fn wfn
 
     -- The parameters that the function borrows (see Compiler.RefC.Borrow):
     -- the caller keeps them alive, so they are neither owned nor released.
@@ -2425,17 +2774,16 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
       emit EmptyFC "Idris2_Value **idris2_trmc_hole = &idris2_trmc_result;"
     -- The variables that are C integers (see Compiler.RefC.Unbox): the
     -- parameters among them are unboxed once, before the loop starts.
-    unboxed <- case lookup cn !(get UnboxedVars) of
-                 Just u => pure u
-                 Nothing => unboxedOf foreigns n cn args anf
+    -- (they are the parameters of the worker, when there is one)
+    let unboxed = fromMaybe empty (lookup cn !(get UnboxedVars))
     let unboxedParams = filter (\p => isJust (lookup p unboxed)) args
-    for_ unboxedParams $ \p => do
+    when (isNothing worker) $ for_ unboxedParams $ \p => do
       let t = fromMaybe IntType (lookup p unboxed)
       emit EmptyFC "\{cIntType t} \{intVarName p} = \{unboxC t "var_\{show p}"};"
       unless (p `elem` borrowedParams) $
         emit EmptyFC "idris2_removeReference(var_\{show p});"
     when loops $ emit EmptyFC "idris2_self_entry: ;"
-    removeVars (varName <$> Prelude.toList shouldDrop)
+    removeVars (varName <$> Prelude.toList (shouldDrop `difference` fromList (ALocal <$> unboxedParams)))
     _ <- newRef EnvTracker (MkEnv ((bodyFreeVars `difference` fromList (ALocal <$> unboxedParams))
                                      `difference` borrowedVars)
                               empty
@@ -2445,18 +2793,45 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                               foreigns unboxed opts.optSizeReuse sigs borrowedVars
                               !(get ValueFns) trmc empty opts.optStatics
                               structs
-                              (if usesStructFields anf then stringLets anf empty else empty))
+                              (if usesStructFields anf then stringLets anf empty else empty)
+                              !(get Workers))
     if trmc
        then do
          assignResult "*idris2_trmc_hole" !(cStatementsFromANF anf InTailPosition)
          plainReturn "idris2_trmc_result"
        else do
-         result <- cStatementsFromANF anf InTailPosition
+         result <- case worker >>= rawResult of
+                        Just t => cIntFromANF t InTailPosition anf
+                        Nothing => cStatementsFromANF anf InTailPosition
          -- (nothing to return after a jump)
          unless (result == unreachable) $ plainReturn result
     decreaseIndentation
     emit EmptyFC  "}\n"
     dropUnusedStatics
+    -- The function itself, for the calls that pass values: it unboxes the
+    -- integers, and boxes the result.  It jumps to the worker when that
+    -- gives a value, so that the tail calls of the worker are still jumps.
+    -- (the parameters that are C integers are never borrowed, see
+    -- Compiler.RefC.Borrow)
+    whenJust worker $ \w => do
+      emit EmptyFC (noinline ++ fn)
+      emit EmptyFC "{"
+      increaseIndentation
+      for_ (zip args w.params) $ \(p, mt) => whenJust mt $ \t => do
+        emit EmptyFC "\{cIntType t} \{intVarName p} = \{unboxC t "var_\{show p}"};"
+        unless (p `elem` borrowedParams) $
+          emit EmptyFC "idris2_removeReference(var_\{show p});"
+      let call = "\{workerName cn}(\{showSep ", " (zipWith (\p, mt => maybe (varName (ALocal p)) (const (intVarName p)) mt) args w.params)})"
+      case w.rawResult of
+           Just t => emit EmptyFC "return \{boxC t call};"
+           Nothing => do
+             emit EmptyFC "#ifdef IDRIS2_MUSTTAIL"
+             emit EmptyFC "IDRIS2_MUSTTAIL return \{call};"
+             emit EmptyFC "#else"
+             emit EmptyFC "return \{call};"
+             emit EmptyFC "#endif"
+      decreaseIndentation
+      emit EmptyFC "}\n"
     -- (idris2_constantValue makes it once, even with threads running in
     -- parallel.)
     when (nargs == 0) $ do
@@ -2639,9 +3014,13 @@ defLocation n
 ||| The functions are also compiled with `noinline`, so that a backtrace
 ||| shows every call that is not in tail position.
 backtraceTable : {auto c : Ref Ctxt Defs}
-              -> List (String, Name, ANFDef) -> Core (List String)
-backtraceTable named
-    = do entries <- traverse entry (filter isFunction named)
+              -> SortedMap String Worker -> List (String, Name, ANFDef) -> Core (List String)
+backtraceTable workers named
+    = do entries0 <- traverse entry (filter isFunction named)
+         -- (a worker has the name of its function, see `Worker`)
+         let entries = entries0 ++ mapMaybe (\(cn, n, loc) =>
+                                      map (const (workerName cn, n, loc)) (lookup cn workers))
+                                    entries0
          let sorted = sortBy (\a, b => compare (fst a) (fst b)) entries
          pure $ [ "// The functions of the program, for backtraces (see backtrace.h)"
                 , "static Idris2_BacktraceName const idris2_backtrace_names[] = {" ]
@@ -3050,15 +3429,10 @@ generateCSourceFileParts defs0 outn =
      foreigns <- get Foreigns
      let named = map (\(cn, (n, d)) => (cName cn, n, d)) (zip canons defs)
      traverse_ (\(_, n, d) => checkArity n d) named
-     unboxed <- fromList <$> traverse (\(cn, n, d) =>
-                  case d of
-                       MkAFun args anf => pure (cn, !(unboxedOf foreigns n cn args anf))
-                       _ => pure (cn, empty)) named
-     _ <- newRef UnboxedVars unboxed
      -- The functions whose calls need no trampoline (see `returnsValue`).
      direct <- refcDirectResults
-     _ <- newRef ValueFns $
-            if direct
+     let valueFns : SortedMap String Nat
+           = if direct
                then fromList $ mapMaybe (\(cn, _, d) =>
                       case d of
                         MkAFun args anf =>
@@ -3066,6 +3440,7 @@ generateCSourceFileParts defs0 outn =
                              then Just (cn, length args) else Nothing
                         _ => Nothing) named
                else empty
+     _ <- newRef ValueFns valueFns
      -- The functions with tail recursion modulo cons (see `trmcFunction`),
      -- which the borrowing must know.
      opts <- refcOptions
@@ -3079,12 +3454,26 @@ generateCSourceFileParts defs0 outn =
                               then Just cn else Nothing
                          _ => Nothing) named
                 else empty
+     -- The variables that are C integers, and the workers, of every function
+     -- (see Compiler.RefC.Unbox and `Worker`).  `--directive
+     -- refc-no-workers` keeps the integers in the functions.
+     noWorkersDir <- pure $ "refc-no-workers" `elem` !(getDirectives RefC)
+     let funs = mapMaybe (\(cn, n, d) => case d of
+                             MkAFun args anf => Just (cn, n, args, anf, contains cn trmcFns)
+                             _ => Nothing) named
+     (unboxed, workers) <- unboxedProgram (not noWorkersDir) foreigns valueFns funs
+     _ <- newRef UnboxedVars unboxed
+     _ <- newRef Workers workers
+     log "compiler.refc" 5 $ "Workers: " ++ show (length (SortedMap.toList workers))
      borrowing <- refcBorrowing
      _ <- newRef BorrowSigs $
             if borrowing
                then inferBorrowing cName
                       (\f, k => SortedMap.lookup f foreigns == Just k)
                       (\f => maybe empty keySet (SortedMap.lookup f unboxed))
+                      (\f, k => do w <- SortedMap.lookup f workers
+                                   if length w.params == k then Just (map isJust w.params)
+                                                           else Nothing)
                       MaxExtractFunArgs
                       (`contains` trmcFns)
                       (map (\(cn, _, d) => (cn, d)) named)
@@ -3118,7 +3507,7 @@ generateCSourceFileParts defs0 outn =
                                    (moduleOf canonN) cn (Prelude.toList refs)
                                    (Prelude.toList tbl.constUses))) (zip named canons)
      put OutfileText DList.Nil
-     footer !(if opts.optBacktrace then Just <$> backtraceTable named else pure Nothing)
+     footer !(if opts.optBacktrace then Just <$> backtraceTable workers named else pure Nothing)
      footerLines <- reify <$> get OutfileText
      protos <- get FunctionDefinitions
      consts <- constantTexts <$> get ConstDef
