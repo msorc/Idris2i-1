@@ -50,7 +50,7 @@ newBuffer size
 -- TODO: remove me when we remove the deprecated `setByte` in a future release
 %foreign "scheme:blodwen-buffer-setbyte"
          "RefC:setBufferUInt8"
-         "node:lambda:(buf,offset,value)=>buf.writeUInt8(value, offset)"
+         "node:lambda:(buf,offset,value)=>buf.writeUInt8(value & 255, offset)"
 prim__setByte : Buffer -> (offset : Int) -> (val : Int) -> PrimIO ()
 
 %foreign "scheme:blodwen-buffer-setbyte"
@@ -161,6 +161,7 @@ getBits64 buf offset
 
 %foreign "scheme:blodwen-buffer-setint8"
          "RefC:setBufferUInt8"
+         "node:lambda:(buf,offset,value)=>buf.writeInt8(value, offset)"
 prim__setInt8 : Buffer -> (offset : Int) -> (val : Int8) -> PrimIO ()
 
 export %inline
@@ -170,6 +171,7 @@ setInt8 buf offset val
 
 %foreign "scheme:blodwen-buffer-getint8"
          "RefC:getBufferByte"
+         "node:lambda:(buf,offset)=>buf.readInt8(offset)"
 prim__getInt8 : Buffer -> (offset : Int) -> PrimIO Int8
 
 export %inline
@@ -189,6 +191,7 @@ setInt16 buf offset val
 
 %foreign "scheme:blodwen-buffer-getint16"
          "RefC:getBufferInt16LE"
+         "node:lambda:(buf,offset)=>buf.readInt16LE(offset)"
 prim__getInt16 : Buffer -> (offset : Int) -> PrimIO Int16
 
 export %inline
@@ -219,6 +222,7 @@ getInt32 buf offset
 
 %foreign "scheme:blodwen-buffer-setint64"
          "RefC:setBufferInt64LE"
+         "node:lambda:(buf,offset,value)=>buf.writeBigInt64LE(value, offset)"
 prim__setInt64 : Buffer -> (offset : Int) -> (val : Int64) -> PrimIO ()
 
 export %inline
@@ -228,6 +232,7 @@ setInt64 buf offset val
 
 %foreign "scheme:blodwen-buffer-getint64"
          "RefC:getBufferInt64LE"
+         "node:lambda:(buf,offset)=>buf.readBigInt64LE(offset)"
 prim__getInt64 : Buffer -> (offset : Int) -> PrimIO Int64
 
 export %inline

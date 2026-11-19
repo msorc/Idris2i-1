@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 -o buf Buf.idr
+./build/exec/buf
