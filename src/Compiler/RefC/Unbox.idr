@@ -302,35 +302,41 @@ addUses u vs us = foldl (flip (addUse u)) us vs
 public export
 record Calls where
   constructor MkCalls
+  ||| The C name of a function, by which the others know it (computed once
+  ||| per call: it is not cheap)
+  key : Name -> String
+  ||| Are there workers?  (If not, the C names of the calls need not be made
+  ||| to look for them.)
+  anyWorkers : Bool
   ||| Is this call in tail position one of the function to itself, which
   ||| jumps back to its start (see `makeTailCall`)?
-  isSelf : Name -> List AVar -> Bool
+  isSelf : String -> List AVar -> Bool
   ||| Is it a call of a foreign function, which takes the variables as they
   ||| are (see `foreignCall`)?
-  isForeign : Name -> List AVar -> Bool
+  isForeign : String -> List AVar -> Bool
   ||| The types of the parameters that a function called with this number of
   ||| arguments takes as C integers, in order, when it has a worker (see
   ||| `Worker` in Compiler.RefC.RefC).
-  rawArgs : Name -> Nat -> Maybe (List (Maybe PrimType))
+  rawArgs : String -> Nat -> Maybe (List (Maybe PrimType))
   ||| The type of the C integer that the worker of a function called with
   ||| this number of arguments gives, if it gives one.
-  rawResult : Name -> Nat -> Maybe PrimType
+  rawResult : String -> Nat -> Maybe PrimType
   ||| Does the function called with this number of arguments always give a
   ||| value, never a pending tail call (see `returnsValue` in RefC)?
-  isValueFn : Name -> Nat -> Bool
+  isValueFn : String -> Nat -> Bool
 
 ||| The calls of a function that knows no worker of any function.
 export
-noWorkers : (isSelf : Name -> List AVar -> Bool) ->
-            (isForeign : Name -> List AVar -> Bool) -> Calls
-noWorkers s f = MkCalls s f (\_, _ => Nothing) (\_, _ => Nothing) (\_, _ => False)
+noWorkers : (key : Name -> String) -> (isSelf : String -> List AVar -> Bool) ->
+            (isForeign : String -> List AVar -> Bool) -> Calls
+noWorkers k s f = MkCalls k False s f (\_, _ => Nothing) (\_, _ => Nothing) (\_, _ => False)
 
 -- The uses of the arguments of a call: an argument of a parameter that the
 -- worker of the function takes as a C integer is used as an integer of that
 -- type.
-argUses : Calls -> Name -> List AVar -> Uses -> Uses
-argUses c n args us
-    = case c.rawArgs n (length args) of
+argUses : Calls -> String -> List AVar -> Uses -> Uses
+argUses c cn args us
+    = case c.rawArgs cn (length args) of
            Just ts => foldl (\us', (a, t) => addUse (maybe Boxed Numeric t) a us') us
                             (zip args ts)
            Nothing => addUses Boxed args us
@@ -338,11 +344,12 @@ argUses c n args us
 usesIn : Calls -> (tail : Bool) -> ANF -> Uses -> Uses
 usesIn c t (AV _ v) us = addUse (if t then Returned else Boxed) v us
 usesIn c t (AAppName _ _ n args) us
-    = if c.isForeign n args then addUses Raw args us
-      else if t && c.isSelf n args
+    = let cn = c.key n in
+      if c.isForeign cn args then addUses Raw args us
+      else if t && c.isSelf cn args
          then foldl (\us', (k, a) => addUse (SelfArg k) a us') us
                     (zip [0 .. length args] args)
-         else argUses c n args us
+         else argUses c cn args us
 usesIn c t (AUnderApp _ _ _ args) us = addUses Boxed args us
 usesIn c t (AApp _ _ f a) us = addUse Boxed f (addUse Boxed a us)
 usesIn c t (ALet _ _ val body) us = usesIn c t body (usesIn c False val us)
@@ -381,8 +388,10 @@ export
 hasIntWork : Calls -> ANF -> Bool
 hasIntWork c (AOp _ _ op _) = isJust (operandType op) || isJust (resultType op)
 hasIntWork c (AAppName _ _ n args)
-    = let k = length args in
-          isJust (c.rawResult n k) || maybe False (any isJust) (c.rawArgs n k)
+    = c.anyWorkers &&
+      (let k = length args
+           cn = c.key n in
+           isJust (c.rawResult cn k) || maybe False (any isJust) (c.rawArgs cn k))
 hasIntWork c (ALet _ _ val body) = hasIntWork c val || hasIntWork c body
 hasIntWork c (AConCase _ _ alts def)
     = any (\(MkAConAlt _ _ _ _ b) => hasIntWork c b) alts || any (hasIntWork c) def
@@ -420,8 +429,9 @@ valueType c u e = case go e of
     go (AV _ (ALocal v)) = map Just (lookup v u)
     -- (a call, not in tail position, of a worker that gives a C integer)
     go (AAppName _ _ n args)
-        = if c.isForeign n args then Nothing
-             else map Just (c.rawResult n (length args))
+        = let cn = c.key n in
+              if c.isForeign cn args then Nothing
+                 else map Just (c.rawResult cn (length args))
     go (ALet _ _ _ body) = go body
     go (AConstCase _ _ alts def)
         = do ts <- traverse (\(MkAConstAlt _ b) => go b) alts
@@ -553,10 +563,11 @@ rawResultOK c u t e = go e == Just True
         = foldl (\acc, (MkAConstAlt _ b) => both acc (go b))
                 (maybe (Just False) go def) alts
     go (AAppName _ _ n args)
-        = if c.isSelf n args then Just False
-          else if not (c.isForeign n args)
-                  && c.rawResult n (length args) == Just t
-                  && c.isValueFn n (length args)
+        = let cn = c.key n in
+          if c.isSelf cn args then Just False
+          else if not (c.isForeign cn args)
+                  && c.rawResult cn (length args) == Just t
+                  && c.isValueFn cn (length args)
              then Just True
              else Nothing
     go _ = Nothing

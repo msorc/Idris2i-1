@@ -2569,22 +2569,23 @@ record Program where
   foreigns : SortedMap String Nat
   valueFns : SortedMap String Nat
   workers : SortedMap String Worker
-  ||| are there workers? (if not, the names of the calls need not be made)
+  ||| are there workers? (see `anyWorkers` in Compiler.RefC.Unbox)
   anyWorkers : Bool
 
 ||| The calls of the function `cn`, with `nargs` parameters, that `loops`
 ||| (calls itself in tail position).
 callsOf : Program -> String -> Nat -> (loops : Bool) -> Calls
 callsOf p cn nargs loops
-    = MkCalls (\m, as => loops && cName m == cn && length as == nargs)
-              (\m, as => lookup (cName m) p.foreigns == Just (length as))
+    = MkCalls cName p.anyWorkers
+              (\m, as => loops && m == cn && length as == nargs)
+              (\m, as => lookup m p.foreigns == Just (length as))
               (\m, k => map params (worker m k))
               (\m, k => worker m k >>= rawResult)
-              (\m, k => lookup (cName m) p.valueFns == Just k)
+              (\m, k => lookup m p.valueFns == Just k)
   where
-    worker : Name -> Nat -> Maybe Worker
+    worker : String -> Nat -> Maybe Worker
     worker m k = do guard p.anyWorkers
-                    w <- lookup (cName m) p.workers
+                    w <- lookup m p.workers
                     if length w.params == k then Just w else Nothing
 
 ||| The variables of the function `cn` (with the parameters `args`, of which
