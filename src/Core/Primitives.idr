@@ -725,6 +725,10 @@ numTypes = integralTypes ++ [DoubleType]
 primTypes : List PrimType
 primTypes = numTypes ++ [StringType, CharType]
 
+divTotality : PrimType -> Totality
+divTotality DoubleType = isTotal
+divTotality _ = notCovering
+
 export
 allPrimitives : List Prim
 allPrimitives =
@@ -732,7 +736,9 @@ allPrimitives =
     map (\t => MkPrim (Sub t) (arithTy t) isTotal)     numTypes ++
     map (\t => MkPrim (Mul t) (arithTy t) isTotal)     numTypes ++
     map (\t => MkPrim (Neg t) (predTy t t) isTotal)    numTypes ++
-    map (\t => MkPrim (Div t) (arithTy t) notCovering) numTypes ++
+    -- Division by zero is an error for the integer types, but a Double
+    -- divided by zero is an infinity or NaN, on every backend
+    map (\t => MkPrim (Div t) (arithTy t) (divTotality t)) numTypes ++
     map (\t => MkPrim (Mod t) (arithTy t) notCovering) integralTypes ++
 
     map (\t => MkPrim (ShiftL t) (arithTy t) isTotal)  integralTypes ++
