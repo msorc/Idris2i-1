@@ -672,7 +672,7 @@ Foldable List where
 
   toList = id
 
-  foldMap = foldMapListImpl
+  foldMap f xs = foldMapListImpl f xs
 
 -- tail recursive O(n) implementation of `(>>=)` for `List`
 public export
