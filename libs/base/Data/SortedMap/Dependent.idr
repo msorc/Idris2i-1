@@ -193,13 +193,18 @@ treeDelete (S (S n)) k (Branch3 t1 k1 t2 k2 t3) =
       Right t3' => Left (merge3 t1 k1 t2 k2 t3')
 
 treeToList : Tree n k v o -> List (x : k ** v x)
-treeToList = treeToList' (:: [])
+treeToList = treeToListOnto []
   where
-    -- explicit quantification to avoid conflation with {n} from treeToList
-    treeToList' : {0 n : Nat} -> ((x : k ** v x) -> List (x : k ** v x)) -> Tree n k v o -> List (x : k ** v x)
-    treeToList' cont (Leaf k v) = cont (k ** v)
-    treeToList' cont (Branch2 t1 _ t2) = treeToList' (:: treeToList' cont t2) t1
-    treeToList' cont (Branch3 t1 _ t2 _ t3) = treeToList' (:: treeToList' (:: treeToList' cont t3) t2) t1
+    -- the elements of the tree, then `acc`; built from the right, so that the
+    -- recursion is only as deep as the tree (the continuations that this was
+    -- built with nested a call per element, which overflowed the stack of
+    -- JavaScript at some 10^4 elements)
+    -- (explicit quantification to avoid conflation with {n} from treeToList)
+    treeToListOnto : {0 n : Nat} -> List (x : k ** v x) -> Tree n k v o -> List (x : k ** v x)
+    treeToListOnto acc (Leaf k v) = (k ** v) :: acc
+    treeToListOnto acc (Branch2 t1 _ t2) = treeToListOnto (treeToListOnto acc t2) t1
+    treeToListOnto acc (Branch3 t1 _ t2 _ t3)
+        = treeToListOnto (treeToListOnto (treeToListOnto acc t3) t2) t1
 
 ----------------------
 --- User interface ---

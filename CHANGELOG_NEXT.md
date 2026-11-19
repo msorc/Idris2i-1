@@ -1225,6 +1225,16 @@ should target this file (`CHANGELOG_NEXT`).
   every backend (10 times a list of 10^6 elements): `traverse` 81% fewer
   instructions with RefC and 76% with Chez (peak memory 349MB to 52MB, 430MB
   to 102MB), `sequence` 55% and 56%, `foldlM` 59% and 90%.
+* `and` and `or` on lists are transformed (`%transform`) to loops (`listAnd`,
+  `listOr`) that force the elements in the same order: through the `foldMap`
+  of `Foldable List` they built a chain of `&&` (`||`) as long as the list,
+  and forcing it needed a stack as deep as the list with JavaScript.  `and`
+  on 10^6 elements takes 59% fewer instructions with RefC, 53% with Chez and
+  63% with Node.
+* `toList` of a `SortedMap` (and of a `SortedDMap` and `SortedSet`) builds
+  the list from the right instead of with a continuation per element, which
+  nested a call per element and overflowed the stack with JavaScript at
+  some 10^4 elements; with Node it takes half the instructions.
 * `concat` of a list of lists is transformed (`%transform`) to a loop
   (`listBindOnto`), as `concatMap` already was: through the `foldMap` of
   `Foldable List`, a left fold, it copied its accumulator at every step and

@@ -1177,3 +1177,22 @@ Range Char where
 -- `concat` of lists, as `concatMap` above: the `foldMap` of `Foldable List`
 -- is a left fold, which copies the accumulator at every step.
 %transform "listConcat" concat {t = List} {a = List b} xs = listBindOnto {a = List b} {b} id [] xs
+
+||| `and` on a list, as a loop: through the `foldMap` of `Foldable List`, a
+||| left fold, `and` builds a chain of `&&` as long as the list, nested to the
+||| left, and forcing it needs a stack as deep as the list on the JavaScript
+||| backends.  This forces the elements in the same order, from the left,
+||| until one is `False`.  Uses of `and` on lists are transformed to this.
+public export
+listAnd : List (Lazy Bool) -> Bool
+listAnd [] = True
+listAnd (x :: xs) = if x then listAnd xs else False
+
+||| `or` on a list, as a loop (see `listAnd`).
+public export
+listOr : List (Lazy Bool) -> Bool
+listOr [] = False
+listOr (x :: xs) = if x then True else listOr xs
+
+%transform "listAnd" and {t = List} = listAnd
+%transform "listOr" or {t = List} = listOr

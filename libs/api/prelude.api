@@ -775,8 +775,10 @@ module Prelude.Types
   public export total isOctDigit : Char -> Prelude.Basics.Bool
   public export total isSpace : Char -> Prelude.Basics.Bool
   public export total isUpper : Char -> Prelude.Basics.Bool
+  public export total listAnd : Prelude.Basics.List (Lazy Prelude.Basics.Bool) -> Prelude.Basics.Bool
   public export total listBind : {0 b : Type} -> {0 a : Type} -> Prelude.Basics.List a -> (a -> Prelude.Basics.List b) -> Prelude.Basics.List b
   public export total listBindOnto : {0 b : Type} -> {0 a : Type} -> (a -> Prelude.Basics.List b) -> Prelude.Basics.List b -> Prelude.Basics.List a -> Prelude.Basics.List b
+  public export total listOr : Prelude.Basics.List (Lazy Prelude.Basics.Bool) -> Prelude.Basics.Bool
   public export total log : Double -> Double
   public export total maybe : {0 a : Type} -> {0 b : Type} -> Lazy b -> Lazy (a -> b) -> Prelude.Types.Maybe a -> b
   public export total minus : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
