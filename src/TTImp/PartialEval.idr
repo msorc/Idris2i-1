@@ -582,6 +582,21 @@ mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
            -- Add as RigW - if it's something else, we don't need it at
            -- runtime anyway so this is wasted effort, therefore a failure
            -- is okay!
+           -- A copy of a function that matches on a static argument is made
+           -- by reducing the application of the function to the arguments
+           -- (see getSpecPats).  Where the function cannot be reduced, as an
+           -- `export` (not `public export`) function of another module, the
+           -- application stayed as it was, and was specialised again when the
+           -- run time code of the copy was made: to the copy, which called
+           -- itself with the same arguments forever (or was taken for the
+           -- identity, Compiler.Inline).  No copy is made then.
+           let PMDef _ _ _ _ fnpats = definition gdef
+               | _ => pure (applyStackWithFC (Ref fc Func fn) stk)
+           when (isNothing (specByVar staticargs fnpats)
+                   && not (reducibleInAny (currentNS defs :: nestedNS defs)
+                             (fullname gdef) (collapseDefault $ visibility gdef))) $
+             throw (GenericMsg fc "\{show fn} cannot be reduced here")
+
            -- (a copy, made by `%spec` or by --spec-interfaces, is code of
            -- the program that was checked already: it is not checked again,
            -- against the default totality of the module where it is made,
@@ -591,6 +606,34 @@ mkSpecDef {vars} fc gdef isAuto pename statics sargs fn stk
            -- what they call, like `prim__mod_Int` (not covering) from `mod`
            -- of `Integral Int`, where its function only called `mod`.  How
            -- covering it is is taken from its function, see copyCovering.)
+           -- Why no `total` program can become non-terminating or lose
+           -- coverage through a copy, although the termination of the copy
+           -- is not checked, nor reported to the functions that call it:
+           --  * Nothing that is checked calls a copy.  The calls of copies
+           --    are only made in the run time code of a function, by
+           --    applySpecialise in TTImp.ProcessDef.mkRunTime, after its
+           --    clauses were checked; the termination and coverage of a
+           --    function are those of its clauses, which call the function
+           --    that was copied (and refer to the names in its static
+           --    arguments), and types are reduced by compile time code,
+           --    which calls no copy.  A copy is in a `_PE` namespace, and no
+           --    source names it.
+           --  * At run time, the copy computes what the application of the
+           --    function to the static arguments does: its clauses are the
+           --    clauses of the function, with the static arguments in place
+           --    of their variables (specByVar), or the application of the
+           --    function, reduced by the clauses of the function and of what
+           --    they and the arguments call (getSpecPats).  So it terminates
+           --    where that application does, which the checked function
+           --    that it replaces calls.  When the application cannot be
+           --    reduced, the copy would call itself (see above): it is not
+           --    made.  A copy that calls itself when its function does not
+           --    (--spec-interfaces), or misses cases that the function does
+           --    not (copyCovering), is not used.
+           --  * It is used for the static arguments that it was made by
+           --    only (SpecStatics, see copyName), here and in the modules
+           --    that import this one; a copy that is not used is not reused
+           --    by them either.
            let defflags : List DefFlag
                  = SetTotal PartialOK :: SpecStatics statics
                      :: filter (not . isSetTotal) (propagateFlags (flags gdef))

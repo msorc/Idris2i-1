@@ -132,6 +132,11 @@ should target this file (`CHANGELOG_NEXT`).
   gives all the copies of a function the same hash, for testing.
   A copy that is not used (one that calls itself, or misses cases) is no
   longer reused by the modules that import the module that made it.
+* No copy is made of a `%spec` function that matches on a static argument
+  where it cannot be reduced (an `export` function of another module): the
+  copy called itself with the same arguments, so that a `total` program
+  looped forever, or got a wrong result where the copy was taken for the
+  identity.
 * A specialised copy made by `%spec` is no longer checked against the default
   totality of the module where it is made (neither was one made by
   `--spec-interfaces`).  The copy runs the code of the implementations it is

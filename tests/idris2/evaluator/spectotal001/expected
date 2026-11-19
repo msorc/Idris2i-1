@@ -1,0 +1,61 @@
+3
+6
+27
+3
+6
+27
+3
+6
+27
+1/2: Building Loop (Loop.idr)
+2/2: Building Partial (Partial.idr)
+Error: loops is not total, possibly not terminating due to call to Loop.loop
+
+Partial:14:1--14:19
+ 10 | %spec f
+ 11 | apply : (f : Int -> Int) -> Int -> Int
+ 12 | apply f n = f n
+ 13 |
+ 14 | loops : Int -> Int
+      ^^^^^^^^^^^^^^^^^^
+
+Calls leading to the non-terminating function:
+    Loop.loop called at Partial:15:17--15:21
+
+Error: misses is not covering.
+
+Partial:17:1--17:20
+ 13 |
+ 14 | loops : Int -> Int
+ 15 | loops n = apply loop n
+ 16 |
+ 17 | misses : Int -> Int
+      ^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Loop.half
+1/2: Building Loop (Loop.idr)
+2/2: Building Partial (Partial.idr)
+Error: loops is not total, possibly not terminating due to call to Loop.loop
+
+Partial:14:1--14:19
+ 10 | %spec f
+ 11 | apply : (f : Int -> Int) -> Int -> Int
+ 12 | apply f n = f n
+ 13 |
+ 14 | loops : Int -> Int
+      ^^^^^^^^^^^^^^^^^^
+
+Calls leading to the non-terminating function:
+    Loop.loop called at Partial:15:17--15:21
+
+Error: misses is not covering.
+
+Partial:17:1--17:20
+ 13 |
+ 14 | loops : Int -> Int
+ 15 | loops n = apply loop n
+ 16 |
+ 17 | misses : Int -> Int
+      ^^^^^^^^^^^^^^^^^^^
+
+Calls non covering function Loop.half
