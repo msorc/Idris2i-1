@@ -1277,8 +1277,13 @@ should target this file (`CHANGELOG_NEXT`).
 * Node: `popen`, `pclose` and `popen2` start a child process with pipes that
   runs at the same time as the program (`popen` for writing and `popen2` did
   not exist, `popen` for reading ran the command first and gave it no stdin),
-  and `popen2Wait` returns its exit status.  With `IDRIS2_MAIN_STACK_SIZE=0`,
-  `popen2` and `popen` for writing stop the program with an error.
+  and `popen2Wait` returns its exit status.  The pipes are FIFOs that the
+  program opens itself, instead of the pipes of Node's child process, whose
+  file descriptor is not part of Node's API.  With
+  `IDRIS2_MAIN_STACK_SIZE=0` they work too (`popen2` and `popen` for writing
+  stopped the program with an error, `popen` for reading ran the command to
+  its end first): a small Node process waits for the child and passes its
+  exit status on.
 * JavaScript: `fork`, `threadWait` and `System.Future` stop the program with a
   message (a program that used them did not compile); `Mutex`, `Semaphore`, `Barrier`, `Channel`, `Condition` and the
   thread data of `System.Concurrency` work for a program with one thread, and

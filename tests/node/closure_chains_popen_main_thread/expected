@@ -1,0 +1,15 @@
+first: Right "first\n"
+second: Right "second\n"
+end: Right ""
+pclose: 3
+nonexistent: Right "" 127
+WRITTEN
+pclose: 0
+echoed: Right "<one>\n"
+echoed: Right "<two>\n"
+eof: Right ""
+popen2Wait: 5
+SIGINT: 130
+SIGTERM: 143
+0
+same

@@ -1,0 +1,8 @@
+. ../../testutils.sh
+
+idris2 --cg node -o popen Popen.idr
+./build/exec/popen > worker.out 2>&1
+cat worker.out
+IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/popen > main.out 2>&1
+diff worker.out main.out && echo same
+rm -f worker.out main.out

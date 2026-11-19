@@ -1,5 +1,4 @@
 const support_system_file_fs = require('fs')
-const support_system_file_child_process = require('child_process')
 
 // See System/File/Error.idr for return values
 function support_system_file_fileErrno(){
@@ -263,19 +262,18 @@ function support_system_file_removeFile (filename) {
 
 // Child processes: popen, pclose and popen2.
 //
-// The process is started by the main thread, and the worker thread that runs
-// `main` reads and writes its pipes through the descriptors that it gets
-// (a descriptor belongs to the process, not to a thread), with `readSync` and
-// `writeSync`, like any file.  (The main thread has the event loop that sees
-// the process exit: see `__idris2_spawnChild` in node_main.js.)  So the child
-// runs at the same time as the program and the pipes behave as in C: the
-// child blocks when the pipe is full, and the program when it reads an empty
-// one.  Without the worker thread (IDRIS2_MAIN_STACK_SIZE=0) nobody could
-// tell when the child has exited, and only popen for reading is available,
-// which runs the command to its end first.
+// The pipes are FIFOs that the program opened itself (see `__idris2_makePipe`
+// in node_main.js), which the thread that runs `main` reads and writes with
+// `readSync` and `writeSync`, like any file.  So the child runs at the same
+// time as the program and the pipes behave as in C: the child blocks when
+// the pipe is full, and the program when it reads an empty one.  The child
+// is started by the main thread, whose event loop runs while `main` waits in
+// its worker and sees the child exit (see `__idris2_spawnChild`); when `main`
+// runs on the main thread (IDRIS2_MAIN_STACK_SIZE=0), by a monitor process
+// that waits for it and passes its exit status on through a pipe (see
+// `__idris2_spawnMonitored`).
 //
-// A file that is a pipe has `child` (the process id) and `pipe` ('in' or
-// 'out' of the child), which closing it gives back to the main thread.
+// A file that is a pipe has `child` (the process id).
 
 function support_system_file_fatal(msg) {
   process.stderr.write('Error: ' + msg + '\n')
@@ -284,35 +282,18 @@ function support_system_file_fatal(msg) {
 
 function support_system_file_pipeFile(fd, name, child, pipe) {
   return { fd: fd, buffer: Buffer.alloc(0), name: name, eof: false,
-           chunked: pipe === 'out', child: child, pipe: pipe }
+           chunked: pipe === 'out', child: child }
 }
 
 // The child that `sh -c cmd` starts, with a pipe to its stdin and/or from its
 // stdout; null (and `lasterr`) if it could not be started.
 function support_system_file_spawnChild(cmd, stdin, stdout) {
   try {
-    return __idris2_rpc({ op: 'spawn', cmd: cmd, stdin: stdin, stdout: stdout })
+    return __idris2_startChild(cmd, stdin, stdout)
   } catch (e) {
     process.__lasterr = e
     return null
   }
-}
-
-function support_system_file_popenFallback (cmd) {
-  const tmp_file = require('os').tmpdir() + "/" + require('crypto').randomBytes(15).toString('hex')
-  const write_fd = support_system_file_fs.openSync(tmp_file, 'w')
-  const { status, error  } = support_system_file_child_process.spawnSync(
-    cmd,
-    [],
-    { stdio: ['ignore', write_fd, 2], shell: true }
-  )
-  support_system_file_fs.closeSync(write_fd)
-  if (error) {
-    process.__lasterr = error
-    return null
-  }
-  const read_ptr = support_system_file_openFile(tmp_file, 'r')
-  return { ...read_ptr, exit_code: status }
 }
 
 function support_system_file_popen (cmd, m) {
@@ -322,21 +303,17 @@ function support_system_file_popen (cmd, m) {
     process.__lasterr = { errno: -require('os').constants.errno.EINVAL }
     return null
   }
-  if (__idris2_rpc === null) {
-    if (mode === 'r') return support_system_file_popenFallback(cmd)
-    support_system_file_fatal('popen for writing is not available when the program runs on the main thread '
-      + '(IDRIS2_MAIN_STACK_SIZE=0): the exit of the command could not be seen')
-  }
   const reading = mode === 'r'
   const c = support_system_file_spawnChild(cmd, reading ? 'inherit' : 'pipe', reading ? 'pipe' : 'inherit')
   if (c === null) return null
   return support_system_file_pipeFile(reading ? c.out : c.in, cmd, c.pid, reading ? 'out' : 'in')
 }
 
-// Closes the descriptor of a file, or gives a pipe back to the main thread.
+// Closes the descriptor of a file (once: a pipe of popen2 can be closed by
+// the program, and again when it waits).
 function support_system_file_close (file_ptr) {
   if (file_ptr.child !== undefined) {
-    if (!file_ptr.closed) __idris2_rpc({ op: 'closePipe', pid: file_ptr.child, which: file_ptr.pipe })
+    if (!file_ptr.closed) support_system_file_fs.closeSync(file_ptr.fd)
     file_ptr.closed = true
     return
   }
@@ -346,11 +323,8 @@ function support_system_file_close (file_ptr) {
 // The exit status of the child once it has exited (the same as `system`:
 // 128 + the signal that killed it).
 function support_system_file_waitChild (pid) {
-  if (__idris2_rpc === null) {
-    support_system_file_fatal('waiting for a child process is not available when the program runs '
-      + 'on the main thread (IDRIS2_MAIN_STACK_SIZE=0)')
-  }
   try {
+    if (__idris2_rpc === null) return __idris2_waitMonitored(pid)
     return __idris2_rpc({ op: 'wait', pid: pid })
   } catch (e) {
     process.__lasterr = e
@@ -359,13 +333,6 @@ function support_system_file_waitChild (pid) {
 }
 
 function support_system_file_pclose (file_ptr) {
-  if (file_ptr.child === undefined) {
-    // (the fallback: the command has run already)
-    const { fd, name, exit_code } = file_ptr
-    support_system_file_fs.closeSync(fd)
-    support_system_file_removeFile(name)
-    return exit_code
-  }
   support_system_file_close(file_ptr)
   return support_system_file_waitChild(file_ptr.child)
 }
@@ -373,10 +340,6 @@ function support_system_file_pclose (file_ptr) {
 // A subprocess: { pid, in, out }, where `in` is the file that the program
 // writes (the child's stdin) and `out` the file that it reads.
 function support_system_file_popen2 (cmd) {
-  if (__idris2_rpc === null) {
-    support_system_file_fatal('popen2 is not available when the program runs on the main thread '
-      + '(IDRIS2_MAIN_STACK_SIZE=0): the exit of the process could not be seen')
-  }
   const c = support_system_file_spawnChild(cmd, 'pipe', 'pipe')
   if (c === null) return null
   return { pid: c.pid,

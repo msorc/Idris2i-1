@@ -347,21 +347,23 @@ Child processes
 Node as with the C backends.  The child runs at the same time as the
 program, and the pipes behave as in C: a program that reads an empty pipe
 waits, and the child waits when it writes to a pipe that is full (so
-``popen2`` has the deadlocks that its documentation warns of).  The main
-thread, whose event loop runs while ``main`` runs in its worker thread,
-starts the child and sees it exit; ``main`` reads and writes the pipes with
-the file descriptors that it is given, and asks the main thread to close a
-pipe and to wait for the exit.  The exit status is the exit code of the
-command, or 128 plus the number of the signal that killed it, as for
+``popen2`` has the deadlocks that its documentation warns of).  The pipes
+are FIFOs that the program makes with the ``mkfifo`` utility and opens with
+``fs.openSync`` (Node gives the pipes that it makes for a child process as
+streams only, whose file descriptors are not part of its API), so ``main``
+reads and writes them synchronously like any file.  When ``main`` runs in
+its worker thread (the default), the main thread, whose event loop runs
+meanwhile, starts the child and sees it exit.  When ``main`` runs on the
+main thread (``IDRIS2_MAIN_STACK_SIZE=0``), whose event loop does not run
+until ``main`` returns, a small Node process started for each child waits
+for it and passes its exit status on through a pipe (which costs some 60ms
+per child).  The process id is that of the command (``sh -c cmd``), which
+gets the default action of every signal.  The exit status is the exit code
+of the command, or 128 plus the number of the signal that killed it, as for
 ``system``.  Output that the child writes to its inherited stdout
 or stderr appears when the child writes it, so a program that wants it in
 order with its own output flushes stdout first (``fflush stdout``).  Windows
 is not supported by ``popen``, ``popen2`` and ``popen2Wait``.
-
-When ``main`` runs on the main thread (``IDRIS2_MAIN_STACK_SIZE=0``) nothing
-could tell that a child has exited, so ``popen2``, and ``popen`` for writing,
-stop the program with an error, and ``popen`` for reading runs the command to
-its end first, as it did before.
 
 Threads
 -------

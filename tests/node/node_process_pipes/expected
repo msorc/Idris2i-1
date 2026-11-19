@@ -43,7 +43,7 @@ popen2Wait: 7
 -- the child reads our stdin
 cat: Right "from stdin\n"
 pclose: 0
--- main thread: popen for reading still runs the command first
+-- main thread: the same
 ("hello\nthere\n", 2)
 ("", 0)
 ("no newline", 0)
@@ -53,9 +53,23 @@ got "\n"
 got "last"
 code 5
 ("x y|it's", 0)
--- main thread: what needs the worker stops with an error
 before
-Error: popen for writing is not available when the program runs on the main thread (IDRIS2_MAIN_STACK_SIZE=0): the exit of the command could not be seen
-exit code 1
-Error: popen2 is not available when the program runs on the main thread (IDRIS2_MAIN_STACK_SIZE=0): the exit of the process could not be seen
-exit code 1
+HELLO
+WORLD
+done
+pclose: 0
+after
+pid: True
+echoed: Right "alpha\n"
+echoed: Right "beta\n"
+echoed: Right "gamma\n"
+rest: Right "end\n"
+eof: True
+popen2Wait: 4
+wc: Right "1048576\n"
+popen2Wait: 0
+p2: Right "p2:two\n"
+p1: Right "one\n"
+waits: (0, 0)
+empty: Right ""
+popen2Wait: 7

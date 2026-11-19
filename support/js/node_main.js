@@ -58,9 +58,11 @@ let __idris2_controlSignal = __idris2_setSignal
 // and returns its value: null when `main` runs on the main thread.
 let __idris2_rpc = null
 
-// The child processes that System.File's popen and popen2 started (on the
-// main thread, whose event loop runs while `main` waits in its worker, and
-// sees them exit), by process id: { child, status, waiters }.
+// The child processes that System.File's popen and popen2 started, by
+// process id: { child, status, waiters } for those that the main thread
+// started (its event loop runs while `main` waits in its worker, and sees
+// them exit), { statusFd } for those that a monitor process waits for when
+// `main` runs on the main thread (see `__idris2_spawnMonitored`).
 const __idris2_children = new Map()
 
 function __idris2_signalNumber(name) {
@@ -68,21 +70,111 @@ function __idris2_signalNumber(name) {
   return n === undefined ? 1 : n
 }
 
-// A child process `sh -c cmd` whose stdin and stdout are each a 'pipe' (a
-// descriptor of the process that the worker reads or writes with `fs`) or
-// 'inherit'.  The streams of the pipes are not read here: libuv would take
-// the data from the pipe into memory.  Returns the process id and the
-// descriptors (-1 for what is inherited).
-function __idris2_spawnChild(cmd, stdin, stdout) {
-  const child = require('child_process').spawn('/bin/sh', ['-c', cmd],
-    { stdio: [stdin, stdout, 'inherit'] })
-  child.on('error', () => {})
-  if (child.pid === undefined) {
-    const e = new Error('spawn /bin/sh ENOENT')
-    e.code = 'ENOENT'
-    e.errno = -2
+// A pipe from public API: Node can make a pipe for a child process, but it
+// hands it over as a stream, whose descriptor is not public (the descriptor
+// is needed: the thread that runs `main` reads and writes it with `fs`, as
+// any file).  So the pipe is a FIFO, made by the POSIX utility `mkfifo` (Node
+// cannot make one) in a directory of its own, and opened at both ends with
+// `fs.openSync`; then the FIFO and the directory are removed.  Opening an end
+// of a FIFO blocks until the other end is open too, except to read with
+// O_NONBLOCK: the first descriptor, which is closed again once the others are
+// open, lets the other two be opened without waiting.  `r` and `w` are
+// blocking descriptors (with O_CLOEXEC, as `fs` opens them all, so a child
+// gets only those it is given).
+function __idris2_makePipe() {
+  const fs = require('fs')
+  const dir = fs.mkdtempSync(require('path').join(require('os').tmpdir(), 'idris2-pipe-'))
+  const path = require('path').join(dir, 'p')
+  try {
+    const made = require('child_process').spawnSync('mkfifo', ['-m', '600', path], { stdio: 'ignore' })
+    if (made.error !== undefined || made.status !== 0) {
+      const e = new Error('mkfifo ' + path + ' failed'
+                          + (made.error !== undefined ? ': ' + made.error.message : ''))
+      e.code = made.error !== undefined ? made.error.code : 'EIO'
+      e.errno = made.error !== undefined ? made.error.errno : -5
+      throw e
+    }
+    const c = fs.constants
+    const opener = fs.openSync(path, c.O_RDONLY | c.O_NONBLOCK)
+    try {
+      const w = fs.openSync(path, c.O_WRONLY)
+      const r = fs.openSync(path, c.O_RDONLY)
+      return { r: r, w: w }
+    } finally {
+      fs.closeSync(opener)
+    }
+  } finally {
+    try { fs.unlinkSync(path) } catch (e) {}
+    try { fs.rmdirSync(dir) } catch (e) {}
+  }
+}
+
+function __idris2_closeFds(fds) {
+  for (const fd of fds) {
+    try { require('fs').closeSync(fd) } catch (e) {}
+  }
+}
+
+// The pipes of a child process `sh -c cmd` whose stdin and stdout are each a
+// 'pipe' or 'inherit': the `stdio` of the child, the descriptors that the
+// program keeps (-1 for what is inherited), and those that the parent closes
+// once the child has them.
+function __idris2_childPipes(stdin, stdout) {
+  const p = { stdio: ['inherit', 'inherit'], in: -1, out: -1, childEnds: [] }
+  try {
+    if (stdin === 'pipe') {
+      const i = __idris2_makePipe()
+      p.stdio[0] = i.r; p.in = i.w; p.childEnds.push(i.r)
+    }
+    if (stdout === 'pipe') {
+      const o = __idris2_makePipe()
+      p.stdio[1] = o.w; p.out = o.r; p.childEnds.push(o.w)
+    }
+    return p
+  } catch (e) {
+    __idris2_closeFds(p.childEnds.concat([p.in, p.out].filter(fd => fd >= 0)))
     throw e
   }
+}
+
+function __idris2_spawnError() {
+  const e = new Error('spawn /bin/sh ENOENT')
+  e.code = 'ENOENT'
+  e.errno = -2
+  return e
+}
+
+// A child process `sh -c cmd` whose stdin and stdout are each a 'pipe' or
+// 'inherit', started from the thread that runs `main`: the process id and
+// the descriptors of the pipes for the program (-1 for what is inherited).
+// The pipes are made here (so the descriptors are of this thread, which may
+// close them; a worker thread warns when it closes one that another thread
+// opened), and the child is started by the main thread or, when `main` runs
+// there, by a monitor process (see below).
+function __idris2_startChild(cmd, stdin, stdout) {
+  const p = __idris2_childPipes(stdin, stdout)
+  let pid
+  try {
+    pid = __idris2_rpc !== null
+      ? __idris2_rpc({ op: 'spawn', cmd: cmd, stdio: p.stdio })
+      : __idris2_spawnMonitored(cmd, p.stdio)
+  } catch (e) {
+    __idris2_closeFds([p.in, p.out].filter(fd => fd >= 0))
+    throw e
+  } finally {
+    __idris2_closeFds(p.childEnds)
+  }
+  return { pid: pid, in: p.in, out: p.out }
+}
+
+// Starts `sh -c cmd` with the stdin and stdout `stdio` (descriptors or
+// 'inherit'), on the main thread, whose event loop runs while `main` waits
+// in its worker and sees the child exit.  Returns the process id.
+function __idris2_spawnChild(cmd, stdio) {
+  const child = require('child_process').spawn('/bin/sh', ['-c', cmd],
+    { stdio: [stdio[0], stdio[1], 'inherit'] })
+  child.on('error', () => {})
+  if (child.pid === undefined) throw __idris2_spawnError()
   const entry = { child: child, status: null, waiters: [] }
   child.on('exit', (code, signal) => {
     entry.status = code !== null ? code : 128 + __idris2_signalNumber(signal)
@@ -90,10 +182,86 @@ function __idris2_spawnChild(cmd, stdin, stdout) {
     entry.waiters = []
   })
   __idris2_children.set(child.pid, entry)
-  if (child.stdout !== null) child.stdout._handle.readStop()
-  return { pid: child.pid,
-           in: child.stdin !== null ? child.stdin._handle.fd : -1,
-           out: child.stdout !== null ? child.stdout._handle.fd : -1 }
+  return child.pid
+}
+
+// The same when `main` runs on the main thread (IDRIS2_MAIN_STACK_SIZE=0),
+// whose event loop does not run until `main` returns, so it would not see
+// the child exit: another process waits for it.  A shell started with
+// `spawnSync` starts this monitor (a Node process) in the background and
+// exits at once; the monitor, which init adopts, starts `sh -c cmd` with the
+// pipes, closes its own copies of them (a child sees the end of its input
+// once the program closes the pipe) and writes to the pipe on its
+// descriptor 3 the process id of the child and then its exit status.  The
+// child is started by libuv, which gives it the default action of every
+// signal (the background shell ignores SIGINT and SIGQUIT).
+const __idris2_monitorCode = `
+const fs = require('fs')
+const c = require('child_process').spawn('/bin/sh', ['-c', process.argv[1]], { stdio: [0, 1, 2] })
+c.on('error', () => {})
+try { fs.closeSync(0) } catch (e) {}
+try { fs.closeSync(1) } catch (e) {}
+fs.writeSync(3, (c.pid === undefined ? -1 : c.pid) + '\\n')
+if (c.pid !== undefined)
+  c.on('exit', (code, signal) => {
+    const n = signal === null ? 1 : require('os').constants.signals[signal]
+    fs.writeSync(3, (code !== null ? code : 128 + (n === undefined ? 1 : n)) + '\\n')
+  })
+`
+
+// A line from a blocking descriptor, without the newline; null at its end
+// before a newline.
+function __idris2_readLine(fd) {
+  const fs = require('fs')
+  const b = Buffer.alloc(1)
+  let line = ''
+  for (;;) {
+    let n
+    try { n = fs.readSync(fd, b, 0, 1, null) }
+    catch (e) { if (e.code === 'EAGAIN' || e.code === 'EINTR') continue; throw e }
+    if (n === 0) return null
+    if (b[0] === 10) return line
+    line += String.fromCharCode(b[0])
+  }
+}
+
+function __idris2_spawnMonitored(cmd, stdio) {
+  const st = __idris2_makePipe()
+  let r
+  try {
+    r = require('child_process').spawnSync('/bin/sh',
+      ['-c', '"$0" -e "$1" -- "$2" <&0 &', process.execPath, __idris2_monitorCode, cmd],
+      { stdio: [stdio[0], stdio[1], 'inherit', st.w] })
+  } finally {
+    __idris2_closeFds([st.w])
+  }
+  const pid = r.error === undefined && r.status === 0 ? Number(__idris2_readLine(st.r)) : -1
+  if (!(pid > 0)) {
+    __idris2_closeFds([st.r])
+    throw __idris2_spawnError()
+  }
+  __idris2_children.set(pid, { status: null, statusFd: st.r })
+  return pid
+}
+
+// The exit status of a child that `__idris2_spawnMonitored` started, once it
+// has exited.
+function __idris2_waitMonitored(pid) {
+  const entry = __idris2_children.get(pid)
+  if (entry === undefined || entry.statusFd === undefined) {
+    const e = new Error('no child process ' + pid)
+    e.code = 'ECHILD'
+    throw e
+  }
+  __idris2_children.delete(pid)
+  const line = __idris2_readLine(entry.statusFd)
+  __idris2_closeFds([entry.statusFd])
+  if (line === null) {
+    const e = new Error('the monitor of child process ' + pid + ' exited first')
+    e.code = 'ECHILD'
+    throw e
+  }
+  return Number(line)
 }
 
 // Calls `reply` with the exit status of the child, once it has exited.
@@ -107,13 +275,6 @@ function __idris2_waitChild(pid, reply) {
   __idris2_children.delete(pid)
   if (entry.status !== null) reply(entry.status)
   else entry.waiters.push(reply)
-}
-
-function __idris2_closeChildPipe(pid, which) {
-  const entry = __idris2_children.get(pid)
-  if (entry === undefined) return
-  const stream = which === 'in' ? entry.child.stdin : entry.child.stdout
-  if (stream !== null) stream.destroy()
 }
 
 function __idris2_mainStackMb() {
@@ -199,10 +360,7 @@ function __idris2_runInWorker(wt, mb) {
           break
         }
         case 'spawn':
-          value = __idris2_spawnChild(r.cmd, r.stdin, r.stdout)
-          break
-        case 'closePipe':
-          __idris2_closeChildPipe(r.pid, r.which)
+          value = __idris2_spawnChild(r.cmd, r.stdio)
           break
         case 'wait':
           // answered when the child has exited
