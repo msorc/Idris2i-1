@@ -255,9 +255,13 @@ script that Node runs, the program runs on the main thread.  The worker
 writes to stdout and stderr synchronously and asks the main thread to change
 the working directory and to listen to signals, and the exit code and
 uncaught exceptions are passed on, so that programs behave as on the main
-thread.  Foreign code that reads ``process.stdin`` as a stream gets no input
-in the worker (the library reads file descriptor 0 instead), and starting
-the worker costs about 25ms and 12MB.  Deep recursion is slow with V8, as
+thread.  Signals reach the main thread, which passes them on at once (see
+below).  The library reads stdin from file descriptor 0, synchronously;
+when foreign code first uses ``process.stdin`` in the worker, the main thread
+starts reading file descriptor 0 as a stream and passes the input on to
+``process.stdin`` of the worker, so that such code works as on the main
+thread.  As there, a program should not read stdin both ways: each would get
+part of the input.  Starting the worker costs about 25ms and 12MB.  Deep recursion is slow with V8, as
 every garbage collection walks the whole stack: ``traverse`` on a list of a
 million elements takes 12 times as long as on one of 100,000.
 

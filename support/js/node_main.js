@@ -91,6 +91,7 @@ function __idris2_runInWorker(wt, mb) {
     worker = new wt.Worker(__filename, {
       argv: process.argv.slice(2),
       env: wt.SHARE_ENV,
+      stdin: true,
       workerData: { __idris2Main: shared, signals: signals,
                     stdout: tty(1, () => process.stdout),
                     stderr: tty(2, () => process.stderr) },
@@ -101,6 +102,7 @@ function __idris2_runInWorker(wt, mb) {
     return false
   }
   const listeners = new Map()
+  let stdinForwarded = false
   worker.on('message', m => {
     if (m === null || typeof m !== 'object' || m.__idris2Rpc === undefined) return
     const r = m.__idris2Rpc
@@ -118,6 +120,14 @@ function __idris2_runInWorker(wt, mb) {
           break
         case 'signal':
           __idris2_setSignal(r.signal, r.num, r.mode)
+          break
+        case 'stdin':
+          // The worker reads `process.stdin`: pass on what the main thread
+          // reads from fd 0.
+          if (!stdinForwarded) {
+            stdinForwarded = true
+            process.stdin.pipe(worker.stdin)
+          }
           break
         case 'unlisten': {
           const h = listeners.get(r.signal)
@@ -186,6 +196,23 @@ function __idris2_setUpWorker(wt) {
   __idris2_signalWord = new Int32Array(data.signals)
   __idris2_controlSignal = (name, num, mode) =>
     rpc({ op: 'signal', signal: name, num: num, mode: mode })
+
+  // `process.stdin` of a worker gets what the main thread writes to
+  // `worker.stdin`; the main thread starts reading fd 0 for it only when the
+  // program first looks at `process.stdin` (from then on, reading stdin
+  // with getLine or fGetLine as well gets some of the input in each).
+  const stdinDesc = Object.getOwnPropertyDescriptor(process, 'stdin')
+  if (stdinDesc !== undefined && stdinDesc.configurable) {
+    let asked = false
+    Object.defineProperty(process, 'stdin', {
+      configurable: true, enumerable: stdinDesc.enumerable,
+      get() {
+        const s = stdinDesc.get ? stdinDesc.get.call(process) : stdinDesc.value
+        if (!asked) { asked = true; rpc({ op: 'stdin' }) }
+        return s
+      }
+    })
+  }
 
   // Signals reach the main thread only.  The worker's listeners run when the
   // worker's event loop does, as they would on the main thread.
