@@ -7,15 +7,15 @@ import public System.File.Types
 %default total
 
 %foreign supportC "idris2_stdin"
-         "node:lambda:x=>({fd:0, buffer: Buffer.alloc(0), name:'<stdin>', eof: false})"
+         supportNode "stdin"
 prim__stdin : FilePtr
 
 %foreign supportC "idris2_stdout"
-         "node:lambda:x=>({fd:1, buffer: Buffer.alloc(0), name:'<stdout>', eof: false})"
+         supportNode "stdout"
 prim__stdout : FilePtr
 
 %foreign supportC "idris2_stderr"
-         "node:lambda:x=>({fd:2, buffer: Buffer.alloc(0), name:'<stderr>', eof: false})"
+         supportNode "stderr"
 prim__stderr : FilePtr
 
 ||| The standard input.

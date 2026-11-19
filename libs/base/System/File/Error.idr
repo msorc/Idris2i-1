@@ -8,7 +8,7 @@ import public System.File.Types
 %default total
 
 %foreign supportC "idris2_fileError"
-         "node:lambda:x=>(x===1?1:0)"
+         "node:lambda:f=>(f.err?1:0)"
 prim__error : FilePtr -> PrimIO Int
 
 %foreign supportC "idris2_fileErrno"

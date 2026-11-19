@@ -21,13 +21,15 @@ prim__seekLine : FilePtr -> PrimIO Int
 prim__readLine : FilePtr -> PrimIO (Ptr String)
 
 %foreign supportC "idris2_readChars"
+         supportNode "readChars"
 prim__readChars : Int -> FilePtr -> PrimIO (Ptr String)
 %foreign "C:fgetc,libc 6"
+         supportNode "readChar"
 prim__readChar : FilePtr -> PrimIO Int
 
 %foreign "RefC:idris2_refc_writeLine"
          supportC "idris2_writeLine"
-         "node:lambda:(filePtr, line) => require('fs').writeSync(filePtr.fd, line, undefined, 'utf-8')"
+         supportNode "writeLine"
 prim__writeLine : FilePtr -> String -> PrimIO Int
 
 %foreign supportC "idris2_eof"

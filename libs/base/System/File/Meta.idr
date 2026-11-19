@@ -20,6 +20,7 @@ FileTimePtr = AnyPtr
 prim__fileSize : FilePtr -> PrimIO Int
 
 %foreign supportC "idris2_fileSize"
+         "node:lambda:fp=>require('fs').fstatSync(fp.fd).size"
 prim__fPoll : FilePtr -> PrimIO Int
 
 %foreign supportC "idris2_fileTime"

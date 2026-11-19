@@ -1,0 +1,56 @@
+-- pipe
+'x'
+"ab\n"
+'c'
+"def"
+"g"
+""
+"h i"
+"last"
+EOF
+""
+True
+-- file
+'x'
+"ab\n"
+'c'
+"def"
+"g"
+""
+"h i"
+"last"
+EOF
+""
+True
+-- main thread
+'x'
+"ab\n"
+'c'
+"def"
+"g"
+""
+"h i"
+"last"
+EOF
+""
+True
+-- ends with a newline
+'x'
+"ab\n"
+'c'
+"def"
+"g"
+""
+"end"
+""
+EOF
+""
+True
+-- empty
+'\65535'
+""
+'\NUL'
+""
+EOF
+""
+True
