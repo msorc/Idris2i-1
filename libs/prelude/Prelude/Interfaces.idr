@@ -21,6 +21,13 @@ interface Semigroup ty where
   constructor MkSemigroup
   (<+>) : ty -> ty -> ty
 
+||| `foldl (\acc, x => acc <+> f x) z xs`, as a loop.  The default of
+||| `foldMapListImpl`.
+public export
+foldMapListGo : Semigroup ty => (a -> ty) -> ty -> List a -> ty
+foldMapListGo f acc [] = acc
+foldMapListGo f acc (x :: xs) = foldMapListGo f (acc <+> f x) xs
+
 ||| Sets equipped with a single binary operation that is associative, along with
 ||| a neutral element for that binary operation.  Must satisfy the following
 ||| laws:
@@ -34,6 +41,18 @@ public export
 interface Semigroup ty => Monoid ty where
   constructor MkMonoid
   neutral : ty
+
+  ||| `foldMap` of a list: combine the images of its elements with `<+>`,
+  ||| from the left.  `foldMap` for `List` is this, so `concat`, `concatMap`
+  ||| and `foldMap` over a list take the cost of the monoid's way of
+  ||| combining many values.  It is a method because the best way depends on
+  ||| the monoid: appending a piece to a growing `List` or `String` on the
+  ||| left copies all of it every time, so those collect the pieces and build
+  ||| the result once.  Implementations must agree with the default,
+  ||| `foldl (\acc, x => acc <+> f x) neutral`.
+  ||| @ f The function to apply to each element.
+  foldMapListImpl : (f : fmElem -> ty) -> List fmElem -> ty
+  foldMapListImpl f xs = foldMapListGo f neutral xs
 
 public export
 Semigroup () where

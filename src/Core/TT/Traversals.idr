@@ -69,9 +69,15 @@ onConstants f = go neutral where
   gos acc [] = acc
   gos acc (x :: xs) = gos (go acc x) xs
 
+[ConstantUnion] Semigroup (SortedSet Constant) where
+  (<+>) = union
+
+[ConstantUnionMonoid] Monoid (SortedSet Constant) using ConstantUnion where
+  neutral = empty
+
 export
 allConstants : Term vars -> SortedSet Constant
-allConstants = onConstants @{MkMonoid @{MkSemigroup union} empty} singleton
+allConstants = onConstants @{ConstantUnionMonoid} singleton
 
 export
 mapTermM : Monad m =>

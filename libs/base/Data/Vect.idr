@@ -436,7 +436,7 @@ implementation Foldable (Vect n) where
   toList [] = []
   toList (x :: xs) = x :: toList xs
 
-  foldMap f = foldl (\acc, elem => acc <+> f elem) neutral
+  foldMap f xs = foldMapListImpl f (List.reverse (foldl (flip (::)) [] xs))
 
 --------------------------------------------------------------------------------
 -- Special folds

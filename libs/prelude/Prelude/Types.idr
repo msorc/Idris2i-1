@@ -650,8 +650,14 @@ Semigroup (List a) where
   (<+>) = (++)
 
 public export
+listBindOnto : (a -> List b) -> List b -> List a -> List b
+listBindOnto f xs []        = reverse xs
+listBindOnto f xs (y :: ys) = listBindOnto f (reverseOnto xs (f y)) ys
+
+public export
 Monoid (List a) where
   neutral = []
+  foldMapListImpl f xs = listBindOnto f [] xs
 
 public export
 Foldable List where
@@ -666,12 +672,7 @@ Foldable List where
 
   toList = id
 
-  foldMap f = foldl (\acc, elem => acc <+> f elem) neutral
-
-public export
-listBindOnto : (a -> List b) -> List b -> List a -> List b
-listBindOnto f xs []        = reverse xs
-listBindOnto f xs (y :: ys) = listBindOnto f (reverseOnto xs (f y)) ys
+  foldMap = foldMapListImpl
 
 -- tail recursive O(n) implementation of `(>>=)` for `List`
 public export
@@ -727,10 +728,10 @@ fastConcat : List String -> String
 
 %transform "fastConcat" concat {t = List} {a = String} = fastConcat
 
--- The same for concatMap: Foldable List's foldMap is a left fold, so over a
--- list the String and List monoids copy their accumulator at every step.
+-- The same for concatMap.  Without these, `Monoid String` does it through the
+-- `foldMapListImpl` of the monoid, which is as fast but for a call of the
+-- method; the rules apply where the type is known.
 %transform "fastConcatMap" concatMap {t = List} {m = String} f xs = fastConcat (map f xs)
-%transform "listConcatMap" concatMap {t = List} {m = List b} f xs = listBindOnto f [] xs
 
 ||| Check if something is a member of a list using a custom comparison.
 public export
@@ -896,9 +897,18 @@ public export
 Semigroup String where
   (<+>) = (++)
 
+||| Concatenate strings.  This is `fastConcat`, which does not reduce at
+||| compile time: uses of this are transformed to it.
+public export
+concatStrings : List String -> String
+concatStrings = foldl (++) ""
+
+%transform "fastConcatStrings" concatStrings = fastConcat
+
 public export
 Monoid String where
   neutral = ""
+  foldMapListImpl f xs = concatStrings (map f xs)
 
 ----------------
 -- CHARACTERS --
@@ -1173,10 +1183,6 @@ Range Char where
   rangeFromThenTo x y z = map chr $ rangeFromThenTo (ord x) (ord y) (ord z)
   rangeFrom x = map chr $ rangeFrom (ord x)
   rangeFromThen x y = map chr $ rangeFromThen (ord x) (ord y)
-
--- `concat` of lists, as `concatMap` above: the `foldMap` of `Foldable List`
--- is a left fold, which copies the accumulator at every step.
-%transform "listConcat" concat {t = List} {a = List b} xs = listBindOnto {a = List b} {b} id [] xs
 
 ||| `and` on a list, as a loop: through the `foldMap` of `Foldable List`, a
 ||| left fold, `and` builds a chain of `&&` as long as the list, nested to the

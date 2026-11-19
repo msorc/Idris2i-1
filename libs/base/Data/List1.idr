@@ -144,7 +144,7 @@ Foldable List1 where
   foldl f z (x ::: xs) = foldl f (f z x) xs
   null _ = False
   toList = forget
-  foldMap f (x ::: xs) = f x <+> foldMap f xs
+  foldMap f (x ::: xs) = foldMapListImpl f (x :: xs)
 
 public export
 Traversable List1 where

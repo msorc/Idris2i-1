@@ -1281,11 +1281,34 @@ should target this file (`CHANGELOG_NEXT`).
   the list from the right instead of with a continuation per element, which
   nested a call per element and overflowed the stack with JavaScript at
   some 10^4 elements; with Node it takes half the instructions.
-* `concat` of a list of lists is transformed (`%transform`) to a loop
-  (`listBindOnto`), as `concatMap` already was: through the `foldMap` of
-  `Foldable List`, a left fold, it copied its accumulator at every step and
-  took quadratic time (20,000 lists of two elements: 15.3G instructions to
-  0.25G with Chez, 12.0G to 0.02G with RefC).
+* `concat`, `concatMap` and `foldMap` over a list take time linear in the
+  size of the result for the `List`, `String` and `SnocList` monoids, however
+  they are called.  `Foldable List` did a left fold, which copies the
+  accumulator at every step for `List` and `String`, and the `%transform`
+  rules for `concatMap` and `concat` only applied where the element type was
+  known and the call fully applied: through a function with `Foldable t` and
+  `Monoid m` constraints, or partially applied, 40,000 lists of two elements
+  took 48G instructions with RefC (74G with Chez), sixteen times that for
+  160,000, and now 19M (the same for any way of calling).  `Monoid` has a new
+  method, `foldMapListImpl : (a -> ty) -> List a -> ty` (`foldMap` of a
+  list), which `foldMap` of `Foldable List` calls:
+  `List` builds the result with a loop (`listBindOnto`) and `String` with
+  `fastConcat`, and the default is the left fold as before, so that every
+  other monoid (`Sum`, `Any`, `SortedMap` union, `SnocList`, ...) combines in
+  the same order and at the same cost as before.  The rules of `listConcat`
+  and `listConcatMap` are gone (the method does the same), those of
+  `fastConcat` and `fastConcatMap` stay.  The `Foldable` instances of
+  `SnocList`, `Vect` and `List1` give their elements to the method too
+  (`foldMap` of a `List1` or `Vect` was quadratic for `List` and `String`, and
+  that of a `SnocList` for `String` and `SnocList`; for a `Vect` and a cheap
+  monoid it now costs a conversion to a list).  A monoid that wraps a list or
+  a string in its own type is still combined from the left, with its cost:
+  define `foldMapListImpl` for it (the default is `foldMapListGo f neutral`).
+  The constructor `MkMonoid` takes the method as a second argument, so a use
+  of it must pass one: `\f => foldMapListGo @{sg} f z` for the semigroup `sg`
+  and the neutral element `z`.  New public names:
+  `foldMapListImpl`, `foldMapListGo` and `concatStrings` (`fastConcat` that
+  reduces at compile time, transformed to it).
 * Arrays (`Data.IOArray`, and `Data.Linear.Array` of `contrib`) are cheap
   enough to build data structures on.  Reading and writing an element were
   calls through the `HasIO` dictionary that built closures for the action

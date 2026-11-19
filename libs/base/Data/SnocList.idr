@@ -104,7 +104,7 @@ Foldable SnocList where
 
   toList = (<>> [])
 
-  foldMap f = foldr (\v,acc => f v <+> acc) neutral
+  foldMap f sx = foldMapListImpl f (sx <>> [])
 
 public export
 Applicative SnocList where
