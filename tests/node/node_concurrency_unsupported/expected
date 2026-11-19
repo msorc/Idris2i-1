@@ -1,0 +1,31 @@
+run fork
+Error: fork: threads are not supported on the JavaScript back ends (a JavaScript program has a single thread, which shares no heap with any other)
+exit code 1
+run future
+Error: System.Future.fork: threads are not supported on the JavaScript back ends (a JavaScript program has a single thread, which shares no heap with any other)
+exit code 1
+run forkIO
+Error: System.Future.fork: threads are not supported on the JavaScript back ends (a JavaScript program has a single thread, which shares no heap with any other)
+exit code 1
+run channelGet
+Error: channelGet would wait forever: the channel is empty and no other thread can send to it (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
+exit code 1
+run channelPut
+Error: channelPut would wait forever: the channel is full and no other thread can take its value (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
+exit code 1
+run semaphore
+Error: semaphoreWait would wait forever: the semaphore is at zero and no other thread can post it (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
+exit code 1
+run condition
+Error: conditionWait would wait forever: no other thread can signal the condition (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
+exit code 1
+run barrier
+Error: barrierWait would wait forever: the barrier needs 2 threads and no other thread can arrive (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
+exit code 1
+run release
+Error: mutexRelease: the mutex is not held by the calling thread
+exit code 1
+-- main thread
+run fork
+Error: fork: threads are not supported on the JavaScript back ends (a JavaScript program has a single thread, which shares no heap with any other)
+exit code 1

@@ -148,6 +148,7 @@ getChar = primIO prim__getChar
 
 %foreign "scheme:blodwen-thread"
          "RefC:refc_fork"
+         "javascript:support:fork,support_concurrency"
 export
 prim__fork : (1 prog : PrimIO ()) -> PrimIO ThreadID
 
@@ -157,6 +158,7 @@ fork act = fromPrim (prim__fork (toPrim act))
 
 %foreign "scheme:blodwen-thread-wait"
          "RefC:refc_threadWait"
+         "javascript:support:threadWait,support_concurrency"
 export
 prim__threadWait : (1 threadID : ThreadID) -> PrimIO ()
 

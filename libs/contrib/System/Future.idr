@@ -9,10 +9,12 @@ data Future : Type -> Type where [external]
 
 %foreign "scheme:blodwen-make-future"
          "RefC:refc_makeFuture"
+         "javascript:support:makeFuture,support_concurrency"
 prim__makeFuture : {0 a : Type} -> (() -> a) -> Future a
 
 %foreign "scheme:blodwen-await-future"
          "RefC:refc_awaitFuture"
+         "javascript:support:awaitFuture,support_concurrency"
 prim__awaitFuture : {0 a : Type} -> Future a -> a
 
 export %inline -- inlining is important for correct context in codegens

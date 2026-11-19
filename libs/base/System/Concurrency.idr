@@ -8,6 +8,13 @@
 ||| The RefC backend implements these in terms of green threads: user level
 ||| threads that run in parallel on a pool of OS threads (one per processor,
 ||| or `IDRIS2_WORKERS`).
+|||
+||| The JavaScript back ends have a single thread and no `fork`: `fork` and
+||| `System.Future` stop the program with an error.  The other primitives work
+||| as they do in a program without a second thread; those that would have to
+||| wait for another thread (a `channelGet` on an empty channel, a
+||| `semaphoreWait` at zero, a `conditionWait`) stop the program with an
+||| error instead of hanging.
 module System.Concurrency
 
 import System.Info
@@ -19,23 +26,26 @@ import System.Info
 
 %foreign "scheme:blodwen-set-thread-data"
          "RefC:refc_setThreadData"
+         "javascript:support:setThreadData,support_concurrency"
 prim__setThreadData : {a : Type} -> a -> PrimIO ()
 %foreign "scheme:blodwen-get-thread-data"
          "RefC:refc_getThreadData"
+         "javascript:support:getThreadData,support_concurrency"
 prim__getThreadData : (a : Type) -> PrimIO a
 %foreign "scheme,chez:get-thread-id"
          "RefC:refc_getThreadId"
+         "javascript:support:getThreadId,support_concurrency"
 prim__getThreadId : PrimIO Int
 
 ||| Set the data stored in a thread's parameter to the given value.
-||| Currently only supported under the scheme backends.
+||| Currently only supported under the scheme, RefC and JavaScript backends.
 %spec hio
 export
 setThreadData : {auto hio : HasIO io} -> {a : Type} -> a -> io ()
 setThreadData val = primIO (prim__setThreadData val)
 
 ||| Get the data stored in a thread's parameter.
-||| Currently only supported under the scheme backends.
+||| Currently only supported under the scheme, RefC and JavaScript backends.
 %spec hio
 export
 getThreadData : {auto hio : HasIO io} -> (a : Type) -> io a
@@ -55,12 +65,15 @@ data Mutex : Type where [external]
 
 %foreign "scheme:blodwen-make-mutex"
          "RefC:refc_makeMutex"
+         "javascript:support:makeMutex,support_concurrency"
 prim__makeMutex : PrimIO Mutex
 %foreign "scheme:blodwen-mutex-acquire"
          "RefC:refc_mutexAcquire"
+         "javascript:support:mutexAcquire,support_concurrency"
 prim__mutexAcquire : Mutex -> PrimIO ()
 %foreign "scheme:blodwen-mutex-release"
          "RefC:refc_mutexRelease"
+         "javascript:support:mutexRelease,support_concurrency"
 prim__mutexRelease : Mutex -> PrimIO ()
 
 ||| Creates and returns a new mutex.
@@ -97,22 +110,27 @@ data Condition : Type where [external]
 %foreign "scheme,racket:blodwen-make-cv"
          "scheme,chez:blodwen-make-condition"
          "RefC:refc_makeCondition"
+         "javascript:support:makeCondition,support_concurrency"
 prim__makeCondition : PrimIO Condition
 %foreign "scheme,racket:blodwen-cv-wait"
          "scheme,chez:blodwen-condition-wait"
          "RefC:refc_conditionWait"
+         "javascript:support:conditionWait,support_concurrency"
 prim__conditionWait : Condition -> Mutex -> PrimIO ()
 %foreign "scheme,chez:blodwen-condition-wait-timeout"
 --         "scheme,racket:blodwen-cv-wait-timeout"
          "RefC:refc_conditionWaitTimeout"
+         "javascript:support:conditionWaitTimeout,support_concurrency"
 prim__conditionWaitTimeout : Condition -> Mutex -> Int -> PrimIO ()
 %foreign "scheme,racket:blodwen-cv-signal"
          "scheme,chez:blodwen-condition-signal"
          "RefC:refc_conditionSignal"
+         "javascript:support:conditionSignal,support_concurrency"
 prim__conditionSignal : Condition -> PrimIO ()
 %foreign "scheme,racket:blodwen-cv-broadcast"
          "scheme,chez:blodwen-condition-broadcast"
          "RefC:refc_conditionBroadcast"
+         "javascript:support:conditionBroadcast,support_concurrency"
 prim__conditionBroadcast : Condition -> PrimIO ()
 
 
@@ -161,12 +179,15 @@ data Semaphore : Type where [external]
 
 %foreign "scheme:blodwen-make-semaphore"
          "RefC:refc_makeSemaphore"
+         "javascript:support:makeSemaphore,support_concurrency"
 prim__makeSemaphore : Int -> PrimIO Semaphore
 %foreign "scheme:blodwen-semaphore-post"
          "RefC:refc_semaphorePost"
+         "javascript:support:semaphorePost,support_concurrency"
 prim__semaphorePost : Semaphore -> PrimIO ()
 %foreign "scheme:blodwen-semaphore-wait"
          "RefC:refc_semaphoreWait"
+         "javascript:support:semaphoreWait,support_concurrency"
 prim__semaphoreWait : Semaphore -> PrimIO ()
 
 
@@ -199,9 +220,11 @@ data Barrier : Type where [external]
 
 %foreign "scheme:blodwen-make-barrier"
          "RefC:refc_makeBarrier"
+         "javascript:support:makeBarrier,support_concurrency"
 prim__makeBarrier : Int -> PrimIO Barrier
 %foreign "scheme:blodwen-barrier-wait"
          "RefC:refc_barrierWait"
+         "javascript:support:barrierWait,support_concurrency"
 prim__barrierWait : Barrier -> PrimIO ()
 
 ||| Creates a new barrier that can block a given number of threads.
@@ -226,18 +249,23 @@ data Channel : Type -> Type where [external]
 
 %foreign "scheme:blodwen-make-channel"
          "RefC:refc_makeChannel"
+         "javascript:support:makeChannel,support_concurrency"
 prim__makeChannel : PrimIO (Channel a)
 %foreign "scheme:blodwen-channel-get"
          "RefC:refc_channelGet"
+         "javascript:support:channelGet,support_concurrency"
 prim__channelGet : Channel a -> PrimIO a
 %foreign "scheme,chez:blodwen-channel-get-non-blocking"
          "RefC:refc_channelGetNonBlocking"
+         "javascript:support:channelGetNonBlocking,support_concurrency"
 prim__channelGetNonBlocking : Channel a -> PrimIO (Maybe a)
 %foreign "scheme,chez:blodwen-channel-get-with-timeout"
          "RefC:refc_channelGetWithTimeout"
+         "javascript:support:channelGetWithTimeout,support_concurrency"
 prim__channelGetWithTimeout : Channel a -> Int -> PrimIO (Maybe a)
 %foreign "scheme:blodwen-channel-put"
          "RefC:refc_channelPut"
+         "javascript:support:channelPut,support_concurrency"
 prim__channelPut : Channel a -> a -> PrimIO ()
 
 ||| Creates and returns a new `Channel`.

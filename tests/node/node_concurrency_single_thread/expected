@@ -1,0 +1,12 @@
+mutex
+atomically: 15
+semaphore
+one
+Just "two"
+Nothing
+Nothing
+Just "three"
+barrier
+condition
+thread data: 42
+thread data: text
