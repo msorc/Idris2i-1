@@ -3,8 +3,10 @@ RefC: design of a flat layout (unfinished)
 ******************************************
 
 This is the design of three changes to the representation of data in the RefC
-back end, and the record of the measurements that decided it.  Only the first
-part (the field representation table) is implemented; the rest is the plan,
+back end, and the record of the measurements that decided it.  Implemented
+so far: the field representation table, the ``NoIntrinsic`` flag, and the
+runtime side of stage A (the alignment of large values, a test of the
+runtime with stage A cells); the rest is the plan,
 for whoever implements it.  Each stage says what decides the representation,
 where the compiler reads it, the memory layout, how every existing path of
 the runtime stays correct, what the user writes, and what it is expected to
@@ -193,24 +195,71 @@ dictionary; records from another module, read from its TTC file.
 What the table does not cover
 -----------------------------
 
-- **Intrinsic constructors.** ``Compiler.Opts.Constructor.tryIntrinsic``
-  renames the constructors of every *list shaped* type (two constructors, of
-  0 and 2 unerased arguments, *or a single constructor of two*: every record
-  of two fields, every pair) to ``_builtin.NIL``/``_builtin.CONS``, and of
-  every *option shaped* type to ``_builtin.NOTHING``/``_builtin.JUST``, at
-  their uses.  Of the types of the test, ``V2`` (two ``Double``), ``VCons``,
-  ``MkDep``, ``MkEL``, ``MkAliases`` and ``Node`` are renamed.  The renamed
-  constructor has no table of its own, and ``Compiler.Opts.Identity`` treats
-  functions that convert between two such types (``List Double`` to a list of
-  ``Double`` of its own) as the identity, since their constructors have the
-  same name: with ``data DL = DNil | DCons Double DL``, the conversion
-  ``toD : List Double -> DL`` is compiled away and a function on ``DL`` is
-  applied to the list itself.  Stage A must stop the renaming of a
-  constructor whose table has an ``FPrim`` field (see below).
+- **Intrinsic constructors**: see the next section.
 - **Sums of flat values** and the element types of arrays: the table is per
   constructor, while the layout of an array slot (stage B) depends on the
   element *type* (``Maybe Particle``).
 
+
+Intrinsic constructors and the identity optimisation
+----------------------------------------------------
+
+``Compiler.Opts.Constructor.tryIntrinsic`` renames the constructors of every
+*list shaped* type (two constructors, of 0 and 2 unerased arguments, *or a
+single constructor of two*: every record of two fields, every pair) to
+``_builtin.NIL``/``_builtin.CONS``, and of every *option shaped* type to
+``_builtin.NOTHING``/``_builtin.JUST``, at their uses.  The renamed
+constructor stands for the constructors of every type of its shape, with
+boxed fields.  Two optimisations then treat constructors of different types
+as the same: ``Compiler.Opts.Identity`` finds that a conversion between two
+such types is the identity (with ``data DL = DNil | DCons Double DL``, the
+conversion ``toD : List Double -> DL`` was compiled away, and a function on
+``DL`` applied to the list itself), and CSE may share two equal applications
+of constructors of different types.  Both are wrong once one of the types
+stores a field raw.
+
+**Implemented** (ahead of stage A, since it is in the shared ``CExp``): when
+a data type is declared, if its constructors are list or option shaped and
+one of them has a ``rawField`` (``Double``, ``Int``, ``Int64``,
+``Bits64``), all of them get the flag ``NoIntrinsic``
+(``Core.FieldRep.setNoIntrinsic``, logged by
+``--log declare.data.nointrinsic:1``), and ``tryIntrinsic`` leaves the
+constructors so flagged, and the cases on them, as they are.  They keep
+their ``ConInfo`` (``CONS``, ``JUST``, ...), which is what the Scheme and
+JavaScript back ends use to emit pairs and lists, and RefC to represent
+``NIL`` and ``NOTHING`` by ``NULL``.  All the constructors of a type are
+flagged, so that a type's constructors are all intrinsic or none.  The test
+``codegen/intrinsic001`` shows it: the conversions to ``DL``, ``V2``,
+``MI`` (a ``Maybe``-like of an ``Int``) and ``BL`` (a list of ``Bits64``)
+are now functions, those to a list of ``Char`` and to a polymorphic
+``Maybe``-like are still compiled away.
+
+How often it hits, and what it costs:
+
+- the libraries: 6 types (``Data.IOArray.IOArray``, a record of an ``Int``
+  and the content; ``System.File.Meta.Timestamp``; ``System.ExitCode``;
+  ``Network.Socket.Data.UDPAddrInfo``; ``Prettyprinter.Doc.PageWidth``;
+  ``Data.String.Position.ValidPosition``);
+- the compiler: 7 types (``Compiler.ANF.AVar``, ``Core.TT.Primitive
+  .Precision``, ``Compiler.ES.Stack.St``, ``Compiler.ES.TailRec.TcGroup``,
+  ``Core.Metadata.TTMFile``, ``Levenshtein.Target``, ``PageWidth``), all
+  because of ``Int`` fields; ``FilePos`` is a pair of ``Int``, polymorphic,
+  and stays intrinsic;
+- the test programs of the Chez and Node pools: three use such a type
+  (``chez/arrayperf001``, ``node/arrayperf001``, ``node/trmc_browser_stack``);
+  their generated Scheme and JavaScript are identical to those of the base
+  compiler but for the version line.  The other programs of those pools
+  declare no such type, so their ``CExp`` is unchanged;
+- the compiler compiled by itself: no function is compiled away or kept that
+  was not before (two small lambdas of ``callsOf`` and ``Compiler.ES.Stack
+  .push`` are now functions of their own, the rest of the 3 338 changed
+  lines are the names and tags in comments and cells, and renumbered CSE
+  constants); type checking ``libs/prelude`` takes 0.0001% more
+  instructions (25 170 526 835 against 25 170 496 429, median of 3).  The
+  stage 3 compiler's C is identical to stage 2's.
+
+Including ``Int`` costs the identity optimisation nothing measurable, so it
+stays in ``rawField``.
 
 Stage A: raw fields in constructor cells
 ========================================
@@ -219,14 +268,22 @@ The rule
 --------
 
 A field is stored raw in the cell of its constructor when its table entry is
-``FPrim t`` and the back end chose to store ``t`` raw.  The proposal is to
-store raw every ``FPrim`` type: ``Double`` (always a box today), ``Int``,
-``Int64``, ``Bits64`` (boxed beyond 32 bits), ``Int32``, ``Bits32`` (boxed on
-32 bit platforms), and the smaller ones and ``Char`` (always immediate today;
-raw saves the immediate tests of the count operations and costs nothing).  A
-directive ``refc-no-raw-fields`` turns it off (every field boxed, as now), and
-``refc-no-raw-double-fields`` only for ``Double``, in case unboxed
-``Double`` locals are switched off.
+``FPrim t`` with ``t`` one of ``Double``, ``Int``, ``Int64`` and ``Bits64``
+(``Core.CompileExpr.rawField``): the values that are a box on the heap
+(``Double`` always, the others beyond 32 bits) or need a test to be read
+from a pointer slot.  The smaller integers, ``Char``, ``Bool`` and the other
+enumerations stay immediate values in pointer slots, as now: storing them
+raw would save only the immediate tests of the count operations (decided by
+the coordinator; to be revisited with the self-build numbers of stage A).
+``Int32`` and ``Bits32`` are boxed on 32 bit platforms only, and stay in
+pointer slots too.  A directive ``refc-no-raw-fields`` turns it off (every
+field boxed, as now), and ``refc-no-raw-double-fields`` only for
+``Double``, in case unboxed ``Double`` locals are switched off.
+
+The same predicate decides which types keep their constructor names (see
+`Intrinsic constructors and the identity optimisation`_): the two must
+agree, since a cell is laid out by the table of the constructor that its
+``CCon`` names.
 
 Memory layout
 -------------
@@ -299,14 +356,8 @@ with incremental compilation).  Then:
   the data type, hence boxed; this must be checked, not assumed).
 - **Workers** (``idris2_raw_*``): unchanged.  The parameter types that
   ``Unbox.idr`` reads from the context are not affected.
-- **Intrinsic renaming**: ``tryIntrinsic`` gets the context and leaves the
-  name of a constructor whose table has an ``FPrim`` field (it keeps its
-  ``ConInfo``, so the Scheme and JavaScript back ends, which emit pairs and
-  lists from ``CONS``, generate the same code).  This changes the ``CExp`` of
-  every back end in one way: ``Compiler.Opts.Identity`` no longer finds that
-  a conversion between such a type and a list or pair is the identity.  That
-  is only correct when the representations agree, which they no longer do in
-  RefC, and the ``CExp`` is shared by the back ends (it is in the TTC file).
+- **Intrinsic renaming**: done ahead of stage A (``NoIntrinsic``, see
+  `Intrinsic constructors and the identity optimisation`_).
 
 Correctness on the existing paths
 ---------------------------------
@@ -326,12 +377,9 @@ Correctness on the existing paths
 - **``believe_me``** between two data types is only correct when their
   constructors have the same tables (today: the same arities).  Matching a
   ``MkA`` cell (raw ``Double``) as a ``MkB`` (boxed field) reads a double as
-  a pointer.  The libraries must be checked for such coercions before stage
-  A is enabled.  A first ``grep believe_me`` in ``libs`` found coercions
-  between instances of the same type family (other indices, as in
-  ``Data.Primitives.Views``), of numbers and pointers, and of proofs: the
-  tables agree in all of them.  The ``Identity``
-  optimisation is the compiler's own ``believe_me`` and is handled above.
+  a pointer.  See `Coercions: the audit`_.  The ``Identity`` optimisation
+  and CSE are the compiler's own coercions and are handled by
+  ``NoIntrinsic``.
 - **FFI and ``%export``**: a C function that receives a constructor (through
   ``AnyPtr`` or a ``CFUser`` type) and reads ``args[i]``, or builds one with
   ``idris2_newConstructor``, breaks for types with raw fields.  The runtime
@@ -348,6 +396,97 @@ Correctness on the existing paths
   change in their ``CExp`` is the one of the intrinsic renaming above.
 - **32 bit platforms**: the struct layout is left to the C compiler; the
   allocator's 8 byte alignment covers ``double`` and ``int64_t``.
+
+Coercions: the audit
+--------------------
+
+Every ``believe_me``, ``prim__believe_me``, ``unsafeCoerce``,
+``really_believe_me`` and ``assert_linear`` in ``libs/`` and ``src/``
+(``git grep``, 67 lines, November 2026) was checked for a coercion between
+two data types whose stage A layouts differ.  There is none:
+
+- between instances of one type family, which have the same constructors:
+  ``Data.Primitives.Views`` (``DivBy``, ``IntegerPred``, ``IntPred`` at
+  other indices), ``Data.String.strM`` (``StrM``), ``Data.Fin`` (the
+  ``IsJust`` and ``So`` proofs), ``Tree.toRelative`` (``Tree`` at another
+  root, in contrib and in ``src/Libraries``), ``Cast (Doc Void) (Doc ann)``,
+  the papers' ``thin``/``closed`` (terms at other scopes), the compiler's
+  ``CExp`` and ``Term`` at other scopes (``Compiler.Inline.anyScope``,
+  ``Compiler.Opts.EtaIO``, ``Core.TT.Term.compatTerm``,
+  ``Core.Name.Scoped.embed``), and ``IsVar``/``Var`` proofs of other indices
+  (``Core.TTC.mkPrf``, ``Compiler.CaseOpts.renameVar``,
+  ``Libraries.Data.VarSet.unsafeToList``, where ``Var`` is a newtype of
+  ``Nat`` and ``VarSet`` a synonym of ``NatSet``);
+- of proofs and of erased values: ``Decidable.Equality`` (``Refl``,
+  ``Void``), ``Data.Int.Order``, ``System`` (``Oh``), ``Deriving.Show``
+  (functions on erased views), ``Data.Linear.Interface.consume``,
+  ``assert_linear``;
+- of numbers and pointers: ``Prelude.Types`` (``Integer`` to ``Nat``, both
+  ``Integer`` at run time), ``PrimIO.prim__castPtr``/``prim__forgetPtr``,
+  ``System.exitWith`` (an ``IO`` action of another result type);
+- of a value back to the type it was cached at
+  (``Core.Context.fromCached``).
+
+``assert_total`` and ``assert_smaller`` do not change a type.
+
+User code: a ``believe_me`` between two data types whose tables differ
+(``FPrim`` in one where the other has ``FBoxed``, at a field that stage A
+stores raw) is undefined behaviour, as it already is between types that the
+enumeration and newtype optimisations represent differently (a ``Bool`` and
+a two constructor type of another number of constructors, a newtype and its
+field's type).  This goes in the ``believe_me`` documentation and in
+refc.rst.  The cheap debug check: under a directive
+``refc-check-layout``, a match on a constructor with raw fields tests that
+the cell's ``total`` is the constructor's number of pointer fields and
+crashes with the constructor's name otherwise (one compare per match; a
+coercion from a cell of another type of the same number of pointer fields
+is not caught, but most are).  It is part of stage A's code generation.
+
+The runtime: review
+-------------------
+
+The paths of the runtime that look inside a constructor cell, checked for
+the assumption that a cell is ``header + total * sizeof(void *)`` bytes:
+
+- ``releaseOne`` (``idris2_releaseValue``, ``releaseDeep``):
+  ``args[0 .. total-1]``, then ``idris2_freeValue``, which takes the size
+  from the class in the header (``cls`` 0: a large value, ``free``).
+- ``idris2_markShared``, the leak walk (``leakCheck``) and the debug printer
+  (``describeValue``): ``args[0 .. total-1]``.  The printer says "(1
+  field)" for a cell with one pointer field and raw fields: it counts the
+  pointer fields only.
+- ``idris2_constructorName`` reads ``args[total]``: a named constructor
+  (tag -1) keeps its name right after its pointer fields, before the raw
+  fields.
+- ``idris2_removeReuseConstructor`` and the reuse in the generated code:
+  a count and ``idris2_freeValue``.  With ``refc-size-reuse`` the key of a
+  reusable cell must be its size in bytes (``RefC.idr``, stage A).
+- ``idris2_newConstructor`` and ``idris2_newNamedConstructor`` compute the
+  size from ``total``: stage A adds ``idris2_newConstructorSized``; the
+  runtime's own uses (lists and pairs of strings, ``Just``, futures) have
+  boxed fields only.
+- The statistics (``IDRIS2_REFC_STATS``) count allocations by class, not by
+  field.
+- Static values (``IDRIS2_STATIC_CONSTRUCTOR``, the predefined nullary
+  constructors) are never walked (immortal, and ``idris2_markShared`` skips
+  ``IDRIS2_STATIC_FLAG``).
+
+Nothing else in ``support/refc`` reads ``total`` or ``args`` of a
+constructor (``git grep``).  One fix was needed:
+``idris2_allocLarge`` (values of more than 256 bytes, and every value under
+Valgrind or with ``IDRIS2_REFC_NO_POOLS``) aligned to ``sizeof(void *)``,
+4 bytes on 32 bit platforms; it now aligns to 8 (``IDRIS2_LARGE_ALIGN``),
+like the pools.  ``tests/refc/rawcells001`` builds cells of stage A by hand
+against the runtime's sources (no code generator), with raw bytes that look
+like pointers to live values, and checks release, shared-flag marking, the
+leak walk (a constant whose raw field points to a leaked string: the string
+is reported as leaked, not as held), static cells, reuse of a freed cell of
+the same class by another layout, the alignment of large cells and of raw
+``double`` fields, and the statistics build; with a 32 bit C compiler and
+GMP it runs as a 32 bit program too (it does on this machine).  On 32 bit
+x86 a ``double`` member is 4 byte aligned by the ABI, so the struct of a
+constructor may put one at offset 12, which is correct there; the 8 byte
+case (ARM EABI) was not tested.
 
 Expected gain
 -------------
@@ -398,7 +537,7 @@ is laid out.
    descriptor (boxing a slot into cells on read, unboxing on write); code that
    knows the layout statically tests the id (one load and a compare, always
    true in practice) and accesses the slot directly.  The creation must know
-   the layout of the element type: it gets a value ``Layout elem``, an
+   the layout of the element type: it gets a value ``Flat elem``, an
    ``auto`` implicit argument of the functions that create arrays, resolved
    by the elaborator where the type is known.
 3. **A new primitive array type** (``FlatArray``) whose element type must be
@@ -434,24 +573,31 @@ the accesses.  The C per element access:
 What the user writes: nothing, for arrays of primitive types, of single
 constructor records whose fields are all ``FPrim``, and of ``Maybe`` of
 those, created at a known type.  Generic code that creates arrays gets boxed
-arrays unless it adds ``{auto l : Layout elem}`` to its own type.
+arrays unless it adds ``Flat elem =>`` to its own type.
 
 The layout descriptor
 ---------------------
 
-- ``Layout : Type -> Type`` is an opaque type of ``Data.IOArray.Prims`` (no
-  exported constructor) whose values describe a slot: ``LBoxed``,
-  ``LPrim PrimType``, ``LRecord name [PrimType]``, ``LMaybe Layout``.
-- Its hints: ``%defaulthint boxedLayout : Layout a`` (taken when nothing
-  else applies, in particular for a type variable); hand written hints in
-  ``base`` for the primitive types and for ``Maybe`` of a flat layout;
-  and a hint that the compiler generates in ``ProcessData`` for each single
-  constructor record whose fields are all ``FPrim`` (from the table, so the
-  descriptor cannot disagree with the cells of stage A).  Must be checked:
-  that a ``%defaulthint`` is not taken for a ``Layout ?t`` whose ``?t`` is
-  solved later in the same elaboration.
+- ``Flat : Type -> Type`` is an *interface* of ``Data.IOArray.Prims``
+  with one method, the descriptor of a slot (``LBoxed``, ``LPrim PrimType``,
+  ``LRecord name [PrimType]``, ``LMaybe``), of an opaque type whose
+  constructors are not exported.  It is an interface, not a plain data
+  type, so that the specialisation by known implementations makes the
+  descriptor a constant in the copies of the array functions (see the
+  experiments below).
+- Its hints: ``%defaulthint boxedFlat : Flat a`` (taken when nothing else
+  applies, in particular for a type variable); implementations written by
+  hand in ``base`` for the primitive types and for ``Maybe`` of a flat
+  layout; and one that the compiler generates in ``ProcessData`` for each
+  single constructor record whose fields are all ``rawField`` (from the
+  table, so the descriptor cannot disagree with the cells of stage A).
+- The constructors of the descriptor type must not be visible where a
+  ``Flat`` is searched for: the search for an ``auto`` argument also tries
+  the constructors of its type, and ``LBoxed : Layout a`` would match every
+  type before the hints (the first experiment below got ``boxed``
+  everywhere until they were hidden).
 - ``prim__newArray`` gets the descriptor (a new primitive,
-  ``prim__newArrayL : Layout a -> Int -> a -> PrimIO (ArrayData a)``; the
+  ``prim__newArrayL : Flat a => Int -> a -> PrimIO (ArrayData a)``; the
   old one stays, boxed), and so do ``prim__arrayGet``/``prim__arraySet``
   (the layout that the caller expects; the array's own one decides).  The
   Scheme and JavaScript back ends ignore the descriptor.
@@ -464,6 +610,78 @@ The layout descriptor
 - The release of an array walks its slots only for the pointer fields of its
   layout (none for a flat record).  The shared flag of a flat array is set
   on the block alone.
+
+The experiments (open questions 5 and 6)
+----------------------------------------
+
+The scratch programs are in ``benchmark/flat-layout/stageb`` (``Hint.idr``
+and ``Main.idr``; ``FlatArr.idr`` and ``Particles.idr``, a stand-in for
+``Data.Linear.Array`` and W1's ``sweep``; ``Spec.idr``; ``access.c``).
+
+- **``%defaulthint`` does not fire early.**  With an opaque descriptor type,
+  a default hint for every type, and hints for ``Double`` and ``Maybe a``:
+  ``mk 3 (\a => useDouble a)``, where the element type is only known from
+  the continuation (elaborated after the auto implicit), gets the ``Double``
+  descriptor; so do ``Maybe Double`` known later, an explicit ``{t =
+  Double}``, a type known from a later expression of a ``do`` block, and a
+  generic function that has the constraint and is called at ``Double``.  A
+  generic function without the constraint gets the default.  That is the
+  behaviour the design needs.
+- **``%spec`` and ``%inline`` cannot be put on a method of an
+  implementation** (both are parse errors in an implementation's body).
+- **With a descriptor of a data type**, W1's ``sweep`` calls the method
+  implementation of ``mread`` directly (no dictionary), with the hint as a
+  constant argument (``FlatArr.mread [(Main.layoutParticle []), a, i]``),
+  but the method is not inlined, so inside it the descriptor is a variable
+  and the access is the generic one.  Making the methods ``%inline``
+  wrappers of top level ``%inline`` functions (allowed) inlines those into
+  the method, not the method into ``sweep``.
+- **With the descriptor as an interface and ``--spec-interfaces``**, the
+  calls of ``mread`` and ``newA`` in ``sweep`` and ``main`` become calls of
+  specialised copies (``_PE.Main.PE_mread_MArr_LinA_...``) whose primitive
+  gets the descriptor as a constant term.  The call of ``write`` was not
+  specialised: its interface arguments are listed as ``[__con, {i_con:0}]``
+  (the ``MArr`` dictionary as well as ``Flat``), and no copy is declared; I
+  did not find why.  ``--spec-interfaces`` is not on by default.
+
+So, for the phase 0 programs as they are written (no annotation, default
+options), the descriptor is a constant at the call of the method but not at
+the access inside it.  The design needs one of:
+
+1. specialisation by ``Flat`` implementations always on (the part of
+   ``--spec-interfaces`` that concerns ``Flat`` arguments, as if every
+   function with a ``Flat`` argument were ``%spec`` on it), with the
+   ``write`` case found and fixed.  This is the recommendation: the
+   machinery exists, and it gives the constant at every access that is
+   reached from monomorphic code;
+2. or a specialisation by constant arguments in the RefC code generator (a
+   copy of a function for a call whose descriptor argument is a known top
+   level constant);
+3. or relying on the C compiler: the descriptor is the address of a static
+   constant, so where GCC inlines the method into its caller (phase 0
+   observed that it inlines ``mread`` into ``sweep``) the dispatch folds.
+   Not reliable: units of a split program are compiled apart.
+
+The generic path stays correct in every case.
+
+**The C of one access**, with the slot layout of ``Maybe Particle`` (a tag
+byte padded to 8, then 40 bytes), compiled with ``-O2`` (``access.c`` and
+``one.c``):
+
+- ``write`` with a constant descriptor: 17 instructions out of line (the id
+  compare, the bounds check, the slot address, the tag and three 16/8 byte
+  moves);
+- ``mread`` with a constant descriptor: 38 instructions out of line, of
+  which about 20 are the copy of the 48 byte ``Maybe Particle`` result
+  through memory and the stack protector; inlined, the result stays in
+  registers;
+- the guard on the descriptor is 2 of them (a 64 bit constant and a
+  compare with the array's id).
+
+A whole W1 update (two reads, ``move``, one write, the loop) is 95
+instructions with the constant descriptor and 515 through the generic path
+(each read makes a record cell and a ``Just``, each write is given a cell),
+against 133 for phase 0's FD and 663 for SA.
 
 Flat values in locals, parameters and results (stage C)
 -------------------------------------------------------
@@ -531,27 +749,26 @@ Alternatives rejected
 Open questions
 ==============
 
-1. **The API change of ``MkCon`` and friends**: back ends outside this
-   repository that match on ``MkNmCon`` (positionally) have one more
-   argument.  Alternative: keep the four constructors as they were and
-   expose the table through a function of ``CompileData``.  The table being
-   in the definition is what makes it survive every pass, so the change was
-   made.
-2. **Enumerations as ``FPrim Bits8``**: correct for every back end (the
-   enumeration optimisation is in the shared ``CExp``), but it ties the table
-   to that optimisation.  If it is ever made back end specific, the table
-   needs an ``FEnum k`` instead.
-3. **Newtypes see-through only for monomorphic newtypes**: ``Identity Double``
+Decided (by the coordinator, 2026-11-20): the table stays in ``MkCon`` and
+friends (an API change for back ends outside this repository that match
+``MkNmCon`` positionally); enumerations stay ``FPrim Bits8/16/32`` through
+``enumPrimType``; stage A stores raw only ``rawField`` types (``Double``,
+``Int``, ``Int64``, ``Bits64``); no sums other than ``Maybe`` in arrays;
+stage A first, then B and C together.
+
+Still open:
+
+1. **Newtypes see-through only for monomorphic newtypes**: ``Identity Double``
    could be ``Double`` by substituting the type arguments into the newtype's
    field type.  Not done: the table would depend on the arguments of a type,
    which no use site has.
-4. **Raw ``Char`` and small integers**: they are immediates today, so raw
-   storage saves little; storing them raw makes every match bind C values,
-   which is what ``Unbox.idr`` wants anyway.  Decide with stage A's
-   measurements (the self-build of the compiler has many records of
-   ``Int``\ s and ``Bool``\ s).
-5. **``believe_me`` audit** before stage A is on by default (see above).
-6. **``%defaulthint`` behaviour** for ``Layout`` (stage B), and whether the
-   generated ``Layout`` hints slow down the search for other hints.
-7. **Sums**: arrays of ``Either Int Double``, or records with an enumeration
-   and a payload, are not flat in this design.  ``LMaybe`` is the only sum.
+2. **Raw ``Char``, ``Bool`` and the small integers**: left as immediates;
+   to revisit with the self-build numbers of stage A.
+3. **Stage B's specialisation**: which of the three ways makes the
+   descriptor a constant at the accesses (see the experiments; the
+   recommendation is specialisation by ``Flat`` implementations always on),
+   why ``write`` is not specialised by ``--spec-interfaces`` in the
+   experiment, and whether the generated ``Flat`` implementations slow down
+   the search for other hints.
+4. **The debug check** ``refc-check-layout``: whether to make it part of
+   ``refc-backtrace``'s debugging set or a directive of its own.
