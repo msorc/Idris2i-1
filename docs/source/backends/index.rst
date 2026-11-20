@@ -92,6 +92,7 @@ You can set the code generator at the REPL with the ``:set cg`` command
    gambit
    javascript
    refc
+   refc-flat-layout
    custom
    backend-cookbook
 
