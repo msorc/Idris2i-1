@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 --cg refc --directive refc-check-layout -o main Main.idr
+./build/exec/main 2>&1

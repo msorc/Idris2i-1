@@ -256,6 +256,7 @@ data ValueFns : Type where
 data UnboxedVars : Type where
 data Workers : Type where
 data ForeignWorkers : Type where
+data RawCons : Type where
 data IntSigs : Type where
 data FunctionDefinitions : Type where
 data IndentLevel : Type where
@@ -410,7 +411,7 @@ staticShape _ = False
 ||| the right size, with the directive `refc-size-reuse`; otherwise the name of
 ||| the constructor, as before.
 ReuseKey : Type
-ReuseKey = Either Name (Nat, Bool)
+ReuseKey = Either Name (Nat, Bool, String)
 
 ||| A cell that a constructor may take over (see `addReuseConstructor`): the
 ||| C variable that holds it (NULL at run time when the scrutinee was not
@@ -419,7 +420,11 @@ record ReuseCell where
   constructor MkReuseCell
   cellVar : String
   cellCon : Name
+  ||| the variables of its pointer fields, by slot (all its fields, but for
+  ||| a constructor with raw fields, see `RawLayout`)
   cellFields : List Int
+  ||| the variables of its raw fields, by raw slot
+  cellRaws : List Int
 
 ||| The cells that constructors may take over, by key, in the order in which
 ||| they were kept.  There may be several of a key: a `case` in a `case` that
@@ -433,6 +438,63 @@ Owned = SortedSet AVar
 ||| The cells of the key `k`.
 cellsOf : ReuseKey -> ReuseMap -> List ReuseCell
 cellsOf k m = fromMaybe [] (lookup k m)
+
+------------------------------------------------------------------------
+-- Raw fields (stage A of docs/source/backends/refc-flat-layout.rst)
+--
+-- The fields of a constructor whose table (`FieldRep`, see Core.FieldRep)
+-- says that they always hold a `Double`, an `Int`, an `Int64` or a `Bits64`
+-- (`rawField`) are stored raw in its cell, after its pointer fields, which
+-- `total` counts: the runtime never looks at them (see
+-- idris2_newRawConstructor).  A field matched is a C number of its type (a
+-- variable that Compiler.RefC.Unbox may keep unboxed, or a new value made
+-- from it), and one built is stored from a C number.  Not for the
+-- constructors told apart by their names (tag -1), nor with
+-- `--directive refc-no-raw-fields`.
+
+||| Where the fields of a constructor with raw fields are: a pointer slot
+||| (`Left k`, `args[k]`) or a raw slot of a C number type (`Right (j, t)`).
+public export
+record RawLayout where
+  constructor MkRawLayout
+  ptrCount : Nat
+  rawCount : Nat
+  slots : List (Either Nat (Nat, PrimType))
+
+||| The C number type in which a raw field of this representation is kept.
+rawFieldType : FieldRep -> Maybe PrimType
+rawFieldType f@(FPrim t) = if rawField f then unboxedType t else Nothing
+rawFieldType FBoxed = Nothing
+
+||| The layout of a constructor with the fields `fs`, if one of them is raw.
+rawLayout : List FieldRep -> Maybe RawLayout
+rawLayout fs
+    = let ts = map rawFieldType fs in
+          if all isNothing ts then Nothing
+             else let (np, nr, sl) = foldl step (Z, Z, [<]) ts in
+                      Just (MkRawLayout np nr (sl <>> []))
+  where
+    step : (Nat, Nat, SnocList (Either Nat (Nat, PrimType))) -> Maybe PrimType
+        -> (Nat, Nat, SnocList (Either Nat (Nat, PrimType)))
+    step (np, nr, sl) Nothing = (S np, nr, sl :< Left np)
+    step (np, nr, sl) (Just t) = (np, S nr, sl :< Right (nr, t))
+
+||| The arguments of a constructor application, or binders of a match, that
+||| are in pointer slots, in slot order, and those in raw slots (with their
+||| types).
+splitFields : RawLayout -> List a -> (List a, List (a, PrimType))
+splitFields l xs = go l.slots xs [<] [<]
+  where
+    go : List (Either Nat (Nat, PrimType)) -> List a -> SnocList a -> SnocList (a, PrimType)
+      -> (List a, List (a, PrimType))
+    go (Left _ :: sl) (x :: xs) ps rs = go sl xs (ps :< x) rs
+    go (Right (_, t) :: sl) (x :: xs) ps rs = go sl xs ps (rs :< (x, t))
+    go _ _ ps rs = (ps <>> [], rs <>> [])
+
+||| The C lvalue of the raw slot `j` of the cell `c` (a C expression) of a
+||| constructor with `np` pointer fields.
+rawSlot : String -> Nat -> Nat -> PrimType -> String
+rawSlot c np j t = "idris2_rawField(\{c}, \{show np}, \{show j}, \{cIntType t})"
 
 ------------------------------------------------------------------------
 -- Foreign structs (`Struct` of System.FFI)
@@ -688,6 +750,10 @@ record Env where
   workers : SortedMap String Worker
   ||| The workers of the foreign functions (see `foreignWorker`), by C name.
   foreignWorkers : SortedMap String Worker
+  ||| The constructors with raw fields (see `RawLayout`).
+  rawCons : SortedMap Name RawLayout
+  ||| `--directive refc-check-layout` (see IDRIS2_CHECK_LAYOUT)
+  checkLayout : Bool
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -1455,7 +1521,19 @@ tailApply fc call = do
 ||| `nargs` fields, may take over (see `ReuseKey`).
 reuseKey : Env -> Name -> Maybe Int -> Nat -> ReuseKey
 reuseKey env n tag nargs
-    = if env.sizeReuse then Right (nargs, isNothing (conTag tag)) else Left n
+    -- (a cell with raw fields is taken over by the constructors of the same
+    -- layout only, which have their fields in the same slots, see
+    -- `RawLayout`: the layout is part of the key)
+    = if env.sizeReuse
+         then Right (nargs, isNothing (conTag tag), maybe "" (show . slots) (lookup n env.rawCons))
+         else Left n
+
+||| The arguments of a constructor application that go in pointer slots (all
+||| of them but for a constructor with raw fields).
+ptrArgs : Env -> Name -> List AVar -> List AVar
+ptrArgs env n args = case lookup n env.rawCons of
+    Just l => fst (splitFields l args)
+    Nothing => args
 
 ||| Is the variable the one that was loaded from field `k` of a cell whose
 ||| fields were loaded in the variables `fieldVars`?  (A variable is bound
@@ -1494,7 +1572,7 @@ builtCons : Env -> ANF -> List (ReuseKey, List AVar)
 builtCons env (ALet _ _ value body) = builtCons env value ++ builtCons env body
 builtCons env (ACon _ n ci tag args)
     = let k = length args in
-          if allocates ci k then [(reuseKey env n tag k, args)] else []
+          if allocates ci k then [(reuseKey env n tag k, ptrArgs env n args)] else []
 builtCons env (AConCase _ _ alts def)
     = concatMap (\(MkAConAlt _ _ _ _ b) => builtCons env b) alts ++ maybe [] (builtCons env) def
 builtCons env (AConstCase _ _ alts def)
@@ -1575,10 +1653,11 @@ dropUnusedOwnedVars owned usedVars =
 ||| - It is not dropped: the fields that are used get references.
 matchedFields : {auto oft : Ref OutfileText Output}
              -> {auto il : Ref IndentLevel Nat}
-             -> Env -> (sc : String) -> (keep : Maybe String) -> (alloc : String) -> (fieldVars : List Int)
+             -> Env -> (sc : String) -> (keep : Maybe String) -> (alloc : String)
+             -> (rawCopy : Maybe (String -> String)) -> (fieldVars : List Int)
              -> (used : SortedSet AVar) -> (shouldDrop : List String)
              -> Core (List String)
-matchedFields env sc keep alloc fieldVars used shouldDrop = do
+matchedFields env sc keep alloc rawCopy fieldVars used shouldDrop = do
     let conArgs = map (varName . ALocal) fieldVars
     let dropped = isJust (find (== sc) shouldDrop)
     let unused = filter (`elem` shouldDrop) conArgs
@@ -1605,6 +1684,8 @@ matchedFields env sc keep alloc fieldVars used shouldDrop = do
             for_ indexed $ \(k, v) => emit EmptyFC $
               if isUnused v then "\{constr}->args[\{show k}] = NULL;"
                  else "\{constr}->args[\{show k}] = idris2_newReference(((Idris2_Constructor*)\{sc})->args[\{show k}]);"
+            -- (the raw fields of a cell with raw fields are copied as they are)
+            whenJust rawCopy $ \c => emit EmptyFC (c constr)
             emit EmptyFC "idris2_dropSharedReference(\{sc});"
             decreaseIndentation
             emit EmptyFC "}"
@@ -1746,7 +1827,8 @@ mutual
                   then Just (MkStaticVal "idris2_nullaryConstructor(\{show t})" [] 0)
                   else Nothing
                (_, Just t) =>
-                  if env.staticOK && length args <= 255
+                  -- (not a constructor with raw fields, see `RawLayout`)
+                  if env.staticOK && length args <= 255 && isNothing (lookup n env.rawCons)
                      && null (cellsOf (reuseKey env n tag (length args)) env.reuseMap)
                      then case the (Maybe (List StaticVal)) (traverse field args) of
                             Just fields =>
@@ -2020,15 +2102,31 @@ mutual
             case (trmcPlan cName self (length params) anf, value) of
               (TrmcSite k, AAppName fc1 _ f as) =>
                 let (borrows, pairs) = withSignature env f as in
-                    if not borrows || tailBorrowsOK env pairs
-                       then trmcSite env k fc1 f as
-                       else plainLet env
+                    case holeSlot env k of
+                      Just slot =>
+                        if not borrows || tailBorrowsOK env pairs
+                           then trmcSite env slot fc1 f as
+                           else plainLet env
+                      -- (the field of the call is raw: not with a well
+                      -- typed program, the call is made first then)
+                      Nothing => plainLet env
               -- (the lets that compute the arguments, and those of values
               -- that only allocate, come first)
               (TrmcReorder anf', _) => cStatementsFromANF anf' InTailPosition
               _ => plainLet env
           _ => plainLet env
       where
+        -- The pointer slot of the field `k` of the cell of the body, which
+        -- is the hole (see `RawLayout`).
+        holeSlot : Env -> Nat -> Maybe Nat
+        holeSlot env k = case body of
+            ACon _ n _ _ _ => case lookup n env.rawCons of
+                Just l => case getAt k l.slots of
+                            Just (Left p) => Just p
+                            _ => Nothing
+                Nothing => Just k
+            _ => Just k
+
         plainLet : Env -> Core String
         plainLet env = if isJust (lookup var env.unboxed)
                           then letInt fc var value body (AValue InTailPosition)
@@ -2084,9 +2182,34 @@ mutual
                 pure "\{sv.expr} /* \{show n} */"
 
         allocConstructor env = do
-                let createNewConstructor = case conTag tag of
-                      Just t => " = idris2_newConstructor(\{show (length args)}, \{show t});"
-                      Nothing => " = idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName n});"
+                -- (a constructor with raw fields: the fields in pointer
+                -- slots are filled as those of the others, the raw ones from
+                -- C numbers, see `RawLayout`)
+                let layout = the (Maybe RawLayout) (lookup n env.rawCons)
+                let (pargs, rargs) = maybe (args, []) (\l => splitFields l args) layout
+                let np = length pargs
+                let nr = length rargs
+                let createNewConstructor = case (conTag tag, layout) of
+                      (Just t, Just _) => " = idris2_newRawConstructor(\{show np}, \{show nr}, \{show t});"
+                      (Just t, Nothing) => " = idris2_newConstructor(\{show (length args)}, \{show t});"
+                      (Nothing, _) => " = idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName n});"
+                let rawStores : List (Nat, AVar, PrimType) = zipWith (\j, (v, t) => (j, v, t)) [0 .. nr] rargs
+                -- the C number of a raw field
+                let rawValue : AVar -> PrimType -> String
+                      = \v, t => case v of
+                          ANull => "0"
+                          ALocal i => case lookup i env.unboxed of
+                            Just t' => if t' == t then intVarName i
+                                          else "(\{cIntType t})\{intVarName i}"
+                            Nothing => unboxC t (varName v)
+                let storeRaw : String -> (Nat, AVar, PrimType) -> Core ()
+                      = \c, (j, v, t) => emit EmptyFC "\{rawSlot c np j t} = \{rawValue v t};"
+                -- The values that only raw fields take, which we own, are
+                -- released once they are stored.
+                let rawReleases : List String
+                      = map varName $ Prelude.toList $
+                          difference (intersection env.owned (fromList (map fst rargs)))
+                                     (fromList pargs)
 
                 emit fc " // constructor \{show n}"
                 let key = reuseKey env n tag (length args)
@@ -2098,8 +2221,16 @@ mutual
                         -- The values of the fields, in the order in which
                         -- `fillArgs` would make them (a variable that is
                         -- used twice is taken over the first time).
-                        let fields = zip3 [0 .. length args] args
-                                          (avarsToC env env.owned args)
+                        let fields = zip3 [0 .. length pargs] pargs
+                                          (avarsToC env env.owned pargs)
+                        -- (a raw field that gets the C number read from the
+                        -- same field of the cell is not stored again)
+                        let unchangedRaw : (Nat, AVar, PrimType) -> Bool
+                              = \(j, v, _) => (env.reuseCopy || env.sizeReuse || isJust layout)
+                                                && case v of
+                                                     ALocal i => getAt j (cellRaws cell) == Just i
+                                                     ANull => False
+                        let (rawKept, rawStored) = partition unchangedRaw rawStores
                         -- A field that gets the variable loaded from the
                         -- same field of the cell already holds it when the
                         -- cell is taken over: only the reference that the
@@ -2130,6 +2261,7 @@ mutual
                              increaseIndentation
                              emit fc $ constr ++ createNewConstructor
                              for_ kept $ \(k, _, e) => emit EmptyFC "\{constr}->args[\{show k}] = \{e};"
+                             traverse_ (storeRaw constr) rawKept
                              decreaseIndentation
                              if null dups && not retag
                                 then emit fc "}"
@@ -2141,11 +2273,15 @@ mutual
                                   decreaseIndentation
                                   emit fc "}"
                         for_ stored $ \(k, _, e) => emit EmptyFC "\{constr}->args[\{show k}] = \{e};"
+                        traverse_ (storeRaw constr) rawStored
+                        removeVars rawReleases
                         pure "(Idris2_Value*)\{constr}"
                     [] => do
                         let constr = "constructor_\{!(getNextCounter)}"
                         emit fc $ "Idris2_Constructor* " ++ constr ++ createNewConstructor
-                        fillArgs env "\{constr}->args" args 0
+                        fillArgs env "\{constr}->args" pargs 0
+                        traverse_ (storeRaw constr) rawStores
+                        removeVars rawReleases
                         pure "(Idris2_Value*)\{constr}"
 
     cStatementsFromANF (AOp fc _ op args) _ = do
@@ -2367,7 +2503,15 @@ mutual
         altBody env switchReturnVar (MkAConAlt name coninfo tag args body) = do
             let sc' = varName sc
             let erased = erasedCon coninfo
-            let conArgs = ALocal <$> args
+            -- The fields in pointer slots, which are values that the cell
+            -- holds, and the raw fields (see `RawLayout`), which are C
+            -- numbers: a raw field is read into a C number when it is
+            -- unboxed (see Compiler.RefC.Unbox), into a new value otherwise.
+            let layout = lookup name env.rawCons
+            let (ptrBinders, rawBinders) = maybe (args, []) (\l => splitFields l args) layout
+            let np = length ptrBinders
+            let nr = length rawBinders
+            let conArgs = ALocal <$> ptrBinders
             -- The fields of a borrowed value are borrowed (see
             -- Compiler.RefC.Borrow): it keeps them alive.  Those of a value
             -- that we hold are ours (we take references to them, or take
@@ -2391,18 +2535,36 @@ mutual
             -- copy would be made for nothing.)
             let key = reuseKey env name tag (length args)
             -- (a new cell of the constructor, for the copy)
-            let alloc = case conTag tag of
-                  Just t => "idris2_newConstructor(\{show (length args)}, \{show t})"
-                  Nothing => "idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName name})"
+            let alloc = case (conTag tag, layout) of
+                  (Just t, Just _) => "idris2_newRawConstructor(\{show np}, \{show nr}, \{show t})"
+                  (Just t, Nothing) => "idris2_newConstructor(\{show (length args)}, \{show t})"
+                  (Nothing, _) => "idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName name})"
+            let rawCopy : Maybe (String -> String)
+                  = map (\_ => \c => "idris2_copyRawFields(\{c}, \{sc'}, \{show np}, \{show nr});") layout
             let (dropReuseCons, outerCells) = dropUnusedReuseCons env body env.reuseMap
             keep <- the (Core (Maybe String)) $ if not scBorrowed && scDropped && not (null args)
                          && length (cellsOf key outerCells) < fromMaybe 0 (lookup key (reuseNeeds env body))
                        then Just . ("constructor_" ++) <$> getNextCounter
                        else pure Nothing
             let actualReuseMap : ReuseMap = case keep of
-                  Just c => insert key (cellsOf key outerCells ++ [MkReuseCell c name args]) outerCells
+                  Just c => insert key (cellsOf key outerCells ++ [MkReuseCell c name ptrBinders (map fst rawBinders)]) outerCells
                   Nothing => outerCells
             increaseIndentation
+            when (env.checkLayout && not erased && not (null args)) $
+              emit emptyFC "IDRIS2_CHECK_LAYOUT(\{sc'}, \{show np}, \{cStringQuoted (show name)});"
+            -- The raw fields that the body uses, read before the cell may be
+            -- freed or taken over; those that are not C numbers are new
+            -- values, which the body owns.
+            rawValues <- foldlC (\acc, (j, (v, t)) =>
+                if not (contains (ALocal v) usedVars) then pure acc else
+                  case lookup v env.unboxed of
+                    Just t' => do
+                      emit emptyFC "\{cIntType t'} \{intVarName v} = \{rawSlot sc' np j t};"
+                      pure acc
+                    Nothing => do
+                      emit emptyFC "Idris2_Value *var_\{show v} = \{boxC t (rawSlot sc' np j t)};"
+                      pure (insert (ALocal v) acc))
+                (the Owned empty) (zip [0 .. length rawBinders] rawBinders)
             shouldDrop <-
                 if scBorrowed
                    then do
@@ -2410,12 +2572,12 @@ mutual
                      _ <- foldlC (\k, arg => do
                          when (contains (ALocal arg) usedVars) $
                            emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
-                         pure (S k) ) 0 args
+                         pure (S k) ) 0 ptrBinders
                      pure shouldDrop
-                   else matchedFields env sc' keep alloc args usedVars shouldDrop
+                   else matchedFields env sc' keep alloc rawCopy ptrBinders usedVars shouldDrop
             removeVars shouldDrop
             removeReuseConstructors env dropReuseCons
-            put EnvTracker ({ owned := actualOwned, reuseMap := actualReuseMap
+            put EnvTracker ({ owned := union rawValues actualOwned, reuseMap := actualReuseMap
                             , borrowed := if scBorrowed then SortedSet.union (fromList conArgs) env.borrowed
                                                          else env.borrowed
                             , statics $= case (immortal, sc) of
@@ -2792,6 +2954,10 @@ record RefCOptions where
   optMultiReuse : Bool
   ||| not `--directive refc-no-reuse-copy` (see `matchedFields`)
   optReuseCopy : Bool
+  ||| not `--directive refc-no-raw-fields` (see `RawLayout`)
+  optRawFields : Bool
+  ||| `--directive refc-check-layout` (see IDRIS2_CHECK_LAYOUT)
+  optCheckLayout : Bool
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
@@ -2804,6 +2970,8 @@ refcOptions = do
                          (not ("refc-no-unbox-double" `elem` ds))
                          (not ("refc-no-multi-reuse" `elem` ds))
                          (not ("refc-no-reuse-copy" `elem` ds))
+                         (not ("refc-no-raw-fields" `elem` ds))
+                         ("refc-check-layout" `elem` ds)
 
 ||| A definition with the casts of Integer literals to fixed width integers
 ||| made literals (see `foldIntegerCasts`).
@@ -2827,6 +2995,9 @@ record Program where
   ||| the variants of the foreign functions that take or give C doubles
   ||| (see `foreignWorker`)
   foreignWorkers : SortedMap String Worker
+  ||| the types of the raw fields of the constructors that have some (see
+  ||| `RawLayout`), field by field
+  rawFields : SortedMap Name (List (Maybe PrimType))
 
 ||| The calls of the function `cn`, with `nargs` parameters, that `loops`
 ||| (calls itself in tail position).
@@ -2843,6 +3014,8 @@ callsOf p cn nargs loops
                            if length w.params == k then Just (w.params, w.rawResult)
                                                    else Nothing)
               (not (null (SortedMap.toList p.foreignWorkers)))
+              (\n => lookup n p.rawFields)
+              (not (null (SortedMap.toList p.rawFields)))
   where
     worker : String -> Nat -> Maybe Worker
     worker m k = do guard p.anyWorkers
@@ -2887,10 +3060,11 @@ analyseFun p workers trmc cn args anf sig
 unboxedProgram : {auto c : Ref Ctxt Defs}
               -> (withWorkers : Bool) -> (doubles : Bool)
               -> (foreignWorkers : SortedMap String Worker)
+              -> (rawFields : SortedMap Name (List (Maybe PrimType)))
               -> SortedMap String Nat -> SortedMap String Nat
               -> List (String, Name, List Int, ANF, Bool)
               -> Core (SortedMap String (SortedMap Int PrimType), SortedMap String Worker)
-unboxedProgram withWorkers doubles fws foreigns valueFns funs = do
+unboxedProgram withWorkers doubles fws rfs foreigns valueFns funs = do
     let byName = SortedMap.fromList (map (\f@(cn, _, _, _, _) => (cn, f)) funs)
     let callers = foldl (\m, (cn, _, _, anf, _) =>
                            foldl (\m', g => insert g (cn :: fromMaybe [] (lookup g m')) m')
@@ -2933,7 +3107,7 @@ unboxedProgram withWorkers doubles fws foreigns valueFns funs = do
       -> Core (SortedMap String (SortedMap Int PrimType), SortedMap String Worker)
     go Z _ _ us ws _ = pure (us, ws)
     go (S k) byName callers us ws todo
-        = do let p = MkProgram foreigns valueFns ws (not (null (SortedMap.toList ws))) doubles fws
+        = do let p = MkProgram foreigns valueFns ws (not (null (SortedMap.toList ws))) doubles fws rfs
              (us1, ws1, changed) <- foldlC (\(us', ws', changed), cn =>
                  case lookup cn byName of
                    Nothing => pure (us', ws', changed)
@@ -3030,6 +3204,7 @@ createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto uv : Ref UnboxedVars (SortedMap String (SortedMap Int PrimType))}
                 -> {auto wk : Ref Workers (SortedMap String Worker)}
                 -> {auto fw : Ref ForeignWorkers (SortedMap String Worker)}
+                -> {auto rc : Ref RawCons (SortedMap Name RawLayout)}
                 -> {auto a : Ref ArgCounter Nat}
                 -> {auto _ : Ref ConstDef ConstTable}
                 -> {auto f : Ref FunctionDefinitions (SortedMap String (List String))}
@@ -3122,7 +3297,8 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                               !(get ValueFns) trmc empty opts.optStatics
                               structs
                               (if usesStructFields anf then stringLets anf empty else empty)
-                              !(get Workers) !(get ForeignWorkers))
+                              !(get Workers) !(get ForeignWorkers)
+                              !(get RawCons) opts.optCheckLayout)
     if trmc
        then do
          assignResult "*idris2_trmc_hole" !(cStatementsFromANF anf InTailPosition)
@@ -3790,6 +3966,18 @@ generateCSourceFileParts defs0 outn =
      -- borrowed, of every function (see Compiler.RefC.Unbox and
      -- Compiler.RefC.Borrow).
      foreigns <- get Foreigns
+     -- The constructors with raw fields (see `RawLayout`), by the names that
+     -- the expressions have (made stable as theirs are).
+     opts0 <- refcOptions
+     let rawCons : SortedMap Name RawLayout
+           = if not opts0.optRawFields then empty
+               else fromList $ mapMaybe (\(cn, (_, d)) => case d of
+                      MkACon tag _ _ fs => do
+                        _ <- conTag tag
+                        l <- rawLayout fs
+                        pure (cn, l)
+                      _ => Nothing) (zip canons defs)
+     _ <- newRef RawCons rawCons
      let named = map (\(cn, (n, d)) => (cName cn, n, d)) (zip canons defs)
      traverse_ (\(_, n, d) => checkArity n d) named
      -- The functions whose calls need no trampoline (see `returnsValue`).
@@ -3834,7 +4022,9 @@ generateCSourceFileParts defs0 outn =
                       pure (cn, w)
                  _ => Nothing) named
      _ <- newRef ForeignWorkers foreignWorkers
-     (unboxed, workers) <- unboxedProgram (not noWorkersDir) opts.optDoubles foreignWorkers foreigns valueFns funs
+     (unboxed, workers) <- unboxedProgram (not noWorkersDir) opts.optDoubles foreignWorkers
+                             (map (\l => map (either (const Nothing) (Just . snd)) l.slots) rawCons)
+                             foreigns valueFns funs
      _ <- newRef UnboxedVars unboxed
      _ <- newRef Workers workers
      log "compiler.refc" 5 $ "Workers: " ++ show (length (SortedMap.toList workers))

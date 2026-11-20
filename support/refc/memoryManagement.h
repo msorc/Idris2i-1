@@ -220,6 +220,44 @@ static inline Idris2_Constructor *idris2_newConstructor(int total, int tag) {
   return retVal;
 }
 
+// A constructor with raw fields (see docs/source/backends/refc-flat-layout.rst):
+// its `np` pointer fields, which `total` counts (so that the release, the
+// marking of shared values and the leak check never look further), then `nr`
+// raw fields of 8 bytes each (a double, an int64_t or a uint64_t), from the
+// first offset after the pointer fields that is a multiple of 8.  The raw
+// field `j` (from 0) of the C type `T` is `idris2_rawField(c, np, j, T)`.
+#define IDRIS2_RAW_OFFSET(np)                                                  \
+  ((sizeof(Idris2_Constructor) + (size_t)(np) * sizeof(Idris2_Value *) + 7) &  \
+   ~(size_t)7)
+#define IDRIS2_RAW_SIZE(np, nr) (IDRIS2_RAW_OFFSET(np) + 8 * (size_t)(nr))
+#define idris2_rawField(c, np, j, T)                                           \
+  (*(T *)((char *)(c) + IDRIS2_RAW_OFFSET(np) + 8 * (size_t)(j)))
+
+static inline Idris2_Constructor *idris2_newRawConstructor(int np, int nr,
+                                                            int tag) {
+  Idris2_Constructor *retVal =
+      (Idris2_Constructor *)idris2_newValue(IDRIS2_RAW_SIZE(np, nr));
+  retVal->header.tag = CONSTRUCTOR_TAG;
+  retVal->total = (uint16_t)np;
+  retVal->tag = (int16_t)tag;
+  return retVal;
+}
+
+// Copy the raw fields of a cell to another cell of the same constructor.
+#define idris2_copyRawFields(dst, src, np, nr)                                 \
+  memcpy((char *)(dst) + IDRIS2_RAW_OFFSET(np),                                \
+         (char *)(src) + IDRIS2_RAW_OFFSET(np), 8 * (size_t)(nr))
+
+// `--directive refc-check-layout`: a cell matched as the constructor `name`
+// (a C string literal) has the number of pointer fields of that constructor.
+// After a `believe_me` between data types laid out differently, it may not.
+#define IDRIS2_CHECK_LAYOUT(c, np, name)                                       \
+  do {                                                                         \
+    if (((Idris2_Constructor *)(c))->total != (np))                            \
+      idris2_crashMsg("refc-check-layout: a value matched as " name            \
+                      " is not laid out as one");                               \
+  } while (0)
+
 // A constructor that is told apart by its name instead of a tag.
 static inline Idris2_Constructor *
 idris2_newNamedConstructor(int total, char const *name) {

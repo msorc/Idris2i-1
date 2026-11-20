@@ -751,6 +751,26 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* The fields of a constructor whose type says that they always hold a
+  `Double`, an `Int`, an `Int64` or a `Bits64` are stored in its cell as C
+  numbers, after the fields that are values (`total` counts these only, so
+  the runtime never looks at the others): a record of four `Double` and an
+  `Int` is one cell of 48 bytes instead of a cell and four boxes.  A field
+  matched is a C number (a variable that the unboxing keeps in a C `double`
+  or `int64_t`), a constructor is built from C numbers, a cell taken over by
+  a constructor of the same layout keeps the raw fields that do not change,
+  and the copy made when it is shared copies them as they are.  Instructions:
+  a particle simulation on an array of records 2.09 times fewer, an n-body
+  simulation 3.1, a Mandelbrot set on records of two `Double` 5.0, a heap of
+  records of `Int` 1.08, lists and trees of `Int` 1.07; the five programs of
+  `benchmark/` the same; the compiler compiled by itself type checks
+  `libs/prelude` in 1.6% fewer instructions, and its C compiles in the same
+  time.  `--directive refc-no-raw-fields` turns it off;
+  `--directive refc-check-layout` makes every match test the number of
+  pointer fields of the cell (after a `believe_me` between types laid out
+  differently, which is undefined behaviour).  Code that reads such a cell in
+  C uses `idris2_rawField`.  The tests `refc/rawfields001` and
+  `refc/rawfields002`; the design in `docs/source/backends/refc-flat-layout.rst`.
 * The values that do not come from the pools (larger than 256 bytes, or all
   of them under Valgrind or with `IDRIS2_REFC_NO_POOLS`) are aligned on 8
   bytes on 32 bit platforms too (they were aligned on the size of a pointer),

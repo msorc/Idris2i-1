@@ -24,6 +24,6 @@ ping: Idris2_Value *idris2_raw_Main_ping
 pong: Idris2_Value *idris2_raw_Main_pong
 goC: Idris2_Value *idris2_raw_Main_goC
 bounce: Idris2_Value *idris2_raw_Main_bounce
-keyOf: 
+keyOf: uint64_t idris2_raw_Main_keyOf
 fnv makes values: 0
 ping jumps to pong: 1

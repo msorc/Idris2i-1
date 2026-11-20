@@ -301,6 +301,23 @@ The code generator does the following, each of which a directive turns off
   the fields that it leaves where they are.  With the directive, the
   constructor allocates a cell (and stores every field) when the value was
   not unique.
+- ``refc-no-raw-fields``: the fields of a constructor whose type says that
+  they always hold a ``Double``, an ``Int``, an ``Int64`` or a ``Bits64``
+  (a field of that type, or of a newtype of it; see ``Core.FieldRep``) are
+  stored in its cell as C numbers, after the fields that are values, instead
+  of being values themselves (a ``Double`` is a cell of its own otherwise):
+  a record of four ``Double`` is one cell instead of five.  A field is read
+  as a C number, and a constructor is built from C numbers, with no value
+  made where none is needed (see ``refc-no-unbox-double``).  Code that
+  reads the fields of such a cell in C (through ``AnyPtr``, say) must use
+  ``idris2_rawField`` (see ``memoryManagement.h``): ``total`` counts the
+  fields that are values only.  A ``believe_me`` between two data types
+  whose constructors lay their fields out differently is undefined
+  behaviour, as it is between types that the enumeration and newtype
+  optimisations represent differently; ``--directive refc-check-layout``
+  makes every match on a constructor test that the cell has its number of
+  fields that are values, and stop with a message otherwise.
+  The design is in :doc:`refc-flat-layout`.
 - ``refc-no-lazy-constants``: an expression that occurs several times inside
   delayed code is a constant like the other repeated expressions, evaluated
   the first time that it is needed, instead of a delayed constant that is

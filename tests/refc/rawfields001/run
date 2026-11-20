@@ -1,0 +1,19 @@
+. ../../testutils.sh
+
+idris2 --cg refc -o main Main.idr
+$VALGRIND ./build/exec/main
+
+# The cells of Mixed: one header, two pointer fields (the String, the List),
+# the Bits8 as an immediate in a third, and four raw fields.
+grep -c "idris2_newRawConstructor(3, 4, 0)" build/exec/main.c | sed 's/^[1-9][0-9]*$/Mixed built raw/'
+grep -q "idris2_rawField(.*, 3, 0, double)" build/exec/main.c && echo "Mixed read raw"
+
+# The same, with the raw fields switched off, and with the layout checked.
+idris2 --cg refc --directive refc-no-raw-fields -o boxed Main.idr
+./build/exec/boxed > boxed.out
+./build/exec/main | diff - boxed.out && echo "same output without raw fields"
+grep -c "idris2_rawField" build/exec/boxed.c
+idris2 --cg refc --directive refc-check-layout -o checked Main.idr
+./build/exec/checked | diff - boxed.out && echo "same output with the layout checked"
+grep -q "IDRIS2_CHECK_LAYOUT" build/exec/checked.c && echo "layout checked"
+rm -f boxed.out

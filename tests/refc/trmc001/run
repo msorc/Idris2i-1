@@ -5,7 +5,8 @@ idris2 -o main Main.idr
 IDRIS2_THREAD_STACK_SIZE=262144 $VALGRIND ./build/exec/main
 # (not under Valgrind: the leak check looks at the pages)
 IDRIS2_THREAD_STACK_SIZE=262144 IDRIS2_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null | sed 's/,.*//'
-# The functions that loop with a hole for the result of the call.
+# The functions that loop with a hole for the result of the call (in the
+# worker, when the function has one).
 for f in myMap append myFilter upto myTake leftSpine addLen; do
-  printf '%s %s\n' $f $(awk -v RS= "/Value \\*Main_$f\\n/" build/exec/main.c | grep -c 'trmc_hole = &((Idris2_Constructor')
+  printf '%s %s\n' $f $(awk -v RS= "/Value \\*(idris2_raw_)?Main_$f\\n/" build/exec/main.c | grep -c 'trmc_hole = &((Idris2_Constructor')
 done

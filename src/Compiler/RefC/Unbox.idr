@@ -444,6 +444,13 @@ record Calls where
   foreignRaw : String -> Nat -> Maybe (List (Maybe PrimType), Maybe PrimType)
   ||| Are there such foreign functions?
   anyForeignRaw : Bool
+  ||| The types of the C numbers in which the fields of a constructor are
+  ||| stored raw, field by field, if it has raw fields (see `RawLayout` in
+  ||| Compiler.RefC.RefC): such a field is built from a C number, and read
+  ||| as one.
+  rawFields : Name -> Maybe (List (Maybe PrimType))
+  ||| Are there such constructors?
+  anyRawFields : Bool
 
 ||| Is a variable of this type allowed to be unboxed?
 export
@@ -456,7 +463,7 @@ export
 noWorkers : (key : Name -> String) -> (isSelf : String -> List AVar -> Bool) ->
             (isForeign : String -> List AVar -> Bool) -> Calls
 noWorkers k s f = MkCalls k False s f (\_, _ => Nothing) (\_, _ => Nothing) (\_, _ => False) True
-                          (\_, _ => Nothing) False
+                          (\_, _ => Nothing) False (const Nothing) False
 
 -- The uses of the arguments of a call: an argument of a parameter that the
 -- worker of the function takes as a C integer is used as an integer of that
@@ -484,7 +491,12 @@ usesIn c t (AAppName _ _ n args) us
 usesIn c t (AUnderApp _ _ _ args) us = addUses Boxed args us
 usesIn c t (AApp _ _ f a) us = addUse Boxed f (addUse Boxed a us)
 usesIn c t (ALet _ _ val body) us = usesIn c t body (usesIn c False val us)
-usesIn c t (ACon _ _ _ _ args) us = addUses Boxed args us
+-- (a raw field of a constructor is stored from a C number)
+usesIn c t (ACon _ n _ _ args) us
+    = case c.rawFields n of
+           Just ts => foldl (\us', (a, t) => addUse (maybe Boxed Numeric t) a us') us
+                            (zip args ts)
+           Nothing => addUses Boxed args us
 usesIn c t (AOp _ _ op args) us
     = addUses (maybe Raw Numeric (operandType op)) (toList args) us
 usesIn c t (AExtPrim _ _ _ args) us = addUses Raw args us
@@ -525,8 +537,12 @@ hasIntWork c (AAppName _ _ n args)
            isJust (c.rawResult cn k) || maybe False (any isJust) (c.rawArgs cn k)
            || isJust (c.foreignRaw cn k))
 hasIntWork c (ALet _ _ val body) = hasIntWork c val || hasIntWork c body
+-- (a constructor with raw fields is built from C numbers, and they are read
+-- as C numbers)
+hasIntWork c (ACon _ n _ _ _) = c.anyRawFields && isJust (c.rawFields n)
 hasIntWork c (AConCase _ _ alts def)
-    = any (\(MkAConAlt _ _ _ _ b) => hasIntWork c b) alts || any (hasIntWork c) def
+    = any (\(MkAConAlt n _ _ _ b) => (c.anyRawFields && isJust (c.rawFields n)) || hasIntWork c b) alts
+      || any (hasIntWork c) def
 hasIntWork c (AConstCase _ _ alts def)
     = any (\(MkAConstAlt _ b) => hasIntWork c b) alts || any (hasIntWork c) def
 hasIntWork _ _ = False
@@ -541,6 +557,23 @@ letValues (AConstCase _ _ alts def) ls
     = let ls = foldl (\ls', (MkAConstAlt _ b) => letValues b ls') ls alts in
           maybe ls (\d => letValues d ls) def
 letValues _ ls = ls
+
+||| The variables bound to the raw fields of a constructor by the alternatives
+||| of the `case`s (see `rawFields`), with their types.
+rawBinders : Calls -> ANF -> SortedMap Int PrimType -> SortedMap Int PrimType
+rawBinders c (ALet _ _ val body) bs = rawBinders c body (rawBinders c val bs)
+rawBinders c (AConCase _ _ alts def) bs
+    = let bs = foldl (\bs', (MkAConAlt n _ _ as b) =>
+                        let bs'' = case c.rawFields n of
+                                     Just ts => foldl (\m, (a, t) => maybe m (\t' => insert a t' m) t)
+                                                      bs' (zip as ts)
+                                     Nothing => bs' in
+                            rawBinders c b bs'') bs alts in
+          maybe bs (\d => rawBinders c d bs) def
+rawBinders c (AConstCase _ _ alts def) bs
+    = let bs = foldl (\bs', (MkAConstAlt _ b) => rawBinders c b bs') bs alts in
+          maybe bs (\d => rawBinders c d bs) def
+rawBinders _ _ bs = bs
 
 ||| The type of the C integer that an expression can be compiled to (see
 ||| `cIntFromANF` in RefC), given the variables that are C integers, if it
@@ -572,6 +605,15 @@ valueType c u e = case go e of
              case known of
                   [] => Just Nothing
                   (t :: rest) => if all (== t) rest then Just (Just t) else Nothing
+    -- (a `case` on constructors whose branches give C integers, the
+    -- projection of a raw field, say)
+    go (AConCase _ _ alts def)
+        = do ts <- traverse (\(MkAConAlt _ _ _ _ b) => go b) alts
+             d <- traverse go def
+             let known = catMaybes (maybe ts (:: ts) d)
+             case known of
+                  [] => Just Nothing
+                  (t :: rest) => if all (== t) rest then Just (Just t) else Nothing
     go (ACrash _ _) = Just Nothing
     go _ = Nothing
 
@@ -590,11 +632,13 @@ unboxedVars c loops worker params ips body
     -- block, they would be computed at each use.)
     = let us = usesIn c True body empty
           lets = letValues body empty
+          fields = if c.anyRawFields then rawBinders c body empty else empty
           ps = mapMaybe (\p => lookup p ips >>= \t =>
-                                  if allowed c t then Just (p, t) else Nothing) params in
-          if null (keys lets) && null ps
+                                  if allowed c t then Just (p, t) else Nothing) params
+          fs = filter (\(_, t) => allowed c t) (SortedMap.toList fields) in
+          if null (keys lets) && null ps && null fs
              then empty
-             else keep us lets (candidates (SortedMap.toList lets) (fromList ps))
+             else keep us lets fields (candidates (SortedMap.toList lets) (mergeLeft (fromList ps) (fromList fs)))
   where
     -- The parameters, and the `let`s whose values can be C integers if the
     -- variables found so far are (a `let` may be a copy of another one).
@@ -644,10 +688,14 @@ unboxedVars c loops worker params ips body
     isNumeric t (Numeric t') = t == t'
     isNumeric _ _ = False
 
-    ok : Uses -> SortedMap Int ANF -> SortedMap Int PrimType -> (Int, PrimType) -> Bool
-    ok us lets u (v, t)
+    ok : Uses -> SortedMap Int ANF -> SortedMap Int PrimType -> SortedMap Int PrimType -> (Int, PrimType) -> Bool
+    ok us lets fields u (v, t)
         = let vs = fromMaybe [] (lookup v us) in
           not (any (raw t) vs) &&
+          -- A raw field is a C number as it is read: unboxing it costs
+          -- nothing, and a use as a value makes one, as reading it as a
+          -- value would.  So it is one unless it has two uses as a value.
+          if isJust (lookup v fields) then length (filter (boxed u t) vs) <= 1 else
           case lookup v lets of
                Just val => valueType c u val == Just t
                            && any (numeric u t) vs
@@ -659,13 +707,13 @@ unboxedVars c loops worker params ips body
 
     -- The variables are removed until those left are all fine with each
     -- other (a parameter and the `let` giving its next value, for example).
-    keep : Uses -> SortedMap Int ANF -> SortedMap Int PrimType -> SortedMap Int PrimType
-    keep us lets u
+    keep : Uses -> SortedMap Int ANF -> SortedMap Int PrimType -> SortedMap Int PrimType -> SortedMap Int PrimType
+    keep us lets fields u
         = let vs = SortedMap.toList u
-              vs' = filter (ok us lets u) vs in
+              vs' = filter (ok us lets fields u) vs in
               if length vs' == length vs
                  then u
-                 else keep us lets (fromList vs')
+                 else keep us lets fields (fromList vs')
 
 ||| Can the worker of a function whose result has the fixed width integer
 ||| type `t` give the C integer, rather than a value, given the variables `u`
