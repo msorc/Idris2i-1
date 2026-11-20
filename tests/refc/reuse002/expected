@@ -21,80 +21,64 @@ Idris2_Value *Main_turn
     Idris2_Value * tmp_0 = NULL;                             // Main:15:8--15:13
     switch (((Idris2_Constructor *)var_0)->tag) {
     case 0: { /* Main.Circle */
-        Idris2_Value *var_1 = ((Idris2_Constructor*)var_0)->args[0];
-        Idris2_Value *var_2 = ((Idris2_Constructor*)var_0)->args[1];
-        Idris2_Constructor* constructor_1 = NULL;
-        if (idris2_isUnique(var_0)) {
-            constructor_1 = (Idris2_Constructor*)var_0;
+        Idris2_Constructor* constructor_1 = (Idris2_Constructor*)var_0;
+        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
             IDRIS2_STAT(reuseHit);
-        }
-        else {
-            IDRIS2_STAT(reuseMiss);
-            idris2_newReference(var_1);
-            idris2_newReference(var_2);
-            idris2_removeReference(var_0);
-        }
-         // constructor Main.Rect                            // Main:16:21--16:25
-        if (! constructor_1) {                               // Main:16:21--16:25
-            constructor_1 = idris2_newConstructor(2, 1);     // Main:16:21--16:25
         } else {
-            constructor_1->tag = 1;
-        }                                                    // Main:16:21--16:25
+            IDRIS2_STAT(reuseMiss);
+            constructor_1 = idris2_newConstructor(2, 0);
+            constructor_1->args[0] = idris2_newReference(((Idris2_Constructor*)var_0)->args[0]);
+            constructor_1->args[1] = idris2_newReference(((Idris2_Constructor*)var_0)->args[1]);
+            idris2_dropSharedReference(var_0);
+        }
+        Idris2_Value *var_1 = constructor_1->args[0];
+        Idris2_Value *var_2 = constructor_1->args[1];
+         // constructor Main.Rect                            // Main:16:21--16:25
+        constructor_1->tag = 1;
         constructor_1->args[0] = var_2;
         constructor_1->args[1] = var_1;
         tmp_0 = (Idris2_Value*)constructor_1;
       break;
     }
     case 1: { /* Main.Rect */
-        Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[0];
-        Idris2_Value *var_4 = ((Idris2_Constructor*)var_0)->args[1];
-        Idris2_Constructor* constructor_2 = NULL;
-        if (idris2_isUnique(var_0)) {
-            constructor_2 = (Idris2_Constructor*)var_0;
+        Idris2_Constructor* constructor_2 = (Idris2_Constructor*)var_0;
+        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
             IDRIS2_STAT(reuseHit);
-        }
-        else {
+        } else {
             IDRIS2_STAT(reuseMiss);
-            idris2_newReference(var_3);
-            idris2_newReference(var_4);
-            idris2_removeReference(var_0);
+            constructor_2 = idris2_newConstructor(2, 1);
+            constructor_2->args[0] = idris2_newReference(((Idris2_Constructor*)var_0)->args[0]);
+            constructor_2->args[1] = idris2_newReference(((Idris2_Constructor*)var_0)->args[1]);
+            idris2_dropSharedReference(var_0);
         }
+        Idris2_Value *var_3 = constructor_2->args[0];
+        Idris2_Value *var_4 = constructor_2->args[1];
         int64_t int_5 = INT64_C(1);
         Idris2_Value *primVar_3 = idris2_mkInt64(((int64_t)((uint64_t)(idris2_vp_to_Int64(var_4)) + (uint64_t)(int_5))));
         idris2_removeReference(var_4);
         Idris2_Value * var_6 = primVar_3;                    // Main:17:19--17:25
          // constructor Main.Circle                          // Main:17:19--17:25
-        if (! constructor_2) {                               // Main:17:19--17:25
-            constructor_2 = idris2_newConstructor(2, 0);     // Main:17:19--17:25
-            constructor_2->args[0] = var_3;
-        } else {
-            constructor_2->tag = 0;
-        }                                                    // Main:17:19--17:25
+        constructor_2->tag = 0;
         constructor_2->args[1] = var_6;
         tmp_0 = (Idris2_Value*)constructor_2;
       break;
     }
     case 2: { /* Main.Tri */
-        Idris2_Value *var_7 = ((Idris2_Constructor*)var_0)->args[0];
-        Idris2_Value *var_8 = ((Idris2_Constructor*)var_0)->args[1];
-        Idris2_Value *var_9 = ((Idris2_Constructor*)var_0)->args[2];
-        Idris2_Constructor* constructor_4 = NULL;
-        if (idris2_isUnique(var_0)) {
-            constructor_4 = (Idris2_Constructor*)var_0;
+        Idris2_Constructor* constructor_4 = (Idris2_Constructor*)var_0;
+        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
             IDRIS2_STAT(reuseHit);
-        }
-        else {
+        } else {
             IDRIS2_STAT(reuseMiss);
-            idris2_newReference(var_7);
-            idris2_newReference(var_8);
-            idris2_newReference(var_9);
-            idris2_removeReference(var_0);
+            constructor_4 = idris2_newConstructor(3, 2);
+            constructor_4->args[0] = idris2_newReference(((Idris2_Constructor*)var_0)->args[0]);
+            constructor_4->args[1] = idris2_newReference(((Idris2_Constructor*)var_0)->args[1]);
+            constructor_4->args[2] = idris2_newReference(((Idris2_Constructor*)var_0)->args[2]);
+            idris2_dropSharedReference(var_0);
         }
+        Idris2_Value *var_7 = constructor_4->args[0];
+        Idris2_Value *var_8 = constructor_4->args[1];
+        Idris2_Value *var_9 = constructor_4->args[2];
          // constructor Main.Tri                             // Main:18:20--18:23
-        if (! constructor_4) {                               // Main:18:20--18:23
-            constructor_4 = idris2_newConstructor(3, 2);     // Main:18:20--18:23
-            constructor_4->args[1] = var_8;
-        }                                                    // Main:18:20--18:23
         constructor_4->args[0] = var_9;
         constructor_4->args[2] = var_7;
         tmp_0 = (Idris2_Value*)constructor_4;
@@ -116,51 +100,41 @@ Idris2_Value *Main_dupe
     switch (((Idris2_Constructor *)var_0)->tag) {
     case 0: { /* Main.Circle */
         Idris2_Value *var_1 = ((Idris2_Constructor*)var_0)->args[0];
-        Idris2_Value *var_2 = ((Idris2_Constructor*)var_0)->args[1];
-        Idris2_Constructor* constructor_1 = NULL;
-        if (idris2_isUnique(var_0)) {
-            constructor_1 = (Idris2_Constructor*)var_0;
+        Idris2_Constructor* constructor_1 = (Idris2_Constructor*)var_0;
+        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
             IDRIS2_STAT(reuseHit);
             idris2_removeReference(var_1);
-        }
-        else {
-            IDRIS2_STAT(reuseMiss);
-            idris2_newReference(var_2);
-            idris2_removeReference(var_0);
-        }
-         // constructor Main.Circle                          // Main:23:21--23:27
-        if (! constructor_1) {                               // Main:23:21--23:27
-            constructor_1 = idris2_newConstructor(2, 0);     // Main:23:21--23:27
-            constructor_1->args[1] = idris2_newReference(var_2);
         } else {
-            idris2_newReference(var_2);
-        }                                                    // Main:23:21--23:27
+            IDRIS2_STAT(reuseMiss);
+            constructor_1 = idris2_newConstructor(2, 0);
+            constructor_1->args[0] = NULL;
+            constructor_1->args[1] = idris2_newReference(((Idris2_Constructor*)var_0)->args[1]);
+            idris2_dropSharedReference(var_0);
+        }
+        Idris2_Value *var_2 = constructor_1->args[1];
+         // constructor Main.Circle                          // Main:23:21--23:27
+        idris2_newReference(var_2);
         constructor_1->args[0] = var_2;
         tmp_0 = (Idris2_Value*)constructor_1;
       break;
     }
     case 1: { /* Main.Rect */
         Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[0];
-        Idris2_Value *var_4 = ((Idris2_Constructor*)var_0)->args[1];
-        Idris2_Constructor* constructor_2 = NULL;
-        if (idris2_isUnique(var_0)) {
-            constructor_2 = (Idris2_Constructor*)var_0;
+        Idris2_Constructor* constructor_2 = (Idris2_Constructor*)var_0;
+        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
             IDRIS2_STAT(reuseHit);
             idris2_removeReference(var_3);
-        }
-        else {
-            IDRIS2_STAT(reuseMiss);
-            idris2_newReference(var_4);
-            idris2_removeReference(var_0);
-        }
-         // constructor Main.Circle                          // Main:24:19--24:25
-        if (! constructor_2) {                               // Main:24:19--24:25
-            constructor_2 = idris2_newConstructor(2, 0);     // Main:24:19--24:25
-            constructor_2->args[1] = idris2_newReference(var_4);
         } else {
-            idris2_newReference(var_4);
-            constructor_2->tag = 0;
-        }                                                    // Main:24:19--24:25
+            IDRIS2_STAT(reuseMiss);
+            constructor_2 = idris2_newConstructor(2, 1);
+            constructor_2->args[0] = NULL;
+            constructor_2->args[1] = idris2_newReference(((Idris2_Constructor*)var_0)->args[1]);
+            idris2_dropSharedReference(var_0);
+        }
+        Idris2_Value *var_4 = constructor_2->args[1];
+         // constructor Main.Circle                          // Main:24:19--24:25
+        idris2_newReference(var_4);
+        constructor_2->tag = 0;
         constructor_2->args[0] = var_4;
         tmp_0 = (Idris2_Value*)constructor_2;
       break;

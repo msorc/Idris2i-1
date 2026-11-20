@@ -4,6 +4,13 @@
 
 void idris2_missing_ffi();
 
+// The branch that is taken almost always (for the C compiler's layout).
+#if defined(__GNUC__)
+#define IDRIS2_LIKELY(c) __builtin_expect(!!(c), 1)
+#else
+#define IDRIS2_LIKELY(c) (c)
+#endif
+
 // May the value be updated in place?  Only when this is its only reference.
 // A shared value (see memoryManagement.h) that has a single reference left
 // is ours alone: it stops being shared first.

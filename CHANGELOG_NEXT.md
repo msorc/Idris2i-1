@@ -747,6 +747,19 @@ should target this file (`CHANGELOG_NEXT`).
   pair as well.  `--directive refc-no-multi-reuse` keeps one cell of each
   constructor, as before.
 
+* The cell that a constructor takes over is the matched value itself when it
+  is unique, and otherwise a new cell with references to the fields that are
+  used, made in the unlikely branch of the uniqueness test, so that the code
+  that follows has no test of its own: the fields are loaded after the test,
+  and the constructor does not store again a field that it leaves where it
+  was (the same variable in the same field), which only `refc-size-reuse`
+  did.  A branch that matches a cell when it keeps another one already for
+  its constructor no longer drops the one kept for the new one.  The shared
+  case of the release of a value that is not used any more is the unlikely
+  branch too.  Instructions: the tree sort of phase 0 (lists/treeB) -13%,
+  treeInt -5%, mergeInt -6%, the merge sort of phase 0 (lists/mergeB) -20%.
+  `--directive refc-no-reuse-copy` gives the code of before.
+
 * Backtraces: a program that dies of a fatal error (`idris_crash`, a missing
   case in `partial` code, a division by zero, a missing foreign function, or
   `SIGSEGV`, `SIGBUS`, `SIGFPE`, `SIGILL` or `SIGABRT` from foreign code or a

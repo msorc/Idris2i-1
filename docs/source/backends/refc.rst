@@ -291,6 +291,14 @@ The code generator does the following, each of which a directive turns off
   constructor (the merge of two lists matches a cons cell of each) keeps all
   of them for the constructors that it builds, instead of the first one only
   (the others are freed, and the constructors allocate new cells).
+- ``refc-no-reuse-copy``: the cell of a value that a branch does not use any
+  more, kept for a constructor of the branch, is the value itself when it is
+  unique, and otherwise a new cell with references to the fields, made where
+  the uniqueness test fails: the branch then goes on the same way in both
+  cases, without a test of its own, and the constructor does not store again
+  the fields that it leaves where they are.  With the directive, the
+  constructor allocates a cell (and stores every field) when the value was
+  not unique.
 - ``refc-no-lazy-constants``: an expression that occurs several times inside
   delayed code is a constant like the other repeated expressions, evaluated
   the first time that it is needed, instead of a delayed constant that is

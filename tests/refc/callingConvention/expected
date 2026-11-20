@@ -28,7 +28,7 @@ Idris2_Value *Main_last
     } else if (NULL != var_0 /* _builtin.CONS [cons] */) {
         Idris2_Value *var_2 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[1];
-        if (idris2_isUnique(var_0)) {
+        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
             idris2_freeValue(var_0);
         } else {
             idris2_newReference(var_2);
@@ -316,7 +316,7 @@ Idris2_Value *Main_main_5
     } else if (NULL != var_0 /* _builtin.CONS [cons] */) {
         Idris2_Value *var_2 = ((Idris2_Constructor*)var_0)->args[0];
         Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[1];
-        if (idris2_isUnique(var_0)) {
+        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
             idris2_removeReference(var_2);
             idris2_removeReference(var_3);
             idris2_freeValue(var_0);

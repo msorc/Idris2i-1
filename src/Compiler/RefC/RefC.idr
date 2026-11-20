@@ -655,6 +655,9 @@ record Env where
   ||| May a `case` keep several cells of a key (see `ReuseMap`)?  Not with
   ||| `--directive refc-no-multi-reuse`.
   multiReuse : Bool
+  ||| Is a cell kept for a constructor taken from a copy when it is not
+  ||| unique (see `matchedFields`)?  Not with `--directive refc-no-reuse-copy`.
+  reuseCopy : Bool
   ||| The parameters that the functions borrow (see Compiler.RefC.Borrow), by
   ||| C name.
   sigs : Signatures
@@ -883,11 +886,18 @@ dupVars : {auto oft : Ref OutfileText Output}
 dupVars = applyFunctionToVars "idris2_newReference" . filter (/= "NULL")
 
 
+||| Release the cells kept for constructors (see `ReuseMap`) that no
+||| constructor takes over: they are ours alone (or NULL, with `--directive
+||| refc-no-reuse-copy`), and their fields are not theirs any more.
 removeReuseConstructors : {auto oft : Ref OutfileText Output}
                         -> {auto il : Ref IndentLevel Nat}
+                        -> Env
                         -> List String
                         -> Core ()
-removeReuseConstructors = applyFunctionToVars "idris2_removeReuseConstructor"
+removeReuseConstructors env
+    = if env.reuseCopy
+         then traverse_ (\c => emit EmptyFC "idris2_freeValue((Idris2_Value *)\{c});")
+         else applyFunctionToVars "idris2_removeReuseConstructor"
 
 ||| The C integer that the variable `N` is when it is unboxed (see
 ||| Compiler.RefC.Unbox).
@@ -1479,24 +1489,59 @@ reuseNeeds env (AConstCase _ _ alts def)
             (maybe empty (reuseNeeds env) def) alts
 reuseNeeds _ _ = empty
 
-||| The cells that an expression that needs `needs` of them (see
-||| `reuseNeeds`) is given, the first ones of each key, and the others.
-takeCells : SortedMap ReuseKey Nat -> ReuseMap -> (ReuseMap, ReuseMap)
-takeCells needs cells = foldl step (empty, empty) (SortedMap.toList cells)
+||| The constructors that an expression builds, with their keys and fields.
+builtCons : Env -> ANF -> List (ReuseKey, List AVar)
+builtCons env (ALet _ _ value body) = builtCons env value ++ builtCons env body
+builtCons env (ACon _ n ci tag args)
+    = let k = length args in
+          if allocates ci k then [(reuseKey env n tag k, args)] else []
+builtCons env (AConCase _ _ alts def)
+    = concatMap (\(MkAConAlt _ _ _ _ b) => builtCons env b) alts ++ maybe [] (builtCons env) def
+builtCons env (AConstCase _ _ alts def)
+    = concatMap (\(MkAConstAlt _ b) => builtCons env b) alts ++ maybe [] (builtCons env) def
+builtCons _ _ = []
+
+||| How many fields of the cell one of the constructors `cons` of its key
+||| would leave where they are, at most (see `allocConstructor`).
+inPlaceScore : List (ReuseKey, List AVar) -> ReuseKey -> ReuseCell -> Nat
+inPlaceScore cons k cell
+    = foldl max 0 [ count args | (k', args) <- cons, k' == k ]
   where
-    step : (ReuseMap, ReuseMap) -> (ReuseKey, List ReuseCell) -> (ReuseMap, ReuseMap)
-    step (given, rest) (k, cs)
-        = let n = fromMaybe 0 (lookup k needs)
-              (a, b) = (take n cs, drop n cs) in
+    count : List AVar -> Nat
+    count args = length (filter id (zipWith (sameField cell.cellFields) [0 .. length args] args))
+
+||| The cells that the expression `anf` is given, of those of `cells`: of
+||| each key, as many as it needs (see `reuseNeeds`), those whose fields its
+||| constructors leave in place first, in their order otherwise; and the
+||| others.
+takeCells : Env -> ANF -> ReuseMap -> (ReuseMap, ReuseMap)
+takeCells env anf cells
+    = let needs = reuseNeeds env anf in
+          foldl (step needs) (empty, empty) (SortedMap.toList cells)
+  where
+    choose : Nat -> ReuseKey -> List ReuseCell -> (List ReuseCell, List ReuseCell)
+    choose n k cs
+        = if length cs <= n then (cs, []) else
+            let cons = builtCons env anf
+                scored : List (Nat, Nat) = zip [0 .. length cs] (map (inPlaceScore cons k) cs)
+                best : List (Nat, Nat) = List.take n (sortBy (\(i, a), (j, b) => compare (b, i) (a, j)) scored)
+                chosen : List Nat = map Builtin.fst best
+                tagged : List (Nat, ReuseCell) = zip [0 .. length cs] cs in
+                (map snd (filter (\(i, _) => i `elem` chosen) tagged),
+                 map snd (filter (\(i, _) => not (i `elem` chosen)) tagged))
+
+    step : SortedMap ReuseKey Nat -> (ReuseMap, ReuseMap) -> (ReuseKey, List ReuseCell) -> (ReuseMap, ReuseMap)
+    step needs (given, rest) (k, cs)
+        = let (a, b) = choose (fromMaybe 0 (lookup k needs)) k cs in
               (if null a then given else insert k a given,
                if null b then rest else insert k b rest)
 
-||| The cells that an expression that needs `needs` of them takes, and the
+||| The cells that the expression `anf` takes (see `takeCells`), and the
 ||| variables of those that no constructor will take over, which are
 ||| released.
-dropUnusedReuseCons : ReuseMap -> SortedMap ReuseKey Nat -> (List String, ReuseMap)
-dropUnusedReuseCons reuseMap needs =
-    let (kept, dropped) = takeCells needs reuseMap in
+dropUnusedReuseCons : Env -> ANF -> ReuseMap -> (List String, ReuseMap)
+dropUnusedReuseCons env anf reuseMap =
+    let (kept, dropped) = takeCells env anf reuseMap in
         (map cellVar (concat (values dropped)), kept)
 
 ||| The function takes as arguments the current owned vars and set vars that will be used.
@@ -1507,71 +1552,112 @@ dropUnusedOwnedVars owned usedVars =
     let shouldDrop = difference owned actualOwned in
     (varName <$> Prelude.toList shouldDrop, actualOwned)
 
--- if the constructor is unique use it, otherwise add it to should drop vars and create null constructor
-addReuseConstructor : {auto a : Ref ArgCounter Nat}
-                    -> {auto oft : Ref OutfileText Output}
-                    -> {auto il : Ref IndentLevel Nat}
-                    -> String
-                    -> ReuseKey
-                    -> Name
-                    -> List Int
-                    -> SortedMap ReuseKey Nat
-                    -> List String
-                    -> ReuseMap
-                    -> Core (List String, ReuseMap)
-addReuseConstructor sc key conName fieldVars needs shouldDrop actualReuseConsts =
-    let conArgs = map (varName . ALocal) fieldVars in
-    -- The cell is kept when the variable is dropped, and the body builds
-    -- more constructors that may take a cell of the key over than there are
-    -- cells of the key already (nullary constructors are not allocated, see
-    -- `ACon`).
-    if length (cellsOf key actualReuseConsts) < fromMaybe 0 (lookup key needs)
-       && not (null conArgs)
-       && (isJust $ find (== sc) shouldDrop) then do
-        let constr = "constructor_" ++ !(getNextCounter)
-        emit EmptyFC $ "Idris2_Constructor* " ++ constr ++ " = NULL;"
-        -- If the constructor variable is unique (has 1 reference), then assign it for reuse
-        emit EmptyFC $ "if (idris2_isUnique(" ++ sc ++ ")) {"
-        increaseIndentation
-        emit EmptyFC $ constr ++ " = (Idris2_Constructor*)" ++ sc ++ ";"
-        -- (counted in a build with IDRIS2_REFC_STATS, see worker.h)
-        emit EmptyFC "IDRIS2_STAT(reuseHit);"
-        -- The fields that are not used any more were owned by the constructor
-        -- that we take over: release them (the other branch does so when it
-        -- releases the constructor).
-        removeVars (filter (`elem` shouldDrop) conArgs)
-        decreaseIndentation
-        emit EmptyFC "}"
-        -- Otherwise, delete and duplicate constructor variables
-        emit EmptyFC "else {"
-        increaseIndentation
-        emit EmptyFC "IDRIS2_STAT(reuseMiss);"
-        -- remove dup and remove if they are executed for the same argument
-        dupVars (conArgs \\ shouldDrop)
-        removeVars [sc]
-        decreaseIndentation
-        emit EmptyFC "}"
-        pure (shouldDrop \\ (sc :: conArgs),
-              insert key (cellsOf key actualReuseConsts ++ [MkReuseCell constr conName fieldVars]) actualReuseConsts)
-    else if (isJust $ find (== sc) shouldDrop) && not (null conArgs) then do
-        -- The constructor is not used any more (drop specialisation, as in
-        -- Perceus): when it is unique, its fields are ours, and only its
-        -- memory is given back; otherwise the fields that we use are shared.
-        emit EmptyFC $ "if (idris2_isUnique(" ++ sc ++ ")) {"
-        increaseIndentation
-        removeVars (filter (`elem` shouldDrop) conArgs)
-        emit EmptyFC $ "idris2_freeValue(" ++ sc ++ ");"
-        decreaseIndentation
-        emit EmptyFC "} else {"
-        increaseIndentation
-        dupVars (conArgs \\ shouldDrop)
-        emit EmptyFC $ "idris2_dropSharedReference(" ++ sc ++ ");"
-        decreaseIndentation
-        emit EmptyFC "}"
-        pure (shouldDrop \\ (sc :: conArgs), actualReuseConsts)
-    else do
-        dupVars $ conArgs \\ shouldDrop
-        pure (shouldDrop \\ conArgs, actualReuseConsts)
+||| The fields of the scrutinee `sc` of a branch, which matched a
+||| constructor whose fields are the variables `fieldVars`, and what becomes
+||| of the scrutinee, which we own.  `shouldDrop` are the variables that the
+||| branch does not use; the variables still to release are returned.
+|||
+||| - The scrutinee is dropped and its cell kept, in the C variable `keep`,
+|||   for a constructor of the branch to take over: the cell is the
+|||   scrutinee when it is unique, otherwise (the unlikely branch) a new cell
+|||   `alloc` of the same constructor, with references of its own to the
+|||   fields that are used, and the scrutinee loses one.  So the fields are
+|||   ours either way and are loaded from the cell after the test, the code
+|||   after has no test of its own, and the constructor does not store again
+|||   the fields that it leaves in place.  The unused fields are released
+|||   when the cell is unique.  With `--directive refc-no-reuse-copy`, the
+|||   variable is NULL when the scrutinee is not unique, and the constructor
+|||   allocates a cell then.
+||| - It is dropped: when it is unique, its fields are ours and only its
+|||   memory is given back (drop specialisation, as in Perceus); otherwise
+|||   (the unlikely branch) the fields that are used get references and the
+|||   scrutinee loses one.
+||| - It is not dropped: the fields that are used get references.
+matchedFields : {auto oft : Ref OutfileText Output}
+             -> {auto il : Ref IndentLevel Nat}
+             -> Env -> (sc : String) -> (keep : Maybe String) -> (alloc : String) -> (fieldVars : List Int)
+             -> (used : SortedSet AVar) -> (shouldDrop : List String)
+             -> Core (List String)
+matchedFields env sc keep alloc fieldVars used shouldDrop = do
+    let conArgs = map (varName . ALocal) fieldVars
+    let dropped = isJust (find (== sc) shouldDrop)
+    let unused = filter (`elem` shouldDrop) conArgs
+    case keep of
+      Just constr =>
+        if env.reuseCopy
+          then do
+            -- The fields that are not used are released when the cell is
+            -- unique; the copy does not hold them.
+            let indexed : List (Nat, Int) = zip [0 .. length fieldVars] fieldVars
+            let isUnused : Int -> Bool = \v => varName (ALocal v) `elem` shouldDrop
+            loadFields "((Idris2_Constructor*)\{sc})" isUnused
+            emit EmptyFC "Idris2_Constructor* \{constr} = (Idris2_Constructor*)\{sc};"
+            emit EmptyFC "if (IDRIS2_LIKELY(idris2_isUnique(\{sc}))) {"
+            increaseIndentation
+            -- (counted in a build with IDRIS2_REFC_STATS, see worker.h)
+            emit EmptyFC "IDRIS2_STAT(reuseHit);"
+            removeVars unused
+            decreaseIndentation
+            emit EmptyFC "} else {"
+            increaseIndentation
+            emit EmptyFC "IDRIS2_STAT(reuseMiss);"
+            emit EmptyFC "\{constr} = \{alloc};"
+            for_ indexed $ \(k, v) => emit EmptyFC $
+              if isUnused v then "\{constr}->args[\{show k}] = NULL;"
+                 else "\{constr}->args[\{show k}] = idris2_newReference(((Idris2_Constructor*)\{sc})->args[\{show k}]);"
+            emit EmptyFC "idris2_dropSharedReference(\{sc});"
+            decreaseIndentation
+            emit EmptyFC "}"
+            loadFields constr (not . isUnused)
+            pure (shouldDrop \\ (sc :: conArgs))
+          else do
+            loadFields "((Idris2_Constructor*)\{sc})" (const True)
+            emit EmptyFC "Idris2_Constructor* \{constr} = NULL;"
+            emit EmptyFC "if (idris2_isUnique(\{sc})) {"
+            increaseIndentation
+            emit EmptyFC "\{constr} = (Idris2_Constructor*)\{sc};"
+            -- (counted in a build with IDRIS2_REFC_STATS, see worker.h)
+            emit EmptyFC "IDRIS2_STAT(reuseHit);"
+            -- (the fields that are not used were the cell's: they are
+            -- released; the other branch releases the cell with them)
+            removeVars unused
+            decreaseIndentation
+            emit EmptyFC "}"
+            emit EmptyFC "else {"
+            increaseIndentation
+            emit EmptyFC "IDRIS2_STAT(reuseMiss);"
+            dupVars (conArgs \\ shouldDrop)
+            removeVars [sc]
+            decreaseIndentation
+            emit EmptyFC "}"
+            pure (shouldDrop \\ (sc :: conArgs))
+      Nothing =>
+        if dropped && not (null conArgs)
+          then do
+            loadFields "((Idris2_Constructor*)\{sc})" (const True)
+            emit EmptyFC "if (IDRIS2_LIKELY(idris2_isUnique(\{sc}))) {"
+            increaseIndentation
+            removeVars unused
+            emit EmptyFC "idris2_freeValue(\{sc});"
+            decreaseIndentation
+            emit EmptyFC "} else {"
+            increaseIndentation
+            dupVars (conArgs \\ shouldDrop)
+            emit EmptyFC "idris2_dropSharedReference(\{sc});"
+            decreaseIndentation
+            emit EmptyFC "}"
+            pure (shouldDrop \\ (sc :: conArgs))
+          else do
+            loadFields "((Idris2_Constructor*)\{sc})" (\v => dropped || contains (ALocal v) used)
+            dupVars (conArgs \\ shouldDrop)
+            pure (shouldDrop \\ conArgs)
+  where
+    loadFields : String -> (Int -> Bool) -> Core ()
+    loadFields cell load
+        = ignore $ foldlC (\k, v => do
+            when (load v) $
+              emit EmptyFC "Idris2_Value *var_\{show v} = \{cell}->args[\{show k}];"
+            pure (S k)) 0 fieldVars
 
 ||| The C arguments of the first application of `let var = f a in body`,
 ||| and the environment for `body`, as the translation of a `let` would give
@@ -1620,7 +1706,7 @@ mutual
         let borrowVal = intersection env.owned (delete (ALocal var) usedVars)
         let owned' = if contains (ALocal var) usedVars then insert (ALocal var) borrowVal else borrowVal
         -- (the value takes over the cells that it can, the body the others)
-        let (valueCells, bodyCells) = takeCells (reuseNeeds env value) env.reuseMap
+        let (valueCells, bodyCells) = takeCells env value env.reuseMap
         -- When translating value into C, we borrow variables that will be used in body
         let valueEnv = { reuseMap := valueCells } (moveFromOwnedToBorrowed env borrowVal)
         put EnvTracker valueEnv
@@ -1712,7 +1798,7 @@ mutual
         env <- get EnvTracker
         let usedVars = freeVariables body
         let borrowVal = intersection env.owned (delete (ALocal var) usedVars)
-        let (valueCells, bodyCells) = takeCells (reuseNeeds env value) env.reuseMap
+        let (valueCells, bodyCells) = takeCells env value env.reuseMap
         let valueEnv = { reuseMap := valueCells } (moveFromOwnedToBorrowed env borrowVal)
         put EnvTracker valueEnv
         let t = fromMaybe IntType (lookup var env.unboxed)
@@ -1820,10 +1906,10 @@ mutual
             pure (S k) ) 0 args
 
         let (shouldDrop, actualOwned) = dropUnusedOwnedVars env.owned (freeVariables body)
-        let (dropReuseCons, actualReuseMap) = dropUnusedReuseCons env.reuseMap (reuseNeeds env body)
+        let (dropReuseCons, actualReuseMap) = dropUnusedReuseCons env body env.reuseMap
         put EnvTracker ({owned := actualOwned, reuseMap := actualReuseMap} env)
         removeVars shouldDrop
-        removeReuseConstructors dropReuseCons
+        removeReuseConstructors env dropReuseCons
         assignResult returnvar !(cResult body r)
         decreaseIndentation
 
@@ -2019,30 +2105,41 @@ mutual
                         -- cell is taken over: only the reference that the
                         -- variable does not give up (when it is used again)
                         -- is taken.
+                        -- (with `refc-no-reuse-copy`, only with
+                        -- `refc-size-reuse`, as the fields kept are stored
+                        -- in the cell allocated when it is NULL)
                         let inPlace : (Nat, AVar, String) -> Bool
-                              = \(k, v, _) => env.sizeReuse && not (isUnboxedIn env.unboxed v)
+                              = \(k, v, _) => (env.reuseCopy || env.sizeReuse)
+                                                && not (isUnboxedIn env.unboxed v)
                                                 && sameField (cellFields cell) k v
                         let (kept, stored) = partition inPlace fields
-                        emit fc "if (! \{constr}) {"
-                        increaseIndentation
-                        emit fc $ constr ++ createNewConstructor
-                        for_ kept $ \(k, _, e) => emit EmptyFC "\{constr}->args[\{show k}] = \{e};"
-                        decreaseIndentation
                         let dups = filter (\(_, v, e) => e /= varName v) kept
                         let retag = cellCon cell /= n
-                        if null dups && not retag
-                           then emit fc "}"
-                           else do
-                             emit EmptyFC "} else {"
-                             increaseIndentation
+                        -- (a cell of another constructor of the same size:
+                        -- the number of fields is the same)
+                        let retagLine = case conTag tag of
+                              Just t => "\{constr}->tag = \{show t};"
+                              Nothing => "\{constr}->args[\{show (length args)}] = (Idris2_Value *)idris2_constr_\{cName n};"
+                        if env.reuseCopy
+                           then do
+                             -- (the cell is never NULL, see `matchedFields`)
                              for_ dups $ \(_, _, e) => emit EmptyFC "\{e};"
-                             -- (a cell of another constructor of the same
-                             -- size: the number of fields is the same)
-                             when retag $ emit EmptyFC $ case conTag tag of
-                               Just t => "\{constr}->tag = \{show t};"
-                               Nothing => "\{constr}->args[\{show (length args)}] = (Idris2_Value *)idris2_constr_\{cName n};"
+                             when retag $ emit EmptyFC retagLine
+                           else do
+                             emit fc "if (! \{constr}) {"
+                             increaseIndentation
+                             emit fc $ constr ++ createNewConstructor
+                             for_ kept $ \(k, _, e) => emit EmptyFC "\{constr}->args[\{show k}] = \{e};"
                              decreaseIndentation
-                             emit fc "}"
+                             if null dups && not retag
+                                then emit fc "}"
+                                else do
+                                  emit EmptyFC "} else {"
+                                  increaseIndentation
+                                  for_ dups $ \(_, _, e) => emit EmptyFC "\{e};"
+                                  when retag $ emit EmptyFC retagLine
+                                  decreaseIndentation
+                                  emit fc "}"
                         for_ stored $ \(k, _, e) => emit EmptyFC "\{constr}->args[\{show k}] = \{e};"
                         pure "(Idris2_Value*)\{constr}"
                     [] => do
@@ -2254,6 +2351,7 @@ mutual
         tagSwitch : Bool
         tagSwitch = all plain alts && length alts >= 2
 
+
         -- The body of an alternative, in the environment `env` of the case.
         altBody : Env -> String -> AConAlt -> Core ()
         altBody env switchReturnVar (MkAConAlt name coninfo tag args body) = do
@@ -2270,24 +2368,38 @@ mutual
                        else union (fromList conArgs) $ if erased then delete sc env.owned else env.owned
             let usedVars = freeVariables body
             let (shouldDrop, actualOwned) = dropUnusedOwnedVars ownedWithArgs usedVars
-            let needs = reuseNeeds env body
-            let (dropReuseCons, actualReuseMap) = dropUnusedReuseCons env.reuseMap needs
-            -- A field is read when the body uses it, or when the scrutinee is
-            -- dropped (addReuseConstructor then releases the unused fields);
-            -- otherwise it would be an unused variable.
             let scDropped = isJust (find (== sc') shouldDrop)
+            -- The body keeps the cells of the case that its constructors may
+            -- take over (see `takeCells`), and the cell of the scrutinee, when
+            -- it is dropped, if they may take over more.  (Not instead of a
+            -- cell kept already, which is a copy when it was not unique: the
+            -- copy would be made for nothing.)
+            let key = reuseKey env name tag (length args)
+            -- (a new cell of the constructor, for the copy)
+            let alloc = case conTag tag of
+                  Just t => "idris2_newConstructor(\{show (length args)}, \{show t})"
+                  Nothing => "idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName name})"
+            let (dropReuseCons, outerCells) = dropUnusedReuseCons env body env.reuseMap
+            keep <- the (Core (Maybe String)) $ if not scBorrowed && scDropped && not (null args)
+                         && length (cellsOf key outerCells) < fromMaybe 0 (lookup key (reuseNeeds env body))
+                       then Just . ("constructor_" ++) <$> getNextCounter
+                       else pure Nothing
+            let actualReuseMap : ReuseMap = case keep of
+                  Just c => insert key (cellsOf key outerCells ++ [MkReuseCell c name args]) outerCells
+                  Nothing => outerCells
             increaseIndentation
-            _ <- foldlC (\k, arg => do
-                when (scDropped || contains (ALocal arg) usedVars) $
-                  emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
-                pure (S k) ) 0 args
-            (shouldDrop, actualReuseMap) <-
-                the (Core (List String, ReuseMap)) $
-                  if scBorrowed
-                     then pure (shouldDrop, actualReuseMap)
-                     else addReuseConstructor sc' (reuseKey env name tag (length args)) name args needs shouldDrop actualReuseMap
+            shouldDrop <-
+                if scBorrowed
+                   then do
+                     -- (only the fields that the body uses are read)
+                     _ <- foldlC (\k, arg => do
+                         when (contains (ALocal arg) usedVars) $
+                           emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
+                         pure (S k) ) 0 args
+                     pure shouldDrop
+                   else matchedFields env sc' keep alloc args usedVars shouldDrop
             removeVars shouldDrop
-            removeReuseConstructors dropReuseCons
+            removeReuseConstructors env dropReuseCons
             put EnvTracker ({ owned := actualOwned, reuseMap := actualReuseMap
                             , borrowed := if scBorrowed then SortedSet.union (fromList conArgs) env.borrowed
                                                          else env.borrowed } env)
@@ -2660,6 +2772,8 @@ record RefCOptions where
   optDoubles : Bool
   ||| not `--directive refc-no-multi-reuse` (see `ReuseMap`)
   optMultiReuse : Bool
+  ||| not `--directive refc-no-reuse-copy` (see `matchedFields`)
+  optReuseCopy : Bool
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
@@ -2671,6 +2785,7 @@ refcOptions = do
                          ("refc-backtrace" `elem` ds)
                          (not ("refc-no-unbox-double" `elem` ds))
                          (not ("refc-no-multi-reuse" `elem` ds))
+                         (not ("refc-no-reuse-copy" `elem` ds))
 
 ||| A definition with the casts of Integer literals to fixed width integers
 ||| made literals (see `foldIntegerCasts`).
@@ -2985,7 +3100,7 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                               -- (many arguments are passed in an array)
                               (if nargs > MaxExtractFunArgs then 1 else nargs)
                               (maybe 0 (\w => length (filter (== Just DoubleType) w.params)) worker)
-                              foreigns unboxed opts.optSizeReuse opts.optMultiReuse sigs borrowedVars
+                              foreigns unboxed opts.optSizeReuse opts.optMultiReuse opts.optReuseCopy sigs borrowedVars
                               !(get ValueFns) trmc empty opts.optStatics
                               structs
                               (if usesStructFields anf then stringLets anf empty else empty)

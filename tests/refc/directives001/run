@@ -8,8 +8,10 @@
 #   trmc001: tail recursion modulo constructors, static values
 #   borrow001: borrowed arguments, reuse of constructors
 #   localClosures001: partial applications that are calls
-programs="trmc001 borrow001 localClosures001"
-directives="refc-no-trmc refc-no-borrow refc-no-local-closures refc-no-direct-results refc-no-lazy-constants refc-no-static refc-size-reuse refc-backtrace"
+#   reuse002: reuse of cells across constructors of the same size
+#   reuse003: several cells of a constructor kept, cells copied for reuse
+programs="trmc001 borrow001 localClosures001 reuse002 reuse003"
+directives="refc-no-trmc refc-no-borrow refc-no-local-closures refc-no-direct-results refc-no-lazy-constants refc-no-static refc-size-reuse refc-no-multi-reuse refc-no-reuse-copy refc-backtrace"
 
 # (trmc001 nests a million calls without TRMC: give it a big stack)
 export IDRIS2_THREAD_STACK_SIZE=1073741824
