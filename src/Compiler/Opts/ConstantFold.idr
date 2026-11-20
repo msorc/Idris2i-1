@@ -20,6 +20,10 @@ findConstAlt c (MkConstAlt c' exp :: alts) def = if c == c'
 
 foldableOp : PrimFn ar -> Bool
 foldableOp BelieveMe = False
+-- (the casts of integers to `Double` are folded when the `Double` is exact,
+-- see exactDouble: `fromInteger 2` at the type `Double` is a cast of the
+-- Integer 2 when the elaborator did not reduce it)
+foldableOp (Cast from DoubleType) = isJust (intKind from)
 -- (the casts from and to `Int` are folded when the values are small, see
 -- smallInt)
 foldableOp (Cast IntType to) = isJust (intKind to)
@@ -32,6 +36,12 @@ foldableOp _                = True
 -- fits too can be folded.
 smallInt : Integer -> Bool
 smallInt x = x >= -2147483648 && x <= 2147483647
+
+-- The integers whose `Double` is exact, which every back end converts alike
+-- (beyond them, the rounding would be that of the machine that runs the
+-- compiler).
+exactDouble : Integer -> Bool
+exactDouble x = x >= -9007199254740992 && x <= 9007199254740992
 
 
 data Subst : Scope -> Scoped where
@@ -161,6 +171,19 @@ constFold rho (COp {arity} fc fn xs) =
       B64 x => smallInt (cast x)
       _ => False
     smallCast (Cast _ IntType) _ = False
+    smallCast (Cast _ DoubleType) [CPrimVal _ c] = case c of
+      BI x => exactDouble x
+      I x => exactDouble (cast x)
+      I8 x => True
+      I16 x => True
+      I32 x => True
+      I64 x => exactDouble (cast x)
+      B8 x => True
+      B16 x => True
+      B32 x => True
+      B64 x => exactDouble (cast x)
+      _ => False
+    smallCast (Cast _ DoubleType) _ = False
     -- A shift of `Int` by its width or more depends on the back end (it is
     -- undefined in C), even when the result is small.
     smallCast (ShiftL IntType) [_, CPrimVal _ (I n)] = n >= 0 && n < 32

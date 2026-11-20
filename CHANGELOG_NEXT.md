@@ -63,6 +63,11 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Compiler changes
 
+* The casts of integer literals to `Double` are folded when the `Double` is
+  exact (up to 2^53): `x < 0` at the type `Double` in a `let` without a type,
+  where the elaborator leaves `fromInteger 0`, converted an `Integer` at run
+  time.
+
 * In `%foreign`, `%foreign_impl` and `%export`, a string literal may be
   followed by more specifiers on the same line: `%foreign "scheme:f" (lib
   "f")` has two specifiers, and so has `%foreign "scheme:f" lib "f"`.  Both
