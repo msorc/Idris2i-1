@@ -72,6 +72,7 @@ knownTopics = [
     ("coverage.recover", Nothing),
     ("declare.data", Nothing),
     ("declare.data.constructor", Nothing),
+    ("declare.data.nointrinsic", Just "Log the data types whose constructors keep their names, because one has a field that may be stored raw."),
     ("declare.data.parameters", Nothing),
     ("declare.def", Nothing),
     ("declare.def.alias", Nothing),

@@ -1,0 +1,22 @@
+Main.toV2 = [{arg:0}]: (%case !{arg:0} [(%concase [cons] _builtin.CONS Just 1 [{e:2}, {e:3}] (%con [cons] Main.MkV2 Just 0 [!{e:2}, !{e:3}]))] Nothing)
+Main.toMI = [{arg:0}]: (%case !{arg:0} [(%concase [nothing] _builtin.NOTHING Just 0 [] (%con [nothing] Main.NoI Just 0 [])), (%concase [just] _builtin.JUST Just
+Main.toD = [{arg:0}]: (%case !{arg:0} [(%concase [nil] _builtin.NIL Just 0 [] (%con [nil] Main.DNil Just 0 [])), (%concase [cons] _builtin.CONS Just 1 [{e:2}, {
+Main.toBL = [{arg:0}]: (%case !{arg:0} [(%concase [nil] _builtin.NIL Just 0 [] (%con [nil] Main.BNil Just 0 [])), (%concase [cons] _builtin.CONS Just 1 [{e:2}, 
+--- the constructors that are compiled
+Main.BCons = Constructor tag Just 1 arity 2 fields [Bits64, boxed]
+Main.BNil = Constructor tag Just 0 arity 0 fields []
+Main.DCons = Constructor tag Just 1 arity 2 fields [Double, boxed]
+Main.DNil = Constructor tag Just 0 arity 0 fields []
+Main.MkV2 = Constructor tag Just 0 arity 2 fields [Double, Double]
+Main.NoI = Constructor tag Just 0 arity 0 fields []
+Main.SomeI = Constructor tag Just 1 arity 1 fields [Int]
+_builtin.CONS = Constructor tag Just 1 arity 2 fields [boxed, boxed]
+_builtin.JUST = Constructor tag Just 1 arity 1 fields [boxed]
+_builtin.NIL = Constructor tag Just 0 arity 0 fields []
+_builtin.NOTHING = Constructor tag Just 0 arity 0 fields []
+--- run
+3.0
+7.0
+5
+(3, 2)
+"s"

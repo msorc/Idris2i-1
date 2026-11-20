@@ -571,6 +571,18 @@ should target this file (`CHANGELOG_NEXT`).
   every back end is unchanged.  A back end outside this repository that
   matches on these constructors has one more argument to match.  The test
   `codegen/fieldrep001` pins the table of a set of types.
+* The constructors of a list or option shaped type (or of a record of two
+  fields) are no longer compiled to the intrinsic constructors
+  (`_builtin.CONS`, `_builtin.JUST`, ...) when one of them has a field of type
+  `Double`, `Int`, `Int64` or `Bits64` (a field that a back end may store
+  unboxed): they get the flag `NoIntrinsic` and keep their names and tags
+  (and their `ConInfo`, so the Scheme and JavaScript code is the same).  A
+  conversion between such a type and `List`, `Maybe` or a pair is therefore
+  no longer compiled away as the identity, and CSE no longer shares their
+  applications with those of other types.  This hits 6 types of the
+  libraries and 7 of the compiler; type checking `libs/prelude` takes the
+  same instructions.  See the test `codegen/intrinsic001` and
+  `docs/source/backends/refc-flat-layout.rst`.
 
 ### Building/Packaging changes
 

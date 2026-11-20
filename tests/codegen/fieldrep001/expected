@@ -4,12 +4,20 @@ Dumping ANF defs to Main.anf
 --- cases
 Main.MkBox = Constructor tag Just 0 arity 6 fields [boxed, Double, Int, boxed, boxed, boxed]
 Main.MkPixel = Constructor tag Just 0 arity 3 fields [Bits8, Bits8, Double]
+Main.MkV2 = Constructor tag Just 0 arity 2 fields [Double, Double]
 Main.MkWrapped = Constructor tag Just 0 arity 1 fields [Double]
+Main.Node = Constructor tag Just 0 arity 2 fields [Double, boxed]
+Main.VCons = Constructor tag Just 1 arity 2 fields [Double, boxed]
+Main.VNil = Constructor tag Just 0 arity 0 fields []
 Rec.MkParticle = Constructor tag Just 0 arity 3 fields [Double, Double, Int]
 --- anf
 Main.MkBox = Constructor tag Just 0 arity 6 newtype by Nothing fields [boxed, Double, Int, boxed, boxed, boxed]
 Main.MkPixel = Constructor tag Just 0 arity 3 newtype by Nothing fields [Bits8, Bits8, Double]
+Main.MkV2 = Constructor tag Just 0 arity 2 newtype by Nothing fields [Double, Double]
 Main.MkWrapped = Constructor tag Just 0 arity 1 newtype by Nothing fields [Double]
+Main.Node = Constructor tag Just 0 arity 2 newtype by Nothing fields [Double, boxed]
+Main.VCons = Constructor tag Just 1 arity 2 newtype by Nothing fields [Double, boxed]
+Main.VNil = Constructor tag Just 0 arity 0 newtype by Nothing fields []
 Rec.MkParticle = Constructor tag Just 0 arity 3 newtype by Nothing fields [Double, Double, Int]
 --- tables
 Main.MkBox
@@ -20,16 +28,16 @@ Main.MkPrims
   flags: confields [Int, Int8, Int16, Int32, Int64, Bits8, Bits16, Bits32, Bits64, Char, Double], contype [record]
 Main.VNil
   compiled: []
-  flags: confields [], contype [nil]
+  flags: nointrinsic, confields [], contype [nil]
 Main.VCons
   compiled: [Double, boxed]
-  flags: confields [boxed, Double, boxed], contype [cons]
+  flags: nointrinsic, confields [boxed, Double, boxed], contype [cons]
 Main.MkDep
   compiled: [Bits8, boxed]
   flags: confields [Bits8, boxed], contype [cons]
 Main.MkEL
   compiled: [Double, Int]
-  flags: confields [boxed, Double, Int], contype [cons]
+  flags: nointrinsic, confields [boxed, Double, Int], contype [cons]
 Main.MkPixel
   compiled: [Bits8, Bits8, Double]
   flags: confields [Bits8, Bits8, Double], contype [record]
@@ -39,13 +47,13 @@ Main.MkUI
   flags: confields [boxed], contype [record]
 Main.MkAliases
   compiled: [Double, boxed]
-  flags: confields [Double, boxed], contype [cons]
+  flags: nointrinsic, confields [Double, boxed], contype [cons]
 Main.MkDelayed
   compiled: [boxed, boxed, boxed]
   flags: confields [boxed, boxed, boxed], contype [record]
 Main.Node
   compiled: [Double, boxed]
-  flags: confields [Double, boxed], contype [cons]
+  flags: nointrinsic, confields [Double, boxed], contype [cons]
 Main.None
   compiled: []
   flags: confields [], contype [nil]
@@ -54,16 +62,16 @@ Main.Trees
   flags: confields [boxed, boxed], contype [cons]
 Main.MkUsesLater
   compiled: [boxed, Double]
-  flags: confields [boxed, Double], contype [cons]
+  flags: nointrinsic, confields [boxed, Double], contype [cons]
 Main.MkUsesEarlier
   compiled: [Bits8, Double]
-  flags: confields [Bits8, Double], contype [cons]
+  flags: nointrinsic, confields [Bits8, Double], contype [cons]
 Main.MkNested
   compiled: [boxed, boxed, boxed, boxed]
   flags: confields [boxed, boxed, boxed, boxed], contype [record]
 Main.MkV2
   compiled: [Double, Double]
-  flags: confields [Double, Double], contype [cons]
+  flags: nointrinsic, confields [Double, Double], contype [cons]
 Main.MkWrapped
   compiled: [Double]
   flags: confields [Double], contype [record]

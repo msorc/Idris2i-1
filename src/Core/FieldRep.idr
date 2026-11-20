@@ -15,6 +15,7 @@ module Core.FieldRep
 
 import Core.CompileExpr
 import Core.Context
+import Core.Context.Log
 import Core.Env
 import Core.Normalise
 import Core.Value
@@ -127,6 +128,33 @@ setConFields fc n
               | _ => pure ()
          fs <- conFieldReps arity (type gdef)
          setFlag fc n (ConFields fs)
+
+||| Is it a constructor that Compiler.Opts.Constructor makes intrinsic?
+intrinsic : List DefFlag -> Bool
+intrinsic = any isIntrinsic
+  where
+    isIntrinsic : DefFlag -> Bool
+    isIntrinsic (ConType NIL) = True
+    isIntrinsic (ConType CONS) = True
+    isIntrinsic (ConType NOTHING) = True
+    isIntrinsic (ConType JUST) = True
+    isIntrinsic _ = False
+
+||| Flag the constructors `cons` of the type `tn` `NoIntrinsic` if they are
+||| list or option shaped (made intrinsic otherwise) and one of
+||| them has a field that a back end may store raw (`rawField`): then none of
+||| them is compiled to an intrinsic constructor (see
+||| Compiler.Opts.Constructor), whose fields are boxed, and which stands for
+||| the constructors of every type of the same shape.  All of them, so that
+||| a type's constructors are either all intrinsic or none.
+export
+setNoIntrinsic : {auto c : Ref Ctxt Defs} -> FC -> Name -> List Name -> Core ()
+setNoIntrinsic fc tn cons
+    = do defs <- get Ctxt
+         fs <- traverse (conFlags defs) cons
+         when (any intrinsic fs && any (maybe False (any rawField) . conFieldsFlag) fs) $
+           do log "declare.data.nointrinsic" 1 $ "Constructors of " ++ show !(toFullNames tn) ++ " keep their names"
+              traverse_ (\ n => setFlag fc n NoIntrinsic) cons
 
 ||| The table of the constructor `n`, with `arity` arguments, without its
 ||| erased arguments `erased` (as the arguments of a constructor application

@@ -255,6 +255,11 @@ data DefFlag
          -- values of each of its arguments, erased ones included (see
          -- Core.FieldRep).  Set once, where the data type is declared, so
          -- that every module compiles the constructor with the same table.
+    | NoIntrinsic
+         -- For a data constructor: the constructors of its type keep their
+         -- names in CExp, and are not compiled to the intrinsic constructors
+         -- (`_builtin.CONS`, ...; see Compiler.Opts.Constructor), because one
+         -- of them has a field that a back end may store raw (`rawField`).
 %name DefFlag dflag
 
 export
@@ -275,6 +280,7 @@ Eq DefFlag where
     (==) (PositiveParams x) (PositiveParams y) = toList x == toList y
     (==) (PartialMethods xs) (PartialMethods ys) = xs == ys
     (==) (ConFields xs) (ConFields ys) = xs == ys
+    (==) NoIntrinsic NoIntrinsic = True
     (==) (SpecStatics f xs) (SpecStatics g ys) = f == g && sameStatics xs ys
       where
         sameStatics : List ClosedTerm -> List ClosedTerm -> Bool
@@ -302,6 +308,7 @@ Show DefFlag where
   show (SpecStatics _ _) = "specstatics"
   show (PartialMethods ns) = "partialmethods " ++ show ns
   show (ConFields fs) = "confields " ++ show fs
+  show NoIntrinsic = "nointrinsic"
 
 public export
 record SCCall where

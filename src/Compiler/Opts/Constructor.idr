@@ -13,6 +13,8 @@ Unit - case blocks scrutinising UNIT are removed (possibly leaving behind a non-
 Intrinsic constructors: NIL/CONS, NOTHING/JUST - these are left as constructors,
     but the name and tag are based on the ConInfo rather than the original name and tag.
     new `CDef`s must be generated for each of these constructors - see intrinsicCons.
+    The constructors of a type flagged NoIntrinsic (one has a field that a back
+    end may store raw) keep their names and tags, and their ConInfo.
 -}
 
 module Compiler.Opts.Constructor
@@ -212,17 +214,39 @@ intrinsicCons = process
         map (\(n, tag) => (n, (EmptyFC, MkCon (Just tag) ar Nothing (replicate ar FBoxed))))
             $ conInfoNameTag ci
 
-tryIntrinsic : CExp vars -> Maybe (CExp vars)
-tryIntrinsic (CCon fc _ ci _ xs) =
-    conInfoNameTag ci <&> \(n, tag) => CCon fc n ci (Just tag) xs
+-- Does the constructor `n` keep its name (see the flag NoIntrinsic, set in
+-- Core.FieldRep.setNoIntrinsic)?  An intrinsic constructor stands for the
+-- constructors of every type of its shape, so code that converts between two
+-- of these types is the identity (Compiler.Opts.Identity), and two equal
+-- applications of constructors of different types are equal (CSE).  This is
+-- wrong when a back end lays the fields of one of them out differently.
+keepsName : Ref Ctxt Defs => Name -> Core Bool
+keepsName n
+    = do defs <- get Ctxt
+         Just gdef <- lookupCtxtExact n (gamma defs)
+              | Nothing => pure False
+         pure (NoIntrinsic `elem` flags gdef)
+
+tryIntrinsic : Ref Ctxt Defs => CExp vars -> Core (Maybe (CExp vars))
+tryIntrinsic (CCon fc n ci _ xs) =
+    case conInfoNameTag ci of
+         Nothing => pure Nothing
+         Just (n', tag) =>
+           if !(keepsName n)
+              then pure Nothing
+              else pure (Just (CCon fc n' ci (Just tag) xs))
 tryIntrinsic (CConCase fc e alts def) =
-    traverse go alts
-        <&> \alts => CConCase fc e alts def
+    case the (Maybe (List (CConAlt vars))) (traverse go alts) of
+         Nothing => pure Nothing
+         Just alts' =>
+           if !(anyM (\ (MkConAlt n _ _ _ _) => keepsName n) alts)
+              then pure Nothing
+              else pure (Just (CConCase fc e alts' def))
   where
     go : CConAlt vars -> Maybe (CConAlt vars)
     go (MkConAlt _ ci _ as e) =
         conInfoNameTag ci <&> \(n, tag) => MkConAlt n ci (Just tag) as e
-tryIntrinsic _ = Nothing
+tryIntrinsic _ = pure Nothing
 
 parameters (try : forall vars. CExp vars -> Core (CExp vars))
     rewriteCExp : CExp vars -> Core (CExp vars)
@@ -274,7 +298,7 @@ sequence (x :: xs) e = do
     sequence xs e'
 
 export
-constructorCExp : Ref NextMN Int => CExp vars -> Core (CExp vars)
+constructorCExp : Ref Ctxt Defs => Ref NextMN Int => CExp vars -> Core (CExp vars)
 constructorCExp = rewriteCExp rw
   where
     rw : forall vars. CExp vars -> Core (CExp vars)
@@ -283,11 +307,11 @@ constructorCExp = rewriteCExp rw
         , nat
         , pure . enum
         , unitTree
-        , pure . tryIntrinsic
+        , tryIntrinsic
         ]
 
 
 export
-constructorCDef : Ref NextMN Int => CDef -> Core CDef
+constructorCDef : Ref Ctxt Defs => Ref NextMN Int => CDef -> Core CDef
 constructorCDef (MkFun args e) = MkFun args <$> constructorCExp e
 constructorCDef def = pure def

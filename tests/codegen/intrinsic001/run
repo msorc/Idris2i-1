@@ -1,0 +1,14 @@
+. ../../testutils.sh
+rm -f Main.cases
+
+idris2 --dumpcases Main.cases -o main Main.idr > /dev/null
+
+# The conversions to DL, V2, MI and BL are functions (before, they were the
+# identity and compiled away, being between two types of intrinsic
+# constructors); those to CL and Opt are still compiled away.
+grep -E '^Main\.(toD|toV2|toMI|toBL|toC|toOpt) ' Main.cases | cut -c1-160
+echo "--- the constructors that are compiled"
+sed -n '/^\(Main\|_builtin\)\.[^ ]* = Constructor/p' Main.cases | sort
+echo "--- run"
+./build/exec/main
+rm -f Main.cases

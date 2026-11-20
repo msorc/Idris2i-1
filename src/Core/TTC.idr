@@ -1101,6 +1101,7 @@ TTC DefFlag where
   toBuf (SpecStatics f xs) = do tag 16; toBuf f; toBuf xs
   toBuf (PartialMethods ns) = do tag 17; toBuf ns
   toBuf (ConFields fs) = do tag 18; toBuf fs
+  toBuf NoIntrinsic = tag 19
 
   fromBuf
       = case !getTag of
@@ -1121,6 +1122,7 @@ TTC DefFlag where
              16 => do f <- fromBuf; xs <- fromBuf; pure (SpecStatics f xs)
              17 => do ns <- fromBuf; pure (PartialMethods ns)
              18 => do fs <- fromBuf; pure (ConFields fs)
+             19 => pure NoIntrinsic
              _ => corrupt "DefFlag"
 
 export

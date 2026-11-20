@@ -94,6 +94,22 @@ Eq FieldRep where
   FPrim t == FPrim t' = t == t'
   _ == _ = False
 
+||| A field that a back end with a uniform representation of values may want
+||| to store raw: its values are boxes on the heap, or need a test to be read,
+||| in a pointer slot (`Double`, `Int`, `Int64`, `Bits64`).  The smaller
+||| integers, `Char` and enumerations are immediate values anyway.  The
+||| constructors of a type that has such a field keep their own names (see
+||| the flag `NoIntrinsic` and Compiler.Opts.Constructor): an intrinsic
+||| constructor, which stands for the constructors of many types, has boxed
+||| fields only.
+export
+rawField : FieldRep -> Bool
+rawField (FPrim DoubleType) = True
+rawField (FPrim IntType) = True
+rawField (FPrim Int64Type) = True
+rawField (FPrim Bits64Type) = True
+rawField _ = False
+
 ||| The primitive type that the constructors of an enumeration with `k`
 ||| constructors are compiled to (see the enumeration optimisation in
 ||| Compiler.Opts.Constructor, which uses this too).
