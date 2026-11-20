@@ -397,6 +397,9 @@ data Use
   | ||| as the new value of a parameter (by its position), in a call of the
     ||| function to itself (`selfTailCall`)
     SelfArg Nat
+  | ||| as the value of the `let` of the variable (in tail position in it,
+    ||| in a branch of a `case`, say): a C integer if the variable is one
+    Into Int
 
 Uses : Type
 Uses = SortedMap Int (List Use)
@@ -475,9 +478,9 @@ argUses c cn args us
                             (zip args ts)
            Nothing => addUses Boxed args us
 
-usesIn : Calls -> (tail : Bool) -> ANF -> Uses -> Uses
-usesIn c t (AV _ v) us = addUse (if t then Returned else Boxed) v us
-usesIn c t (AAppName _ _ n args) us
+usesInto : Calls -> (tail : Bool) -> (into : Maybe Int) -> ANF -> Uses -> Uses
+usesInto c t i (AV _ v) us = addUse (maybe (if t then Returned else Boxed) Into i) v us
+usesInto c t i (AAppName _ _ n args) us
     = let cn = c.key n in
       if c.isForeign cn args
          then case c.foreignRaw cn (length args) of
@@ -488,20 +491,20 @@ usesIn c t (AAppName _ _ n args) us
          then foldl (\us', (k, a) => addUse (SelfArg k) a us') us
                     (zip [0 .. length args] args)
          else argUses c cn args us
-usesIn c t (AUnderApp _ _ _ args) us = addUses Boxed args us
-usesIn c t (AApp _ _ f a) us = addUse Boxed f (addUse Boxed a us)
-usesIn c t (ALet _ _ val body) us = usesIn c t body (usesIn c False val us)
+usesInto c t i (AUnderApp _ _ _ args) us = addUses Boxed args us
+usesInto c t i (AApp _ _ f a) us = addUse Boxed f (addUse Boxed a us)
+usesInto c t i (ALet _ x val body) us = usesInto c t i body (usesInto c False (Just x) val us)
 -- (a raw field of a constructor is stored from a C number)
-usesIn c t (ACon _ n _ _ args) us
+usesInto c t i (ACon _ n _ _ args) us
     = case c.rawFields n of
            Just ts => foldl (\us', (a, t) => addUse (maybe Boxed Numeric t) a us') us
                             (zip args ts)
            Nothing => addUses Boxed args us
-usesIn c t (AOp _ _ op args) us
+usesInto c t i (AOp _ _ op args) us
     = addUses (maybe Raw Numeric (operandType op)) (toList args) us
 -- (the arrays of slots with a layout take the layout and the index as C
 -- numbers, see prim__slotGet in RefC)
-usesIn c t (AExtPrim _ _ p args) us
+usesInto c t i (AExtPrim _ _ p args) us
     = case (p, args) of
            (NS _ (UN (Basic "prim__newSlots")), [_, l, n, v, w]) =>
              addUse (Numeric Bits64Type) l (addUse (Numeric IntType) n (addUses Raw [v, w] us))
@@ -510,17 +513,20 @@ usesIn c t (AExtPrim _ _ p args) us
            (NS _ (UN (Basic "prim__slotSet")), [_, l, arr, i, v, w]) =>
              addUse (Numeric Bits64Type) l (addUse (Numeric IntType) i (addUses Raw [arr, v, w] us))
            _ => addUses Raw args us
-usesIn c t (AConCase _ sc alts def) us
-    = let us = foldl (\us', (MkAConAlt _ _ _ _ b) => usesIn c t b us') us alts
-          us = maybe us (\d => usesIn c t d us) def in
+usesInto c t i (AConCase _ sc alts def) us
+    = let us = foldl (\us', (MkAConAlt _ _ _ _ b) => usesInto c t i b us') us alts
+          us = maybe us (\d => usesInto c t i d us) def in
           addUse Raw sc us
-usesIn c t (AConstCase _ sc alts def) us
-    = let us = foldl (\us', (MkAConstAlt _ b) => usesIn c t b us') us alts
-          us = maybe us (\d => usesIn c t d us) def in
+usesInto c t i (AConstCase _ sc alts def) us
+    = let us = foldl (\us', (MkAConstAlt _ b) => usesInto c t i b us') us alts
+          us = maybe us (\d => usesInto c t i d us) def in
           case alts of
                [] => us -- (only a default: the scrutinee is not looked at)
                _ => addUse (maybe Raw Numeric (altsType alts)) sc us
-usesIn _ _ _ us = us
+usesInto _ _ _ _ us = us
+
+usesIn : Calls -> (tail : Bool) -> ANF -> Uses -> Uses
+usesIn c t = usesInto c t Nothing
 
 ||| Does the expression have an operation on C integers?  Without one, no
 ||| variable is worth unboxing (and the types of the parameters need not be
@@ -672,6 +678,7 @@ unboxedVars c loops worker params ips body
     numeric : SortedMap Int PrimType -> PrimType -> Use -> Bool
     numeric u t (Numeric t') = t == t'
     numeric u t (SelfArg k) = maybe False (\p => lookup p u == Just t) (paramAt k params)
+    numeric u t (Into x) = lookup x u == Just t
     numeric u t _ = False
 
     -- a use as a value, which needs one to be made
@@ -679,6 +686,7 @@ unboxedVars c loops worker params ips body
     boxed u t Boxed = True
     boxed u t Returned = True
     boxed u t (SelfArg k) = not (numeric u t (SelfArg k))
+    boxed u t (Into x) = lookup x u /= Just t
     boxed u t _ = False
 
     -- a use that needs the value as it is (or as an integer of another type)

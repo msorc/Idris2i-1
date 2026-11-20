@@ -751,6 +751,10 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* A variable that is the value of a `let` (in a branch of a `case` that the
+  `let` binds, say) is a C number when the variable of the `let` is one: a
+  `Double` chosen by an `if` is not boxed any more.  Instructions: the
+  particle simulation on a linear array of records 1.35 times fewer.
 * A constant with fields stored raw (see below), whose fields are literals,
   is static data of the program, as the other constant constructors are.
 * Flat arrays, the plumbing (see `docs/source/backends/refc-flat-layout.rst`,
