@@ -711,7 +711,12 @@ Still behind ``--directive refc-flat-arrays``, and still opt-in in the API.
   a ``case`` whose branches all give one (an update in a branch) is its
   fields, the same way; a write of a ``Just`` of a record known by its
   fields is ``slotStore`` of the fields, of another record ``slotStoreElem``
-  of its cell (no ``Just``); the pure ``let`` s not used are dropped.  The
+  of its cell (no ``Just``); the pure ``let`` s not used are dropped.  A
+  function that has no access by fields in the end is kept as it was (its
+  rewritten body is only what is inlined): with them, the compiler's own C
+  grew by 13% (by 40% when the functions on records were kept rewritten
+  too); with the directive on, it is now the same but for the layouts
+  passed, and is generated in 2% more time.  The
   primitives are RefC's own (namespace ``_refc_flat``, prim.h): inline when
   the array has the layout expected and is not shared, through values
   otherwise (``idris2_slotWordGeneric`` and the rest, in prim.c), so they
@@ -733,7 +738,7 @@ Measured (instructions, user space, median of 3, full inputs):
 ==============================================  ===============  ===============
 linear arrays of values, devel (e9a3edee66)     16 093 788 544   44 472 072 436
 the same, this branch                           16 769 295 537   45 082 659 312
-the same, with ``refc-flat-arrays``             12 504 090 474   31 363 791 299
+the same, with ``refc-flat-arrays``             16 944 601 548   45 586 805 091
 flat linear arrays, directive off               18 317 083 042   49 254 213 704
 flat linear arrays, ``refc-flat-arrays``         5 100 532 333   12 639 927 713
 phase 0, hand-written C (FD, F)                  3 313 193 027   10 840 000 000
@@ -742,9 +747,9 @@ phase 0, hand-written C (FD, F)                  3 313 193 027   10 840 000 000
 (W2's F is phase 0's 10.84 G, rounded.)  So the flat arrays run 3.2 and 3.5
 times fewer instructions than the arrays of values of devel, within 1.54 and
 1.17 of phase 0's hand-written flat C.  The branch's arrays of values pay
-4% for going through the slot primitives (stage B); the flat source without
-the directive pays 9-10% more for passing the ``Flat`` dictionary.  What
-remains:
+4% for going through the slot primitives (stage B), and 1% more with the
+directive (the layouts are passed); the flat source without the directive
+pays 9-10% more for passing the ``Flat`` dictionary.  What remains:
 
 - W1, 204 instructions per update against FD's 133: each component tests
   the bounds result and the layout and sharing of the array again (the C

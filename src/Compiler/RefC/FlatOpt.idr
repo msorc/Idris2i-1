@@ -317,6 +317,15 @@ accesses (AConCase _ _ alts def) = any (\(MkAConAlt _ _ _ _ b) => accesses b) al
 accesses (AConstCase _ _ alts def) = any (\(MkAConstAlt _ b) => accesses b) alts || maybe False accesses def
 accesses _ = False
 
+-- Does the expression access the elements of a flat array by their fields
+-- (the primitives of this pass)?
+usesFlat : ANF -> Bool
+usesFlat (AExtPrim _ _ p _) = isJust (flatPrimName p)
+usesFlat (ALet _ _ v b) = usesFlat v || usesFlat b
+usesFlat (AConCase _ _ alts def) = any (\(MkAConAlt _ _ _ _ b) => usesFlat b) alts || maybe False usesFlat def
+usesFlat (AConstCase _ _ alts def) = any (\(MkAConstAlt _ b) => usesFlat b) alts || maybe False usesFlat def
+usesFlat _ = False
+
 calls : Name -> ANF -> Bool
 calls f (AAppName _ _ g _) = f == g
 calls f (AUnderApp _ g _ _) = f == g
@@ -734,7 +743,7 @@ mutual
 ||| records that the arrays may hold.
 export
 flatOpt : FlatRecords -> List (Name, ANFDef) -> List (Name, ANFDef)
-flatOpt recs defs = rounds 3 defs
+flatOpt recs defs = zipWith keep defs (rounds 3 defs)
   where
     byShape : SortedMap (Nat, Int) (List Name)
     byShape = foldl (\m, (c, r) => let k = (length r.recFields, r.recTag) in
@@ -754,6 +763,15 @@ flatOpt recs defs = rounds 3 defs
                   let (b4, _) = simp (MkSt next3 empty empty empty recs byShape) b3 in
                       MkAFun args (dce b4)
     rewriteDef _ _ _ d = d
+
+    -- A function that does not access the elements of flat arrays by their
+    -- fields in the end is kept as it was, though its rewritten body is what
+    -- is inlined: inlining in the functions that only use arrays of values,
+    -- or records, is not this pass's job (with them, the compiler's C grows
+    -- by 13%, by 40% with the functions on records too).
+    keep : (Name, ANFDef) -> (Name, ANFDef) -> (Name, ANFDef)
+    keep d (n, r@(MkAFun _ b)) = if usesFlat b then (n, r) else d
+    keep d _ = d
 
     -- (in rounds: a function rewritten may be one to inline in the next,
     -- the copy of an access that applied a closure, say)
