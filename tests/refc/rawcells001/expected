@@ -1,0 +1,15 @@
+raw cells: ok
+RefC leak check: 1 leaked values, 1 constants and 1 values that they hold; 0 large values (from malloc, not looked at)
+  leaked values: String 1
+  constants: constructor 1
+  held by constants: String 1
+  some leaked values:
+    ADDR String "loose", 1 reference
+raw cells: ok
+raw cells: ok
+RefC leak check: 1 leaked values, 1 constants and 1 values that they hold; 0 large values (from malloc, not looked at)
+  leaked values: String 1
+  constants: constructor 1
+  held by constants: String 1
+  some leaked values:
+    ADDR String "loose", 1 reference

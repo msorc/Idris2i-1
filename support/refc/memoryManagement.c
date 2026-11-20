@@ -74,7 +74,8 @@ static void *allocAligned(size_t alignment, size_t size) {
   if (posix_memalign(&retVal, alignment, size) != 0)
     retVal = NULL;
 #else
-  void *retVal = alignment <= sizeof(void *) ? malloc(size) : NULL;
+  // (malloc aligns on 8 bytes at least on the platforms that get here)
+  void *retVal = alignment <= 8 ? malloc(size) : NULL;
 #endif
   IDRIS2_REFC_VERIFY(retVal && !idris2_vp_is_unboxed(retVal), "malloc failed");
   return retVal;
@@ -478,8 +479,16 @@ Idris2_Value *idris2_allocSlow(unsigned cls) {
   return retVal;
 }
 
+// The alignment of the values from idris2_allocLarge: that of the cells of
+// the pools (IDRIS2_ALLOC_UNIT), so that a double or an int64_t stored in a
+// value (the raw fields of a constructor, see refc-flat-layout.rst) is
+// aligned on the 32 bit platforms whose ABI wants 8 bytes for them too.
+#define IDRIS2_LARGE_ALIGN                                                     \
+  (sizeof(void *) > IDRIS2_ALLOC_UNIT ? sizeof(void *) : IDRIS2_ALLOC_UNIT)
+
 Idris2_Value *idris2_allocLarge(size_t size) {
-  Idris2_Value *retVal = (Idris2_Value *)allocAligned(sizeof(void *), size);
+  Idris2_Value *retVal =
+      (Idris2_Value *)allocAligned(IDRIS2_LARGE_ALIGN, size);
   __atomic_fetch_add(&largeLive, 1, __ATOMIC_RELAXED);
   IDRIS2_STAT(largeAllocs);
 #ifdef IDRIS2_REFC_STATS

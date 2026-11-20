@@ -1,0 +1,53 @@
+. ../../testutils.sh
+
+# The runtime with stage A cells of the flat layout (pointer fields, then raw
+# bytes; see rawcells.c), without the code generator: rawcells.c is compiled
+# with the sources of the runtime.  The leak check must find one constant
+# (the cell kept at the end), one value that it holds, and one leaked string.  With a C compiler for 32 bit x86 and a 32 bit
+# GMP (see bits32_001), the test is also run as a 32 bit program, which
+# prints the same.
+
+support=../../../support
+cc=${IDRIS2_CC:-${CC:-cc}}
+mkdir -p build
+
+build() { # out flags...
+    out=$1; shift
+    "$cc" "$@" -O1 -Wall -Werror -I"$support/refc" -I"$support/c" -c rawcells.c -o build/rawcells.o \
+        && "$cc" "$@" -O1 -w -I"$support/refc" -I"$support/c" -o "$out" build/rawcells.o \
+            "$support"/refc/*.c "$support"/c/*.c -lgmp -lm -pthread
+}
+
+check() { # exe
+    "$1"
+    IDRIS2_REFC_LEAKCHECK=2 "$1" 2>&1 >/dev/null | sed 's/0x[0-9a-f]*/ADDR/g'
+}
+
+build build/rawcells
+check ./build/rawcells
+
+# The statistics build of the runtime, with its report.
+build build/rawcells_stats -DIDRIS2_REFC_STATS
+IDRIS2_REFC_MEMSTATS=1 ./build/rawcells_stats 2>/dev/null
+
+gmpinc=
+have32=
+for dir in "" /usr/lib32/gmp /usr/include/i386-linux-gnu; do
+    cat > build/probe32.c <<EOC
+#include <gmp.h>
+#include <pthread.h>
+_Static_assert(sizeof(void *) == 4 && GMP_LIMB_BITS == 32, "not 32 bit");
+int main(void) { mpz_t z; mpz_init_set_ui(z, 42); return mpz_get_ui(z) != 42; }
+EOC
+    if "$cc" -m32 ${dir:+-I$dir} -o build/probe32 build/probe32.c -lgmp -lm -pthread 2>/dev/null \
+        && ./build/probe32 2>/dev/null; then
+        have32=1
+        gmpinc=${dir:+-I$dir}
+        break
+    fi
+done
+if [ -n "$have32" ]; then
+    build build/rawcells32 -m32 $gmpinc && check ./build/rawcells32
+else
+    check ./build/rawcells
+fi

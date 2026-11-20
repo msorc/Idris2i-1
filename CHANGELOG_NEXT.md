@@ -751,6 +751,14 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* The values that do not come from the pools (larger than 256 bytes, or all
+  of them under Valgrind or with `IDRIS2_REFC_NO_POOLS`) are aligned on 8
+  bytes on 32 bit platforms too (they were aligned on the size of a pointer),
+  as the cells of the pools are, for the unboxed fields of constructors to
+  come.  The test `refc/rawcells001` checks the runtime (release, marking of
+  shared values, the leak check, static values, reuse of cells) with cells
+  that have unboxed fields after their pointer fields, as a 32 bit program
+  too where a 32 bit C compiler and GMP are installed.
 * A branch of a `case` that matches several cells of the same constructor
   keeps them all for the constructors that it builds, used in order, and
   releases those that no constructor takes over (it kept the first one only,
