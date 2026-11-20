@@ -85,9 +85,12 @@ loop : Int -> P2 -> P2
 loop 0 p = p
 loop k p = loop (k - 1) (step p)
 
--- a constant with raw fields
+-- constants with raw fields: static values
 origin : P2
 origin = MkP2 0.25 (-3.5)
+
+constMixed : Mixed
+constMixed = MkMixed "const" 0.5 1 2 3 4 [5]
 
 main : IO ()
 main = do
@@ -110,6 +113,7 @@ main = do
   let p = loop 1000 (MkP2 1.0 2.0)
   printLn (p.x, p.y)
   printLn (origin.x, origin.y)
+  printLn constMixed
   -- a record that two threads read
   t <- fork (printLn (sumFields m))
   threadWait t

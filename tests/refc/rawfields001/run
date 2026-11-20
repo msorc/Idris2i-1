@@ -7,6 +7,8 @@ $VALGRIND ./build/exec/main
 # the Bits8 as an immediate in a third, and four raw fields.
 grep -c "idris2_newRawConstructor(3, 4, 0)" build/exec/main.c | sed 's/^[1-9][0-9]*$/Mixed built raw/'
 grep -q "idris2_rawField(.*, 3, 0, double)" build/exec/main.c && echo "Mixed read raw"
+# The constants are static data, with their pointer fields and raw fields.
+grep -c "^IDRIS2_UNUSED static const struct .* idris2_static_con[0-9]*_raw_" build/exec/main.c | sed 's/^[1-9][0-9]*$/static constants with raw fields/'
 
 # The same, with the raw fields switched off, and with the layout checked.
 idris2 --cg refc --directive refc-no-raw-fields -o boxed Main.idr

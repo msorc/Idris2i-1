@@ -396,6 +396,45 @@ staticConstructor tag fields = do
                    Nothing => name
                    Just t => if t == text name init then name else fresh defs prefx init (S k)
 
+||| The static value of a constructor with raw fields (see `RawLayout`): the
+||| tag `tag`, the pointer fields `fields` (static values), and the raw ones,
+||| C constant expressions of their types.  The struct has the layout of
+||| idris2_newRawConstructor: the first raw field is aligned on 8 bytes (on 32
+||| bit x86 too, where a double in a struct is aligned on 4 otherwise).
+staticRawConstructor : {auto _ : Ref ConstDef ConstTable} -> Int -> List StaticVal
+                    -> List (PrimType, String) -> Core StaticVal
+staticRawConstructor tag fields raws = do
+    let depth = S (foldl max 0 (map depth fields))
+    let np = length fields
+    let members = concat (zipWith (\j, (t, _) =>
+                    (if j == 0 then "_Alignas(8) " else "") ++ cIntType t ++ " r\{show j}; ")
+                    [0 .. length raws] raws)
+    let ptrs = if np == 0 then "" else "Idris2_Value *args[\{show np}]; "
+    let ptrInit = if np == 0 then "" else ", {\{concat $ intersperse ", " (map expr fields)}}"
+    let init = "\{show np}, \{show tag}\{ptrInit}, \{concat $ intersperse ", " (map snd raws)}"
+    tbl <- get ConstDef
+    -- (the depth first, as in `staticConstructor`: the definitions are in the
+    -- order of their names, so a constructor comes after its fields)
+    let prefx = "idris2_static_con\{if depth < 10 then "0" else ""}\{show depth}_raw_\{hashName (members ++ init)}"
+    let name = fresh tbl.staticDefs prefx (text members ptrs init) 0
+    let names = name :: concatMap names fields
+    put ConstDef ({ staticDefs $= insert name (text members ptrs init name)
+                  , constUses $= (\u => foldl (flip insert) u names) } tbl)
+    pure (MkStaticVal "((Idris2_Value *)&\{name})" names depth)
+  where
+    text : String -> String -> String -> String -> String
+    text members ptrs init name
+        = "IDRIS2_UNUSED static const struct { Idris2_header header; uint16_t total; int16_t tag; "
+          ++ ptrs ++ members ++ "} \{name} = {IDRIS2_STOCKVAL(CONSTRUCTOR_TAG), \{init}};"
+
+    -- (two definitions with the same hash get different names)
+    fresh : SortedMap String String -> String -> (String -> String) -> Nat -> String
+    fresh defs prefx textOf k
+        = let name = if k == 0 then prefx else prefx ++ "_" ++ show k in
+              case lookup name defs of
+                   Nothing => name
+                   Just t => if t == textOf name then name else fresh defs prefx textOf (S k)
+
 ||| May the expression have a static value: is it made of constructors,
 ||| closures without arguments and constants only?
 staticShape : ANF -> Bool
@@ -754,6 +793,10 @@ record Env where
   rawCons : SortedMap Name RawLayout
   ||| `--directive refc-check-layout` (see IDRIS2_CHECK_LAYOUT)
   checkLayout : Bool
+  ||| The variables that are C integers bound to literals, with their C
+  ||| constants: a raw field of a static value may be one (see
+  ||| `staticRawConstructor`).
+  intLits : SortedMap Int String
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -964,6 +1007,12 @@ removeReuseConstructors env
     = if env.reuseCopy
          then traverse_ (\c => emit EmptyFC "idris2_freeValue((Idris2_Value *)\{c});")
          else applyFunctionToVars "idris2_removeReuseConstructor"
+
+||| The C constant of a literal of the C integer type `t`, if the expression
+||| is one.
+literalOf : PrimType -> ANF -> Maybe String
+literalOf t (APrimVal _ c) = if constType c == Just t then Just (cIntLiteral c) else Nothing
+literalOf _ _ = Nothing
 
 ||| The C integer that the variable `N` is when it is unboxed (see
 ||| Compiler.RefC.Unbox).
@@ -1827,8 +1876,10 @@ mutual
                   then Just (MkStaticVal "idris2_nullaryConstructor(\{show t})" [] 0)
                   else Nothing
                (_, Just t) =>
-                  -- (not a constructor with raw fields, see `RawLayout`)
-                  if env.staticOK && length args <= 255 && isNothing (lookup n env.rawCons)
+                  if env.staticOK && length args <= 255 && isJust (lookup n env.rawCons)
+                     && null (cellsOf (reuseKey env n tag (length args)) env.reuseMap)
+                     then rawStatic t
+                  else if env.staticOK && length args <= 255 && isNothing (lookup n env.rawCons)
                      && null (cellsOf (reuseKey env n tag (length args)) env.reuseMap)
                      then case the (Maybe (List StaticVal)) (traverse field args) of
                             Just fields =>
@@ -1842,6 +1893,24 @@ mutual
         field : AVar -> Maybe StaticVal
         field (ALocal i) = lookup i env.statics
         field ANull = Just (MkStaticVal "NULL" [] 0)
+
+        rawLit : (AVar, PrimType) -> Maybe (PrimType, String)
+        rawLit (ALocal i, t) = map (t,) (lookup i env.intLits)
+        rawLit (ANull, t) = Just (t, "0")
+
+        -- (a constructor with raw fields, see `RawLayout`)
+        rawStatic : Int -> Core (Maybe StaticVal)
+        rawStatic t = case lookup n env.rawCons of
+            Just l => do
+              let (ps, rs) = splitFields l args
+              case ( the (Maybe (List StaticVal)) (traverse field ps)
+                   , the (Maybe (List (PrimType, String))) (traverse rawLit rs) ) of
+                (Just fields, Just raws) =>
+                  if all (\f => f.depth < 90) fields
+                     then Just <$> staticRawConstructor t fields raws
+                     else pure Nothing
+                _ => pure Nothing
+            Nothing => pure Nothing
     staticOf env anf@(APrimVal fc c) = case c of
         Str _ => do
           e <- cStatementsFromANF anf NotInTailPosition
@@ -1863,8 +1932,14 @@ mutual
     -- with fewer cells to take over at most, so it found them static too.)
     staticOf env anf@(ALet _ var value body)
         = if staticShape anf
-             then do sv <- staticOf env value
-                     staticOf ({ statics $= maybe id (insert var) sv } env) body
+             then case lookup var env.unboxed of
+                    -- (a C integer bound to a literal, for a raw field)
+                    Just t => case literalOf t value of
+                      Just lit => staticOf ({ intLits $= insert var lit } env) body
+                      Nothing => pure Nothing
+                    Nothing => do
+                      sv <- staticOf env value
+                      staticOf ({ statics $= maybe id (insert var) sv } env) body
              else pure Nothing
     staticOf _ _ = pure Nothing
 
@@ -1885,7 +1960,8 @@ mutual
         put EnvTracker valueEnv
         let t = fromMaybe IntType (lookup var env.unboxed)
         emit fc $ "\{cIntType t} \{intVarName var} = \{!(cIntFromANF t NotInTailPosition value)};"
-        put EnvTracker ({ owned := borrowVal, reuseMap := bodyCells } env)
+        put EnvTracker ({ owned := borrowVal, reuseMap := bodyCells
+                        , intLits $= maybe id (insert var) (literalOf t value) } env)
         cResult body r
 
     ||| The C integer of type `t` of an expression whose `valueType` is `t`,
@@ -3298,7 +3374,7 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                               structs
                               (if usesStructFields anf then stringLets anf empty else empty)
                               !(get Workers) !(get ForeignWorkers)
-                              !(get RawCons) opts.optCheckLayout)
+                              !(get RawCons) opts.optCheckLayout empty)
     if trmc
        then do
          assignResult "*idris2_trmc_hole" !(cStatementsFromANF anf InTailPosition)
