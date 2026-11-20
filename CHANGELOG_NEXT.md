@@ -739,6 +739,14 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* A branch of a `case` that matches several cells of the same constructor
+  keeps them all for the constructors that it builds, used in order, and
+  releases those that no constructor takes over (it kept the first one only,
+  and freed the others): the merge of two lists takes over both cons cells,
+  and a function that returns a pair with a list takes over the cell of the
+  pair as well.  `--directive refc-no-multi-reuse` keeps one cell of each
+  constructor, as before.
+
 * Backtraces: a program that dies of a fatal error (`idris_crash`, a missing
   case in `partial` code, a division by zero, a missing foreign function, or
   `SIGSEGV`, `SIGBUS`, `SIGFPE`, `SIGILL` or `SIGABRT` from foreign code or a

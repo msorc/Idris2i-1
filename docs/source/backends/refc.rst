@@ -287,6 +287,10 @@ The code generator does the following, each of which a directive turns off
   as a value), and a constructor whose fields are all such values, constants
   or other static constructors (the dictionary of an implementation), are
   data of the C program instead of values allocated every time.
+- ``refc-no-multi-reuse``: a branch that matches several cells of the same
+  constructor (the merge of two lists matches a cons cell of each) keeps all
+  of them for the constructors that it builds, instead of the first one only
+  (the others are freed, and the constructors allocate new cells).
 - ``refc-no-lazy-constants``: an expression that occurs several times inside
   delayed code is a constant like the other repeated expressions, evaluated
   the first time that it is needed, instead of a delayed constant that is
