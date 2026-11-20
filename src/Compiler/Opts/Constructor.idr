@@ -144,11 +144,13 @@ nat _ = pure Nothing
 =========
 -}
 
+-- (The width must be that of `enumPrimType`, which tells what the fields of
+-- an enumeration type hold at run time.)
 enumTag : Nat -> Int -> Constant
-enumTag k i =
-  if      k <= 0xff   then B8 (cast i)
-  else if k <= 0xffff then B16 (cast i)
-  else                     B32 (cast i)
+enumTag k i = case enumPrimType k of
+  Bits8Type  => B8 (cast i)
+  Bits16Type => B16 (cast i)
+  _          => B32 (cast i)
 
 enum : CExp vars -> Maybe (CExp vars)
 enum (CCon fc _ (ENUM n) (Just tag) []) = Just (CPrimVal fc (enumTag n tag))
@@ -207,7 +209,8 @@ intrinsicCons = process
   where
     process : List (ConInfo, Nat) -> List (Name, FC, CDef)
     process = mapMaybe $ \(ci, ar) =>
-        map (\(n, tag) => (n, (EmptyFC, MkCon (Just tag) ar Nothing))) $ conInfoNameTag ci
+        map (\(n, tag) => (n, (EmptyFC, MkCon (Just tag) ar Nothing (replicate ar FBoxed))))
+            $ conInfoNameTag ci
 
 tryIntrinsic : CExp vars -> Maybe (CExp vars)
 tryIntrinsic (CCon fc _ ci _ xs) =

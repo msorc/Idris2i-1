@@ -1,0 +1,23 @@
+. ../../testutils.sh
+rm -f Main.cases Main.anf
+
+# Rec is checked first, so that Main gets its tables from Rec's TTC file.
+check Rec.idr
+idris2 --dumpcases Main.cases --dumpanf Main.anf -o main Main.idr
+
+# The tables as the dumps show them (of the constructors that are compiled:
+# most of the others are compiled to intrinsic or optimised away).
+echo "--- cases"
+sed -n '/^\(Main\|Rec\)\.[^ ]* = Constructor/p' Main.cases | sort
+echo "--- anf"
+sed -n '/^\(Main\|Rec\)\.[^ ]* = Constructor/p' Main.anf | sort
+
+# Every table, as the TTC files have them: `confields` is the table of all
+# the arguments of the constructor, `fields` the one of its compiled
+# definition (without the erased arguments).
+echo "--- tables"
+idris2 Main.idr < input | sed -n 's/^Main> \([A-Z][A-Za-z0-9.]*\)$/\1/p; s/^  fields: /  compiled: /p; s/^  newtype by: \([0-9]*\)$/  newtype by \1/p; s/^Flags: /  flags: /p'
+
+echo "--- run"
+./build/exec/main
+rm -f Main.cases Main.anf

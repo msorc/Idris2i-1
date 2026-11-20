@@ -5,6 +5,7 @@ Type constructor:
   constructors: Prelude.Basics.False, Prelude.Basics.True
 Compiled: Type Constructor:
   arity: 0
+  fields: []
 Main> Prelude.Basics.True
 Data constructor:
   tag: 1
@@ -12,6 +13,7 @@ Data constructor:
 Compiled: Data Constructor:
   tag: 1
   arity: 0
-Flags: contype [enum 2]
+  fields: []
+Flags: confields [], contype [enum 2]
 Main> 
 Bye for now!

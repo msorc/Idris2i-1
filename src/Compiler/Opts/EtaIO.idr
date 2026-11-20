@@ -112,7 +112,7 @@ gotWorld _ = False
 
 arityOf : CDef -> Nat
 arityOf (MkFun args _) = length args
-arityOf (MkCon _ arity _) = arity
+arityOf (MkCon _ arity _ _) = arity
 arityOf (MkForeign _ args _) = length args
 arityOf (MkError _) = 0
 

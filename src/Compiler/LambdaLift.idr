@@ -236,8 +236,10 @@ data LiftedDef : Type where
      ||| @ nt is information related to newtype unboxing; backend
      |||   implementations needs not make use of this argument, as newtype
      |||   unboxing is managed by the Idris 2 compiler.
+     ||| @ fields what the types of the arguments say about their run time
+     |||   values (see `Core.CompileExpr.FieldRep`); a back end may ignore it.
      MkLCon : (tag : Maybe Int) -> (arity : Nat) -> (nt : Maybe Nat) ->
-              LiftedDef
+              (fields : List FieldRep) -> LiftedDef
 
      ||| Constructs a forward declaration of a foreign function.
      |||
@@ -311,9 +313,10 @@ covering
 Show LiftedDef where
   show (MkLFun args scope exp)
       = show args ++ show (reverse scope) ++ ": " ++ show exp
-  show (MkLCon tag arity pos)
+  show (MkLCon tag arity pos fs)
       = "Constructor tag " ++ show tag ++ " arity " ++ show arity ++
-        maybe "" (\n => " (newtype by " ++ show n ++ ")") pos
+        maybe "" (\n => " (newtype by " ++ show n ++ ")") pos ++
+        showFieldReps fs
   show (MkLForeign ccs args ret)
       = "Foreign call " ++ show ccs ++ " " ++
         show args ++ " -> " ++ show ret
@@ -602,7 +605,7 @@ lambdaLiftDef : (doLazyAnnots : Bool) -> Name -> CDef -> Core (List (Name, Lifte
 lambdaLiftDef doLazyAnnots n (MkFun args exp)
     = do (expl, defs) <- liftBody {doLazyAnnots} n exp
          pure ((n, MkLFun args Scope.empty expl) :: defs)
-lambdaLiftDef _ n (MkCon t a nt) = pure [(n, MkLCon t a nt)]
+lambdaLiftDef _ n (MkCon t a nt fs) = pure [(n, MkLCon t a nt fs)]
 lambdaLiftDef _ n (MkForeign ccs fargs ty) = pure [(n, MkLForeign ccs fargs ty)]
 lambdaLiftDef doLazyAnnots n (MkError exp)
     = do (expl, defs) <- liftBody {doLazyAnnots} n exp

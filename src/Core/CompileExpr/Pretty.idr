@@ -118,11 +118,12 @@ prettyCDef (MkFun [] exp) = reAnnotate Syntax $ prettyCExp exp
 prettyCDef (MkFun args exp) = reAnnotate Syntax $
   keyword "\\" <++> concatWith (\ x, y => x <+> keyword "," <++> y) (map prettyName $ toList args)
        <++> fatArrow <++> prettyCExp exp
-prettyCDef (MkCon mtag arity nt)
+prettyCDef (MkCon mtag arity nt fs)
   = vcat $ header (maybe "Type" (const "Data") mtag <++> "Constructor") :: map (indent 2)
          ( maybe [] (\ tag => ["tag:" <++> byShow tag]) mtag ++
          [ "arity:" <++> byShow arity ] ++
-           maybe [] (\ n => ["newtype by:" <++> byShow n]) nt)
+           maybe [] (\ n => ["newtype by:" <++> byShow n]) nt ++
+         [ "fields:" <++> byShow fs ])
 prettyCDef (MkForeign ccs args ret)
   = vcat $ header "Foreign function" :: map (indent 2)
          [ "bindings:" <++> cast (prettyList ccs)

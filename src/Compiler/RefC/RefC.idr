@@ -2907,7 +2907,7 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
     pure ()
 
 
-createCFunctions _ _ n canonN (MkACon tag arity nt) =
+createCFunctions _ _ n canonN (MkACon tag arity nt _) =
   case conTag tag of
     Nothing => do
       let n' = cName canonN
@@ -3090,7 +3090,7 @@ backtraceTable workers named
                 ++ map line sorted ++ ["};"]
   where
     isFunction : (String, Name, ANFDef) -> Bool
-    isFunction (_, _, MkACon _ _ _) = False
+    isFunction (_, _, MkACon {}) = False
     isFunction _ = True
 
     entry : (String, Name, ANFDef) -> Core (String, String, Maybe String)
@@ -3430,7 +3430,7 @@ checkArity : {auto c : Ref Ctxt Defs} -> Name -> ANFDef -> Core ()
 checkArity n d
     = let k = case d of
                    MkAFun args _ => length args
-                   MkACon _ arity _ => arity
+                   MkACon _ arity _ _ => arity
                    MkAForeign _ fargs _ => length fargs
                    MkAError _ => the Nat 0 in
           when (k > maxArity) $ do

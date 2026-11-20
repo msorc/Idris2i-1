@@ -1,0 +1,86 @@
+1/1: Building Rec (Rec.idr)
+Dumping case trees to Main.cases
+Dumping ANF defs to Main.anf
+--- cases
+Main.MkBox = Constructor tag Just 0 arity 6 fields [boxed, Double, Int, boxed, boxed, boxed]
+Main.MkPixel = Constructor tag Just 0 arity 3 fields [Bits8, Bits8, Double]
+Main.MkWrapped = Constructor tag Just 0 arity 1 fields [Double]
+Rec.MkParticle = Constructor tag Just 0 arity 3 fields [Double, Double, Int]
+--- anf
+Main.MkBox = Constructor tag Just 0 arity 6 newtype by Nothing fields [boxed, Double, Int, boxed, boxed, boxed]
+Main.MkPixel = Constructor tag Just 0 arity 3 newtype by Nothing fields [Bits8, Bits8, Double]
+Main.MkWrapped = Constructor tag Just 0 arity 1 newtype by Nothing fields [Double]
+Rec.MkParticle = Constructor tag Just 0 arity 3 newtype by Nothing fields [Double, Double, Int]
+--- tables
+Main.MkBox
+  compiled: [boxed, Double, Int, boxed, boxed, boxed]
+  flags: confields [boxed, boxed, Double, Int, boxed, boxed, boxed], contype [record]
+Main.MkPrims
+  compiled: [Int, Int8, Int16, Int32, Int64, Bits8, Bits16, Bits32, Bits64, Char, Double]
+  flags: confields [Int, Int8, Int16, Int32, Int64, Bits8, Bits16, Bits32, Bits64, Char, Double], contype [record]
+Main.VNil
+  compiled: []
+  flags: confields [], contype [nil]
+Main.VCons
+  compiled: [Double, boxed]
+  flags: confields [boxed, Double, boxed], contype [cons]
+Main.MkDep
+  compiled: [Bits8, boxed]
+  flags: confields [Bits8, boxed], contype [cons]
+Main.MkEL
+  compiled: [Double, Int]
+  flags: confields [boxed, Double, Int], contype [cons]
+Main.MkPixel
+  compiled: [Bits8, Bits8, Double]
+  flags: confields [Bits8, Bits8, Double], contype [record]
+Main.MkUI
+  newtype by 0
+  compiled: [boxed]
+  flags: confields [boxed], contype [record]
+Main.MkAliases
+  compiled: [Double, boxed]
+  flags: confields [Double, boxed], contype [cons]
+Main.MkDelayed
+  compiled: [boxed, boxed, boxed]
+  flags: confields [boxed, boxed, boxed], contype [record]
+Main.Node
+  compiled: [Double, boxed]
+  flags: confields [Double, boxed], contype [cons]
+Main.None
+  compiled: []
+  flags: confields [], contype [nil]
+Main.Trees
+  compiled: [boxed, boxed]
+  flags: confields [boxed, boxed], contype [cons]
+Main.MkUsesLater
+  compiled: [boxed, Double]
+  flags: confields [boxed, Double], contype [cons]
+Main.MkUsesEarlier
+  compiled: [Bits8, Double]
+  flags: confields [Bits8, Double], contype [cons]
+Main.MkNested
+  compiled: [boxed, boxed, boxed, boxed]
+  flags: confields [boxed, boxed, boxed, boxed], contype [record]
+Main.MkV2
+  compiled: [Double, Double]
+  flags: confields [Double, Double], contype [cons]
+Main.MkWrapped
+  compiled: [Double]
+  flags: confields [Double], contype [record]
+Main.MkNorm
+  newtype by 1
+  compiled: [boxed, boxed]
+  flags: confields [boxed, boxed], contype [record]
+Rec.MkParticle
+  compiled: [Double, Double, Int]
+  flags: confields [Double, Double, Int], contype [record]
+Rec.MkMeters
+  newtype by 0
+  compiled: [Double]
+  flags: confields [Double], contype [record]
+Rec.Red
+  compiled: []
+  flags: confields [], contype [enum 3]
+--- run
+[3.5, 3.0, 3.0, 0.5, 3.0, 5.0, 2.5, 3.0, 7.5, 6.0, 5.0, 0.25]
+(True, "blue")

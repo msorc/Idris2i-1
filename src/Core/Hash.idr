@@ -472,12 +472,18 @@ mutual
       h `hashWithSalt` c `hashWithSalt` rhs
 
 export
+Hashable FieldRep where
+  hashWithSalt h FBoxed = hashWithSalt h 0
+  hashWithSalt h (FPrim t) = h `hashWithSalt` 1 `hashWithSalt` t
+
+export
 Hashable NamedDef where
   hashWithSalt h = \case
     MkNmFun args ce =>
       h `hashWithSalt` 0 `hashWithSalt` args `hashWithSalt` ce
-    MkNmCon tag arity nt =>
+    MkNmCon tag arity nt fs =>
       h `hashWithSalt` 1 `hashWithSalt` tag `hashWithSalt` arity `hashWithSalt` nt
+        `hashWithSalt` fs
     MkNmForeign ccs fargs cft =>
       h `hashWithSalt` 2 `hashWithSalt` ccs `hashWithSalt` fargs `hashWithSalt` cft
     MkNmError e =>

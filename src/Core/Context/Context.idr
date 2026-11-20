@@ -250,6 +250,11 @@ data DefFlag
          -- its methods (and parent implementations) that are not covering.
          -- A function that uses the implementation is not covering either
          -- when the method totality check is on (see Core.Coverage).
+    | ConFields (List FieldRep)
+         -- For a data constructor: what its type says about the run time
+         -- values of each of its arguments, erased ones included (see
+         -- Core.FieldRep).  Set once, where the data type is declared, so
+         -- that every module compiles the constructor with the same table.
 %name DefFlag dflag
 
 export
@@ -269,6 +274,7 @@ Eq DefFlag where
     (==) (Identity x) (Identity y) = x == y
     (==) (PositiveParams x) (PositiveParams y) = toList x == toList y
     (==) (PartialMethods xs) (PartialMethods ys) = xs == ys
+    (==) (ConFields xs) (ConFields ys) = xs == ys
     (==) (SpecStatics f xs) (SpecStatics g ys) = f == g && sameStatics xs ys
       where
         sameStatics : List ClosedTerm -> List ClosedTerm -> Bool
@@ -295,6 +301,7 @@ Show DefFlag where
   show (PositiveParams x) = "positiveparams " ++ show (toList x)
   show (SpecStatics _ _) = "specstatics"
   show (PartialMethods ns) = "partialmethods " ++ show ns
+  show (ConFields fs) = "confields " ++ show fs
 
 public export
 record SCCall where

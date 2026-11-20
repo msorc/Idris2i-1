@@ -50,7 +50,8 @@ mutual
 public export
 data ANFDef : Type where
      MkAFun : (args : List Int) -> ANF -> ANFDef
-     MkACon : (tag : Maybe Int) -> (arity : Nat) -> (nt : Maybe Nat) -> ANFDef
+     MkACon : (tag : Maybe Int) -> (arity : Nat) -> (nt : Maybe Nat) ->
+              (fields : List FieldRep) -> ANFDef
      MkAForeign : (ccs : List String) -> (fargs : List CFType) ->
                   CFType -> ANFDef
      MkAError : ANF -> ANFDef
@@ -126,8 +127,9 @@ export
 covering
 Show ANFDef where
   show (MkAFun args exp) = show args ++ ": " ++ show exp
-  show (MkACon tag arity nt)
-      = "Constructor tag " ++ show tag ++ " arity " ++ show arity ++ " newtype by " ++ show nt
+  show (MkACon tag arity nt fs)
+      = "Constructor tag " ++ show tag ++ " arity " ++ show arity ++ " newtype by " ++ show nt ++
+        showFieldReps fs
   show (MkAForeign ccs args ret)
       = "Foreign call " ++ show ccs ++ " " ++
         show args ++ " -> " ++ show ret
@@ -268,7 +270,7 @@ toANF (MkLFun args scope sc)
         = do i <- nextVar
              (is, vs') <- bindArgs ns vs
              pure (i :: is, i :: vs')
-toANF (MkLCon t a ns) = pure $ MkACon t a ns
+toANF (MkLCon t a ns fs) = pure $ MkACon t a ns fs
 toANF (MkLForeign ccs fargs t) = pure $ MkAForeign ccs fargs t
 toANF (MkLError err)
     = do v <- newRef Next (the Int 0)

@@ -125,7 +125,7 @@ mutual
   export
   HasNamespaces NamedDef where
     nsRefs (MkNmFun argNs rhs) = nsRefs rhs
-    nsRefs (MkNmCon tag arity nt) = SortedSet.empty
+    nsRefs (MkNmCon {}) = SortedSet.empty
     nsRefs (MkNmForeign ccs fargs rty) = SortedSet.empty
     nsRefs (MkNmError rhs) = nsRefs rhs
 
@@ -161,7 +161,7 @@ mutual
   export
   HasNamespaces LiftedDef where
     nsRefs (MkLFun args scope rhs) = nsRefs rhs
-    nsRefs (MkLCon tag arity nt) = SortedSet.empty
+    nsRefs (MkLCon {}) = SortedSet.empty
     nsRefs (MkLForeign ccs fargs rty) = SortedSet.empty
     nsRefs (MkLError rhs) = nsRefs rhs
 

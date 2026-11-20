@@ -61,6 +61,55 @@ Eq ConInfo where
   UNIT == UNIT = True
   _ == _ = False
 
+||| What the declared type of a field of a data constructor says about the
+||| values that the field holds at run time (see Core.FieldRep, which computes
+||| it, and docs/source/backends/refc-flat-layout.rst).
+|||
+||| The table is a fact about the compiled program, not a layout: a back end
+||| may store an `FPrim` field unboxed, or ignore the table and treat every
+||| field as `FBoxed`, which is always correct.  It is computed once, where the
+||| data type is declared, and saved with the constructor, so that every module
+||| sees the same table.
+public export
+data FieldRep
+    = ||| Any value: the field's type is a type variable, a type that depends
+      ||| on another field, a function, `Lazy`, an `Integer`, a `String`, a
+      ||| data type, or anything else that the rule does not recognise.
+      FBoxed
+    | ||| At run time, always a value of this fixed width primitive type
+      ||| (never `Integer`, `String` or `%World`).  This covers the fields of
+      ||| a primitive type, of an enumeration (compiled to `Bits8`, `Bits16`
+      ||| or `Bits32`, see `enumPrimType`), and of a newtype whose field is
+      ||| one of those.
+      FPrim PrimType
+
+export
+Show FieldRep where
+  show FBoxed = "boxed"
+  show (FPrim t) = show t
+
+export
+Eq FieldRep where
+  FBoxed == FBoxed = True
+  FPrim t == FPrim t' = t == t'
+  _ == _ = False
+
+||| The primitive type that the constructors of an enumeration with `k`
+||| constructors are compiled to (see the enumeration optimisation in
+||| Compiler.Opts.Constructor, which uses this too).
+export
+enumPrimType : Nat -> PrimType
+enumPrimType k
+    = if k <= 0xff then Bits8Type
+      else if k <= 0xffff then Bits16Type
+      else Bits32Type
+
+||| A table of field representations, as the dumps of the compiled
+||| definitions show it.
+export
+showFieldReps : List FieldRep -> String
+showFieldReps fs = " fields [" ++ showSep ", " (map show fs) ++ "]"
+
 ||| Tagging let binders with whether it is safe to inline them
 public export
 data InlineOk = YesInline | NotInline
@@ -207,8 +256,11 @@ public export
 data CDef : Type where
      -- Normal function definition
      MkFun : (args : Scope) -> CExp args -> CDef
-     -- Constructor
-     MkCon : (tag : Maybe Int) -> (arity : Nat) -> (nt : Maybe Nat) -> CDef
+     -- Constructor.  `fields` has one entry per argument of an application
+     -- of the constructor in CExp (`arity` of them, after erasure), and is
+     -- `FBoxed` everywhere for a type constructor (see `FieldRep`).
+     MkCon : (tag : Maybe Int) -> (arity : Nat) -> (nt : Maybe Nat) ->
+             (fields : List FieldRep) -> CDef
      -- Foreign definition
      MkForeign : (ccs : List String) ->
                  (fargs : List CFType) ->
@@ -222,8 +274,9 @@ public export
 data NamedDef : Type where
      -- Normal function definition
      MkNmFun : (args : List Name) -> NamedCExp -> NamedDef
-     -- Constructor
-     MkNmCon : (tag : Maybe Int) -> (arity : Nat) -> (nt : Maybe Nat) -> NamedDef
+     -- Constructor (see `MkCon` for `fields`)
+     MkNmCon : (tag : Maybe Int) -> (arity : Nat) -> (nt : Maybe Nat) ->
+               (fields : List FieldRep) -> NamedDef
      -- Foreign definition
      MkNmForeign : (ccs : List String) ->
                    (fargs : List CFType) ->
@@ -423,7 +476,7 @@ forgetDef (MkFun args def)
     = let ns = addLocs args noNames
           args' = conArgs {vars = Scope.empty} args ns in
           MkNmFun args' (forget def)
-forgetDef (MkCon t a nt) = MkNmCon t a nt
+forgetDef (MkCon t a nt fs) = MkNmCon t a nt fs
 forgetDef (MkForeign ccs fargs ty) = MkNmForeign ccs fargs ty
 forgetDef (MkError err) = MkNmError (forget err)
 
@@ -463,9 +516,10 @@ export
 covering
 Show CDef where
   show (MkFun args exp) = show args ++ ": " ++ show exp
-  show (MkCon tag arity pos)
+  show (MkCon tag arity pos fs)
       = "Constructor tag " ++ show tag ++ " arity " ++ show arity ++
-        maybe "" (\n => " (newtype by " ++ show n ++ ")") pos
+        maybe "" (\n => " (newtype by " ++ show n ++ ")") pos ++
+        showFieldReps fs
   show (MkForeign ccs args ret)
       = "Foreign call " ++ show ccs ++ " " ++
         show args ++ " -> " ++ show ret
@@ -475,9 +529,10 @@ export
 covering
 Show NamedDef where
   show (MkNmFun args exp) = show args ++ ": " ++ show exp
-  show (MkNmCon tag arity pos)
+  show (MkNmCon tag arity pos fs)
       = "Constructor tag " ++ show tag ++ " arity " ++ show arity ++
-        maybe "" (\n => " (newtype by " ++ show n ++ ")") pos
+        maybe "" (\n => " (newtype by " ++ show n ++ ")") pos ++
+        showFieldReps fs
   show (MkNmForeign ccs args ret)
       = "Foreign call " ++ show ccs ++ " " ++
         show args ++ " -> " ++ show ret

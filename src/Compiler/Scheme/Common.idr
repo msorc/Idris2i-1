@@ -695,7 +695,7 @@ parameters (constants : SortedSet Name)
   schDef n (MkNmError exp)
      = pure $ "(define (" ++ schName !(getFullName n) ++ " . any-args) " ++ !(schExp 0 exp) ++ ")\n"
   schDef n (MkNmForeign {}) = pure "" -- compiled by specific back end
-  schDef n (MkNmCon t a _) = pure "" -- Nothing to compile here
+  schDef n (MkNmCon {}) = pure "" -- Nothing to compile here
 
 -- Convert the name to scheme code
 -- (There may be no code generated, for example if it's a constructor)

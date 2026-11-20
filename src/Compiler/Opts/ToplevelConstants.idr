@@ -44,7 +44,7 @@ calls (NmCrash fc str) = empty
 
 defCalls : NamedDef -> SortedSet Name
 defCalls (MkNmFun args x) = calls x
-defCalls (MkNmCon tag arity nt) = empty
+defCalls (MkNmCon {}) = empty
 defCalls (MkNmForeign ccs fargs x) = empty
 defCalls (MkNmError x) = calls x
 

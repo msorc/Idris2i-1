@@ -8,7 +8,8 @@ Compiled: Data Constructor:
   tag: 0
   arity: 1
   newtype by: 0
-Flags: contype [record]
+  fields: [boxed]
+Flags: confields [boxed], contype [record]
 Main> Main.MkBar
 Data constructor:
   tag: 0
@@ -16,5 +17,6 @@ Data constructor:
 Compiled: Data Constructor:
   tag: 0
   arity: 1
-Flags: contype [record]
+  fields: [boxed]
+Flags: confields [boxed], contype [record]
 Main> Bye for now!

@@ -74,6 +74,7 @@ modules =
     Core.Directory,
     Core.Env,
     Core.FC,
+    Core.FieldRep,
     Core.GetType,
     Core.Hash,
     Core.InitPrimitives,

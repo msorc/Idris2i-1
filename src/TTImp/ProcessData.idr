@@ -3,6 +3,7 @@ module TTImp.ProcessData
 import Core.CompileExpr
 import Core.Context.Data
 import Core.Env
+import Core.FieldRep
 import Core.Hash
 import Core.Metadata
 import Core.UnifyState
@@ -559,6 +560,11 @@ processData {vars} eopts nest env fc def_vis mbtot (MkImpData dfc n_in mty_raw o
 
          calcConInfo fc (Resolved tidx) cons
          traverse_ updateErasable (Resolved tidx :: connames)
+         -- The table of the fields of each constructor, once and for all
+         -- (see Core.FieldRep), from the flags of the types that the fields
+         -- mention, which are complete now unless they are declared later
+         -- in a mutual block.
+         traverse_ (setConFields fc) connames
 
          -- #1404
          whenJust tot $ \ tot => do

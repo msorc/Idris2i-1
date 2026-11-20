@@ -5,6 +5,7 @@ import Core.Case.CaseTree
 import public Core.CompileExpr
 import Core.Context.Log
 import Core.Env
+import Core.FieldRep
 import Core.Normalise
 import Core.Options
 import Core.Value
@@ -569,13 +570,16 @@ toCDef n _ _ (DCon tag arity pos)
     = do let nt = snd <$> pos
          defs <- get Ctxt
          args <- numArgs {vars = Scope.empty} defs (Ref EmptyFC (DataCon tag arity) n)
-         let arity' = case args of
-                 NewTypeBy ar _ => ar
-                 EraseArgs ar erased => ar `minus` size erased
-                 Arity ar => ar
-         pure $ MkCon (Just tag) arity' nt
+         let (arity', erased) : (Nat, NatSet) = case args of
+                 NewTypeBy ar _ => (ar, NatSet.empty)
+                 EraseArgs ar erased => (ar `minus` size erased, erased)
+                 Arity ar => (ar, NatSet.empty)
+         fields <- compiledConFields n arity erased
+         let fields = if length fields == arity'
+                         then fields else replicate arity' FBoxed
+         pure $ MkCon (Just tag) arity' nt fields
 toCDef n _ _ (TCon arity _ _ _ _ _ _)
-    = pure $ MkCon Nothing arity Nothing
+    = pure $ MkCon Nothing arity Nothing (replicate arity FBoxed)
 -- We do want to be able to compile these, but also report an error at run time
 -- (and, TODO: warn at compile time)
 toCDef n ty _ (Hole {})

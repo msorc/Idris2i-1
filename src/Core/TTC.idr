@@ -709,6 +709,17 @@ export
                  _ => corrupt "PrimFn 3"
 
 export
+TTC FieldRep where
+  toBuf FBoxed = tag 0
+  toBuf (FPrim t) = do tag 1; toBuf t
+
+  fromBuf
+      = case !getTag of
+             0 => pure FBoxed
+             1 => FPrim <$> fromBuf
+             _ => corrupt "FieldRep"
+
+export
 TTC ConInfo where
   toBuf DATACON = tag 0
   toBuf TYCON = tag 1
@@ -881,7 +892,7 @@ TTC CFType where
 export
 TTC CDef where
   toBuf (MkFun args cexpr) = do tag 0; toBuf args; toBuf cexpr
-  toBuf (MkCon t arity pos) = do tag 1; toBuf t; toBuf arity; toBuf pos
+  toBuf (MkCon t arity pos fs) = do tag 1; toBuf t; toBuf arity; toBuf pos; toBuf fs
   toBuf (MkForeign cs args ret) = do tag 2; toBuf cs; toBuf args; toBuf ret
   toBuf (MkError cexpr) = do tag 3; toBuf cexpr
 
@@ -889,8 +900,8 @@ TTC CDef where
       = case !getTag of
              0 => do args <- fromBuf; cexpr <- fromBuf
                      pure (MkFun args cexpr)
-             1 => do t <- fromBuf; arity <- fromBuf; pos <- fromBuf
-                     pure (MkCon t arity pos)
+             1 => do t <- fromBuf; arity <- fromBuf; pos <- fromBuf; fs <- fromBuf
+                     pure (MkCon t arity pos fs)
              2 => do cs <- fromBuf; args <- fromBuf; ret <- fromBuf
                      pure (MkForeign cs args ret)
              3 => do cexpr <- fromBuf
@@ -1089,6 +1100,7 @@ TTC DefFlag where
   toBuf (PositiveParams x) = do tag 14; toBuf x
   toBuf (SpecStatics f xs) = do tag 16; toBuf f; toBuf xs
   toBuf (PartialMethods ns) = do tag 17; toBuf ns
+  toBuf (ConFields fs) = do tag 18; toBuf fs
 
   fromBuf
       = case !getTag of
@@ -1108,6 +1120,7 @@ TTC DefFlag where
              15 => pure Deprecate
              16 => do f <- fromBuf; xs <- fromBuf; pure (SpecStatics f xs)
              17 => do ns <- fromBuf; pure (PartialMethods ns)
+             18 => do fs <- fromBuf; pure (ConFields fs)
              _ => corrupt "DefFlag"
 
 export
