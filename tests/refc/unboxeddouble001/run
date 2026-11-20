@@ -1,0 +1,20 @@
+. ../../testutils.sh
+
+# The Doubles of the primitives are C doubles, and the functions that take
+# or give Doubles have workers that take or give C doubles: the output is
+# the same as with the Doubles in values (`--directive
+# refc-no-unbox-double`).
+idris2 -o main Main.idr > /dev/null
+$VALGRIND ./build/exec/main > out
+cat out
+c=build/exec/main.c
+for f in sumTo harmonic ping pong many norm addM halfIO fmax prim__copysign; do
+  echo "$f: $(grep "^[A-Za-z0-9_]* *\*\{0,1\}idris2_raw_Main_$f\$\|^[A-Za-z0-9_]* *\*\{0,1\}idris2_raw_Main_$f(" $c | sed 's/(.*//' | sort -u)"
+done
+echo "sumTo makes values: $(awk -v RS= '/idris2_raw_Main_sumTo\n\(/' $c | grep -c 'idris2_mkDouble\|idris2_vp_to_Double')"
+echo "ping jumps to pong: $(awk -v RS= '/idris2_raw_Main_ping\n\(/' $c | grep -c 'IDRIS2_MUSTTAIL return idris2_raw_Main_pong(')"
+idris2 --directive refc-no-unbox-double -o boxed Main.idr > /dev/null
+./build/exec/boxed > out-boxed
+cmp out out-boxed && echo "same output with the Doubles in values"
+echo "no C doubles with the directive: $(grep -c 'double int_\|double primVar_' build/exec/boxed.c)"
+rm -rf build out out-boxed

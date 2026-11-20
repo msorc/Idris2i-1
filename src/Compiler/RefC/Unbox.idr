@@ -57,10 +57,14 @@ import Data.Vect
 
 %default covering
 
-||| The type of the C integers of a fixed width integer type, if it is one.
-||| `Int` and `Int64` are alike in RefC (an `int64_t`): both are `IntType`.
+||| The type of the C numbers of a fixed width integer type or of `Double`, if
+||| it is one.  `Int` and `Int64` are alike in RefC (an `int64_t`): both are
+||| `IntType`.  (A `Double` is a C `double`: the "C integers" of this module
+||| and of RefC are the C numbers of these types, `double` included.  It is
+||| never stored in an `Idris2_Value *`, so it need not fit in a pointer.)
 export
 unboxedType : PrimType -> Maybe PrimType
+unboxedType DoubleType = Just DoubleType
 unboxedType IntType = Just IntType
 unboxedType Int64Type = Just IntType
 unboxedType Int8Type = Just Int8Type
@@ -82,6 +86,7 @@ cIntType Bits8Type = "uint8_t"
 cIntType Bits16Type = "uint16_t"
 cIntType Bits32Type = "uint32_t"
 cIntType Bits64Type = "uint64_t"
+cIntType DoubleType = "double"
 cIntType _ = "int64_t"
 
 ||| The name of the type in the runtime (`idris2_mkBits8`, ...).
@@ -94,6 +99,7 @@ runtimeName Bits8Type = "Bits8"
 runtimeName Bits16Type = "Bits16"
 runtimeName Bits32Type = "Bits32"
 runtimeName Bits64Type = "Bits64"
+runtimeName DoubleType = "Double"
 runtimeName _ = "Int64"
 
 isSigned : PrimType -> Bool
@@ -123,20 +129,38 @@ export
 unboxC : PrimType -> String -> String
 unboxC t v = "idris2_vp_to_\{runtimeName t}(\{v})"
 
-||| The types to which the casts from fixed width integers are done on C
-||| integers too (their results are values).
+||| The types to which the casts from C numbers are done on C numbers too
+||| (their results are values).
 castTarget : PrimType -> Bool
-castTarget DoubleType = True
 castTarget CharType = True
 castTarget IntegerType = True
 castTarget _ = False
 
-||| The type of the C integers that an operation takes, if it is done on C
-||| integers: the arithmetic, bitwise operations and comparisons on fixed
-||| width integers, and the casts from them to fixed width integers, `Double`,
-||| `Char` and `Integer`.
+||| The type of the C numbers that an operation takes, if it is done on C
+||| numbers: the arithmetic, bitwise operations and comparisons on fixed
+||| width integers, the arithmetic, comparisons and functions of `Double`
+||| (but `mod` and the bitwise operations, which it does not have), and the
+||| casts from them to fixed width integers, `Double`, `Char` and `Integer`.
 export
 operandType : PrimFn arity -> Maybe PrimType
+operandType (Mod DoubleType) = Nothing
+operandType (ShiftL DoubleType) = Nothing
+operandType (ShiftR DoubleType) = Nothing
+operandType (BAnd DoubleType) = Nothing
+operandType (BOr DoubleType) = Nothing
+operandType (BXOr DoubleType) = Nothing
+operandType DoubleExp = Just DoubleType
+operandType DoubleLog = Just DoubleType
+operandType DoublePow = Just DoubleType
+operandType DoubleSin = Just DoubleType
+operandType DoubleCos = Just DoubleType
+operandType DoubleTan = Just DoubleType
+operandType DoubleASin = Just DoubleType
+operandType DoubleACos = Just DoubleType
+operandType DoubleATan = Just DoubleType
+operandType DoubleSqrt = Just DoubleType
+operandType DoubleFloor = Just DoubleType
+operandType DoubleCeiling = Just DoubleType
 operandType (Add ty) = unboxedType ty
 operandType (Sub ty) = unboxedType ty
 operandType (Mul ty) = unboxedType ty
@@ -157,10 +181,10 @@ operandType (Cast from to)
     = if isJust (unboxedType to) || castTarget to then unboxedType from else Nothing
 operandType _ = Nothing
 
-||| The type of the C integer that an operation gives, if it can give one:
-||| those of `operandType` with a fixed width integer result (a comparison
-||| gives an `Int`, 0 or 1), and the casts from `Double`, `Char` and `Integer`
-||| to fixed width integers (which take values).
+||| The type of the C number that an operation gives, if it can give one:
+||| those of `operandType` with a result of a fixed width integer type or
+||| `Double` (a comparison gives an `Int`, 0 or 1), and the casts from `Char`
+||| and `Integer` to these types (which take values).
 export
 resultType : PrimFn arity -> Maybe PrimType
 resultType (LT ty) = map (const IntType) (unboxedType ty)
@@ -183,6 +207,43 @@ isComparison (GTE _) = True
 isComparison (GT _) = True
 isComparison _ = False
 
+-- The C function of a function of `Double` (see `cOp` in RefC).
+doubleFn : PrimFn arity -> Maybe String
+doubleFn DoubleExp = Just "exp"
+doubleFn DoubleLog = Just "log"
+doubleFn DoublePow = Just "pow"
+doubleFn DoubleSin = Just "sin"
+doubleFn DoubleCos = Just "cos"
+doubleFn DoubleTan = Just "tan"
+doubleFn DoubleASin = Just "asin"
+doubleFn DoubleACos = Just "acos"
+doubleFn DoubleATan = Just "atan"
+doubleFn DoubleSqrt = Just "sqrt"
+doubleFn DoubleFloor = Just "floor"
+doubleFn DoubleCeiling = Just "ceil"
+doubleFn _ = Nothing
+
+||| The C expression of an operation on C doubles, as mathFunctions.h, casts.h
+||| and `cOp` in RefC compute it on values: the arithmetic and comparisons of
+||| C, which give what IEEE 754 says for NaN, the infinities and the signed
+||| zeros.  A result is rounded to a double, as it is in a value, where the C
+||| compiler would keep more precision (IDRIS2_DOUBLE, see mathFunctions.h).
+doubleOpC : PrimFn arity -> Vect arity String -> String
+doubleOpC (Add _) [x, y] = "IDRIS2_DOUBLE((\{x}) + (\{y}))"
+doubleOpC (Sub _) [x, y] = "IDRIS2_DOUBLE((\{x}) - (\{y}))"
+doubleOpC (Mul _) [x, y] = "IDRIS2_DOUBLE((\{x}) * (\{y}))"
+doubleOpC (Div _) [x, y] = "IDRIS2_DOUBLE((\{x}) / (\{y}))"
+doubleOpC (Neg _) [x] = "(-(\{x}))"
+doubleOpC (LT _) [x, y] = "((\{x}) < (\{y}))"
+doubleOpC (LTE _) [x, y] = "((\{x}) <= (\{y}))"
+doubleOpC (EQ _) [x, y] = "((\{x}) == (\{y}))"
+doubleOpC (GTE _) [x, y] = "((\{x}) >= (\{y}))"
+doubleOpC (GT _) [x, y] = "((\{x}) > (\{y}))"
+doubleOpC DoublePow [x, y] = "IDRIS2_DOUBLE(pow(\{x}, \{y}))"
+doubleOpC op [x] = maybe "/* not an operation on doubles: \{show op} */"
+                         (\f => "IDRIS2_DOUBLE(\{f}(\{x}))") (doubleFn op)
+doubleOpC op _ = "/* not an operation on doubles: \{show op} */"
+
 -- (the arithmetic is done on `uint64_t`, where it wraps around, and the
 -- result converted to the type: a C compiler does it in the width of the
 -- type, without undefined behaviour for the signed types)
@@ -198,6 +259,41 @@ wrapping t op x y = "((\{cIntType t})((uint64_t)(\{x}) \{op} (uint64_t)(\{y})))"
 ||| are Euclidean, the shifts are those of the Scheme backends.
 export
 intOpC : PrimFn arity -> Vect arity String -> String
+-- (a cast from or to Double first: the others are those of the integers)
+intOpC (Cast DoubleType to) [x] = case unboxedType to of
+    Just t => "((\{cIntType t})idris2_double_to_wrapped(\{x}))"
+    Nothing => case to of
+        CharType => "idris2_mkValidChar(idris2_double_to_char_code(\{x}))"
+        IntegerType => "idris2_mkIntegerFromDouble(\{x})"
+        _ => "/* not a cast of doubles: Double to \{show to} */"
+intOpC (Cast from DoubleType) [x] = case unboxedType from of
+    Just _ => "IDRIS2_DOUBLE((double)(\{x}))"
+    Nothing => case from of
+        CharType => "((double)idris2_vp_to_Char(\{x}))"
+        IntegerType => "IDRIS2_DOUBLE(idris2_integerToDouble(\{x}))"
+        _ => "/* not a cast to doubles: \{show from} to Double */"
+intOpC op@(Add DoubleType) args = doubleOpC op args
+intOpC op@(Sub DoubleType) args = doubleOpC op args
+intOpC op@(Mul DoubleType) args = doubleOpC op args
+intOpC op@(Div DoubleType) args = doubleOpC op args
+intOpC op@(Neg DoubleType) args = doubleOpC op args
+intOpC op@(LT DoubleType) args = doubleOpC op args
+intOpC op@(LTE DoubleType) args = doubleOpC op args
+intOpC op@(EQ DoubleType) args = doubleOpC op args
+intOpC op@(GTE DoubleType) args = doubleOpC op args
+intOpC op@(GT DoubleType) args = doubleOpC op args
+intOpC op@DoubleExp args = doubleOpC op args
+intOpC op@DoubleLog args = doubleOpC op args
+intOpC op@DoublePow args = doubleOpC op args
+intOpC op@DoubleSin args = doubleOpC op args
+intOpC op@DoubleCos args = doubleOpC op args
+intOpC op@DoubleTan args = doubleOpC op args
+intOpC op@DoubleASin args = doubleOpC op args
+intOpC op@DoubleACos args = doubleOpC op args
+intOpC op@DoubleATan args = doubleOpC op args
+intOpC op@DoubleSqrt args = doubleOpC op args
+intOpC op@DoubleFloor args = doubleOpC op args
+intOpC op@DoubleCeiling args = doubleOpC op args
 intOpC (Add ty) [x, y] = wrapping ty "+" x y
 intOpC (Sub ty) [x, y] = wrapping ty "-" x y
 intOpC (Mul ty) [x, y] = wrapping ty "*" x y
@@ -221,20 +317,20 @@ intOpC (GT _) [x, y] = "((\{x}) > (\{y}))"
 intOpC (Cast from to) [x] = case (unboxedType from, unboxedType to) of
     (Just _, Just t) => "((\{cIntType t})(\{x}))"
     (Just f, Nothing) => case to of
-        DoubleType => "idris2_mkDouble((double)(\{x}))"
         CharType => "idris2_mkValidChar(\{x})"
         _ => if isSigned f then "idris2_mkIntegerFromInt64(\{x})"
                            else "idris2_mkIntegerFromUInt64(\{x})"
     (Nothing, Just t) => case from of
-        DoubleType => "((\{cIntType t})idris2_double_to_wrapped(idris2_vp_to_Double(\{x})))"
         CharType => "((\{cIntType t})idris2_vp_to_Char(\{x}))"
         _ => "((\{cIntType t})idris2_integerLow64(\{x}))"
     _ => "/* not a cast of fixed width integers: \{show from} to \{show to} */"
 intOpC op _ = "/* not an operation on fixed width integers: \{show op} */"
 
-||| The unboxed type of a literal, if it is a fixed width integer.
+||| The unboxed type of a literal, if it is a fixed width integer or a
+||| `Double`.
 export
 constType : Constant -> Maybe PrimType
+constType (Db _) = Just DoubleType
 constType (I _) = Just IntType
 constType (I64 _) = Just IntType
 constType (I8 _) = Just Int8Type
@@ -246,10 +342,24 @@ constType (B32 _) = Just Bits32Type
 constType (B64 _) = Just Bits64Type
 constType _ = Nothing
 
-||| The C constant of a fixed width integer literal (C does not allow
-||| `-9223372036854775808`).
+||| A C literal for a Double.  `show` gives the shortest digits that read back
+||| as the same number, but in the notation of Scheme: drop the precision of a
+||| subnormal number (`5e-324|1`) and spell out NaN and the infinities.
+export
+cDouble : Double -> String
+cDouble x
+    = if x /= x then "NAN"
+      else if x == 1.0 / 0.0 then "INFINITY"
+      else if x == -1.0 / 0.0 then "(-INFINITY)"
+      else case takeWhile (/= '|') (unpack (show x)) of
+             str@('-' :: _) => "(" ++ pack str ++ ")"
+             str => pack str
+
+||| The C constant of a fixed width integer or `Double` literal (C does not
+||| allow `-9223372036854775808`).
 export
 cIntLiteral : Constant -> String
+cIntLiteral (Db x) = cDouble x
 cIntLiteral (I x) = if x == -9223372036854775808 then "INT64_MIN" else "INT64_C(\{show x})"
 cIntLiteral (I64 x) = if x == -9223372036854775808 then "INT64_MIN" else "INT64_C(\{show x})"
 cIntLiteral (I8 x) = "INT8_C(\{show x})"
@@ -324,12 +434,29 @@ record Calls where
   ||| Does the function called with this number of arguments always give a
   ||| value, never a pending tail call (see `returnsValue` in RefC)?
   isValueFn : String -> Nat -> Bool
+  ||| May variables be C doubles?  (`--directive refc-no-unbox-double` says
+  ||| no: then only the integers are unboxed, as before.)
+  doubles : Bool
+  ||| The types of the parameters that a foreign function called with this
+  ||| number of arguments takes as C numbers, and of its result if it gives
+  ||| one, when it has a variant that does (see `foreignWorker` in RefC):
+  ||| its other parameters take the values as they are.
+  foreignRaw : String -> Nat -> Maybe (List (Maybe PrimType), Maybe PrimType)
+  ||| Are there such foreign functions?
+  anyForeignRaw : Bool
+
+||| Is a variable of this type allowed to be unboxed?
+export
+allowed : Calls -> PrimType -> Bool
+allowed c DoubleType = c.doubles
+allowed c _ = True
 
 ||| The calls of a function that knows no worker of any function.
 export
 noWorkers : (key : Name -> String) -> (isSelf : String -> List AVar -> Bool) ->
             (isForeign : String -> List AVar -> Bool) -> Calls
-noWorkers k s f = MkCalls k False s f (\_, _ => Nothing) (\_, _ => Nothing) (\_, _ => False)
+noWorkers k s f = MkCalls k False s f (\_, _ => Nothing) (\_, _ => Nothing) (\_, _ => False) True
+                          (\_, _ => Nothing) False
 
 -- The uses of the arguments of a call: an argument of a parameter that the
 -- worker of the function takes as a C integer is used as an integer of that
@@ -345,7 +472,11 @@ usesIn : Calls -> (tail : Bool) -> ANF -> Uses -> Uses
 usesIn c t (AV _ v) us = addUse (if t then Returned else Boxed) v us
 usesIn c t (AAppName _ _ n args) us
     = let cn = c.key n in
-      if c.isForeign cn args then addUses Raw args us
+      if c.isForeign cn args
+         then case c.foreignRaw cn (length args) of
+                   Just (ts, _) => foldl (\us', (a, t) => addUse (maybe Raw Numeric t) a us') us
+                                         (zip args ts)
+                   Nothing => addUses Raw args us
       else if t && c.isSelf cn args
          then foldl (\us', (k, a) => addUse (SelfArg k) a us') us
                     (zip [0 .. length args] args)
@@ -388,10 +519,11 @@ export
 hasIntWork : Calls -> ANF -> Bool
 hasIntWork c (AOp _ _ op _) = isJust (operandType op) || isJust (resultType op)
 hasIntWork c (AAppName _ _ n args)
-    = c.anyWorkers &&
+    = (c.anyWorkers || c.anyForeignRaw) &&
       (let k = length args
            cn = c.key n in
-           isJust (c.rawResult cn k) || maybe False (any isJust) (c.rawArgs cn k))
+           isJust (c.rawResult cn k) || maybe False (any isJust) (c.rawArgs cn k)
+           || isJust (c.foreignRaw cn k))
 hasIntWork c (ALet _ _ val body) = hasIntWork c val || hasIntWork c body
 hasIntWork c (AConCase _ _ alts def)
     = any (\(MkAConAlt _ _ _ _ b) => hasIntWork c b) alts || any (hasIntWork c) def
@@ -430,7 +562,7 @@ valueType c u e = case go e of
     -- (a call, not in tail position, of a worker that gives a C integer)
     go (AAppName _ _ n args)
         = let cn = c.key n in
-              if c.isForeign cn args then Nothing
+              if c.isForeign cn args then map Just (c.foreignRaw cn (length args) >>= snd)
                  else map Just (c.rawResult cn (length args))
     go (ALet _ _ _ body) = go body
     go (AConstCase _ _ alts def)
@@ -458,7 +590,8 @@ unboxedVars c loops worker params ips body
     -- block, they would be computed at each use.)
     = let us = usesIn c True body empty
           lets = letValues body empty
-          ps = mapMaybe (\p => map (p,) (lookup p ips)) params in
+          ps = mapMaybe (\p => lookup p ips >>= \t =>
+                                  if allowed c t then Just (p, t) else Nothing) params in
           if null (keys lets) && null ps
              then empty
              else keep us lets (candidates (SortedMap.toList lets) (fromList ps))
@@ -468,7 +601,8 @@ unboxedVars c loops worker params ips body
     candidates : List (Int, ANF) -> SortedMap Int PrimType -> SortedMap Int PrimType
     candidates ls u
         = let new = mapMaybe (\(v, val) => if isJust (lookup v u) then Nothing
-                                             else map (v,) (valueType c u val)) ls in
+                                             else valueType c u val >>= \t =>
+                                                    if allowed c t then Just (v, t) else Nothing) ls in
               if null new then u else candidates ls (mergeLeft u (fromList new))
 
     paramAt : Nat -> List Int -> Maybe Int
@@ -496,6 +630,12 @@ unboxedVars c loops worker params ips body
     raw t (Numeric t') = t /= t'
     raw t _ = False
 
+    -- A Double literal is a static value (see `StaticVal` in RefC), which a
+    -- C double would have to box again where a value is needed.
+    staticLiteral : ANF -> Bool
+    staticLiteral (APrimVal _ (Db _)) = True
+    staticLiteral _ = False
+
     returned : Use -> Bool
     returned Returned = True
     returned _ = False
@@ -511,7 +651,7 @@ unboxedVars c loops worker params ips body
           case lookup v lets of
                Just val => valueType c u val == Just t
                            && any (numeric u t) vs
-                           && length (filter (boxed u t) vs) <= 1
+                           && length (filter (boxed u t) vs) <= (if staticLiteral val then 0 else 1)
                -- a parameter: passing it on to itself is not a reason (it
                -- would only be unboxed and boxed again)
                Nothing => any (isNumeric t) vs
@@ -565,8 +705,10 @@ rawResultOK c u t e = go e == Just True
     go (AAppName _ _ n args)
         = let cn = c.key n in
           if c.isSelf cn args then Just False
-          else if not (c.isForeign cn args)
-                  && c.rawResult cn (length args) == Just t
+          -- (a foreign function makes no tail call)
+          else if c.isForeign cn args
+             then if (c.foreignRaw cn (length args) >>= snd) == Just t then Just True else Nothing
+          else if c.rawResult cn (length args) == Just t
                   && c.isValueFn cn (length args)
              then Just True
              else Nothing
@@ -578,6 +720,12 @@ rawResultOK c u t e = go e == Just True
 ||| Integers, so it does not depend on the machine that runs the compiler.
 export
 castIntegerLiteral : PrimType -> Integer -> Maybe Constant
+-- (a Double only when it is exact, as every backend converts it so: beyond
+-- 2^53 the rounding would be that of the machine running the compiler)
+castIntegerLiteral DoubleType x
+    = if x >= -9007199254740992 && x <= 9007199254740992
+         then Just (Db (cast x))
+         else Nothing
 castIntegerLiteral t x
     = do u <- unboxedType t
          let m = pow2 (width u)
@@ -603,50 +751,65 @@ castIntegerLiteral t x
 ||| those types: the constant folding leaves those to `Int` of more than 32
 ||| bits, as the width of `Int` depends on the backend (it is 64 bits in
 ||| RefC).  Without this, `0xffffffff : Int` would make an Integer and convert
-||| it every time it is computed.  The `let`s of the Integers that are then
-||| unused are removed.
+||| it every time it is computed.  So are those to `Double`, when the Double
+||| is exact (see `castIntegerLiteral`).  The `let`s of the Integers that are
+||| then unused are removed.
 export
 foldIntegerCasts : ANF -> ANF
 foldIntegerCasts e
-    = let others = otherUses e empty in
-          go others empty e
+    = let ints = integerLets e empty
+          others = otherUses ints e empty in
+          go others ints e
   where
-    foldable : PrimFn arity -> Bool
-    foldable (Cast IntegerType t) = isJust (unboxedType t)
-    foldable _ = False
+    -- The `let`s of Integer literals (the variables of a definition are all
+    -- different).
+    integerLets : ANF -> SortedMap Int Integer -> SortedMap Int Integer
+    integerLets (ALet _ v (APrimVal _ (BI x)) body) ls = integerLets body (insert v x ls)
+    integerLets (ALet _ _ val body) ls = integerLets body (integerLets val ls)
+    integerLets (AConCase _ _ alts def) ls
+        = let ls = foldl (\ls', (MkAConAlt _ _ _ _ b) => integerLets b ls') ls alts in
+              maybe ls (\d => integerLets d ls) def
+    integerLets (AConstCase _ _ alts def) ls
+        = let ls = foldl (\ls', (MkAConstAlt _ b) => integerLets b ls') ls alts in
+              maybe ls (\d => integerLets d ls) def
+    integerLets _ ls = ls
+
+    -- The literal that a cast of the variable gives, if it is folded.
+    folded : SortedMap Int Integer -> PrimType -> Int -> Maybe Constant
+    folded ints t v = lookup v ints >>= castIntegerLiteral t
 
     vars : List AVar -> SortedSet Int -> SortedSet Int
     vars as s = foldl (\s', a => case a of
                                      ALocal i => insert i s'
                                      ANull => s') s as
 
-    -- The variables with a use other than a cast to a fixed width integer.
-    otherUses : ANF -> SortedSet Int -> SortedSet Int
-    otherUses (AV _ v) s = vars [v] s
-    otherUses (AAppName _ _ _ as) s = vars as s
-    otherUses (AUnderApp _ _ _ as) s = vars as s
-    otherUses (AApp _ _ f a) s = vars [f, a] s
-    otherUses (ALet _ _ val body) s = otherUses body (otherUses val s)
-    otherUses (ACon _ _ _ _ as) s = vars as s
-    otherUses (AOp _ _ op as) s = if foldable op then s else vars (toList as) s
-    otherUses (AExtPrim _ _ _ as) s = vars as s
-    otherUses (AConCase _ sc alts def) s
-        = let s = foldl (\s', (MkAConAlt _ _ _ _ b) => otherUses b s') (vars [sc] s) alts in
-              maybe s (\d => otherUses d s) def
-    otherUses (AConstCase _ sc alts def) s
-        = let s = foldl (\s', (MkAConstAlt _ b) => otherUses b s') (vars [sc] s) alts in
-              maybe s (\d => otherUses d s) def
-    otherUses _ s = s
+    -- The variables with a use other than a cast that is folded.
+    otherUses : SortedMap Int Integer -> ANF -> SortedSet Int -> SortedSet Int
+    otherUses ints (AOp _ _ (Cast IntegerType t) [ALocal v]) s
+        = if isJust (folded ints t v) then s else insert v s
+    otherUses ints (AV _ v) s = vars [v] s
+    otherUses ints (AAppName _ _ _ as) s = vars as s
+    otherUses ints (AUnderApp _ _ _ as) s = vars as s
+    otherUses ints (AApp _ _ f a) s = vars [f, a] s
+    otherUses ints (ALet _ _ val body) s = otherUses ints body (otherUses ints val s)
+    otherUses ints (ACon _ _ _ _ as) s = vars as s
+    otherUses ints (AOp _ _ op as) s = vars (toList as) s
+    otherUses ints (AExtPrim _ _ _ as) s = vars as s
+    otherUses ints (AConCase _ sc alts def) s
+        = let s = foldl (\s', (MkAConAlt _ _ _ _ b) => otherUses ints b s') (vars [sc] s) alts in
+              maybe s (\d => otherUses ints d s) def
+    otherUses ints (AConstCase _ sc alts def) s
+        = let s = foldl (\s', (MkAConstAlt _ b) => otherUses ints b s') (vars [sc] s) alts in
+              maybe s (\d => otherUses ints d s) def
+    otherUses _ _ s = s
 
     go : SortedSet Int -> SortedMap Int Integer -> ANF -> ANF
     go others ls (ALet fc v val@(APrimVal _ (BI x)) body)
-        = let body' = go others (insert v x ls) body in
+        = let body' = go others ls body in
               if contains v others then ALet fc v val body' else body'
     go others ls (ALet fc v val body) = ALet fc v (go others ls val) (go others ls body)
     go others ls e@(AOp fc _ (Cast IntegerType t) [ALocal v])
-        = fromMaybe e $ do x <- lookup v ls
-                           c <- castIntegerLiteral t x
-                           pure (APrimVal fc c)
+        = maybe e (APrimVal fc) (folded ls t v)
     go others ls (AConCase fc sc alts def)
         = AConCase fc sc (map (\(MkAConAlt n ci t as b) => MkAConAlt n ci t as (go others ls b)) alts)
                    (map (go others ls) def)

@@ -6,6 +6,22 @@
 #include <math.h>
 #include "memoryManagement.h"
 
+// The code generator computes on C doubles too (see Compiler.RefC.Unbox).  A
+// result is then rounded to a double after every operation, as it is when it
+// is stored in a value: a C compiler that computes in more precision than
+// that (FLT_EVAL_METHOD 2: the x87 of 32 bit x86 without SSE2) may keep the
+// extra digits in a variable, but not in a volatile one.  Elsewhere this is
+// no code.
+#if defined(FLT_EVAL_METHOD) && FLT_EVAL_METHOD != 0 && FLT_EVAL_METHOD != 1
+static inline double idris2_roundDouble(double d) {
+  volatile double r = d;
+  return r;
+}
+#define IDRIS2_DOUBLE(e) idris2_roundDouble(e)
+#else
+#define IDRIS2_DOUBLE(e) (e)
+#endif
+
 int idris2_compareStrings(Idris2_Value *a, Idris2_Value *b);
 
 // Compare two Integers (like mpz_cmp, the sign of the result tells).

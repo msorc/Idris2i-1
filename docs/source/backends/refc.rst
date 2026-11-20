@@ -260,6 +260,18 @@ The code generator does the following, each of which a directive turns off
   when what the body computes before its action is cheap.  (When it is not,
   ``f x = let y = expensive x in pure y``, the function gives an action: its
   worker takes the integers but gives the action.)
+- ``refc-no-unbox-double``: the ``Double`` values that the primitives compute
+  (arithmetic, comparisons, ``sqrt``, ``exp`` and the other functions of
+  ``Double``, the casts to and from the integer types) are C doubles while
+  they go from one primitive to another, as the fixed width integers are:
+  a value is made (allocated) only where one is needed, to be stored in a
+  constructor or a closure, or passed to a function that takes it as a
+  value.  The parameters and results of type ``Double`` cross the calls as C
+  doubles, by the workers of the functions (see ``refc-no-workers``), and so
+  do those of the foreign functions of C that take or give a ``double``.
+  The results are those of the values: the arithmetic of C on doubles, with
+  each result rounded to a double (on a 32 bit x86 without SSE2 too, see
+  ``IDRIS2_DOUBLE`` in ``mathFunctions.h``), and the casts of the runtime.
 - ``refc-no-trmc``: a function that makes a cell of a call to itself
   (``map f (x :: xs) = f x :: map f xs``) loops instead of recursing: it makes
   the cell first, with a hole for the result of the call, so that it needs no

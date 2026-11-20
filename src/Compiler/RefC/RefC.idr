@@ -169,18 +169,6 @@ where
     showCString ('"'::cs) = ("\\\"" ++) . showCString cs
     showCString (c ::cs) = (showCChar c) . showCString cs
 
-||| A C literal for a Double.  `show` gives the shortest digits that read back
-||| as the same number, but in the notation of Scheme: drop the precision of a
-||| subnormal number (`5e-324|1`) and spell out NaN and the infinities.
-cDouble : Double -> String
-cDouble x
-    = if x /= x then "NAN"
-      else if x == 1.0 / 0.0 then "INFINITY"
-      else if x == -1.0 / 0.0 then "(-INFINITY)"
-      else case takeWhile (/= '|') (unpack (show x)) of
-             str@('-' :: _) => "(" ++ pack str ++ ")"
-             str => pack str
-
 -- deals with C not allowing `-9223372036854775808` as a literal
 showIntMin : Int -> String
 showIntMin x = if x == -9223372036854775808
@@ -267,6 +255,7 @@ data BorrowSigs : Type where
 data ValueFns : Type where
 data UnboxedVars : Type where
 data Workers : Type where
+data ForeignWorkers : Type where
 data IntSigs : Type where
 data FunctionDefinitions : Type where
 data IndentLevel : Type where
@@ -603,6 +592,29 @@ Eq Worker where
 workerName : String -> String
 workerName cn = "idris2_raw_" ++ cn
 
+||| A foreign function that takes or gives a `Double` has a worker too (see
+||| `createCFunctions`), which takes and gives C doubles: its calls by name
+||| pass the C doubles of the arguments, and get the C double of the result,
+||| with no value made on either side.  Its other parameters take values,
+||| which it borrows (as `borrowName` does).  The foreign functions of C (`C:`
+||| and `RefC:`) only: the others are stubs.  `doubles` is false with
+||| `--directive refc-no-unbox-double`.
+foreignWorker : (doubles : Bool) -> (standard : Bool) -> List CFType -> CFType -> Maybe Worker
+foreignWorker doubles std fargs ret
+    = do guard (doubles && std)
+         let ps = map param fargs
+         let r = result ret
+         if any isJust ps || isJust r then Just (MkWorker ps r) else Nothing
+  where
+    param : CFType -> Maybe PrimType
+    param CFDouble = Just DoubleType
+    param _ = Nothing
+
+    result : CFType -> Maybe PrimType
+    result CFDouble = Just DoubleType
+    result (CFIORes CFDouble) = Just DoubleType
+    result _ = Nothing
+
 ||| Environment for precise reference counting.
 ||| If variable borrowed (that is, it is not in the owned set) when used, call a function idris2_newReference.
 ||| If variable owned, then use it directly.
@@ -618,6 +630,9 @@ record Env where
   ||| The number of parameters of the function being compiled (see
   ||| `makeTailCall`).
   selfArity : Nat
+  ||| How many of them are C doubles (in a worker, see `Worker`), which the
+  ||| C calling conventions pass apart from the others.
+  selfDoubles : Nat
   ||| The arities of the foreign functions, by C name (see `foreignCall`).
   foreigns : SortedMap String Nat
   ||| The variables that are C integers, `int_N` instead of `var_N`, with
@@ -655,6 +670,8 @@ record Env where
   stringVars : SortedMap Int String
   ||| The workers of the functions (see `Worker`), by C name.
   workers : SortedMap String Worker
+  ||| The workers of the foreign functions (see `foreignWorker`), by C name.
+  foreignWorkers : SortedMap String Worker
 
 ------------------------------------------------------------------------
 -- Output generation: using a difference list for efficient append
@@ -1115,6 +1132,28 @@ workerCall fc env n w args = do
          removeVars drops
          pure r
 
+||| A call of the worker `w` of the foreign function `n` (see
+||| `foreignWorker`): the C expression of its result, a C double if it gives
+||| one, or a value.  It borrows the values that it takes: those that we own
+||| are released after the call.
+foreignWorkerCall : {auto a : Ref ArgCounter Nat}
+                 -> {auto oft : Ref OutfileText Output}
+                 -> {auto il : Ref IndentLevel Nat}
+                 -> FC -> Env -> Name -> Worker -> List AVar -> Core String
+foreignWorkerCall fc env n w args = do
+    cargs <- traverse (\(v, mt) => case mt of
+                         Just t => intArg fc env t v
+                         Nothing => pure (varName v)) (zip args w.params)
+    let call = "\{workerName (cName n)}(\{concat $ intersperse ", " cargs})"
+    let owned = Prelude.toList $ intersection (fromList args) env.owned
+    if null owned
+       then pure call
+       else do
+         r <- ("ffiVar_" ++) <$> getNextCounter
+         emit fc "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}\{r} = \{call};"
+         removeVars (map varName owned)
+         pure r
+
 ||| A call (not in tail position) of the function `n`, which has a worker: a
 ||| new value.
 workerCallValue : {auto a : Ref ArgCounter Nat}
@@ -1197,16 +1236,33 @@ makeTailCall fc n args = do
     -- its worker, and its result boxed: this is not a tail call, but such a
     -- function makes no tail call itself (see `rawResultOK`).  The worker of
     -- another one is jumped to.
+    -- Does the callee need no more space for its arguments on the stack
+    -- than the caller has?  The C doubles are passed in registers of their
+    -- own (as long as there are some left), the others in the general
+    -- registers, and then on the stack: the callee needs no more stack when
+    -- it takes no more arguments of each kind than the caller.  On the 64
+    -- bit platforms (those of IDRIS2_MUSTTAIL), where a double takes as much
+    -- space as a pointer, a double needs no more room than a pointer
+    -- either: so the callee also needs no more when it takes no more
+    -- arguments in all than the caller takes pointers and integers.
+    fitsInFrame : Env -> Maybe Worker -> Bool
+    fitsInFrame env worker
+        = let k = length args
+              nd = maybe 0 (\w => length (filter (== Just DoubleType) w.params)) worker
+              ni = minus k nd
+              ci = minus env.selfArity env.selfDoubles in
+              (ni <= ci && nd <= env.selfDoubles) || k <= ci
+
     otherCall : Env -> Maybe Worker -> List (AVar, Bool) -> Core String
     otherCall env (Just w@(MkWorker _ (Just _))) pairs = workerCallValue fc env n w args
     otherCall env worker pairs =
-      if length args <= env.selfArity || length args <= 8
+      if fitsInFrame env worker || length args <= 8
          then do
            let args' = sigArgsToC env env.owned pairs
            -- (a callee that takes more arguments than the caller can still
            -- be jumped to when it takes all of them in registers, which
            -- depends on the platform: see IDRIS2_MUSTTAIL_REG_ARGS)
-           emit EmptyFC $ if length args <= env.selfArity
+           emit EmptyFC $ if fitsInFrame env worker
                         then "#ifdef IDRIS2_MUSTTAIL"
                         else "#if defined(IDRIS2_MUSTTAIL) && IDRIS2_MUSTTAIL_REG_ARGS >= \{show (length args)}"
            markJump
@@ -1672,8 +1728,14 @@ mutual
         env <- get EnvTracker
         let nargs = length args
         let cn = cName n
-        if lookup cn env.foreigns == Just nargs || nargs > MaxExtractFunArgs
-           then fromValue t anf
+        if lookup cn env.foreigns == Just nargs
+           then case lookup cn env.foreignWorkers of
+                  -- (a foreign function that gives the C double)
+                  Just w => if w.rawResult == Just t && length w.params == nargs
+                               then foreignWorkerCall fc env n w args
+                               else fromValue t anf
+                  Nothing => fromValue t anf
+           else if nargs > MaxExtractFunArgs then fromValue t anf
            else case (tp, env.self) of
                   (InTailPosition, Just (self, params)) =>
                     if self == cn && length params == nargs
@@ -1769,8 +1831,8 @@ mutual
         -- releasing a reference to each of them, which are atomic operations
         -- on a value that threads share (a mutex, a channel).  The result is
         -- a value, never a pending tail call, even in tail position.
-        foreignCall : FC -> Env -> Name -> List AVar -> Core String
-        foreignCall fc env n args = do
+        plainForeignCall : FC -> Env -> Name -> List AVar -> Core String
+        plainForeignCall fc env n args = do
             let call = "\{borrowName (cName n)}(\{concat $ intersperse ", " (map varName args)})"
             let owned = Prelude.toList $ intersection (fromList args) env.owned
             if null owned
@@ -1780,6 +1842,13 @@ mutual
                  emit fc $ "Idris2_Value *" ++ resultVar ++ " = " ++ call ++ ";"
                  removeVars (map varName owned)
                  pure resultVar
+
+        foreignCall : FC -> Env -> Name -> List AVar -> Core String
+        foreignCall fc env n args
+          = case lookup (cName n) env.foreignWorkers of
+              Just w => do e <- foreignWorkerCall fc env n w args
+                           pure $ maybe e (\t => boxC t e) w.rawResult
+              Nothing => plainForeignCall fc env n args
 
     cStatementsFromANF anf@(AUnderApp fc n missing args) _ = do
         Just sv <- staticOf !(get EnvTracker) anf
@@ -2260,7 +2329,10 @@ mutual
                   _ <- foldlC (\els, (MkAConstAlt c body) => do
                       case c of
                           Str x => emit emptyFC "\{els}if (idris2_eqStringLiteral(\{sc'}, \{cStringQuoted x})) {"
-                          Db  x => emit emptyFC "\{els}if (((Idris2_Double *)\{sc'})->d == \{cDouble x}) {"
+                          -- (a scrutinee that is a C double is compared as it is)
+                          Db  x => emit emptyFC $ if isUnboxedIn env.unboxed sc
+                                     then "\{els}if (\{intOperand env DoubleType sc} == \{cDouble x}) {"
+                                     else "\{els}if (((Idris2_Double *)\{sc'})->d == \{cDouble x}) {"
                           x => throw $ InternalError "[refc] AConstCase : unsupported type. \{show fc} \{show x}"
                       concaseBody env switchReturnVar "" [] body r
                       pure "} else ") "" alts
@@ -2544,6 +2616,9 @@ record RefCOptions where
   optStatics : Bool
   ||| `--directive refc-backtrace` (see `backtraceTable`)
   optBacktrace : Bool
+  ||| not `--directive refc-no-unbox-double` (see `doubles` in
+  ||| Compiler.RefC.Unbox, and `foreignWorker`)
+  optDoubles : Bool
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
@@ -2553,6 +2628,7 @@ refcOptions = do
                          (not ("refc-no-trmc" `elem` ds))
                          (not ("refc-no-static" `elem` ds))
                          ("refc-backtrace" `elem` ds)
+                         (not ("refc-no-unbox-double" `elem` ds))
 
 ||| A definition with the casts of Integer literals to fixed width integers
 ||| made literals (see `foldIntegerCasts`).
@@ -2571,6 +2647,11 @@ record Program where
   workers : SortedMap String Worker
   ||| are there workers? (see `anyWorkers` in Compiler.RefC.Unbox)
   anyWorkers : Bool
+  ||| may variables be C doubles? (see `doubles` in Compiler.RefC.Unbox)
+  doubles : Bool
+  ||| the variants of the foreign functions that take or give C doubles
+  ||| (see `foreignWorker`)
+  foreignWorkers : SortedMap String Worker
 
 ||| The calls of the function `cn`, with `nargs` parameters, that `loops`
 ||| (calls itself in tail position).
@@ -2582,6 +2663,11 @@ callsOf p cn nargs loops
               (\m, k => map params (worker m k))
               (\m, k => worker m k >>= rawResult)
               (\m, k => lookup m p.valueFns == Just k)
+              p.doubles
+              (\m, k => do w <- lookup m p.foreignWorkers
+                           if length w.params == k then Just (w.params, w.rawResult)
+                                                   else Nothing)
+              (not (null (SortedMap.toList p.foreignWorkers)))
   where
     worker : String -> Nat -> Maybe Worker
     worker m k = do guard p.anyWorkers
@@ -2608,6 +2694,7 @@ analyseFun p workers trmc cn args anf sig
             let raws = map (\a => lookup a u) args
             let rr = if trmc then Nothing
                         else do t <- res
+                                guard (allowed calls t)
                                 if rawResultOK calls u t anf then Just t else Nothing
             pure (u, if withWorker && (any isJust raws || isJust rr)
                         then Just (MkWorker raws rr) else Nothing)
@@ -2623,11 +2710,12 @@ analyseFun p workers trmc cn args anf sig
 ||| integer stays one), and the code is right whatever is found: a C integer
 ||| passed where a value is expected is made one, and conversely.
 unboxedProgram : {auto c : Ref Ctxt Defs}
-              -> (withWorkers : Bool)
+              -> (withWorkers : Bool) -> (doubles : Bool)
+              -> (foreignWorkers : SortedMap String Worker)
               -> SortedMap String Nat -> SortedMap String Nat
               -> List (String, Name, List Int, ANF, Bool)
               -> Core (SortedMap String (SortedMap Int PrimType), SortedMap String Worker)
-unboxedProgram withWorkers foreigns valueFns funs = do
+unboxedProgram withWorkers doubles fws foreigns valueFns funs = do
     let byName = SortedMap.fromList (map (\f@(cn, _, _, _, _) => (cn, f)) funs)
     let callers = foldl (\m, (cn, _, _, anf, _) =>
                            foldl (\m', g => insert g (cn :: fromMaybe [] (lookup g m')) m')
@@ -2670,7 +2758,7 @@ unboxedProgram withWorkers foreigns valueFns funs = do
       -> Core (SortedMap String (SortedMap Int PrimType), SortedMap String Worker)
     go Z _ _ us ws _ = pure (us, ws)
     go (S k) byName callers us ws todo
-        = do let p = MkProgram foreigns valueFns ws (not (null (SortedMap.toList ws)))
+        = do let p = MkProgram foreigns valueFns ws (not (null (SortedMap.toList ws))) doubles fws
              (us1, ws1, changed) <- foldlC (\(us', ws', changed), cn =>
                  case lookup cn byName of
                    Nothing => pure (us', ws', changed)
@@ -2766,6 +2854,7 @@ createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto bs : Ref BorrowSigs Signatures}
                 -> {auto uv : Ref UnboxedVars (SortedMap String (SortedMap Int PrimType))}
                 -> {auto wk : Ref Workers (SortedMap String Worker)}
+                -> {auto fw : Ref ForeignWorkers (SortedMap String Worker)}
                 -> {auto a : Ref ArgCounter Nat}
                 -> {auto _ : Ref ConstDef ConstTable}
                 -> {auto f : Ref FunctionDefinitions (SortedMap String (List String))}
@@ -2853,11 +2942,12 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                               (if loops then Just (cn, args) else Nothing)
                               -- (many arguments are passed in an array)
                               (if nargs > MaxExtractFunArgs then 1 else nargs)
+                              (maybe 0 (\w => length (filter (== Just DoubleType) w.params)) worker)
                               foreigns unboxed opts.optSizeReuse sigs borrowedVars
                               !(get ValueFns) trmc empty opts.optStatics
                               structs
                               (if usesStructFields anf then stringLets anf empty else empty)
-                              !(get Workers))
+                              !(get Workers) !(get ForeignWorkers))
     if trmc
        then do
          assignResult "*idris2_trmc_hole" !(cStatementsFromANF anf InTailPosition)
@@ -2919,7 +3009,7 @@ createCFunctions _ _ n canonN (MkACon tag arity nt _) =
       emit EmptyFC $ ( "// \{show n} Constructor tag " ++ show tag ++ " arity " ++ show arity) -- Nothing to compile here
 
 
-createCFunctions _ _ n canonN (MkAForeign ccs fargs ret) = do
+createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
   case parseCC (additionalFFILangs ++ ["RefC", "C"]) ccs of
       Just (lang, fctForeignName :: extLibOpts) => do
           let cLang = if lang == "RefC"
@@ -2985,6 +3075,35 @@ createCFunctions _ _ n canonN (MkAForeign ccs fargs ret) = do
 
           decreaseIndentation
           emit EmptyFC "}"
+
+          -- The worker (see `foreignWorker`), which takes and gives the
+          -- doubles as C doubles, and borrows the other arguments
+          whenJust (foreignWorker opts.optDoubles isStandardFFI fargs ret) $ \w => do
+            let ps = zipWith (\(_, vn, _), mt => case mt of
+                                 Just t => "\{cIntType t} \{vn}"
+                                 Nothing => "Idris2_Value *\{vn}") typeVarNameArgList w.params
+            let wdef = "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}"
+                       ++ "\{workerName (cName canonN)}(\{showSep ", " ps})"
+            addProtos (cName canonN) [wdef ++ ";\n"]
+            emit EmptyFC wdef
+            emit EmptyFC "{"
+            increaseIndentation
+            let cargs = zipWith (\(_, vn, vt), mt => if isJust mt then vn else extractValue cLang vt vn)
+                                typeVarNameArgList w.params
+            let (cargs, ret') = case ret of
+                                     CFIORes r => (discardLastArgument cargs, r)
+                                     r => (cargs, r)
+            let call = "\{cName fctName}(\{showSep ", " cargs})"
+            case ret' of
+              CFUnit => do emit EmptyFC "\{call};"
+                           emit EmptyFC "return NULL;"
+              _ => do
+                emit EmptyFC "\{cResultType cLang ret'} retVal = \{call};"
+                emit EmptyFC $ if isJust w.rawResult
+                                  then "return retVal;"
+                                  else "return (Idris2_Value*)" ++ packFFIResult cLang ret' "retVal" ++ ";"
+            decreaseIndentation
+            emit EmptyFC "}"
       _ => throw $ InternalError "[refc] FFI not found for \{cName canonN}"
           -- not really total but this way this internal error does not contaminate everything else
   where
@@ -3530,7 +3649,17 @@ generateCSourceFileParts defs0 outn =
      let funs = mapMaybe (\(cn, n, d) => case d of
                              MkAFun args anf => Just (cn, n, args, anf, contains cn trmcFns)
                              _ => Nothing) named
-     (unboxed, workers) <- unboxedProgram (not noWorkersDir) foreigns valueFns funs
+     -- (the foreign functions that take or give C doubles, see
+     -- `foreignWorker`)
+     let foreignWorkers : SortedMap String Worker
+           = fromList $ mapMaybe (\(cn, _, d) => case d of
+                 MkAForeign ccs fargs ret =>
+                   do (lang, _) <- parseCC (additionalFFILangs ++ ["RefC", "C"]) ccs
+                      w <- foreignWorker opts.optDoubles (lang == "RefC" || lang == "C") fargs ret
+                      pure (cn, w)
+                 _ => Nothing) named
+     _ <- newRef ForeignWorkers foreignWorkers
+     (unboxed, workers) <- unboxedProgram (not noWorkersDir) opts.optDoubles foreignWorkers foreigns valueFns funs
      _ <- newRef UnboxedVars unboxed
      _ <- newRef Workers workers
      log "compiler.refc" 5 $ "Workers: " ++ show (length (SortedMap.toList workers))

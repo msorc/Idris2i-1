@@ -69,11 +69,15 @@ Idris2_Value *idris2_cast_Int64_to_string(Idris2_Value *input) {
   return (Idris2_Value *)retVal;
 }
 
-Idris2_Value *idris2_cast_Double_to_Integer(Idris2_Value *input) {
+Idris2_Value *idris2_mkIntegerFromDouble(double d) {
   Idris2_Integer *retVal = idris2_mkInteger();
-  mpz_set_d(retVal->i, idris2_vp_to_Double(input));
+  mpz_set_d(retVal->i, d);
 
   return idris2_normaliseInteger(retVal);
+}
+
+Idris2_Value *idris2_cast_Double_to_Integer(Idris2_Value *input) {
+  return idris2_mkIntegerFromDouble(idris2_vp_to_Double(input));
 }
 
 /*
@@ -568,20 +572,20 @@ Idris2_Value *idris2_cast_Integer_to_Int64(Idris2_Value *input) {
   return (Idris2_Value *)idris2_mkInt64((int64_t)mpz_get_lsb(fromi, 64));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Double(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkDouble((double)n);
-  }
+double idris2_integerToDoubleSlow(Idris2_Value *input) {
   IDRIS2_INTEGER_MPZ(fromi, input);
   // mpz_get_d truncates, but the other backends round to the nearest Double,
   // as strtod does.
   if (mpz_fits_slong_p(fromi) && sizeof(long) >= 8)
-    return (Idris2_Value *)idris2_mkDouble((double)mpz_get_si(fromi));
+    return (double)mpz_get_si(fromi);
   char *digits = mpz_get_str(NULL, 10, fromi);
   double d = strtod(digits, NULL);
   free(digits);
-  return (Idris2_Value *)idris2_mkDouble(d);
+  return d;
+}
+
+Idris2_Value *idris2_cast_Integer_to_Double(Idris2_Value *input) {
+  return (Idris2_Value *)idris2_mkDouble(idris2_integerToDouble(input));
 }
 
 Idris2_Value *idris2_cast_Integer_to_Char(Idris2_Value *input) {

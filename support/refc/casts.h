@@ -127,6 +127,15 @@ uint64_t idris2_double_to_wrapped(double d);
 #define idris2_cast_Double_to_Int64(x)                                         \
   (idris2_mkInt64((int64_t)idris2_double_to_wrapped(idris2_vp_to_Double(x))))
 Idris2_Value *idris2_cast_Double_to_Integer(Idris2_Value *);
+/* The casts of a C double (which the code generator keeps unboxed, see
+ * Compiler.RefC.Unbox) to and from an Integer. */
+Idris2_Value *idris2_mkIntegerFromDouble(double d);
+double idris2_integerToDoubleSlow(Idris2_Value *x);
+static inline double idris2_integerToDouble(Idris2_Value *x) {
+  if (idris2_isSmallInteger(x))
+    return (double)idris2_smallInteger(x);
+  return idris2_integerToDoubleSlow(x);
+}
 #define idris2_cast_Double_to_Char(x)                                          \
   (idris2_mkValidChar(idris2_double_to_char_code(idris2_vp_to_Double(x))))
 Idris2_Value *idris2_cast_Double_to_string(Idris2_Value *);

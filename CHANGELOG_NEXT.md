@@ -938,6 +938,19 @@ should target this file (`CHANGELOG_NEXT`).
 * An `Int` literal of more than 32 bits (`0xffffffff`) is a C constant: it
   was an `Integer` converted at each use, as the constant folding leaves the
   casts to `Int` of large values to the backend.
+* `Double`s are C doubles too, as the fixed width integers are: the results
+  of the primitives on `Double` (arithmetic, comparisons, `sqrt`, `exp` and
+  the other functions, the casts to and from the integers), its literals,
+  and the parameters and results of the functions (through their workers,
+  aliases, newtypes and `IO` included) and of the foreign functions of C
+  that take or give a `double`.  A `Double` is allocated only where a value
+  is needed: in a constructor or a closure, or as the argument of a function
+  that takes a value.  The results are those of the values, NaN, signed
+  zeros and the casts out of range included, and so is the rounding on a
+  32 bit x86 that computes in more precision (`IDRIS2_DOUBLE`).  A Mandelbrot
+  loop runs 25 times fewer instructions, an n-body simulation (the bodies in
+  records) 2 times fewer, an update of an array of records of `Double`s 1.3
+  times fewer.  `--directive refc-no-unbox-double` turns this off.
 * `System.Clock` now reads the clocks with `clock_gettime`: they used to have
   a resolution of a second (`nanoseconds` was always 0), and the monotonic
   clock was the UTC one.
