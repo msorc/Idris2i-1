@@ -264,6 +264,75 @@ stays in ``rawField``.
 Stage A: raw fields in constructor cells
 ========================================
 
+Implemented (``Compiler.RefC.RefC``, ``RawLayout``; ``Compiler.RefC.Unbox``,
+``rawFields``), on by default.  What the implementation settled, where it
+differs from the plan below:
+
+- **Layout.** Every ``rawField`` type is 8 bytes, so the raw fields are in
+  field order, 8 bytes each, from ``IDRIS2_RAW_OFFSET(np)`` (the end of the
+  pointer fields rounded up to 8): ``idris2_rawField(c, np, j, T)`` and
+  ``idris2_newRawConstructor(np, nr, tag)`` in ``memoryManagement.h``.  No
+  struct per constructor is declared.  The constructors told apart by their
+  names (tag -1) keep boxed fields.
+- **Reading.** The raw fields that a branch uses are read first, before the
+  cell may be freed or taken over.  Each one is a C number when the
+  unboxing keeps it one (it does unless it has two uses as a value: a raw
+  field costs nothing to unbox), otherwise a new value, which the branch
+  owns.  ``valueType`` now sees through a ``case`` on constructors, so the
+  projection of a raw field (``p.x``, a ``case`` in a ``let``) is a C number.
+- **Building.** A raw field is stored from a C number, from the value of a
+  variable that is not one (``idris2_vp_to_Double``), which is released when
+  only raw fields took it.  The unboxing counts a raw field of a
+  constructor as a use as a C number, so parameters and ``let``\ s stored
+  there stay unboxed.
+- **Reuse.** By name as before; with ``refc-size-reuse``, the key holds the
+  layout, so a cell is taken over by a constructor whose fields are in the
+  same slots only.  A raw field given the number read from the same slot of
+  the cell taken over is not stored again; the copy made when the cell is
+  shared copies the raw fields with ``idris2_copyRawFields``.
+- **Static values.** A constant with raw fields is allocated (once, as a
+  CAF): no static initialiser yet.
+- **Tail recursion modulo cons.** The hole is the pointer slot of the
+  field; a field of the call that is raw (impossible in a well typed
+  program) makes the call an ordinary one.
+- **Closures, partial applications, polymorphic code** need nothing: a
+  constructor is always applied in full in ANF (the compiler eta-expands
+  it into a lambda), and generic code moves cells as values.
+
+Measured (instructions:u, median of 3, the full inputs; ``noraw`` is the
+same compiler with ``--directive refc-no-raw-fields``, which runs the same
+instructions as the branch base on each of these programs, to a few hundred):
+
+============  ===============  ===============  =========
+program       raw              noraw            noraw/raw
+============  ===============  ===============  =========
+particles     16 093 789 298   33 682 282 048   2.09
+events        44 472 072 689   47 986 144 155   1.08
+nbody          1 192 707 306    3 740 710 989   3.14
+mandel         1 685 877 585    8 425 541 218   5.00
+mergeA        17 264 667 154   17 264 667 134   1.00
+mergeB        16 426 253 315   17 562 686 120   1.07
+treeA         10 454 310 190   10 454 310 217   1.00
+treeB          9 754 299 741   10 464 760 846   1.07
+============  ===============  ===============  =========
+
+(``benchmark/flat-layout/stagea/run.sh``.)  The five programs of
+``benchmark/benchmarks`` run the same instructions (their records have no
+such fields).  The compiler compiled by itself type checks ``libs/prelude``
+in 24 671 203 155 instructions against 25 071 997 235 with the directive
+(1.6% fewer; its types with ``Int`` fields, ``Compiler.ANF.AVar`` among
+them, are now raw), and its C compiles in 757 s of CPU against 780 s
+(no unit slower by more than 0.5 s).
+
+On particles, stage A on the branch base (which unboxes Doubles since) runs
+2.78 times fewer instructions than phase 0's A (44 667 557 254), more than
+the hand edit SA (2.69): the unboxed Double locals of the branch base reach
+more code than the edit did (``checksum``'s accumulator, the arithmetic of
+``fill``), and nothing in the edit was left out.  ``mergeA``/``treeA`` use
+``List Int`` and a polymorphic tree, whose fields are type variables, and
+gain nothing; ``mergeB``/``treeB`` declare their own types of ``Int``.
+
+
 The rule
 --------
 
