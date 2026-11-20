@@ -751,6 +751,25 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* A constant with fields stored raw (see below), whose fields are literals,
+  is static data of the program, as the other constant constructors are.
+* Flat arrays, the plumbing (see `docs/source/backends/refc-flat-layout.rst`,
+  stage B): `Data.IOArray.Flat` (base, re-exported by `Data.IOArray`) has
+  `Layout`, the interface `Flat` of the layouts of the elements of arrays,
+  with a default (values) for every type and implementations for the
+  primitive numbers and `Char`; the compiler makes the implementation for a
+  record of one constructor whose fields are all stored raw, where it is
+  declared (in a module that loads `Data.IOArray.Flat`).  `Data.IOArray` has
+  `newFlatArray`, `readFlatArray` and `writeFlatArray`, which take the `Flat`
+  of the elements; its other functions are unchanged, and read and write an
+  array of any layout.  `Data.IOArray.Prims` has the primitives
+  `prim__newSlots`, `prim__slotGet` and `prim__slotSet`, which the Scheme and
+  JavaScript back ends compile as the other array primitives.  With
+  `--directive refc-flat-arrays` (off by default), RefC stores the elements
+  of such an array inline (a word for the empty slots, then the primitive or
+  the raw fields of the record), and the functions that take a constant
+  layout get copies with inline accesses (`Compiler.RefC.FlatClones`).  The
+  tests `allbackends/flatarray001` and `refc/flatarray001`.
 * The fields of a constructor whose type says that they always hold a
   `Double`, an `Int`, an `Int64` or a `Bits64` are stored in its cell as C
   numbers, after the fields that are values (`total` counts these only, so

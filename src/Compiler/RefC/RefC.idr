@@ -2,6 +2,7 @@ module Compiler.RefC.RefC
 
 import Compiler.RefC.Borrow
 import Compiler.RefC.CC
+import Compiler.RefC.FlatClones
 import Compiler.RefC.LocalClosures
 import Compiler.RefC.Unbox
 
@@ -793,6 +794,9 @@ record Env where
   rawCons : SortedMap Name RawLayout
   ||| `--directive refc-check-layout` (see IDRIS2_CHECK_LAYOUT)
   checkLayout : Bool
+  ||| `--directive refc-flat-arrays`: the arrays of slots have the layouts of
+  ||| their elements (see Data.IOArray.Flat)
+  flatArrays : Bool
   ||| The variables that are C integers bound to literals, with their C
   ||| constants: a raw field of a static value may be one (see
   ||| `staticRawConstructor`).
@@ -2386,7 +2390,8 @@ mutual
         let prims : List String =
             ["prim__newIORef", "prim__readIORef", "prim__writeIORef", "prim__newArray",
              "prim__arrayGet", "prim__arraySet", "prim__getField", "prim__setField",
-             "prim__os", "prim__codegen", "prim__onCollect", "prim__onCollectAny" ]
+             "prim__os", "prim__codegen", "prim__onCollect", "prim__onCollectAny",
+             "prim__newSlots", "prim__slotGet", "prim__slotSet" ]
         case p of
             NS _ (UN (Basic pn)) =>
                unless (elem pn prims) $ throw $ InternalError $ "[refc] Unknown primitive: " ++ cName p
@@ -2401,6 +2406,15 @@ mutual
           (NS _ (UN (Basic "prim__setField")), [s, _, _, struct, fld, _, val, _]) => do
               (lvalue, ty) <- structField env "setField" s struct fld
               pure "(\{lvalue} = \{structFieldWrite ty (varName val)}, (Idris2_Value *)NULL)"
+          -- The arrays of slots with a layout (see Data.IOArray.Prims and
+          -- prim.h): the layout and the index are C numbers (a constant
+          -- layout makes the access inline).
+          (NS _ (UN (Basic "prim__newSlots")), [_, l, n, v, _]) =>
+              pure "idris2_newSlots(\{layoutC env l}, \{intOperand env IntType n}, \{varName v})"
+          (NS _ (UN (Basic "prim__slotGet")), [_, l, arr, i, _]) =>
+              pure "idris2_slotGet(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})"
+          (NS _ (UN (Basic "prim__slotSet")), [_, l, arr, i, v, _]) =>
+              pure "(idris2_slotSet(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{varName v}), (Idris2_Value *)NULL)"
           (NS _ (UN (Basic pn)), _) =>
               if pn == "prim__getField" || pn == "prim__setField"
                  then throw $ InternalError "[refc] Badly formed call of \{pn}"
@@ -2414,6 +2428,13 @@ mutual
       where
         plainCall : String
         plainCall = "idris2_\{cName p}(" ++ showSep ", " (map varName args) ++ ")"
+
+        -- (with `--directive refc-no-raw-fields`, a record has no raw fields
+        -- to store inline: its arrays have the layout of values)
+        layoutC : Env -> AVar -> String
+        layoutC env l = let c = intOperand env Bits64Type l in
+                            if not env.flatArrays then "0"
+                            else if null (keys env.rawCons) then "idris2_noRawLayout(\{c})" else c
 
         -- The field `fld` of the struct `s` in the value `struct`, as a C
         -- lvalue, and its type.  The names are those of the variables `s`
@@ -3034,6 +3055,11 @@ record RefCOptions where
   optRawFields : Bool
   ||| `--directive refc-check-layout` (see IDRIS2_CHECK_LAYOUT)
   optCheckLayout : Bool
+  ||| `--directive refc-flat-arrays` (see Data.IOArray.Flat): off by default
+  ||| until the elements read are not made values (stage C of
+  ||| refc-flat-layout.rst), which they are now, so that a program that reads
+  ||| more than it writes runs slower with the layouts
+  optFlatArrays : Bool
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
@@ -3048,6 +3074,7 @@ refcOptions = do
                          (not ("refc-no-reuse-copy" `elem` ds))
                          (not ("refc-no-raw-fields" `elem` ds))
                          ("refc-check-layout" `elem` ds)
+                         ("refc-flat-arrays" `elem` ds)
 
 ||| A definition with the casts of Integer literals to fixed width integers
 ||| made literals (see `foldIntegerCasts`).
@@ -3374,7 +3401,7 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                               structs
                               (if usesStructFields anf then stringLets anf empty else empty)
                               !(get Workers) !(get ForeignWorkers)
-                              !(get RawCons) opts.optCheckLayout empty)
+                              !(get RawCons) opts.optCheckLayout opts.optFlatArrays empty)
     if trmc
        then do
          assignResult "*idris2_trmc_hole" !(cStatementsFromANF anf InTailPosition)
@@ -4024,10 +4051,16 @@ generateCSourceFileParts defs0 outn =
      local <- pure $ not ("refc-no-local-closures" `elem` !(getDirectives RefC))
      -- (and the casts of Integer literals to fixed width integers are
      -- literals, see `foldIntegerCasts`)
-     let defs1 : List (Name, ANFDef)
+     -- (and the functions that take the layout of the elements of an array
+     -- have copies for the constant layouts they are called with, see
+     -- Compiler.RefC.FlatClones)
+     optsF <- refcOptions
+     let defs1' : List (Name, ANFDef)
                = map (mapSnd foldCasts)
                      (if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
                                else defs0)
+     let defs1 : List (Name, ANFDef)
+               = if optsF.optFlatArrays then flatClones 100000 defs1' else defs1'
      -- The numbers in the names that the elaborator made are made stable
      -- (see `canonName`): `canons` are the names of the definitions.
      let nb = numbering defs1

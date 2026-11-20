@@ -43,6 +43,7 @@ modules =
     Compiler.RefC,
     Compiler.RefC.Borrow,
     Compiler.RefC.CC,
+    Compiler.RefC.FlatClones,
     Compiler.RefC.LocalClosures,
     Compiler.RefC.RefC,
     Compiler.RefC.Unbox,

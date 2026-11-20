@@ -356,6 +356,11 @@ typedef struct {
   // Guards the elements when the array is shared (see prim.h).
   Idris2_SpinLock lock;
   int capacity;
+  // The layout of the elements (see Data.IOArray.Flat): 0 for values, one
+  // per slot of `arr`; otherwise the slots of an `IOArray` (`Maybe` of the
+  // elements) inline, IDRIS2_SLOT_SIZE(layout) bytes each, from `arr`, which
+  // then holds no value (see prim.h).
+  uint64_t layout;
   Idris2_Value **arr;
 } Idris2_Array;
 

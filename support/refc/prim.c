@@ -116,6 +116,10 @@ Idris2_Value *idris2_Data_IOArray_Prims_prim__arraySet(Idris2_Value *erased,
                                                        Idris2_Value *_word) {
   Idris2_Array *a = (Idris2_Array *)_array;
   int64_t i = idris2_vp_to_Int64(index);
+  if (a->layout != 0) {
+    idris2_slotSetGeneric(a, i, v);
+    return NULL;
+  }
   idris2_newReference(v);
   Idris2_Value *old;
   if (idris2_isShared(_array)) {
@@ -179,6 +183,28 @@ void idris2_arrayCopy(Idris2_Value *erased, Idris2_Value *_src,
   Idris2_Array *dst = (Idris2_Array *)_dst;
   if (len <= 0)
     return;
+  if (src->layout != 0 || dst->layout != 0) {
+    // Arrays with a layout: the slots are copied as bytes between arrays of
+    // the same layout, through values otherwise (an array made by code that
+    // is generic in the elements, copied to one that is not, say).
+    if (src->layout == dst->layout && !idris2_isShared(_src) &&
+        !idris2_isShared(_dst)) {
+      size_t size = IDRIS2_SLOT_SIZE(src->layout);
+      memmove((unsigned char *)dst->arr + (size_t)dstPos * size,
+              (unsigned char *)src->arr + (size_t)srcPos * size,
+              (size_t)len * size);
+      return;
+    }
+    // (in the order that copies an overlapping range right)
+    int up = !(src == dst && srcPos < dstPos);
+    for (int64_t k = 0; k < len; k++) {
+      int64_t j = up ? k : len - 1 - k;
+      Idris2_Value *v = idris2_slotGetGeneric(src, srcPos + j);
+      idris2_slotSetGeneric(dst, dstPos + j, v);
+      idris2_removeReference(v);
+    }
+    return;
+  }
   if (__builtin_expect(idris2_isShared(_src) || idris2_isShared(_dst) ||
                            (src == dst && srcPos < dstPos + len &&
                             dstPos < srcPos + len),
@@ -196,6 +222,70 @@ void idris2_arrayCopy(Idris2_Value *erased, Idris2_Value *_src,
     to[i] = idris2_newReference(from[i]);
     idris2_removeReference(old);
   }
+}
+
+// The arrays of slots with a layout (see prim.h).
+
+Idris2_Value *idris2_newSlots(uint64_t layout, int64_t length,
+                              Idris2_Value *v) {
+  if (layout == 0)
+    return idris2_Data_IOArray_Prims_prim__newArray(
+        NULL, idris2_mkInt64(length), v, NULL);
+  Idris2_Array *a = IDRIS2_NEW_VALUE(Idris2_Array);
+  a->header.tag = ARRAY_TAG;
+  a->lock = 0;
+  a->capacity = (int)length;
+  a->layout = layout;
+  size_t size = IDRIS2_SLOT_SIZE(layout);
+  a->arr = (Idris2_Value **)calloc(length > 0 ? (size_t)length : 1, size);
+  IDRIS2_REFC_VERIFY(a->arr, "malloc failed");
+  // (calloc made every slot empty)
+  if (v != NULL)
+    for (int64_t i = 0; i < length; i++)
+      idris2_storeSlot(layout, (unsigned char *)a->arr + (size_t)i * size, v);
+  return (Idris2_Value *)a;
+}
+
+// A slot of an array with a layout other than the one that the caller
+// expected, or shared (its slots are read and written under its lock, as
+// they are not words).
+Idris2_Value *idris2_slotGetGeneric(Idris2_Array *a, int64_t i) {
+  if (a->layout == 0)
+    return idris2_arrayGet((Idris2_Value *)a, i);
+  unsigned char *slot =
+      (unsigned char *)a->arr + (size_t)i * IDRIS2_SLOT_SIZE(a->layout);
+  if (!idris2_isShared((Idris2_Value *)a))
+    return idris2_loadSlot(a->layout, slot);
+  size_t size = IDRIS2_SLOT_SIZE(a->layout);
+  unsigned char *copy = malloc(size);
+  IDRIS2_REFC_VERIFY(copy, "malloc failed");
+  idris2_spinLock(&a->lock);
+  memcpy(copy, slot, size);
+  idris2_spinUnlock(&a->lock);
+  Idris2_Value *r = idris2_loadSlot(a->layout, copy);
+  free(copy);
+  return r;
+}
+
+void idris2_slotSetGeneric(Idris2_Array *a, int64_t i, Idris2_Value *v) {
+  if (a->layout == 0) {
+    idris2_Data_IOArray_Prims_prim__arraySet(NULL, (Idris2_Value *)a,
+                                             idris2_mkInt64(i), v, NULL);
+    return;
+  }
+  size_t size = IDRIS2_SLOT_SIZE(a->layout);
+  unsigned char *slot = (unsigned char *)a->arr + (size_t)i * size;
+  if (!idris2_isShared((Idris2_Value *)a)) {
+    idris2_storeSlot(a->layout, slot, v);
+    return;
+  }
+  unsigned char *copy = malloc(size);
+  IDRIS2_REFC_VERIFY(copy, "malloc failed");
+  idris2_storeSlot(a->layout, copy, v);
+  idris2_spinLock(&a->lock);
+  memcpy(slot, copy, size);
+  idris2_spinUnlock(&a->lock);
+  free(copy);
 }
 
 Idris2_Value *idris2_sharedArrayGet(Idris2_Array *a, int64_t i) {

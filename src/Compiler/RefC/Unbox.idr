@@ -499,7 +499,17 @@ usesIn c t (ACon _ n _ _ args) us
            Nothing => addUses Boxed args us
 usesIn c t (AOp _ _ op args) us
     = addUses (maybe Raw Numeric (operandType op)) (toList args) us
-usesIn c t (AExtPrim _ _ _ args) us = addUses Raw args us
+-- (the arrays of slots with a layout take the layout and the index as C
+-- numbers, see prim__slotGet in RefC)
+usesIn c t (AExtPrim _ _ p args) us
+    = case (p, args) of
+           (NS _ (UN (Basic "prim__newSlots")), [_, l, n, v, w]) =>
+             addUse (Numeric Bits64Type) l (addUse (Numeric IntType) n (addUses Raw [v, w] us))
+           (NS _ (UN (Basic "prim__slotGet")), [_, l, arr, i, w]) =>
+             addUse (Numeric Bits64Type) l (addUse (Numeric IntType) i (addUses Raw [arr, w] us))
+           (NS _ (UN (Basic "prim__slotSet")), [_, l, arr, i, v, w]) =>
+             addUse (Numeric Bits64Type) l (addUse (Numeric IntType) i (addUses Raw [arr, v, w] us))
+           _ => addUses Raw args us
 usesIn c t (AConCase _ sc alts def) us
     = let us = foldl (\us', (MkAConAlt _ _ _ _ b) => usesIn c t b us') us alts
           us = maybe us (\d => usesIn c t d us) def in
@@ -537,6 +547,9 @@ hasIntWork c (AAppName _ _ n args)
            isJust (c.rawResult cn k) || maybe False (any isJust) (c.rawArgs cn k)
            || isJust (c.foreignRaw cn k))
 hasIntWork c (ALet _ _ val body) = hasIntWork c val || hasIntWork c body
+-- (the arrays of slots take their layouts and indices as C numbers)
+hasIntWork c (AExtPrim _ _ (NS _ (UN (Basic p))) _)
+    = p == "prim__newSlots" || p == "prim__slotGet" || p == "prim__slotSet"
 -- (a constructor with raw fields is built from C numbers, and they are read
 -- as C numbers)
 hasIntWork c (ACon _ n _ _ _) = c.anyRawFields && isJust (c.rawFields n)

@@ -13,6 +13,7 @@
 ||| table.
 module Core.FieldRep
 
+import Core.Case.CaseTree
 import Core.CompileExpr
 import Core.Context
 import Core.Context.Log
@@ -21,6 +22,7 @@ import Core.Normalise
 import Core.Value
 
 import Libraries.Data.NatSet
+import Libraries.Data.WithDefault
 
 %default covering
 
@@ -186,3 +188,64 @@ compiledFieldsOf n
          pure $ case compexpr gdef of
                      Just (MkCon _ _ _ fs) => Just fs
                      _ => Nothing
+
+||| The full names of the layout of arrays (Data.IOArray.Flat in base).
+flatNames : (Name, Name, Name)
+flatNames = let ns = mkNamespace "Data.IOArray.Flat" in
+                (NS ns (UN $ Basic "Flat"), NS ns (UN $ Basic "MkFlat"),
+                 NS ns (UN $ Basic "MkLayout"))
+
+||| For a record of one constructor, without parameters, whose fields are all
+||| stored raw (`rawField`), the implementation of `Flat` that lays the
+||| elements of its arrays out inline: the code of its layout (see
+||| Data.IOArray.Flat.Layout), a hint for the searches of a `Flat` of the
+||| record.  Only when Data.IOArray.Flat is loaded (by the public imports of
+||| the module: the hint refers to it), as the module that declares the
+||| record does not otherwise see it.  The implementation is made here, from
+||| the table, so that the layout cannot disagree with the cells (see the
+||| RefC back end); it cannot be written by hand (the constructor of
+||| `Layout` is private).
+export
+addFlatHint : {auto c : Ref Ctxt Defs} -> FC -> Name -> List Name -> Core ()
+addFlatHint fc tn [con]
+    = do defs <- get Ctxt
+         let (flat, mkFlat, mkLayout) = flatNames
+         Just fdef <- lookupCtxtExact flat (gamma defs)
+              | Nothing => pure ()
+         Just (TCon tyArity _ _ _ _ _ _) <- lookupDefExact tn (gamma defs)
+              | _ => pure ()
+         Just cdef <- lookupCtxtExact con (gamma defs)
+              | Nothing => pure ()
+         let DCon tag arity Nothing = definition cdef
+              | _ => pure ()
+         let Just fs = conFieldsFlag (flags cdef)
+              | Nothing => pure ()
+         let fields = NatSet.drop (eraseArgs cdef) fs
+         if tyArity /= 0 || null fields || not (all rawField fields)
+            || tag < 0 || tag >= 65536 || length fields >= 65536
+            then pure () else do
+              Just (DCon ftag far _) <- lookupDefExact mkFlat (gamma defs)
+                   | _ => pure ()
+              Just (DCon ltag lar _) <- lookupDefExact mkLayout (gamma defs)
+                   | _ => pure ()
+              tnfull <- toFullNames tn
+              let code : Integer = 2 + 256 * cast (length fields) + 16777216 * cast tag
+              let ty = Ref fc (TyCon tyArity) tn
+              let layout = apply fc (Ref fc (DataCon ltag lar) mkLayout)
+                                 [ty, PrimVal fc (B64 (cast code))]
+              let val = apply fc (Ref fc (DataCon ftag far) mkFlat) [ty, layout]
+              let hty = App fc (Ref fc (TyCon 1) flat) ty
+              let hn = NS (currentNS defs) (MN ("flat layout of " ++ show tnfull) 0)
+              -- (the names resolved, as those of the elaborated terms are:
+              -- the search compares them)
+              val <- toResolvedNames val
+              hty <- toResolvedNames hty
+              let def = PMDef defaultPI Scope.empty (STerm 0 val) (STerm 0 val) []
+              let gdef = { totality := MkTotality IsTerminating IsCovering }
+                           (newDef fc hn top Scope.empty hty (specified Public) def)
+              ignore $ addDef hn gdef
+              addToSave hn
+              setFlag fc hn Inline
+              addHintFor fc flat hn True False
+              log "declare.data.flat" 1 $ "Arrays of " ++ show tnfull ++ " are flat: " ++ show code
+addFlatHint _ _ _ = pure ()

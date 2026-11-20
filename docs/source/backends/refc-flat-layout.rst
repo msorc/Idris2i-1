@@ -290,8 +290,8 @@ differs from the plan below:
   same slots only.  A raw field given the number read from the same slot of
   the cell taken over is not stored again; the copy made when the cell is
   shared copies the raw fields with ``idris2_copyRawFields``.
-- **Static values.** A constant with raw fields is allocated (once, as a
-  CAF): no static initialiser yet.
+- **Static values.** A constant with raw fields whose raw fields are
+  literals is static data (see the follow-up below).
 - **Tail recursion modulo cons.** The hole is the pointer slot of the
   field; a field of the call that is raw (impossible in a well typed
   program) makes the call an ordinary one.
@@ -572,6 +572,115 @@ Stages B and C: flat arrays and flat values
 ===========================================
 
 These two go together (see the evidence above).
+
+Stage B as implemented
+----------------------
+
+Implemented as an opt-in plumbing, **off by default**
+(``--directive refc-flat-arrays``), because of two findings:
+
+- **The existing API cannot take a ``Flat`` without an elaborator change.**
+  With ``Flat elem =>`` added to ``newArray``, ``readArray``,
+  ``writeArray`` and the methods of ``Data.Linear.Array``, and the default
+  ``%defaulthint boxedFlat : Flat a``, the programs whose element type is
+  solved after the call (``x <- newArray 20`` followed by ``writeArray x 10
+  "Hello"``, ``chez/chez012``, ``node/node012``) fail with "Can't find an
+  implementation for Flat String": the search that runs once the element
+  type is known runs without the default hints, which only fill in a
+  type that is still unknown.  A catch-all ``%hint boxedFlat : Flat a`` is
+  ambiguous with the other implementations ("Multiple solutions found").
+  So a ``Flat`` on the existing functions needs the auto search to fall back
+  to the default hints for a known type that no other hint matches (a small
+  change in ``Core.AutoSearch``, but one of the type checker, which the
+  brief says to stop at).  Until that is decided, the existing functions
+  are unchanged in their types (``readArray`` and the rest read and write
+  any array, by its layout), and three new functions of ``Data.IOArray``
+  make and access flat arrays: ``newFlatArray``, ``readFlatArray`` and
+  ``writeFlatArray``, which take the ``Flat`` of the elements.
+  ``Data.Linear.Array`` is unchanged.
+- **Flat arrays are slower until stage C.**  An element read from a flat
+  array is a new value (a ``Just`` and a record cell), where the array of
+  values shares the one it holds.  With ``Data.Linear.Array``'s
+  ``mread``/``write`` made to take a ``Flat`` (the first attempt above), on
+  the fast inputs particles ran 3.95 G instructions with the layouts
+  against 3.16 G without, events 9.11 G against 8.10 G.
+
+What is in place:
+
+- **The library.** ``Data.IOArray.Flat`` (base) has ``Layout a``, a newtype
+  of a ``Bits64`` code whose constructor is private, and
+  ``interface Flat a where flatLayout : Layout a``, with the
+  ``%defaulthint`` ``boxedFlat`` (the layout of values, 0), and
+  implementations for the primitive numbers and ``Char``.  ``Data.IOArray``
+  re-exports it.  The slots of an ``IOArray`` are made, read and written by
+  three new primitives of ``Data.IOArray.Prims``, ``prim__newSlots``,
+  ``prim__slotGet`` and ``prim__slotSet``, which take the layout of the
+  elements; ``Data.IOArray`` uses them with the layout of values, but for
+  the three new functions.  The Scheme and JavaScript back ends compile
+  them as ``prim__newArray``, ``prim__arrayGet`` and ``prim__arraySet``,
+  ignoring the layout (``allbackends/flatarray001`` prints the same on Chez,
+  Node and RefC).  ``Data.IOMatrix``, which uses the old primitives, is
+  unchanged.
+- **The hints.** ``TTImp.ProcessData`` (``Core.FieldRep.addFlatHint``) makes
+  the implementation of ``Flat`` of a record of one constructor without
+  parameters whose fields are all ``rawField``, from the table, when
+  ``Data.IOArray.Flat`` is loaded in the module that declares it (it is
+  when the module imports ``Data.IOArray`` or ``Data.Linear.Array``,
+  directly or by public imports): a definition whose value is the layout
+  code (``2 + 256 * fields + 2^24 * tag``) and a hint.  A record declared in
+  a module that does not load it gets the default.
+- **The arrays.** In RefC an ``Idris2_Array`` has a ``layout``.  With 0 it
+  is the array of values of before.  Otherwise each slot is a word (1 when
+  it holds an element) and the element inline: 8 bytes for a primitive, the
+  raw fields of the record (its cell's raw area, 8 bytes each).  Release,
+  the marking of shared values and the leak check do not look into such
+  slots (they hold no value).  A shared array's slots are copied under its
+  lock.  ``idris2_arrayCopy`` copies bytes between arrays of the same
+  layout, and element by element through values otherwise.
+- **Why creation and access cannot disagree.** The layout is a field of the
+  array, set when it is made, and never changes.  Every access takes the
+  layout that its caller expects and compares it with the array's
+  (``idris2_slotGet`` in prim.h): the inline access is taken only when they
+  are the same and not 0; otherwise the access goes by the array's own
+  layout (``idris2_slotGetGeneric``), whatever the caller expected.  So an
+  array made by generic code (layout 0) and read by code that knows its
+  elements, or the reverse, is read right; the tests make and read arrays
+  both ways, copy between them in both directions, and overlap a copy.  The
+  test costs the two instructions measured in phase B's experiments.
+- **The constant layouts.** The decision was to specialise the functions by
+  their ``Flat`` arguments in the elaborator (the ``Flat`` part of
+  ``--spec-interfaces``, always on).  It does not work for the arrays of
+  Data.Linear.Array: a copy is elaborated in the module that calls the
+  function, which has only its public imports loaded, and the methods of
+  ``Data.Linear.Array`` call ``Data.IOArray``, a private import.  With
+  ``--spec-interfaces`` on particles:
+  ``Partial evaluation of Data.Linear.Array.mread failed: ... Undefined name
+  Data.IOArray.readArray`` (and the same for ``write``, ``read`` and
+  ``newLinArray``; this is also why ``write`` was not specialised in the
+  experiment of question 6).  Making the imports public would put
+  ``Data.IOArray.newArray`` in scope with ``Data.Linear.Array.newArray``.
+  So the copies are made by the RefC back end instead
+  (``Compiler.RefC.FlatClones``), which sees every definition and type
+  checks nothing: a function whose parameter reaches the layout argument of
+  a slot primitive (directly, or through such a parameter of a function that
+  it calls) gets a copy for each constant layout that it is called with (a
+  literal, or a definition that is one: an implementation of ``Flat``),
+  with the parameter bound to the literal; the copy's calls are copied in
+  turn.  The elaborator is not changed, and type checking costs nothing
+  more.  Only layouts other than 0 are copied for.  With the directive off,
+  no copy is made and every layout is 0.
+- **Not yet.** The element read is a value (a ``Just`` and a record cell
+  for a record); a write takes the ``Just`` that the library makes.  Both
+  are stage C's.  ``Data.Linear.Array`` has no flat arrays.
+
+Stage A, follow-up: static constants with raw fields
+----------------------------------------------------
+
+A constructor with raw fields whose pointer fields are static values and
+whose raw fields are literals is static data (``staticRawConstructor``): a
+struct with the header, the pointer fields, then the raw fields from an
+offset aligned on 8 (``_Alignas(8)``, for 32 bit x86), named by its depth
+first so that it is defined before the constructors that hold it.
 
 Where the element type comes from: the options
 -----------------------------------------------

@@ -787,8 +787,9 @@ void idris2_markShared(Idris2_Value *root) {
       break;
     case ARRAY_TAG: {
       Idris2_Array *a = (Idris2_Array *)v;
-      for (int i = 0; i < a->capacity; i++)
-        IDRIS2_PUSH(a->arr[i]);
+      if (a->layout == 0) // (otherwise its slots hold no value)
+        for (int i = 0; i < a->capacity; i++)
+          IDRIS2_PUSH(a->arr[i]);
       break;
     }
     case GC_POINTER_TAG: {
@@ -958,6 +959,7 @@ Idris2_Array *idris2_makeArray(int length) {
   a->header.tag = ARRAY_TAG;
   a->lock = 0;
   a->capacity = length;
+  a->layout = 0;
   a->arr = (Idris2_Value **)calloc(length, sizeof(Idris2_Value *));
   IDRIS2_REFC_VERIFY(a->arr || length == 0, "malloc failed");
   return a;
@@ -1084,8 +1086,10 @@ IDRIS2_INLINE Idris2_Value *releaseOne(Idris2_Value *elem, ReleaseStack *st) {
 
   case ARRAY_TAG: {
     Idris2_Array *a = (Idris2_Array *)elem;
-    for (int i = 0; i < a->capacity; i++)
-      RELEASE_FIELD(a->arr[i]);
+    // (the slots of an array with a layout hold no value)
+    if (a->layout == 0)
+      for (int i = 0; i < a->capacity; i++)
+        RELEASE_FIELD(a->arr[i]);
     free(a->arr);
     break;
   }
@@ -1722,8 +1726,9 @@ static void markFromConstants(ValueList *list, uint8_t *reached) {
       break;
     case ARRAY_TAG: {
       Idris2_Array *a = (Idris2_Array *)v;
-      for (int i = 0; i < a->capacity; i++)
-        LEAK_PUSH(a->arr[i]);
+      if (a->layout == 0) // (otherwise its slots hold no value)
+        for (int i = 0; i < a->capacity; i++)
+          LEAK_PUSH(a->arr[i]);
       break;
     }
     case GC_POINTER_TAG:

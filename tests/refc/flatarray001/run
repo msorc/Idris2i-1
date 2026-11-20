@@ -1,0 +1,21 @@
+. ../../testutils.sh
+
+idris2 -p contrib --directive refc-flat-arrays -o main Main.idr
+$VALGRIND ./build/exec/main > flat.out
+cat flat.out
+
+# The arrays of P and of the primitives are made with their layouts (a
+# constant; the accesses are inline in main, so no function needs a copy
+# by its layout here).
+grep -q "idris2_newSlots(UINT64_C(\|idris2_newSlots(int_" build/exec/main.c && echo "made with a layout"
+grep -c "_at_layout_" build/exec/main.c | sed 's/^[1-9][0-9]*$/copies by layout/'
+
+# The same without the layouts (the default), and without raw fields.
+idris2 -p contrib -o boxed Main.idr
+./build/exec/boxed | diff - flat.out && echo "same output without flat arrays"
+idris2 -p contrib --directive refc-flat-arrays --directive refc-no-raw-fields -o noraw Main.idr
+./build/exec/noraw | diff - flat.out && echo "same output without raw fields"
+rm -f flat.out
+
+idris2 --directive refc-flat-arrays -o threads Threads.idr
+$VALGRIND ./build/exec/threads

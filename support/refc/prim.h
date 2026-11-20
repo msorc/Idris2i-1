@@ -73,6 +73,113 @@ Idris2_Value *idris2_Data_IOArray_Prims_prim__arraySet(Idris2_Value *,
                                                        Idris2_Value *,
                                                        Idris2_Value *);
 
+// The arrays of the slots of an `IOArray` (`Maybe` of the elements) with a
+// layout (see Data.IOArray.Flat and Data.IOArray.Prims): with the layout of
+// values (0) they are the arrays above; otherwise each slot is a word that is
+// 1 when the slot holds an element, then the element inline: a primitive (8
+// bytes: a double, or an integer widened to 64 bits), or the raw fields of a
+// record of one constructor (8 bytes each, as in its cell, see
+// idris2_newRawConstructor).  The layout is the one that the caller expects:
+// the array's own one decides, so any code reads and writes any array
+// correctly; when they are the same constant, the access is inline.
+#define IDRIS2_LAYOUT_KIND(l) ((unsigned)((l) & 0xff))
+#define IDRIS2_LAYOUT_PRIM(l) ((unsigned)(((l) >> 8) & 0xff))
+#define IDRIS2_LAYOUT_FIELDS(l) ((size_t)(((l) >> 8) & 0xffff))
+#define IDRIS2_LAYOUT_TAG(l) ((int)(((l) >> 24) & 0xffff))
+#define IDRIS2_SLOT_SIZE(l)                                                    \
+  (8 + (IDRIS2_LAYOUT_KIND(l) == 1 ? 8 : 8 * IDRIS2_LAYOUT_FIELDS(l)))
+// (the program is compiled with --directive refc-no-raw-fields: a record has
+// no raw fields, and its arrays have the layout of values)
+#define idris2_noRawLayout(l) (IDRIS2_LAYOUT_KIND(l) == 2 ? 0 : (l))
+
+Idris2_Value *idris2_newSlots(uint64_t layout, int64_t length, Idris2_Value *v);
+Idris2_Value *idris2_slotGetGeneric(Idris2_Array *a, int64_t i);
+void idris2_slotSetGeneric(Idris2_Array *a, int64_t i, Idris2_Value *v);
+
+// The element of the slot `slot` of the layout `l`, a new value.
+static inline Idris2_Value *idris2_loadSlot(uint64_t l, unsigned char *slot) {
+  if (!*(uint64_t *)slot)
+    return NULL; // (Nothing)
+  unsigned char *p = slot + 8;
+  Idris2_Value *x;
+  if (IDRIS2_LAYOUT_KIND(l) == 2) {
+    size_t n = IDRIS2_LAYOUT_FIELDS(l);
+    Idris2_Constructor *c =
+        idris2_newRawConstructor(0, (int)n, IDRIS2_LAYOUT_TAG(l));
+    memcpy((char *)c + IDRIS2_RAW_OFFSET(0), p, 8 * n);
+    x = (Idris2_Value *)c;
+  } else {
+    switch (IDRIS2_LAYOUT_PRIM(l)) {
+    case 1: x = idris2_mkDouble(*(double *)p); break;
+    case 2: x = idris2_mkInt64(*(int64_t *)p); break;
+    case 3: x = idris2_mkBits64(*(uint64_t *)p); break;
+    case 4: x = idris2_mkInt8((int8_t)*(int64_t *)p); break;
+    case 5: x = idris2_mkInt16((int16_t)*(int64_t *)p); break;
+    case 6: x = idris2_mkInt32((int32_t)*(int64_t *)p); break;
+    case 7: x = idris2_mkBits8((uint8_t)*(uint64_t *)p); break;
+    case 8: x = idris2_mkBits16((uint16_t)*(uint64_t *)p); break;
+    case 9: x = idris2_mkBits32((uint32_t)*(uint64_t *)p); break;
+    default: x = idris2_mkChar((uint32_t)*(uint64_t *)p); break;
+    }
+  }
+  Idris2_Constructor *just = idris2_newConstructor(1, 1);
+  just->args[0] = x;
+  return (Idris2_Value *)just;
+}
+
+// Store the slot value `v` (`Maybe` of an element, borrowed) in `slot`.
+static inline void idris2_storeSlot(uint64_t l, unsigned char *slot,
+                                    Idris2_Value *v) {
+  if (!v) {
+    *(uint64_t *)slot = 0;
+    return;
+  }
+  *(uint64_t *)slot = 1;
+  unsigned char *p = slot + 8;
+  Idris2_Value *x = ((Idris2_Constructor *)v)->args[0];
+  if (IDRIS2_LAYOUT_KIND(l) == 2) {
+    memcpy(p, (char *)x + IDRIS2_RAW_OFFSET(0), 8 * IDRIS2_LAYOUT_FIELDS(l));
+    return;
+  }
+  switch (IDRIS2_LAYOUT_PRIM(l)) {
+  case 1: *(double *)p = idris2_vp_to_Double(x); break;
+  case 2: *(int64_t *)p = idris2_vp_to_Int64(x); break;
+  case 3: *(uint64_t *)p = idris2_vp_to_Bits64(x); break;
+  case 4: *(int64_t *)p = idris2_vp_to_Int8(x); break;
+  case 5: *(int64_t *)p = idris2_vp_to_Int16(x); break;
+  case 6: *(int64_t *)p = idris2_vp_to_Int32(x); break;
+  case 7: *(uint64_t *)p = idris2_vp_to_Bits8(x); break;
+  case 8: *(uint64_t *)p = idris2_vp_to_Bits16(x); break;
+  case 9: *(uint64_t *)p = idris2_vp_to_Bits32(x); break;
+  default: *(uint64_t *)p = idris2_vp_to_Char(x); break;
+  }
+}
+
+static inline Idris2_Value *idris2_slotGet(uint64_t expected,
+                                           Idris2_Value *array, int64_t i) {
+  Idris2_Array *a = (Idris2_Array *)array;
+  if (expected != 0 &&
+      __builtin_expect(a->layout == expected && !idris2_isShared(array), 1))
+    return idris2_loadSlot(expected, (unsigned char *)a->arr +
+                                         (size_t)i * IDRIS2_SLOT_SIZE(expected));
+  if (a->layout == 0)
+    return idris2_arrayGet(array, i);
+  return idris2_slotGetGeneric(a, i);
+}
+
+static inline void idris2_slotSet(uint64_t expected, Idris2_Value *array,
+                                  int64_t i, Idris2_Value *v) {
+  Idris2_Array *a = (Idris2_Array *)array;
+  if (expected != 0 &&
+      __builtin_expect(a->layout == expected && !idris2_isShared(array), 1)) {
+    idris2_storeSlot(expected,
+                     (unsigned char *)a->arr + (size_t)i * IDRIS2_SLOT_SIZE(expected),
+                     v);
+    return;
+  }
+  idris2_slotSetGeneric(a, i, v);
+}
+
 // Pointer
 Idris2_Value *idris2_Prelude_IO_prim__onCollect(Idris2_Value *, Idris2_Value *,
                                                 Idris2_Value *, Idris2_Value *);

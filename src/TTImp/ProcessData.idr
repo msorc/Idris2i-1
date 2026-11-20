@@ -566,6 +566,7 @@ processData {vars} eopts nest env fc def_vis mbtot (MkImpData dfc n_in mty_raw o
          -- in a mutual block.
          traverse_ (setConFields fc) connames
          setNoIntrinsic fc (Resolved tidx) connames
+         addFlatHint fc (Resolved tidx) connames
 
          -- #1404
          whenJust tot $ \ tot => do

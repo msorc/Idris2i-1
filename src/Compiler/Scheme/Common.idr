@@ -214,6 +214,7 @@ schOp Crash [_,msg] = pure $ "(blodwen-error-quit (string-append \"ERROR: \" " +
 public export
 data ExtPrim = NewIORef | ReadIORef | WriteIORef
              | NewArray | ArrayGet | ArraySet
+             | NewSlots | SlotGet | SlotSet
              | GetField | SetField
              | SysOS | SysCodegen
              | OnCollect
@@ -228,6 +229,9 @@ Show ExtPrim where
   show NewArray = "NewArray"
   show ArrayGet = "ArrayGet"
   show ArraySet = "ArraySet"
+  show NewSlots = "NewSlots"
+  show SlotGet = "SlotGet"
+  show SlotSet = "SlotSet"
   show GetField = "GetField"
   show SetField = "SetField"
   show SysOS = "SysOS"
@@ -245,6 +249,11 @@ toPrim pn@(NS _ n)
             (n == UN (Basic "prim__newArray"), NewArray),
             (n == UN (Basic "prim__arrayGet"), ArrayGet),
             (n == UN (Basic "prim__arraySet"), ArraySet),
+            -- (the arrays of IOArray, with the layout of their elements,
+            -- which only RefC uses: see Data.IOArray.Prims)
+            (n == UN (Basic "prim__newSlots"), NewSlots),
+            (n == UN (Basic "prim__slotGet"), SlotGet),
+            (n == UN (Basic "prim__slotSet"), SlotSet),
             (n == UN (Basic "prim__getField"), GetField),
             (n == UN (Basic "prim__setField"), SetField),
             (n == UN (Basic "prim__os"), SysOS),
@@ -668,6 +677,9 @@ parameters (constants : SortedSet Name)
       = pure $ mkWorld $ "(vector-set! " ++ !(schExp i arr) ++ " "
                                          ++ !(schExp i pos) ++ " "
                                          ++ !(schExp i val) ++ ")"
+  schExtCommon i NewSlots [ty, _, size, val, world] = schExtCommon i NewArray [ty, size, val, world]
+  schExtCommon i SlotGet [ty, _, arr, pos, world] = schExtCommon i ArrayGet [ty, arr, pos, world]
+  schExtCommon i SlotSet [ty, _, arr, pos, val, world] = schExtCommon i ArraySet [ty, arr, pos, val, world]
   schExtCommon i SysOS []
       = pure $ "(blodwen-os)"
   schExtCommon i (Unknown n) args
