@@ -65,6 +65,7 @@ knownTopics = [
     ("compiler.newtype.world", Just "Inlining matches on newtypes."),
     ("compiler.refc", Nothing),
     ("compiler.refc.cc", Nothing),
+    ("compiler.refc.flat", Just "Dump the definitions that the flat arrays change (see Compiler.RefC.FlatClones and FlatOpt)."),
     ("compiler.scheme.chez", Nothing),
     ("coverage", Nothing),
     ("coverage.empty", Nothing),

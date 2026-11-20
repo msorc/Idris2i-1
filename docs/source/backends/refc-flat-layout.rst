@@ -671,7 +671,94 @@ What is in place:
   no copy is made and every layout is 0.
 - **Not yet.** The element read is a value (a ``Just`` and a record cell
   for a record); a write takes the ``Just`` that the library makes.  Both
-  are stage C's.  ``Data.Linear.Array`` has no flat arrays.
+  are stage C's (below).
+
+Stage C as implemented
+----------------------
+
+Still behind ``--directive refc-flat-arrays``, and still opt-in in the API.
+
+- **Flat linear arrays.** ``Data.Linear.Array.Flat`` (contrib) has
+  ``FlatArray`` and ``FlatIArray``, with the functions of
+  ``Data.Linear.Array`` under the same names, taking the ``Flat`` of the
+  elements: ``mread``, ``write``, ``msize``, ``mcopy``, ``toIArray``,
+  ``read``, ``size``, and ``newFlatArray`` and ``thawFlat`` to make one.
+  ``Data.Linear.Array``, its interfaces and their users are unchanged.  A
+  program opts in by importing the module, writing ``FlatArray`` and
+  ``FlatIArray`` for ``LinArray`` and ``IArray``, and calling
+  ``newFlatArray`` for ``newArray`` (``Flat.newFlatArray`` where
+  ``Data.IOArray`` is imported too); nothing else changes
+  (``benchmark/flat-layout/stagebc``: ``particles_flat.idr`` and
+  ``events_flat.idr`` differ from the originals in those lines only).  The
+  functions run the flat accesses of ``Data.IOArray`` at ``IO``
+  (``newFlatIO``, ``readFlatIO``, ``writeFlatIO``): through ``HasIO``,
+  ``mread`` was a closure.
+- **The accesses** (``Compiler.RefC.FlatOpt``, after
+  ``Compiler.RefC.FlatClones``, on the ANF).  The functions that access flat
+  arrays get the small functions that touch their elements inlined (the
+  copies of the array functions by layout, the functions on the records;
+  path-guarded, four deep, up to 800 nodes, in three rounds, as a function
+  rewritten can be one to inline in the next), then: the ``let`` of a
+  ``let`` is floated out; a ``case`` on a constructor that a ``let`` made is
+  its branch (the ``Res`` of an access); a closure made and applied to its
+  last argument is a call; an element read (``prim__slotGet``, in the
+  branch of a bounds test) is its components, the presence and the fields,
+  each a copy of the read's pure ``case`` with ``slotPresent`` or
+  ``slotField`` at the leaf (the projections of the ``IOArray``, of
+  variables bound outside, are made once before them); a ``case`` on it
+  tests the presence, and its ``Just`` branch has the record made of the
+  fields, which is dropped when it is not used as a value; a record made by
+  a ``case`` whose branches all give one (an update in a branch) is its
+  fields, the same way; a write of a ``Just`` of a record known by its
+  fields is ``slotStore`` of the fields, of another record ``slotStoreElem``
+  of its cell (no ``Just``); the pure ``let`` s not used are dropped.  The
+  primitives are RefC's own (namespace ``_refc_flat``, prim.h): inline when
+  the array has the layout expected and is not shared, through values
+  otherwise (``idris2_slotWordGeneric`` and the rest, in prim.c), so they
+  are right for an array of any layout (``refc/flatopt001`` reads and writes
+  an array of values with them, and a shared one from two threads).
+  Elements of a shared array read by their fields are read field by field,
+  each under the lock: a racing write can be seen in part.
+- **Unboxing.** A variable that a branch gives as the value of a ``let``
+  is a C number when the ``let`` 's variable is one (the use ``Into`` of
+  Compiler.RefC.Unbox).  The components above are such ``case`` s; without
+  it the particles on flat arrays run 2.60 G instructions instead of 1.03 G
+  (fast input).  On code that FlatOpt did not rewrite it changes nothing
+  measured.
+
+Measured (instructions, user space, median of 3, full inputs):
+
+==============================================  ===============  ===============
+\                                                W1 particles     W2 events
+==============================================  ===============  ===============
+linear arrays of values, devel (e9a3edee66)     16 093 788 544   44 472 072 436
+the same, this branch                           16 769 295 537   45 082 659 312
+the same, with ``refc-flat-arrays``             12 504 090 474   31 363 791 299
+flat linear arrays, directive off               18 317 083 042   49 254 213 704
+flat linear arrays, ``refc-flat-arrays``         5 100 532 333   12 639 927 713
+phase 0, hand-written C (FD, F)                  3 313 193 027   10 840 000 000
+==============================================  ===============  ===============
+
+(W2's F is phase 0's 10.84 G, rounded.)  So the flat arrays run 3.2 and 3.5
+times fewer instructions than the arrays of values of devel, within 1.54 and
+1.17 of phase 0's hand-written flat C.  The branch's arrays of values pay
+4% for going through the slot primitives (stage B); the flat source without
+the directive pays 9-10% more for passing the ``Flat`` dictionary.  What
+remains:
+
+- W1, 204 instructions per update against FD's 133: each component tests
+  the bounds result and the layout and sharing of the array again (the C
+  compiler merges some of these), the result of ``write`` is boxed (a
+  ``Bits8``, static), and ``next`` is a call.
+- W2: the event that ``pop`` takes out is a record cell passed to
+  ``siftDown`` (a parameter: records do not yet cross worker calls as
+  scalars), and ``pop``'s ``Res``, its ``Just`` and the record are made
+  once a step (the ``let`` binding them is a ``case`` whose branches are not
+  pure, as one calls ``siftDown``: a case-of-case with a join point would
+  remove them).
+- Not done: records as scalars or structs across worker calls, ``Res`` of a
+  call that is not inlined returned without a pair, and so the ``musttail``
+  rule (no flat value is passed in a jump yet, so no buffer is needed).
 
 Stage A, follow-up: static constants with raw fields
 ----------------------------------------------------

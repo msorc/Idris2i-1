@@ -288,6 +288,74 @@ void idris2_slotSetGeneric(Idris2_Array *a, int64_t i, Idris2_Value *v) {
   free(copy);
 }
 
+// The accesses of prim.h through values.
+static Idris2_Value *slotValue(Idris2_Value *array, int64_t i) {
+  Idris2_Array *a = (Idris2_Array *)array;
+  return a->layout == 0 ? idris2_arrayGet(array, i) : idris2_slotGetGeneric(a, i);
+}
+
+int64_t idris2_slotPresentGeneric(Idris2_Value *array, int64_t i) {
+  Idris2_Value *v = slotValue(array, i);
+  int64_t r = v != NULL;
+  idris2_removeReference(v);
+  return r;
+}
+
+// The word `j` of the element of the slot, of the layout `l` that the caller
+// expects (the element is a record of raw fields, or a primitive).
+uint64_t idris2_slotWordGeneric(uint64_t l, Idris2_Value *array, int64_t i,
+                                int j) {
+  Idris2_Value *v = slotValue(array, i);
+  if (!v)
+    return 0;
+  Idris2_Value *x = ((Idris2_Constructor *)v)->args[0];
+  uint64_t w;
+  if (IDRIS2_LAYOUT_KIND(l) == 2)
+    w = idris2_rawField(x, 0, j, uint64_t);
+  else
+    switch (IDRIS2_LAYOUT_PRIM(l)) {
+    case 1: w = idris2_doubleToWord(idris2_vp_to_Double(x)); break;
+    case 3: w = idris2_vp_to_Bits64(x); break;
+    default: w = (uint64_t)idris2_vp_to_Int64(x); break;
+    }
+  idris2_removeReference(v);
+  return w;
+}
+
+// The element of the layout `l` (a record or a primitive) made from words.
+static Idris2_Value *elemOfWords(uint64_t l, const uint64_t *w) {
+  if (IDRIS2_LAYOUT_KIND(l) == 2) {
+    size_t n = IDRIS2_LAYOUT_FIELDS(l);
+    Idris2_Constructor *c =
+        idris2_newRawConstructor(0, (int)n, IDRIS2_LAYOUT_TAG(l));
+    memcpy((char *)c + IDRIS2_RAW_OFFSET(0), w, 8 * n);
+    return (Idris2_Value *)c;
+  }
+  switch (IDRIS2_LAYOUT_PRIM(l)) {
+  case 1: return idris2_mkDouble(idris2_wordToDouble(w[0]));
+  case 3: return idris2_mkBits64(w[0]);
+  default: return idris2_mkInt64((int64_t)w[0]);
+  }
+}
+
+static void storeJust(Idris2_Value *array, int64_t i, Idris2_Value *x) {
+  Idris2_Constructor *just = idris2_newConstructor(1, 1);
+  just->args[0] = x;
+  idris2_slotSetGeneric((Idris2_Array *)array, i, (Idris2_Value *)just);
+  idris2_removeReference((Idris2_Value *)just);
+}
+
+void idris2_slotStoreWordsGeneric(uint64_t l, Idris2_Value *array, int64_t i,
+                                  const uint64_t *w) {
+  storeJust(array, i, elemOfWords(l, w));
+}
+
+void idris2_slotStoreElemGeneric(uint64_t l, Idris2_Value *array, int64_t i,
+                                 Idris2_Value *x) {
+  (void)l;
+  storeJust(array, i, idris2_newReference(x));
+}
+
 Idris2_Value *idris2_sharedArrayGet(Idris2_Array *a, int64_t i) {
   idris2_spinLock(&a->lock);
   Idris2_Value *v = idris2_newReference(a->arr[i]);

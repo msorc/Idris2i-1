@@ -751,10 +751,21 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
-* A variable that is the value of a `let` (in a branch of a `case` that the
-  `let` binds, say) is a C number when the variable of the `let` is one: a
-  `Double` chosen by an `if` is not boxed any more.  Instructions: the
-  particle simulation on a linear array of records 1.35 times fewer.
+* Flat arrays, the accesses (see `docs/source/backends/refc-flat-layout.rst`,
+  stage C): with `--directive refc-flat-arrays`, the functions that access
+  flat arrays have the small functions on their elements inlined (the
+  copies of the array functions, the `Res` they give, the functions on the
+  records), an element read is its presence and its fields read as C
+  numbers, a record is made from them only where it is used as a value, and
+  an element written is written from its fields, without the `Just`
+  (`Compiler.RefC.FlatOpt`; the accesses are those of prim.h, inline when
+  the array has the layout expected and is not shared, through values
+  otherwise).  A variable that is the value of a `let` (in a branch of a
+  `case` that the `let` binds) is a C number when the variable of the `let`
+  is one.  Instructions, full inputs: the particle simulation on flat linear
+  arrays 5.10 G (16.09 G on the linear arrays of values), the heap of events
+  12.64 G (44.47 G).  The log topic `compiler.refc.flat` shows the
+  definitions changed.  The test `refc/flatopt001`.
 * A constant with fields stored raw (see below), whose fields are literals,
   is static data of the program, as the other constant constructors are.
 * Flat arrays, the plumbing (see `docs/source/backends/refc-flat-layout.rst`,

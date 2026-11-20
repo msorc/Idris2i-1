@@ -321,15 +321,17 @@ The code generator does the following, each of which a directive turns off
   whose fields are literals, is static data of the program.
 
 ``--directive refc-flat-arrays`` (off by default) stores the elements of the
-arrays made by ``Data.IOArray.newFlatArray`` inline: for the primitive
-numbers and ``Char``, and for the records of one constructor whose fields are
-all stored raw (for which the compiler makes the ``Flat`` implementation, see
+arrays made by ``Data.IOArray.newFlatArray`` (and the linear arrays of
+``Data.Linear.Array.Flat``) inline: for the primitive numbers and ``Char``,
+and for the records of one constructor whose fields are all stored raw (for
+which the compiler makes the ``Flat`` implementation, see
 ``Data.IOArray.Flat``), each slot is a word that tells whether it is empty,
 then the element.  ``readFlatArray`` and ``writeFlatArray`` access them
 inline; the other functions of ``Data.IOArray`` read and write them through
-values.  It is off by default because an element read is a new value, so
-that a program that reads more than it writes runs slower (see
-:doc:`refc-flat-layout`).
+values.  In the functions that access them, an element read is its fields,
+as C numbers, and one written is written from its fields
+(``Compiler.RefC.FlatOpt``), so that no value is made for it where it is
+only looked at (see :doc:`refc-flat-layout`).
 - ``refc-no-lazy-constants``: an expression that occurs several times inside
   delayed code is a constant like the other repeated expressions, evaluated
   the first time that it is needed, instead of a delayed constant that is

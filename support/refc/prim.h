@@ -155,6 +155,73 @@ static inline void idris2_storeSlot(uint64_t l, unsigned char *slot,
   }
 }
 
+// The accesses that the RefC back end makes of the elements of flat arrays
+// (see Compiler.RefC.FlatOpt): an element read is its presence and its
+// fields, as words (8 bytes: a double, an int64_t or a uint64_t), and an
+// element written is written from its fields or from its value, without a
+// value for the `Maybe`.  Inline when the array has the layout that the
+// caller expects and is not shared, through values otherwise.
+static inline unsigned char *idris2_slotFast(uint64_t l, Idris2_Value *array,
+                                             int64_t i) {
+  Idris2_Array *a = (Idris2_Array *)array;
+  if (l != 0 && __builtin_expect(a->layout == l && !idris2_isShared(array), 1))
+    return (unsigned char *)a->arr + (size_t)i * IDRIS2_SLOT_SIZE(l);
+  return NULL;
+}
+static inline double idris2_wordToDouble(uint64_t w) {
+  double d;
+  memcpy(&d, &w, sizeof d);
+  return d;
+}
+static inline uint64_t idris2_doubleToWord(double d) {
+  uint64_t w;
+  memcpy(&w, &d, sizeof w);
+  return w;
+}
+int64_t idris2_slotPresentGeneric(Idris2_Value *array, int64_t i);
+uint64_t idris2_slotWordGeneric(uint64_t l, Idris2_Value *array, int64_t i,
+                                int j);
+void idris2_slotStoreWordsGeneric(uint64_t l, Idris2_Value *array, int64_t i,
+                                  const uint64_t *w);
+void idris2_slotStoreElemGeneric(uint64_t l, Idris2_Value *array, int64_t i,
+                                 Idris2_Value *x);
+
+static inline int64_t idris2_slotPresent(uint64_t l, Idris2_Value *array,
+                                         int64_t i) {
+  unsigned char *s = idris2_slotFast(l, array, i);
+  if (s)
+    return *(uint64_t *)s != 0;
+  return idris2_slotPresentGeneric(array, i);
+}
+static inline uint64_t idris2_slotWord(uint64_t l, Idris2_Value *array,
+                                       int64_t i, int j) {
+  unsigned char *s = idris2_slotFast(l, array, i);
+  if (s)
+    return *(uint64_t *)(s + 8 + 8 * (size_t)j);
+  return idris2_slotWordGeneric(l, array, i, j);
+}
+static inline void idris2_slotStoreWords(uint64_t l, Idris2_Value *array,
+                                         int64_t i, const uint64_t *w) {
+  unsigned char *s = idris2_slotFast(l, array, i);
+  if (s) {
+    *(uint64_t *)s = 1;
+    memcpy(s + 8, w, IDRIS2_SLOT_SIZE(l) - 8);
+    return;
+  }
+  idris2_slotStoreWordsGeneric(l, array, i, w);
+}
+// (the element `x`, a record of raw fields or a primitive, is borrowed)
+static inline void idris2_slotStoreElem(uint64_t l, Idris2_Value *array,
+                                        int64_t i, Idris2_Value *x) {
+  unsigned char *s = idris2_slotFast(l, array, i);
+  if (s && IDRIS2_LAYOUT_KIND(l) == 2) {
+    *(uint64_t *)s = 1;
+    memcpy(s + 8, (char *)x + IDRIS2_RAW_OFFSET(0), IDRIS2_SLOT_SIZE(l) - 8);
+    return;
+  }
+  idris2_slotStoreElemGeneric(l, array, i, x);
+}
+
 static inline Idris2_Value *idris2_slotGet(uint64_t expected,
                                            Idris2_Value *array, int64_t i) {
   Idris2_Array *a = (Idris2_Array *)array;

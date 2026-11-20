@@ -46,11 +46,13 @@
 module Compiler.RefC.Unbox
 
 import Compiler.ANF
+import Compiler.RefC.FlatOpt
 
 import Core.Name
 import Core.TT
 
 import Data.List
+import Data.String
 import Data.SortedMap
 import Data.SortedSet
 import Data.Vect
@@ -512,7 +514,18 @@ usesInto c t i (AExtPrim _ _ p args) us
              addUse (Numeric Bits64Type) l (addUse (Numeric IntType) i (addUses Raw [arr, w] us))
            (NS _ (UN (Basic "prim__slotSet")), [_, l, arr, i, v, w]) =>
              addUse (Numeric Bits64Type) l (addUse (Numeric IntType) i (addUses Raw [arr, v, w] us))
-           _ => addUses Raw args us
+           _ => case (flatPrimName p, args) of
+             -- (the accesses to the elements of flat arrays, see
+             -- Compiler.RefC.FlatOpt: the layout, the index and the fields
+             -- written are C numbers)
+             (Just pn, l :: arr :: i :: rest) =>
+               let us' = addUse (Numeric Bits64Type) l (addUse (Numeric IntType) i (addUse Raw arr us)) in
+                   if isPrefixOf "slotStoreElem" pn then addUses Raw rest us'
+                   else if isPrefixOf "slotStore" pn
+                     then foldl (\u, (c, f) => addUse (Numeric (letterType c)) f u) us'
+                                (zip (unpack (substr 9 (length pn) pn)) rest)
+                   else us'
+             _ => addUses Raw args us
 usesInto c t i (AConCase _ sc alts def) us
     = let us = foldl (\us', (MkAConAlt _ _ _ _ b) => usesInto c t i b us') us alts
           us = maybe us (\d => usesInto c t i d us) def in
@@ -554,8 +567,9 @@ hasIntWork c (AAppName _ _ n args)
            || isJust (c.foreignRaw cn k))
 hasIntWork c (ALet _ _ val body) = hasIntWork c val || hasIntWork c body
 -- (the arrays of slots take their layouts and indices as C numbers)
-hasIntWork c (AExtPrim _ _ (NS _ (UN (Basic p))) _)
+hasIntWork c (AExtPrim _ _ n@(NS _ (UN (Basic p))) _)
     = p == "prim__newSlots" || p == "prim__slotGet" || p == "prim__slotSet"
+      || isJust (flatPrimName n)
 -- (a constructor with raw fields is built from C numbers, and they are read
 -- as C numbers)
 hasIntWork c (ACon _ n _ _ _) = c.anyRawFields && isJust (c.rawFields n)
@@ -609,6 +623,14 @@ valueType c u e = case go e of
     -- zero, say; `cIntFromANF` unboxes what it gives, as it never returns)
     go (AOp _ _ Crash _) = Just Nothing
     go (AOp _ _ op _) = map Just (resultType op)
+    -- (the reads of the elements of flat arrays, see Compiler.RefC.FlatOpt)
+    go (AExtPrim _ _ p _)
+        = case flatPrimName p of
+            Just "slotPresent" => Just (Just IntType)
+            Just pn => if isPrefixOf "slotField" pn
+                          then map (Just . letterType) (head' (unpack (substr 9 (length pn) pn)))
+                          else Nothing
+            Nothing => Nothing
     go (APrimVal _ c) = map Just (constType c)
     go (AV _ (ALocal v)) = map Just (lookup v u)
     -- (a call, not in tail position, of a worker that gives a C integer)

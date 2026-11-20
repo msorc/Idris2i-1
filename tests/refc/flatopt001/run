@@ -1,0 +1,21 @@
+. ../../testutils.sh
+
+idris2 -p contrib --directive refc-flat-arrays -o main Main.idr
+$VALGRIND ./build/exec/main > flat.out
+cat flat.out
+
+# The accesses in the loops are inline, without values for the elements
+# read or written.
+grep -q "idris2_slotWord(" build/exec/main.c && echo "elements read from their fields"
+grep -q "idris2_slotStoreWords(" build/exec/main.c && echo "elements written from their fields"
+
+# The same without the layouts (the default), and without raw fields.
+idris2 -p contrib -o boxed Main.idr
+./build/exec/boxed | diff - flat.out && echo "same output without flat arrays"
+idris2 -p contrib --directive refc-flat-arrays --directive refc-no-raw-fields -o noraw Main.idr
+$VALGRIND ./build/exec/noraw | diff - flat.out && echo "same output without raw fields"
+rm -f flat.out
+
+idris2 --directive refc-flat-arrays -o threads Threads.idr
+$VALGRIND ./build/exec/threads
+grep -q "idris2_slotWord(" build/exec/threads.c && echo "IO code read from the fields"

@@ -3,6 +3,7 @@ module Compiler.RefC.RefC
 import Compiler.RefC.Borrow
 import Compiler.RefC.CC
 import Compiler.RefC.FlatClones
+import Compiler.RefC.FlatOpt
 import Compiler.RefC.LocalClosures
 import Compiler.RefC.Unbox
 
@@ -1557,6 +1558,64 @@ conTag : Maybe Int -> Maybe Int
 conTag (Just t) = if t >= 0 && t < 32768 then Just t else Nothing
 conTag Nothing = Nothing
 
+-- (with `--directive refc-no-raw-fields`, a record has no raw fields to
+-- store inline: its arrays have the layout of values)
+||| The C layout of an array access (see prim__slotGet and prim.h): a C
+||| constant when it is a literal.
+layoutC : Env -> AVar -> String
+layoutC env l = let c = intOperand env Bits64Type l in
+                    if not env.flatArrays then "0"
+                    else if null (keys env.rawCons) then "idris2_noRawLayout(\{c})" else c
+
+||| A read of an element of a flat array that Compiler.RefC.FlatOpt made: its
+||| C expression and C number type.
+flatRead : Env -> Name -> List AVar -> Maybe (String, PrimType)
+flatRead env p [l, arr, i]
+    = case flatPrimName p of
+        Just "slotPresent" => Just ("idris2_slotPresent(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})", IntType)
+        Just pn => if isPrefixOf "slotField" pn
+                      then case unpack (substr 9 (length pn) pn) of
+                             (c :: j) => let t = letterType c
+                                             w = "idris2_slotWord(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{pack j})" in
+                                             Just (case t of
+                                                     DoubleType => ("idris2_wordToDouble(\{w})", t)
+                                                     Bits64Type => (w, t)
+                                                     _ => ("((int64_t)\{w})", t))
+                             [] => Nothing
+                      else Nothing
+        Nothing => Nothing
+flatRead _ _ _ = Nothing
+
+||| The writes to the elements of flat arrays that Compiler.RefC.FlatOpt
+||| makes (see prim.h); the reads are C numbers, made values here.
+flatStatement : {auto a : Ref ArgCounter Nat}
+             -> {auto oft : Ref OutfileText Output}
+             -> {auto il : Ref IndentLevel Nat}
+             -> {auto e : Ref EnvTracker Env}
+             -> FC -> Name -> List AVar -> Core String
+flatStatement fc p args = do
+    env <- get EnvTracker
+    let pn = fromMaybe "" (flatPrimName p)
+    let resultVar = "primVar_" ++ !(getNextCounter)
+    call <- case (flatRead env p args, args) of
+      (Just (e, t), _) => pure (boxC t e)
+      (Nothing, l :: arr :: i :: rest) =>
+        if isPrefixOf "slotStoreElem" pn
+           then pure "(idris2_slotStoreElem(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{concat (map varName rest)}), (Idris2_Value *)NULL)"
+        else if isPrefixOf "slotStore" pn
+           then let ts = map letterType (unpack (substr 9 (length pn) pn))
+                    ws = zipWith (\t, f => wordOf t (intOperand env t f)) ts rest in
+                    pure "(idris2_slotStoreWords(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, (const uint64_t[]){\{concat (intersperse ", " ws)}}), (Idris2_Value *)NULL)"
+        else throw $ InternalError "[refc] Unknown flat primitive \{pn}"
+      _ => throw $ InternalError "[refc] Badly formed flat primitive \{pn}"
+    emit fc $ "Idris2_Value *\{resultVar} = \{call};"
+    removeVars $ map varName $ Prelude.toList $ intersection (fromList args) env.owned
+    pure resultVar
+  where
+    wordOf : PrimType -> String -> String
+    wordOf DoubleType e = "idris2_doubleToWord(\{e})"
+    wordOf _ e = "(uint64_t)(\{e})"
+
 data TailPositionStatus = InTailPosition | NotInTailPosition
 
 ||| The application of a closure in tail position: returned at once, by a
@@ -2034,6 +2093,22 @@ mutual
                          then workerCall fc env n w args
                          else fromValue t anf
             Nothing => fromValue t anf
+    -- (the reads of the elements of flat arrays, see Compiler.RefC.FlatOpt,
+    -- are C numbers)
+    cIntFromANF t tp anf@(AExtPrim fc _ p args)
+        = case flatRead !(get EnvTracker) p args of
+            Just (e, t') => do
+              env <- get EnvTracker
+              let owned = map varName $ Prelude.toList $ intersection (fromList args) env.owned
+              let e' = if t' == t then e else "((\{cIntType t})(\{e}))"
+              -- (an array that the function owns is read before it is
+              -- released)
+              if null owned then pure e' else do
+                r <- getNextCounter
+                emit fc "\{cIntType t} flatRead_\{r} = \{e'};"
+                removeVars owned
+                pure "flatRead_\{r}"
+            Nothing => fromValue t anf
     cIntFromANF t tp anf = fromValue t anf
 
     ||| The C integer of type `t` of the value of an expression (not in tail
@@ -2386,7 +2461,7 @@ mutual
         removeVars $ map varName $ Prelude.toList $ intersection (fromList (toList args)) env.owned
         pure resultVar
 
-    cStatementsFromANF (AExtPrim fc _ p args) _ = do
+    cStatementsFromANF (AExtPrim fc _ p args) _ = if isJust (flatPrimName p) then flatStatement fc p args else do
         let prims : List String =
             ["prim__newIORef", "prim__readIORef", "prim__writeIORef", "prim__newArray",
              "prim__arrayGet", "prim__arraySet", "prim__getField", "prim__setField",
@@ -2429,12 +2504,7 @@ mutual
         plainCall : String
         plainCall = "idris2_\{cName p}(" ++ showSep ", " (map varName args) ++ ")"
 
-        -- (with `--directive refc-no-raw-fields`, a record has no raw fields
-        -- to store inline: its arrays have the layout of values)
-        layoutC : Env -> AVar -> String
-        layoutC env l = let c = intOperand env Bits64Type l in
-                            if not env.flatArrays then "0"
-                            else if null (keys env.rawCons) then "idris2_noRawLayout(\{c})" else c
+
 
         -- The field `fld` of the struct `s` in the value `struct`, as a C
         -- lvalue, and its type.  The names are those of the variables `s`
@@ -4059,8 +4129,27 @@ generateCSourceFileParts defs0 outn =
                = map (mapSnd foldCasts)
                      (if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
                                else defs0)
+     -- (and, then, the elements of flat arrays are kept out of values, see
+     -- Compiler.RefC.FlatOpt: the records that they may be, by their
+     -- constructors, are those with raw fields only)
+     let infos = conInfos defs1'
+     let flatRecs : FlatRecords
+           = if not optsF.optRawFields then empty
+               else fromList $ mapMaybe (\(n, d) => case d of
+                      MkACon (Just tag) _ _ fs => do
+                        l <- rawLayout fs
+                        guard (l.ptrCount == 0)
+                        ci <- lookup n infos
+                        pure (n, MkFlatRecord tag ci (map (either (const IntType) snd) l.slots))
+                      _ => Nothing) defs1'
      let defs1 : List (Name, ANFDef)
-               = if optsF.optFlatArrays then flatClones 100000 defs1' else defs1'
+               = if optsF.optFlatArrays then flatOpt flatRecs (flatClones 100000 defs1') else defs1'
+     when optsF.optFlatArrays $
+       logC "compiler.refc.flat" 5 $ pure $ unlines $
+         map (\(n, d) => show n ++ " = " ++ show d)
+             (filter (\(n, d) => case SortedMap.lookup n (SortedMap.fromList defs1') of
+                                    Just d' => show d' /= show d
+                                    Nothing => True) defs1)
      -- The numbers in the names that the elaborator made are made stable
      -- (see `canonName`): `canons` are the names of the definitions.
      let nb = numbering defs1
