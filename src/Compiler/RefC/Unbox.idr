@@ -456,6 +456,11 @@ record Calls where
   rawFields : Name -> Maybe (List (Maybe PrimType))
   ||| Are there such constructors?
   anyRawFields : Bool
+  ||| Is a variable that a branch gives as the value of a `let` a C number
+  ||| when the `let`'s variable is one (`Into`)?  Only for the programs that
+  ||| use flat arrays, whose accesses make such `let`s (see
+  ||| Compiler.RefC.FlatOpt): the others are compiled as before.
+  into : Bool
 
 ||| Is a variable of this type allowed to be unboxed?
 export
@@ -468,7 +473,7 @@ export
 noWorkers : (key : Name -> String) -> (isSelf : String -> List AVar -> Bool) ->
             (isForeign : String -> List AVar -> Bool) -> Calls
 noWorkers k s f = MkCalls k False s f (\_, _ => Nothing) (\_, _ => Nothing) (\_, _ => False) True
-                          (\_, _ => Nothing) False (const Nothing) False
+                          (\_, _ => Nothing) False (const Nothing) False False
 
 -- The uses of the arguments of a call: an argument of a parameter that the
 -- worker of the function takes as a C integer is used as an integer of that
@@ -495,7 +500,7 @@ usesInto c t i (AAppName _ _ n args) us
          else argUses c cn args us
 usesInto c t i (AUnderApp _ _ _ args) us = addUses Boxed args us
 usesInto c t i (AApp _ _ f a) us = addUse Boxed f (addUse Boxed a us)
-usesInto c t i (ALet _ x val body) us = usesInto c t i body (usesInto c False (Just x) val us)
+usesInto c t i (ALet _ x val body) us = usesInto c t i body (usesInto c False (if c.into then Just x else Nothing) val us)
 -- (a raw field of a constructor is stored from a C number)
 usesInto c t i (ACon _ n _ _ args) us
     = case c.rawFields n of

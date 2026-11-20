@@ -1,6 +1,6 @@
 ||| The elements of flat arrays kept out of values (stage C of
-||| docs/source/backends/refc-flat-layout.rst), with
-||| `--directive refc-flat-arrays`.
+||| docs/source/backends/refc-flat-layout.rst), in the programs that use
+||| flat arrays (see `flatMode` in Compiler.RefC.RefC).
 |||
 ||| A flat array stores its elements inline (see Data.IOArray.Flat), but
 ||| `prim__slotGet` gives a value: a `Just` and the record's cell, which the

@@ -13,6 +13,8 @@
 ||| in the type of the elements) reads and writes it correctly, only slower.
 module Data.IOArray.Flat
 
+import Data.IOArray.Prims
+
 %default total
 
 ||| The layout of the elements of an array of `a`: a code that the back ends
@@ -96,3 +98,17 @@ Flat Bits32 where
 export
 Flat Char where
   flatLayout = MkLayout 2561
+
+
+-- The arrays of the slots of an `IOArray`, which hold `Maybe a`, by the
+-- layout of `a` (see above): the RefC back end stores the
+-- elements inline when the layout is not that of values, with a word that
+-- tells whether the slot is empty.  The layout is the one that the caller
+-- expects; the array's own one decides, so an array is read and written
+-- correctly whatever layout the caller has (the default one, in code that is
+-- generic in the type of the elements, say), only slower when they differ.
+-- The other back ends ignore the layout: these are `prim__newArray`,
+-- `prim__arrayGet` and `prim__arraySet`.
+export %extern prim__newSlots : forall a . Layout a -> Int -> Maybe a -> PrimIO (ArrayData (Maybe a))
+export %extern prim__slotGet : forall a . Layout a -> ArrayData (Maybe a) -> Int -> PrimIO (Maybe a)
+export %extern prim__slotSet : forall a . Layout a -> ArrayData (Maybe a) -> Int -> Maybe a -> PrimIO ()

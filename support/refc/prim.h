@@ -244,6 +244,20 @@ static inline Idris2_Value *idris2_slotGet(uint64_t expected,
   return idris2_slotGetGeneric(a, i);
 }
 
+// `prim__arrayGet` and `prim__arraySet` in a program with flat arrays (see
+// Compiler.RefC.RefC, `flatMode`): by the layout of the array.  (In the
+// other programs no array has a layout, and they are the macro and the
+// function above.)
+#define idris2_arrayGetAny(erased, array, i, word)                             \
+  (idris2_slotGet(0, (array), idris2_vp_to_Int64(i)))
+#define idris2_arraySetAny(erased, array, i, v, word)                          \
+  (((Idris2_Array *)(array))->layout == 0                                      \
+       ? idris2_Data_IOArray_Prims_prim__arraySet((erased), (array), (i), (v), \
+                                                  (word))                      \
+       : (idris2_slotSetGeneric((Idris2_Array *)(array),                       \
+                                idris2_vp_to_Int64(i), (v)),                   \
+          (Idris2_Value *)NULL))
+
 static inline void idris2_slotSet(uint64_t expected, Idris2_Value *array,
                                   int64_t i, Idris2_Value *v) {
   Idris2_Array *a = (Idris2_Array *)array;

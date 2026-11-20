@@ -2483,7 +2483,7 @@ mutual
           (NS _ (UN (Basic "prim__setField")), [s, _, _, struct, fld, _, val, _]) => do
               (lvalue, ty) <- structField env "setField" s struct fld
               pure "(\{lvalue} = \{structFieldWrite ty (varName val)}, (Idris2_Value *)NULL)"
-          -- The arrays of slots with a layout (see Data.IOArray.Prims and
+          -- The arrays of slots with a layout (see Data.IOArray.Flat and
           -- prim.h): the layout and the index are C numbers (a constant
           -- layout makes the access inline).
           (NS _ (UN (Basic "prim__newSlots")), [_, l, n, v, _]) =>
@@ -2492,6 +2492,16 @@ mutual
               pure "idris2_slotGet(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})"
           (NS _ (UN (Basic "prim__slotSet")), [_, l, arr, i, v, _]) =>
               pure "(idris2_slotSet(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{varName v}), (Idris2_Value *)NULL)"
+          -- (in a program with flat arrays, the functions on arrays of
+          -- values may be given one: they go by its layout, see prim.h)
+          (NS _ (UN (Basic "prim__arrayGet")), [e, arr, i, w]) =>
+              pure $ if env.flatArrays
+                        then "idris2_arrayGetAny(\{varName e}, \{varName arr}, \{varName i}, \{varName w})"
+                        else plainCall
+          (NS _ (UN (Basic "prim__arraySet")), [e, arr, i, v, w]) =>
+              pure $ if env.flatArrays
+                        then "idris2_arraySetAny(\{varName e}, \{varName arr}, \{varName i}, \{varName v}, \{varName w})"
+                        else plainCall
           (NS _ (UN (Basic pn)), _) =>
               if pn == "prim__getField" || pn == "prim__setField"
                  then throw $ InternalError "[refc] Badly formed call of \{pn}"
@@ -3127,11 +3137,11 @@ record RefCOptions where
   optRawFields : Bool
   ||| `--directive refc-check-layout` (see IDRIS2_CHECK_LAYOUT)
   optCheckLayout : Bool
-  ||| `--directive refc-flat-arrays` (see Data.IOArray.Flat): off by default
-  ||| until the elements read are not made values (stage C of
-  ||| refc-flat-layout.rst), which they are now, so that a program that reads
-  ||| more than it writes runs slower with the layouts
+  ||| are the flat arrays on (see `flatMode`: when the program uses them;
+  ||| `--directive refc-flat-arrays` is accepted, and changes nothing)
   optFlatArrays : Bool
+  ||| `--directive refc-no-flat-arrays`: never (see `flatMode`)
+  optNoFlatArrays : Bool
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
@@ -3147,6 +3157,36 @@ refcOptions = do
                          (not ("refc-no-raw-fields" `elem` ds))
                          ("refc-check-layout" `elem` ds)
                          ("refc-flat-arrays" `elem` ds)
+                         ("refc-no-flat-arrays" `elem` ds)
+
+||| Are the flat arrays on in a program?  They are when it uses the slot
+||| primitives (`prim__newSlots`, `prim__slotGet`, `prim__slotSet`), which
+||| only the functions of the flat arrays do (Data.IOArray's `newFlatArray`,
+||| `readFlatArray`, `writeFlatArray` and Data.Linear.Array.Flat): then the
+||| arrays have the layouts of their elements, the functions get copies by
+||| layout (Compiler.RefC.FlatClones), and the accesses are by the fields
+||| (Compiler.RefC.FlatOpt).  A program that does not use them is compiled
+||| as it was before flat arrays (no array of it can have a layout, so
+||| `--directive refc-flat-arrays`, which turned them on before they were
+||| automatic, changes nothing).  `--directive refc-no-flat-arrays` turns
+||| them off: the slot primitives then make and access arrays of values.
+flatMode : RefCOptions -> List (Name, ANFDef) -> Bool
+flatMode opts defs = not opts.optNoFlatArrays && any usesSlots defs
+  where
+    slotPrim : Name -> Bool
+    slotPrim (NS _ (UN (Basic p))) = p == "prim__newSlots" || p == "prim__slotGet" || p == "prim__slotSet"
+    slotPrim _ = False
+
+    go : ANF -> Bool
+    go (AExtPrim _ _ p _) = slotPrim p
+    go (ALet _ _ v b) = go v || go b
+    go (AConCase _ _ alts def) = any (\(MkAConAlt _ _ _ _ b) => go b) alts || maybe False go def
+    go (AConstCase _ _ alts def) = any (\(MkAConstAlt _ b) => go b) alts || maybe False go def
+    go _ = False
+
+    usesSlots : (Name, ANFDef) -> Bool
+    usesSlots (_, MkAFun _ b) = go b
+    usesSlots _ = False
 
 ||| A definition with the casts of Integer literals to fixed width integers
 ||| made literals (see `foldIntegerCasts`).
@@ -3173,6 +3213,8 @@ record Program where
   ||| the types of the raw fields of the constructors that have some (see
   ||| `RawLayout`), field by field
   rawFields : SortedMap Name (List (Maybe PrimType))
+  ||| does the program use flat arrays (see `flatMode`)?
+  flat : Bool
 
 ||| The calls of the function `cn`, with `nargs` parameters, that `loops`
 ||| (calls itself in tail position).
@@ -3191,6 +3233,7 @@ callsOf p cn nargs loops
               (not (null (SortedMap.toList p.foreignWorkers)))
               (\n => lookup n p.rawFields)
               (not (null (SortedMap.toList p.rawFields)))
+              p.flat
   where
     worker : String -> Nat -> Maybe Worker
     worker m k = do guard p.anyWorkers
@@ -3236,10 +3279,11 @@ unboxedProgram : {auto c : Ref Ctxt Defs}
               -> (withWorkers : Bool) -> (doubles : Bool)
               -> (foreignWorkers : SortedMap String Worker)
               -> (rawFields : SortedMap Name (List (Maybe PrimType)))
+              -> (flat : Bool)
               -> SortedMap String Nat -> SortedMap String Nat
               -> List (String, Name, List Int, ANF, Bool)
               -> Core (SortedMap String (SortedMap Int PrimType), SortedMap String Worker)
-unboxedProgram withWorkers doubles fws rfs foreigns valueFns funs = do
+unboxedProgram withWorkers doubles fws rfs flat foreigns valueFns funs = do
     let byName = SortedMap.fromList (map (\f@(cn, _, _, _, _) => (cn, f)) funs)
     let callers = foldl (\m, (cn, _, _, anf, _) =>
                            foldl (\m', g => insert g (cn :: fromMaybe [] (lookup g m')) m')
@@ -3282,7 +3326,7 @@ unboxedProgram withWorkers doubles fws rfs foreigns valueFns funs = do
       -> Core (SortedMap String (SortedMap Int PrimType), SortedMap String Worker)
     go Z _ _ us ws _ = pure (us, ws)
     go (S k) byName callers us ws todo
-        = do let p = MkProgram foreigns valueFns ws (not (null (SortedMap.toList ws))) doubles fws rfs
+        = do let p = MkProgram foreigns valueFns ws (not (null (SortedMap.toList ws))) doubles fws rfs flat
              (us1, ws1, changed) <- foldlC (\(us', ws', changed), cn =>
                  case lookup cn byName of
                    Nothing => pure (us', ws', changed)
@@ -4126,11 +4170,16 @@ generateCSourceFileParts defs0 outn =
      -- (and the functions that take the layout of the elements of an array
      -- have copies for the constant layouts they are called with, see
      -- Compiler.RefC.FlatClones)
-     optsF <- refcOptions
+     optsD <- refcOptions
      let defs1' : List (Name, ANFDef)
                = map (mapSnd foldCasts)
                      (if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
                                else defs0)
+     -- (the flat arrays are made, copied for and accessed by their fields
+     -- when the program uses them, see `flatMode`)
+     let flatOn = flatMode optsD defs1'
+     let flatOpts : Core RefCOptions = pure ({ optFlatArrays := flatOn } !refcOptions)
+     optsF <- flatOpts
      -- (and, then, the elements of flat arrays are kept out of values, see
      -- Compiler.RefC.FlatOpt: the records that they may be, by their
      -- constructors, are those with raw fields only)
@@ -4168,7 +4217,7 @@ generateCSourceFileParts defs0 outn =
      foreigns <- get Foreigns
      -- The constructors with raw fields (see `RawLayout`), by the names that
      -- the expressions have (made stable as theirs are).
-     opts0 <- refcOptions
+     opts0 <- flatOpts
      let rawCons : SortedMap Name RawLayout
            = if not opts0.optRawFields then empty
                else fromList $ mapMaybe (\(cn, (_, d)) => case d of
@@ -4194,7 +4243,7 @@ generateCSourceFileParts defs0 outn =
      _ <- newRef ValueFns valueFns
      -- The functions with tail recursion modulo cons (see `trmcFunction`),
      -- which the borrowing must know.
-     opts <- refcOptions
+     opts <- flatOpts
      let trmcFns : SortedSet String
            = if opts.optTrmc
                 then fromList $ mapMaybe (\(cn, _, d) =>
@@ -4224,7 +4273,7 @@ generateCSourceFileParts defs0 outn =
      _ <- newRef ForeignWorkers foreignWorkers
      (unboxed, workers) <- unboxedProgram (not noWorkersDir) opts.optDoubles foreignWorkers
                              (map (\l => map (either (const Nothing) (Just . snd)) l.slots) rawCons)
-                             foreigns valueFns funs
+                             opts.optFlatArrays foreigns valueFns funs
      _ <- newRef UnboxedVars unboxed
      _ <- newRef Workers workers
      log "compiler.refc" 5 $ "Workers: " ++ show (length (SortedMap.toList workers))

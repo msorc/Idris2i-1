@@ -752,20 +752,22 @@ should target this file (`CHANGELOG_NEXT`).
 #### RefC Backend
 
 * Flat arrays, the accesses (see `docs/source/backends/refc-flat-layout.rst`,
-  stage C): with `--directive refc-flat-arrays`, the functions that access
-  flat arrays have the small functions on their elements inlined (the
+  stage C): in a program that uses flat arrays, the functions that access
+  them have the small functions on their elements inlined (the
   copies of the array functions, the `Res` they give, the functions on the
   records), an element read is its presence and its fields read as C
   numbers, a record is made from them only where it is used as a value, and
   an element written is written from its fields, without the `Just`
   (`Compiler.RefC.FlatOpt`; the accesses are those of prim.h, inline when
   the array has the layout expected and is not shared, through values
-  otherwise).  A variable that is the value of a `let` (in a branch of a
-  `case` that the `let` binds) is a C number when the variable of the `let`
-  is one.  Instructions, full inputs: the particle simulation on flat linear
-  arrays 5.10 G (16.09 G on the linear arrays of values), the heap of events
-  12.64 G (44.47 G).  The log topic `compiler.refc.flat` shows the
-  definitions changed.  The test `refc/flatopt001`.
+  otherwise; an element read by its fields is taken whole first, under the
+  lock of a shared array, so that its fields are those of one write).  A
+  variable that is the value of a `let` (in a branch of a `case` that the
+  `let` binds) is a C number when the variable of the `let` is one.
+  Instructions, full inputs: the particle simulation on flat linear arrays
+  4.47 G (16.09 G on the linear arrays of values), the heap of events
+  11.85 G (44.47 G).  The log topic `compiler.refc.flat` shows the
+  definitions changed.  The tests `refc/flatopt001` and `refc/flatopt002`.
 * A constant with fields stored raw (see below), whose fields are literals,
   is static data of the program, as the other constant constructors are.
 * Flat arrays, the plumbing (see `docs/source/backends/refc-flat-layout.rst`,
@@ -777,11 +779,12 @@ should target this file (`CHANGELOG_NEXT`).
   declared (in a module that loads `Data.IOArray.Flat`).  `Data.IOArray` has
   `newFlatArray`, `readFlatArray` and `writeFlatArray`, which take the `Flat`
   of the elements; its other functions are unchanged, and read and write an
-  array of any layout.  `Data.IOArray.Prims` has the primitives
+  array of any layout.  `Data.IOArray.Flat` has the primitives
   `prim__newSlots`, `prim__slotGet` and `prim__slotSet`, which the Scheme and
-  JavaScript back ends compile as the other array primitives.  With
-  `--directive refc-flat-arrays` (off by default), RefC stores the elements
-  of such an array inline (a word for the empty slots, then the primitive or
+  JavaScript back ends compile as the other array primitives.  In a
+  program that uses them (they are on exactly then: a program that does not
+  is compiled as before, the same C; `--directive refc-no-flat-arrays` turns
+  them off), RefC stores the elements of such an array inline (a word for the empty slots, then the primitive or
   the raw fields of the record), and the functions that take a constant
   layout get copies with inline accesses (`Compiler.RefC.FlatClones`).  The
   tests `allbackends/flatarray001` and `refc/flatarray001`.
@@ -1700,8 +1703,7 @@ should target this file (`CHANGELOG_NEXT`).
   `FlatArray` and `FlatIArray` for `LinArray` and `IArray`, and making its
   arrays with `newFlatArray` (qualified as `Flat.newFlatArray` where
   `Data.IOArray` is imported too); `Data.Linear.Array` is unchanged.  With
-  RefC and `--directive refc-flat-arrays`, their elements are inline.  The
-  test `allbackends/flatlinear001`.
+  RefC, their elements are inline.  The test `allbackends/flatlinear001`.
 
 * `Data.Linear.Array`: added `copyInto`, which copies a range of an immutable
   array into a linear one, and `thaw`, which makes a linear copy of an

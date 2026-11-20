@@ -1096,6 +1096,9 @@ module Data.IOArray.Flat
   export record Layout : (0 _ : Type) -> Type
     field code : {0 a : Type} -> Data.IOArray.Flat.Layout a -> Bits64
   export total layoutCode : {0 a : Type} -> Data.IOArray.Flat.Layout a -> Bits64
+  export total prim__newSlots : {0 a : Type} -> Data.IOArray.Flat.Layout a -> Int -> Prelude.Types.Maybe a -> PrimIO.PrimIO (Data.IOArray.Prims.ArrayData (Prelude.Types.Maybe a))
+  export total prim__slotGet : {0 a : Type} -> Data.IOArray.Flat.Layout a -> Data.IOArray.Prims.ArrayData (Prelude.Types.Maybe a) -> Int -> PrimIO.PrimIO (Prelude.Types.Maybe a)
+  export total prim__slotSet : {0 a : Type} -> Data.IOArray.Flat.Layout a -> Data.IOArray.Prims.ArrayData (Prelude.Types.Maybe a) -> Int -> Prelude.Types.Maybe a -> PrimIO.PrimIO Builtin.Unit
   export total unsafeRecordLayout : {0 a : Type} -> Bits64 -> Bits64 -> Data.IOArray.Flat.Layout a
   export implementation : Data.IOArray.Flat.Flat Bits16
   export implementation : Data.IOArray.Flat.Flat Bits32
@@ -1111,15 +1114,11 @@ module Data.IOArray.Flat
   export implementation [boxedFlat] : {0 a : Type} -> Data.IOArray.Flat.Flat a
 
 module Data.IOArray.Prims
-  import public Data.IOArray.Flat
   export data ArrayData : Type -> Type
   export total prim__arrayCopy : {0 a : Type} -> Data.IOArray.Prims.ArrayData a -> Int -> Data.IOArray.Prims.ArrayData a -> Int -> Int -> PrimIO.PrimIO Builtin.Unit
   export total prim__arrayGet : {0 a : Type} -> Data.IOArray.Prims.ArrayData a -> Int -> PrimIO.PrimIO a
   export total prim__arraySet : {0 a : Type} -> Data.IOArray.Prims.ArrayData a -> Int -> a -> PrimIO.PrimIO Builtin.Unit
   export total prim__newArray : {0 a : Type} -> Int -> a -> PrimIO.PrimIO (Data.IOArray.Prims.ArrayData a)
-  export total prim__newSlots : {0 a : Type} -> Data.IOArray.Flat.Layout a -> Int -> Prelude.Types.Maybe a -> PrimIO.PrimIO (Data.IOArray.Prims.ArrayData (Prelude.Types.Maybe a))
-  export total prim__slotGet : {0 a : Type} -> Data.IOArray.Flat.Layout a -> Data.IOArray.Prims.ArrayData (Prelude.Types.Maybe a) -> Int -> PrimIO.PrimIO (Prelude.Types.Maybe a)
-  export total prim__slotSet : {0 a : Type} -> Data.IOArray.Flat.Layout a -> Data.IOArray.Prims.ArrayData (Prelude.Types.Maybe a) -> Int -> Prelude.Types.Maybe a -> PrimIO.PrimIO Builtin.Unit
 
 module Data.IORef
   export data IORef : Type -> Type

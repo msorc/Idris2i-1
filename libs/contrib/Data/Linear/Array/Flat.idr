@@ -1,7 +1,7 @@
 ||| Linear arrays whose elements are laid out by their `Flat` (see
-||| Data.IOArray.Flat): with the RefC back end and `--directive
-||| refc-flat-arrays`, the primitive numbers and the records of one
-||| constructor whose fields are all stored raw are inline in the array.
+||| Data.IOArray.Flat): with the RefC back end, the primitive numbers and
+||| the records of one constructor whose fields are all stored raw are
+||| inline in the array.
 |||
 ||| The functions are those of Data.Linear.Array, on `FlatArray` and
 ||| `FlatIArray` instead of `LinArray` and `IArray`, with the same names (but

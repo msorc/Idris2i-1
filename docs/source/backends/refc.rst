@@ -320,9 +320,10 @@ The code generator does the following, each of which a directive turns off
   The design is in :doc:`refc-flat-layout`.  A constant with such fields,
   whose fields are literals, is static data of the program.
 
-``--directive refc-flat-arrays`` (off by default) stores the elements of the
-arrays made by ``Data.IOArray.newFlatArray`` (and the linear arrays of
-``Data.Linear.Array.Flat``) inline: for the primitive numbers and ``Char``,
+In a program that uses the flat arrays (that reaches
+``Data.IOArray.newFlatArray``, ``readFlatArray`` or ``writeFlatArray``, or
+the linear arrays of ``Data.Linear.Array.Flat``), RefC stores the elements
+of the arrays made by ``newFlatArray`` inline: for the primitive numbers and ``Char``,
 and for the records of one constructor whose fields are all stored raw (for
 which the compiler makes the ``Flat`` implementation, see
 ``Data.IOArray.Flat``), each slot is a word that tells whether it is empty,
@@ -331,7 +332,12 @@ inline; the other functions of ``Data.IOArray`` read and write them through
 values.  In the functions that access them, an element read is its fields,
 as C numbers, and one written is written from its fields
 (``Compiler.RefC.FlatOpt``), so that no value is made for it where it is
-only looked at (see :doc:`refc-flat-layout`).
+only looked at (see :doc:`refc-flat-layout`).  A program that does not use
+them is compiled as it would be without flat arrays (the same C).
+``--directive refc-no-flat-arrays`` turns them off: the flat arrays are then
+arrays of values.  ``--directive refc-flat-arrays``, which turned them on
+when they were opt-in, is accepted and changes nothing (a program that does
+not use them has no array with a layout).
 - ``refc-no-lazy-constants``: an expression that occurs several times inside
   delayed code is a constant like the other repeated expressions, evaluated
   the first time that it is needed, instead of a delayed constant that is

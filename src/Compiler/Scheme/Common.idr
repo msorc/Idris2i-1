@@ -250,7 +250,7 @@ toPrim pn@(NS _ n)
             (n == UN (Basic "prim__arrayGet"), ArrayGet),
             (n == UN (Basic "prim__arraySet"), ArraySet),
             -- (the arrays of IOArray, with the layout of their elements,
-            -- which only RefC uses: see Data.IOArray.Prims)
+            -- which only RefC uses: see Data.IOArray.Flat)
             (n == UN (Basic "prim__newSlots"), NewSlots),
             (n == UN (Basic "prim__slotGet"), SlotGet),
             (n == UN (Basic "prim__slotSet"), SlotSet),

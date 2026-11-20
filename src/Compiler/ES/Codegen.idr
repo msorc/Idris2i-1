@@ -605,7 +605,7 @@ jsPrim nm docs = case (dropAllNS nm, docs) of
   (UN (Basic "prim__newArray"), [_,s,v,_]) => pure $ hcat ["(Array(", fromBigInt s, ").fill(", v, "))"]
   (UN (Basic "prim__arrayGet"), [_,x,p,_]) => pure $ hcat ["(", x, "[", fromBigInt p, "])"]
   (UN (Basic "prim__arraySet"), [_,x,p,v,_]) => pure $ hcat ["(", x, "[", fromBigInt p, "]=", v, ")"]
-  -- (the arrays of IOArray, whose layout only RefC uses: see Data.IOArray.Prims)
+  -- (the arrays of IOArray, whose layout only RefC uses: see Data.IOArray.Flat)
   (UN (Basic "prim__newSlots"), [_,_,s,v,_]) => pure $ hcat ["(Array(", fromBigInt s, ").fill(", v, "))"]
   (UN (Basic "prim__slotGet"), [_,_,x,p,_]) => pure $ hcat ["(", x, "[", fromBigInt p, "])"]
   (UN (Basic "prim__slotSet"), [_,_,x,p,v,_]) => pure $ hcat ["(", x, "[", fromBigInt p, "]=", v, ")"]

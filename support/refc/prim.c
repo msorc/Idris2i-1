@@ -116,10 +116,6 @@ Idris2_Value *idris2_Data_IOArray_Prims_prim__arraySet(Idris2_Value *erased,
                                                        Idris2_Value *_word) {
   Idris2_Array *a = (Idris2_Array *)_array;
   int64_t i = idris2_vp_to_Int64(index);
-  if (a->layout != 0) {
-    idris2_slotSetGeneric(a, i, v);
-    return NULL;
-  }
   idris2_newReference(v);
   Idris2_Value *old;
   if (idris2_isShared(_array)) {
