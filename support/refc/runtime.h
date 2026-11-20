@@ -12,10 +12,7 @@ static inline int idris2_isUniqueValue(Idris2_Value *v) {
 #ifdef IDRIS2_REFC_STATS
   int unique = idris2_isShared(v) ? idris2_tryUnshare(v)
                                   : v->header.refCounter == 1;
-  if (unique)
-    IDRIS2_STAT(uniqueHit);
-  else
-    IDRIS2_STAT(uniqueMiss);
+  IDRIS2_STAT_UNIQUE(v, unique);
   return unique;
 #else
   if (__builtin_expect(idris2_isShared(v), 0))

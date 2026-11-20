@@ -239,6 +239,7 @@ Idris2_Value *idris2_run_primio(Idris2_Closure *action) {
       int filled_ = (clos)->filled;                                            \
       Idris2_Value *a_[IDRIS2_JUMP_MAX_ARGS + 2];                              \
       int unique_ = (clos)->header.refCounter == 1;                            \
+      IDRIS2_STAT_UNIQUE(clos, unique_);                                       \
       for (int i_ = 0; i_ < filled_; ++i_)                                     \
         a_[i_] = unique_ ? (clos)->args[i_]                                    \
                          : idris2_newReference((clos)->args[i_]);              \
@@ -339,6 +340,8 @@ IDRIS2_INLINE Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
     // they are.
     void *f = clos->f;
     IDRIS2_STAT(apply[IDRIS2_APPLY_SATURATED]);
+    IDRIS2_STAT_UNIQUE(clos, !idris2_isShared(clos) &&
+                                 clos->header.refCounter == 1);
     if (!idris2_isShared(clos) && clos->header.refCounter == 1)
       idris2_freeValue((Idris2_Value *)clos);
     else
@@ -354,6 +357,7 @@ IDRIS2_INLINE Idris2_Value *idris2_call_closure(Idris2_Closure *clos,
   } else {
     unique = clos->header.refCounter == 1;
   }
+  IDRIS2_STAT_UNIQUE(clos, unique);
   if (unique) {
     IDRIS2_STAT(apply[IDRIS2_APPLY_SATURATED]);
   } else {
@@ -445,8 +449,10 @@ void idris2_removeReuseConstructor(Idris2_Constructor *constr) {
   }
   IDRIS2_REFC_VERIFY(constr->header.refCounter > 0, "refCounter %lld",
                      (long long)constr->header.refCounter);
+  IDRIS2_STAT_REAL(drops, constr);
   constr->header.refCounter--;
   if (constr->header.refCounter == 0) {
+    IDRIS2_STAT_KIND(released, IDRIS2_KIND_CONSTRUCTOR);
     idris2_freeValue((Idris2_Value *)constr);
   }
 }

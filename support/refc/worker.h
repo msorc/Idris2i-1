@@ -88,13 +88,47 @@ typedef struct {
 // the flag.  Only the worker that owns them writes them.
 // ---------------------------------------------------------------------------
 
-// What a reference count operation (idris2_newReference and
-// idris2_removeReference) found.
-#define IDRIS2_RC_IMMEDIATE 0 // NULL or an unboxed value: nothing to do
-#define IDRIS2_RC_PLAIN 1     // a count updated in place
-#define IDRIS2_RC_SHARED 2    // an atomic update (see memoryManagement.h)
-#define IDRIS2_RC_IMMORTAL 3  // a value that is never freed
-#define IDRIS2_RC_KINDS 4
+// The kinds of value that the counters tell apart.
+#define IDRIS2_KIND_CONSTRUCTOR 0
+#define IDRIS2_KIND_CLOSURE 1
+#define IDRIS2_KIND_STRING 2
+#define IDRIS2_KIND_NUMBER 3 // a boxed Int32, Int64, Bits32, Bits64, Integer, Double
+#define IDRIS2_KIND_OTHER 4  // arrays, IORefs, pointers, buffers, ...
+#define IDRIS2_KINDS 5
+
+static inline unsigned idris2_kindOfTag(unsigned tag) {
+  switch (tag) {
+  case CONSTRUCTOR_TAG:
+    return IDRIS2_KIND_CONSTRUCTOR;
+  case CLOSURE_TAG:
+    return IDRIS2_KIND_CLOSURE;
+  case STRING_TAG:
+    return IDRIS2_KIND_STRING;
+  case BITS32_TAG:
+  case BITS64_TAG:
+  case INT32_TAG:
+  case INT64_TAG:
+  case INTEGER_TAG:
+  case DOUBLE_TAG:
+    return IDRIS2_KIND_NUMBER;
+  default:
+    return IDRIS2_KIND_OTHER;
+  }
+}
+
+// What the operations on references (taking one, dropping one) found.  Every
+// operation is in exactly one of `null` and `unboxed` (nothing to do),
+// `immortal` (statically allocated values, and the constants of the program:
+// nothing is written; `immortalStatic` of them are static), or `real` (the
+// header is read and written; `shared` of them are atomic), the last two by
+// kind of value.  An operation on a count that overflowed (see
+// IDRIS2_VP_REFCOUNTER_OVERFLOW) is real.
+typedef struct {
+  uint64_t null, unboxed, immortalStatic;
+  uint64_t immortal[IDRIS2_KINDS];
+  uint64_t real[IDRIS2_KINDS];
+  uint64_t shared;
+} Idris2_RcCounts;
 
 // How a closure was applied (see runtime.c).
 #define IDRIS2_APPLY_IN_PLACE 0     // argument stored in the closure
@@ -116,9 +150,24 @@ typedef struct {
   uint64_t remoteFreesReceived;
   uint64_t overflows; // counts that went into the side table (see
                       // IDRIS2_VP_REFCOUNTER_OVERFLOW)
-  uint64_t dup[IDRIS2_RC_KINDS];
-  uint64_t drop[IDRIS2_RC_KINDS];
-  uint64_t uniqueHit, uniqueMiss; // idris2_isUnique
+  // Taking a reference (idris2_newReference), dropping one where the code
+  // asks (idris2_removeReference, idris2_dropSharedReference, ...), and
+  // dropping the one that a value being released holds on a field (see
+  // releaseOne).
+  Idris2_RcCounts dups, drops, fieldDrops;
+  // Values released because their last reference was dropped (and freed
+  // with their fields released), by kind.
+  uint64_t released[IDRIS2_KINDS];
+  // Every value freed (idris2_freeValue: also the cells that the code frees
+  // when its uniqueness test succeeds), by kind and by size class (0: large).
+  uint64_t freedKind[IDRIS2_KINDS][IDRIS2_ALLOC_CLASSES + 1];
+  // Values made, by kind (the others are counted by size only), and the
+  // bytes of the large ones (those of the others: the size of their class).
+  uint64_t allocKind[IDRIS2_KINDS];
+  uint64_t largeBytes;
+  // Uniqueness tests (idris2_isUnique and the tests of closures that the
+  // runtime makes) by kind of value: [kind][0] failed, [kind][1] succeeded.
+  uint64_t unique[IDRIS2_KINDS][2];
   uint64_t reuseHit, reuseMiss;   // a cell kept for a constructor, or not
   uint64_t apply[IDRIS2_APPLY_KINDS];
   uint32_t releaseDepth, maxReleaseDepth; // nesting of idris2_releaseValue
@@ -201,8 +250,36 @@ Idris2_Worker *idris2_workerAt(int i);
 
 #ifdef IDRIS2_REFC_STATS
 #define IDRIS2_STAT(field) ((void)(++idris2_worker()->stats.field))
+// An operation on the reference of the value `v`, which `set` (dups, drops or
+// fieldDrops) counts: the value is a real one (non NULL and not unboxed).
+#define IDRIS2_STAT_REAL(set, v)                                               \
+  ((void)(++idris2_worker()                                                    \
+              ->stats.set.real[idris2_kindOfTag(((Idris2_Value *)(v))->header.tag)]))
+#define IDRIS2_STAT_SHARED(set) ((void)(++idris2_worker()->stats.set.shared))
+#define IDRIS2_STAT_NULL_OR_UNBOXED(set, v)                                    \
+  ((void)((v) ? ++idris2_worker()->stats.set.unboxed                           \
+              : ++idris2_worker()->stats.set.null))
+#define IDRIS2_STAT_IMMORTAL(set, v)                                           \
+  ((void)(++idris2_worker()                                                    \
+              ->stats.set.immortal[idris2_kindOfTag(                           \
+                  ((Idris2_Value *)(v))->header.tag)],                         \
+          (((v)->header.reserved & IDRIS2_STATIC_FLAG)                         \
+               ? ++idris2_worker()->stats.set.immortalStatic                   \
+               : 0)))
+// A uniqueness test of the value `v`, which gave `u`.
+#define IDRIS2_STAT_UNIQUE(v, u)                                               \
+  ((void)(++idris2_worker()                                                    \
+              ->stats.unique[idris2_kindOfTag(                                 \
+                  ((Idris2_Value *)(v))->header.tag)][(u) != 0]))
+#define IDRIS2_STAT_KIND(field, kind) ((void)(++idris2_worker()->stats.field[kind]))
 #else
 #define IDRIS2_STAT(field) ((void)0)
+#define IDRIS2_STAT_REAL(set, v) ((void)0)
+#define IDRIS2_STAT_SHARED(set) ((void)0)
+#define IDRIS2_STAT_NULL_OR_UNBOXED(set, v) ((void)0)
+#define IDRIS2_STAT_IMMORTAL(set, v) ((void)0)
+#define IDRIS2_STAT_UNIQUE(v, u) ((void)0)
+#define IDRIS2_STAT_KIND(field, kind) ((void)0)
 #endif
 
 // Is a second worker running?  Until then, the values never need atomic

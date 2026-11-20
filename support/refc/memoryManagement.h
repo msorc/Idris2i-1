@@ -147,14 +147,14 @@ IDRIS2_INLINE Idris2_Value *idris2_newReference(Idris2_Value *source) {
   if (source && !idris2_vp_is_unboxed(source)) {
     if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(source)), 1)) {
       ++source->header.refCounter;
-#ifdef IDRIS2_REFC_STATS
-      IDRIS2_STAT(dup[IDRIS2_RC_PLAIN]);
-#endif
+      IDRIS2_STAT_REAL(dups, source);
     } else if (!idris2_isImmortalInline(source)) {
       idris2_newReferenceSlow(source);
+    } else {
+      IDRIS2_STAT_IMMORTAL(dups, source);
     }
   } else {
-    IDRIS2_STAT(dup[IDRIS2_RC_IMMEDIATE]);
+    IDRIS2_STAT_NULL_OR_UNBOXED(dups, source);
   }
   return source;
 }
@@ -178,11 +178,11 @@ static inline Idris2_Value *idris2_makeImmortal(Idris2_Value *v) {
 // Drop a reference, releasing the value when it was the last one.
 IDRIS2_INLINE void idris2_removeReference(Idris2_Value *elem) {
   if (!elem || idris2_vp_is_unboxed(elem)) {
-    IDRIS2_STAT(drop[IDRIS2_RC_IMMEDIATE]);
+    IDRIS2_STAT_NULL_OR_UNBOXED(drops, elem);
     return;
   }
   if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(elem)), 1)) {
-    IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
+    IDRIS2_STAT_REAL(drops, elem);
     uint16_t count = idris2_wordRefCounter(idris2_headerWord(elem));
     if (count != 1)
       elem->header.refCounter = count - 1;
@@ -190,6 +190,8 @@ IDRIS2_INLINE void idris2_removeReference(Idris2_Value *elem) {
       idris2_releaseValue(elem);
   } else if (!idris2_isImmortalInline(elem)) {
     idris2_removeReferenceSlow(elem);
+  } else {
+    IDRIS2_STAT_IMMORTAL(drops, elem);
   }
 }
 
@@ -198,10 +200,12 @@ IDRIS2_INLINE void idris2_removeReference(Idris2_Value *elem) {
 // value at the same time, so that one is released if need be.
 IDRIS2_INLINE void idris2_dropSharedReference(Idris2_Value *v) {
   if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(v)), 1)) {
-    IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
+    IDRIS2_STAT_REAL(drops, v);
     --v->header.refCounter;
   } else if (!idris2_isImmortalInline(v))
     idris2_removeReferenceSlow(v);
+  else
+    IDRIS2_STAT_IMMORTAL(drops, v);
 }
 
 #define IDRIS2_NEW_VALUE(t) ((t *)idris2_newValue(sizeof(t)))
@@ -212,6 +216,7 @@ static inline Idris2_Constructor *idris2_newConstructor(int total, int tag) {
   retVal->header.tag = CONSTRUCTOR_TAG;
   retVal->total = (uint16_t)total;
   retVal->tag = (int16_t)tag;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_CONSTRUCTOR);
   return retVal;
 }
 
@@ -224,6 +229,7 @@ idris2_newNamedConstructor(int total, char const *name) {
   retVal->total = (uint16_t)total;
   retVal->tag = -1;
   retVal->args[total] = (Idris2_Value *)name;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_CONSTRUCTOR);
   return retVal;
 }
 
@@ -239,6 +245,7 @@ static inline Idris2_Closure *idris2_mkClosure(Idris2_Value *(*f)(),
   retVal->f = f;
   retVal->arity = arity;
   retVal->filled = filled;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_CLOSURE);
   return retVal;
 }
 
@@ -315,6 +322,7 @@ static inline Idris2_Value *idris2_mkDouble(double d) {
   Idris2_Double *retVal = IDRIS2_NEW_VALUE(Idris2_Double);
   retVal->header.tag = DOUBLE_TAG;
   retVal->d = d;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_NUMBER);
   return (Idris2_Value *)retVal;
 }
 
@@ -326,6 +334,7 @@ static inline Idris2_Value *idris2_mkBits64(uint64_t i) {
   Idris2_Bits64 *retVal = IDRIS2_NEW_VALUE(Idris2_Bits64);
   retVal->header.tag = BITS64_TAG;
   retVal->ui64 = i;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_NUMBER);
   return (Idris2_Value *)retVal;
 }
 
@@ -337,6 +346,7 @@ static inline Idris2_Value *idris2_mkInt64(int64_t i) {
   Idris2_Int64 *retVal = IDRIS2_NEW_VALUE(Idris2_Int64);
   retVal->header.tag = INT64_TAG;
   retVal->i64 = i;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_NUMBER);
   return (Idris2_Value *)retVal;
 }
 extern Idris2_Integer idris2_predefined_Integer[100];

@@ -50,10 +50,16 @@ Two environment variables make a program report on its memory when it exits
 When the support library and the program are both compiled with
 ``-DIDRIS2_REFC_STATS`` (``IDRIS2_CPPFLAGS=-DIDRIS2_REFC_STATS`` for the
 program), ``IDRIS2_REFC_MEMSTATS=1`` also prints counts of what the program
-did: allocations by size, reference count operations (on unboxed values, on
-values counted in place, on values shared between threads, on immortal values),
-uniqueness tests, constructors reused in place, and closure applications by
-kind.  Such a build is slower, and only meant to find out where the time goes.
+did: allocations by size and by kind of value (constructor, closure, string,
+boxed number, other), and the bytes allocated; the reference count operations
+(taking a reference, dropping one, and the drops that the release of a value
+makes on its fields), each by what it found (``NULL``, an unboxed value, an
+immortal value, or a real count, which the report gives by kind of value and
+says how many were atomic); the values released, and every value freed, by
+kind and size; uniqueness tests, by kind of value and outcome; constructors
+reused in place; and closure applications by kind.  Such a build is slower
+(about 1.6 times the instructions), and only meant to find out where the time
+goes.
 
 This code generator can be accessed via the REPL command:
 

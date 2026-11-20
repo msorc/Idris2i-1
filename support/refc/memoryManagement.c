@@ -482,6 +482,9 @@ Idris2_Value *idris2_allocLarge(size_t size) {
   Idris2_Value *retVal = (Idris2_Value *)allocAligned(sizeof(void *), size);
   __atomic_fetch_add(&largeLive, 1, __ATOMIC_RELAXED);
   IDRIS2_STAT(largeAllocs);
+#ifdef IDRIS2_REFC_STATS
+  idris2_worker()->stats.largeBytes += size;
+#endif
   retVal->header.reserved = 0;
   retVal->header.refCounter = 1;
   retVal->header.tag = NO_TAG;
@@ -490,6 +493,9 @@ Idris2_Value *idris2_allocLarge(size_t size) {
 
 void idris2_freeValue(Idris2_Value *value) {
   unsigned cls = value->header.reserved & IDRIS2_CLASS_MASK;
+#ifdef IDRIS2_REFC_STATS
+  ++idris2_worker()->stats.freedKind[idris2_kindOfTag(value->header.tag)][cls];
+#endif
   if (cls == 0) {
     __atomic_fetch_sub(&largeLive, 1, __ATOMIC_RELAXED);
     IDRIS2_STAT(largeFrees);
@@ -639,18 +645,19 @@ void idris2_newReferenceSlow(Idris2_Value *v) {
   // (immortal values, shared or not, are the common case here: the count of
   // an immortal value never changes, so a plain read will do)
   if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX) {
-    IDRIS2_STAT(dup[IDRIS2_RC_IMMORTAL]);
+    IDRIS2_STAT_IMMORTAL(dups, v);
     return;
   }
   if (!idris2_isShared(v)) {
     // at the overflow
-    IDRIS2_STAT(dup[IDRIS2_RC_PLAIN]);
+    IDRIS2_STAT_REAL(dups, v);
     idris2_spinLock(&overflowLock);
     overflowAdd(v);
     idris2_spinUnlock(&overflowLock);
     return;
   }
-  IDRIS2_STAT(dup[IDRIS2_RC_SHARED]);
+  IDRIS2_STAT_REAL(dups, v);
+  IDRIS2_STAT_SHARED(dups);
   uint16_t c = __atomic_load_n(&v->header.refCounter, __ATOMIC_RELAXED);
   for (;;) {
     if (c == IDRIS2_VP_REFCOUNTER_MAX)
@@ -710,16 +717,17 @@ static void plainOverflowDrop(Idris2_Value *v) {
 
 void idris2_removeReferenceSlow(Idris2_Value *v) {
   if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX) {
-    IDRIS2_STAT(drop[IDRIS2_RC_IMMORTAL]);
+    IDRIS2_STAT_IMMORTAL(drops, v);
     return;
   }
   if (idris2_isShared(v)) {
-    IDRIS2_STAT(drop[IDRIS2_RC_SHARED]);
+    IDRIS2_STAT_REAL(drops, v);
+    IDRIS2_STAT_SHARED(drops);
     if (sharedDropReference(v))
       idris2_releaseValue(v);
     return;
   }
-  IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
+  IDRIS2_STAT_REAL(drops, v);
   plainOverflowDrop(v);
 }
 
@@ -810,6 +818,7 @@ Idris2_Value *idris2_newZeroedValue(size_t size) {
 Idris2_Value *idris2_mkBits32_Boxed(uint32_t i) {
   Idris2_Bits32 *retVal = IDRIS2_NEW_VALUE(Idris2_Bits32);
   retVal->header.tag = BITS32_TAG;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_NUMBER);
   retVal->ui32 = i;
   return (Idris2_Value *)retVal;
 }
@@ -818,6 +827,7 @@ Idris2_Value *idris2_mkBits32_Boxed(uint32_t i) {
 Idris2_Value *idris2_mkInt32_Boxed(int32_t i) {
   Idris2_Int32 *retVal = IDRIS2_NEW_VALUE(Idris2_Int32);
   retVal->header.tag = INT32_TAG;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_NUMBER);
   retVal->i32 = i;
   return (Idris2_Value *)retVal;
 }
@@ -826,6 +836,7 @@ Idris2_Value *idris2_mkInt32_Boxed(int32_t i) {
 Idris2_Integer *idris2_mkInteger() {
   Idris2_Integer *retVal = IDRIS2_NEW_VALUE(Idris2_Integer);
   retVal->header.tag = INTEGER_TAG;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_NUMBER);
   mpz_init(retVal->i);
   return retVal;
 }
@@ -886,6 +897,7 @@ Idris2_String *idris2_mkEmptyString(size_t l) {
   Idris2_String *retVal =
       (Idris2_String *)idris2_newValue(sizeof(Idris2_String) + l);
   retVal->header.tag = STRING_TAG;
+  IDRIS2_STAT_KIND(allocKind, IDRIS2_KIND_STRING);
   retVal->codePoints = 0;
   retVal->len = l - 1;
   retVal->str[l - 1] = '\0';
@@ -976,11 +988,11 @@ static void releasePushSlow(ReleaseStack *st, Idris2_Value *v) {
 // last one, and the value has to be released too.
 IDRIS2_INLINE int dropField(Idris2_Value *v) {
   if (!v || idris2_vp_is_unboxed(v)) {
-    IDRIS2_STAT(drop[IDRIS2_RC_IMMEDIATE]);
+    IDRIS2_STAT_NULL_OR_UNBOXED(fieldDrops, v);
     return 0;
   }
   if (__builtin_expect(idris2_isPlainCounted(idris2_headerWord(v)), 1)) {
-    IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
+    IDRIS2_STAT_REAL(fieldDrops, v);
     uint16_t count = idris2_wordRefCounter(idris2_headerWord(v));
     if (count != 1) {
       v->header.refCounter = count - 1;
@@ -989,15 +1001,16 @@ IDRIS2_INLINE int dropField(Idris2_Value *v) {
     return 1;
   }
   if (v->header.refCounter == IDRIS2_VP_REFCOUNTER_MAX) {
-    IDRIS2_STAT(drop[IDRIS2_RC_IMMORTAL]);
+    IDRIS2_STAT_IMMORTAL(fieldDrops, v);
     return 0;
   }
   if (idris2_isShared(v)) {
-    IDRIS2_STAT(drop[IDRIS2_RC_SHARED]);
+    IDRIS2_STAT_REAL(fieldDrops, v);
+    IDRIS2_STAT_SHARED(fieldDrops);
     return sharedDropReference(v);
   }
   // overflowed (see IDRIS2_VP_REFCOUNTER_OVERFLOW): not the last reference
-  IDRIS2_STAT(drop[IDRIS2_RC_PLAIN]);
+  IDRIS2_STAT_REAL(fieldDrops, v);
   plainOverflowDrop(v);
   return 0;
 }
@@ -1025,6 +1038,7 @@ IDRIS2_INLINE Idris2_Value *releaseOne(Idris2_Value *elem, ReleaseStack *st) {
     }                                                                          \
   } while (0)
   Idris2_Value *last = NULL;
+  IDRIS2_STAT_KIND(released, idris2_kindOfTag(elem->header.tag));
   switch (elem->header.tag) {
   case INTEGER_TAG:
     mpz_clear(((Idris2_Integer *)elem)->i);
@@ -1364,6 +1378,44 @@ static void collectAllRemoteFrees(void) {
     collectRemoteFrees(idris2_workerAt(i));
 }
 
+static void sumRcCounts(Idris2_RcCounts *sum, Idris2_RcCounts const *st) {
+  sum->null += st->null;
+  sum->unboxed += st->unboxed;
+  sum->immortalStatic += st->immortalStatic;
+  sum->shared += st->shared;
+  for (int k = 0; k < IDRIS2_KINDS; k++) {
+    sum->immortal[k] += st->immortal[k];
+    sum->real[k] += st->real[k];
+  }
+}
+
+static uint64_t sumKinds(uint64_t const *by) {
+  uint64_t n = 0;
+  for (int k = 0; k < IDRIS2_KINDS; k++)
+    n += by[k];
+  return n;
+}
+
+// The table rows of the report below: "label   total  kind kind ...".
+static void printKindRow(char const *label, uint64_t const *by) {
+  fprintf(stderr, "  %-34s %13llu", label, (unsigned long long)sumKinds(by));
+  for (int k = 0; k < IDRIS2_KINDS; k++)
+    fprintf(stderr, " %13llu", (unsigned long long)by[k]);
+  fprintf(stderr, "\n");
+}
+
+static void printRcCounts(char const *name, Idris2_RcCounts const *c) {
+  uint64_t real = sumKinds(c->real), immortal = sumKinds(c->immortal);
+  uint64_t all = real + c->null + c->unboxed + immortal;
+  fprintf(stderr,
+          "  %-14s %llu: %llu NULL, %llu unboxed, %llu immortal (%llu static), "
+          "%llu real (%llu atomic)\n",
+          name, (unsigned long long)all, (unsigned long long)c->null,
+          (unsigned long long)c->unboxed, (unsigned long long)immortal,
+          (unsigned long long)c->immortalStatic, (unsigned long long)real,
+          (unsigned long long)c->shared);
+}
+
 void idris2_dumpMemoryStats(void) {
   int nWorkers = idris2_workerCount();
   PageCensus census;
@@ -1395,12 +1447,18 @@ void idris2_dumpMemoryStats(void) {
     sum.pagesToPool += st->pagesToPool;
     sum.remoteFreesReceived += st->remoteFreesReceived;
     sum.overflows += st->overflows;
-    for (int k = 0; k < IDRIS2_RC_KINDS; k++) {
-      sum.dup[k] += st->dup[k];
-      sum.drop[k] += st->drop[k];
+    sumRcCounts(&sum.dups, &st->dups);
+    sumRcCounts(&sum.drops, &st->drops);
+    sumRcCounts(&sum.fieldDrops, &st->fieldDrops);
+    sum.largeBytes += st->largeBytes;
+    for (int k = 0; k < IDRIS2_KINDS; k++) {
+      sum.released[k] += st->released[k];
+      sum.allocKind[k] += st->allocKind[k];
+      sum.unique[k][0] += st->unique[k][0];
+      sum.unique[k][1] += st->unique[k][1];
+      for (int c = 0; c <= IDRIS2_ALLOC_CLASSES; c++)
+        sum.freedKind[k][c] += st->freedKind[k][c];
     }
-    sum.uniqueHit += st->uniqueHit;
-    sum.uniqueMiss += st->uniqueMiss;
     sum.reuseHit += st->reuseHit;
     sum.reuseMiss += st->reuseMiss;
     for (int k = 0; k < IDRIS2_APPLY_KINDS; k++)
@@ -1432,17 +1490,20 @@ void idris2_dumpMemoryStats(void) {
     fprintf(stderr, "  (build with -DIDRIS2_REFC_STATS for the counters)\n");
     return;
   }
-  uint64_t allocs = sum.largeAllocs;
-  for (int c = 1; c <= IDRIS2_ALLOC_CLASSES; c++)
+  uint64_t allocs = sum.largeAllocs, bytes = sum.largeBytes, frees = 0;
+  for (int c = 1; c <= IDRIS2_ALLOC_CLASSES; c++) {
     allocs += sum.allocs[c];
-  uint64_t dups = 0, drops = 0;
-  for (int k = 0; k < IDRIS2_RC_KINDS; k++) {
-    dups += sum.dup[k];
-    drops += sum.drop[k];
+    bytes += sum.allocs[c] * (uint64_t)c * IDRIS2_ALLOC_UNIT;
   }
-  fprintf(stderr, "  allocations: %llu (%llu large, %llu freed)\n",
+  for (int k = 0; k < IDRIS2_KINDS; k++)
+    for (int c = 0; c <= IDRIS2_ALLOC_CLASSES; c++)
+      frees += sum.freedKind[k][c];
+  fprintf(stderr,
+          "  allocations: %llu (%llu large, %llu freed), %llu bytes, "
+          "%llu values freed\n",
           (unsigned long long)allocs, (unsigned long long)sum.largeAllocs,
-          (unsigned long long)sum.largeFrees);
+          (unsigned long long)sum.largeFrees, (unsigned long long)bytes,
+          (unsigned long long)frees);
   fprintf(stderr,
           "  pages: %llu created, %llu emptied, %llu reused, %llu gave their "
           "memory back, %llu times given to the pool by idle workers; remote frees "
@@ -1453,25 +1514,70 @@ void idris2_dumpMemoryStats(void) {
           (unsigned long long)sum.pagesDecommitted,
           (unsigned long long)sum.pagesToPool,
           (unsigned long long)sum.remoteFreesReceived);
-  static const char *const rcKinds[IDRIS2_RC_KINDS] = {"immediate", "plain",
-                                                        "shared", "immortal"};
-  fprintf(stderr, "  %-8s %15s", "", "total");
-  for (int k = 0; k < IDRIS2_RC_KINDS; k++)
-    fprintf(stderr, " %15s", rcKinds[k]);
-  fprintf(stderr, "\n  %-8s %15llu", "dup", (unsigned long long)dups);
-  for (int k = 0; k < IDRIS2_RC_KINDS; k++)
-    fprintf(stderr, " %15llu", (unsigned long long)sum.dup[k]);
-  fprintf(stderr, "\n  %-8s %15llu", "drop", (unsigned long long)drops);
-  for (int k = 0; k < IDRIS2_RC_KINDS; k++)
-    fprintf(stderr, " %15llu", (unsigned long long)sum.drop[k]);
+  // The operations on references, by what they found, and the real ones by
+  // kind of value.  `drop` is what the code asks for; `field drop` is the
+  // reference that a value being released holds on each of its fields.
+  printRcCounts("dup", &sum.dups);
+  printRcCounts("drop", &sum.drops);
+  printRcCounts("field drop", &sum.fieldDrops);
+  fprintf(stderr, "  %-34s %13s", "by kind", "total");
+  static char const *const kindNames[IDRIS2_KINDS] = {
+      "constructor", "closure", "string", "number", "other"};
+  for (int k = 0; k < IDRIS2_KINDS; k++)
+    fprintf(stderr, " %13s", kindNames[k]);
   fprintf(stderr, "\n");
+  printKindRow("real dups", sum.dups.real);
+  printKindRow("real drops", sum.drops.real);
+  printKindRow("real field drops", sum.fieldDrops.real);
+  printKindRow("immortal dups", sum.dups.immortal);
+  printKindRow("immortal drops", sum.drops.immortal);
+  printKindRow("immortal field drops", sum.fieldDrops.immortal);
+  printKindRow("values released (count 1 -> 0)", sum.released);
+  uint64_t unique[IDRIS2_KINDS], notUnique[IDRIS2_KINDS],
+      freedByKind[IDRIS2_KINDS], allocByKind[IDRIS2_KINDS];
+  for (int k = 0; k < IDRIS2_KINDS; k++) {
+    unique[k] = sum.unique[k][1];
+    notUnique[k] = sum.unique[k][0];
+    freedByKind[k] = 0;
+    for (int c = 0; c <= IDRIS2_ALLOC_CLASSES; c++)
+      freedByKind[k] += sum.freedKind[k][c];
+    allocByKind[k] = sum.allocKind[k];
+  }
+  // (the values of the other kinds come from places that do not count them)
+  uint64_t known = 0;
+  for (int k = 0; k < IDRIS2_KIND_OTHER; k++)
+    known += allocByKind[k];
+  allocByKind[IDRIS2_KIND_OTHER] = allocs > known ? allocs - known : 0;
+  printKindRow("values allocated", allocByKind);
+  printKindRow("values freed", freedByKind);
+  printKindRow("uniqueness tests: unique", unique);
+  printKindRow("uniqueness tests: not unique", notUnique);
+  fprintf(stderr, "  values freed, by size class (bytes) and kind\n");
+  for (int c = 0; c <= IDRIS2_ALLOC_CLASSES; c++) {
+    uint64_t row[IDRIS2_KINDS];
+    for (int k = 0; k < IDRIS2_KINDS; k++)
+      row[k] = sum.freedKind[k][c];
+    if (!sumKinds(row))
+      continue;
+    char label[40];
+    if (c == 0)
+      snprintf(label, sizeof(label), "class 0 (large, malloc)");
+    else
+      snprintf(label, sizeof(label), "class %d (%d bytes)", c,
+               c * IDRIS2_ALLOC_UNIT);
+    printKindRow(label, row);
+  }
+  uint64_t dupTotal = sumKinds(sum.dups.real) + sum.dups.null +
+                      sum.dups.unboxed + sumKinds(sum.dups.immortal);
+  uint64_t dropTotal = 0;
+  const Idris2_RcCounts *dropSets[] = {&sum.drops, &sum.fieldDrops};
+  for (int i = 0; i < 2; i++)
+    dropTotal += sumKinds(dropSets[i]->real) + dropSets[i]->null +
+                 dropSets[i]->unboxed + sumKinds(dropSets[i]->immortal);
   fprintf(stderr, "  count operations per allocation: %.2f\n",
-          allocs ? (double)(dups + drops) / (double)allocs : 0.0);
+          allocs ? (double)(dupTotal + dropTotal) / (double)allocs : 0.0);
   fprintf(stderr, "  counts that overflowed into the side table: %llu\n",
           (unsigned long long)sum.overflows);
-  fprintf(stderr, "  uniqueness tests: %llu unique, %llu not\n",
-          (unsigned long long)sum.uniqueHit,
-          (unsigned long long)sum.uniqueMiss);
   fprintf(stderr, "  reuse: %llu cells reused, %llu not unique\n",
           (unsigned long long)sum.reuseHit, (unsigned long long)sum.reuseMiss);
   fprintf(stderr,
