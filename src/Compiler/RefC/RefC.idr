@@ -1570,13 +1570,13 @@ layoutC env l = let c = intOperand env Bits64Type l in
 ||| A read of an element of a flat array that Compiler.RefC.FlatOpt made: its
 ||| C expression and C number type.
 flatRead : Env -> Name -> List AVar -> Maybe (String, PrimType)
-flatRead env p [l, arr, i]
+flatRead env p [l, arr, i, s]
     = case flatPrimName p of
-        Just "slotPresent" => Just ("idris2_slotPresent(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})", IntType)
+        Just "slotPresent" => Just ("idris2_slotPresent(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{varName s})", IntType)
         Just pn => if isPrefixOf "slotField" pn
                       then case unpack (substr 9 (length pn) pn) of
                              (c :: j) => let t = letterType c
-                                             w = "idris2_slotWord(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{pack j})" in
+                                             w = "idris2_slotWord(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{pack j}, \{varName s})" in
                                              Just (case t of
                                                      DoubleType => ("idris2_wordToDouble(\{w})", t)
                                                      Bits64Type => (w, t)
@@ -1600,7 +1600,9 @@ flatStatement fc p args = do
     call <- case (flatRead env p args, args) of
       (Just (e, t), _) => pure (boxC t e)
       (Nothing, l :: arr :: i :: rest) =>
-        if isPrefixOf "slotStoreElem" pn
+        if pn == "slotSnap"
+           then pure "idris2_slotSnap(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})"
+        else if isPrefixOf "slotStoreElem" pn
            then pure "(idris2_slotStoreElem(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{concat (map varName rest)}), (Idris2_Value *)NULL)"
         else if isPrefixOf "slotStore" pn
            then let ts = map letterType (unpack (substr 9 (length pn) pn))

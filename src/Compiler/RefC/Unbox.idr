@@ -524,7 +524,8 @@ usesInto c t i (AExtPrim _ _ p args) us
                    else if isPrefixOf "slotStore" pn
                      then foldl (\u, (c, f) => addUse (Numeric (letterType c)) f u) us'
                                 (zip (unpack (substr 9 (length pn) pn)) rest)
-                   else us'
+                   -- (a read takes the snapshot of the element as it is)
+                   else addUses Raw rest us'
              _ => addUses Raw args us
 usesInto c t i (AConCase _ sc alts def) us
     = let us = foldl (\us', (MkAConAlt _ _ _ _ b) => usesInto c t i b us') us alts

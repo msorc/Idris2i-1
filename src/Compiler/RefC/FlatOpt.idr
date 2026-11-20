@@ -33,10 +33,11 @@
 ||| `IOArray`) are made once before its components.  This runs in rounds, as
 ||| a function rewritten can be one to inline in the next.
 |||
-||| An element of an array shared between threads, read by its fields, is
-||| read field by field (each under the lock of the array): a write by
-||| another thread at the same time can be seen in part, as with any data
-||| race.
+||| An element read by its fields is first taken whole, its snapshot
+||| (`slotSnap`): nothing when the array is read inline, its value otherwise,
+||| taken once under the lock of a shared array; the fields are read from it,
+||| so that they are those of one write even when another thread writes the
+||| element at the same time.
 |||
 ||| The primitives used are those of the RefC back end only (namespace
 ||| `_refc_flat`, see prim.h): their accesses are inline when the array has
@@ -227,7 +228,7 @@ pure (AUnderApp _ _ _ _) = True
 pure (AOp _ _ Crash _) = False
 pure (AOp _ _ _ _) = True
 pure (AExtPrim _ _ p _) = case flatPrimName p of
-                               Just s => isPrefixOf "slotField" s || s == "slotPresent"
+                               Just s => isPrefixOf "slotField" s || s == "slotPresent" || s == "slotSnap"
                                -- (a read, which makes a value, but has no effect)
                                Nothing => isSlotPrim p "prim__slotGet"
 pure (ALet _ _ v b) = pure v && pure b
@@ -522,8 +523,8 @@ hoist inner (AConstCase fc sc alts def)
           (concatMap fst rs ++ maybe [] fst rd, AConstCase fc sc (map snd rs) (map snd rd))
 hoist _ e = ([], e)
 
-comp : St -> Kind -> Nat -> PrimType -> ANF -> ANF
-comp st kind k t e@(ACon fc n ci _ as)
+comp : AVar -> St -> Kind -> Nat -> PrimType -> ANF -> ANF
+comp sn st kind k t e@(ACon fc n ci _ as)
     = if isNothingCon ci then APrimVal fc (zeroOf t)
       else case kind of
              KRec _ => maybe (ACrash fc "flat: field") (AV fc) (getAt k as)
@@ -534,22 +535,44 @@ comp st kind k t e@(ACon fc n ci _ as)
                                       Just (KCon _ _ fs) => maybe (ACrash fc "flat: field") (AV fc) (getAt (pred k) fs)
                                       _ => ACrash fc "flat: field"
                       _ => ACrash fc "flat: field"
-comp st kind k t (AV fc (ALocal v))
+comp sn st kind k t (AV fc (ALocal v))
     = case SortedMap.lookup v st.known of
         Just (KCon _ _ fs) => maybe (ACrash fc "flat: field") (AV fc) (getAt k fs)
         Just (KOpt p _ fs) => if k == 0 then AV fc p else maybe (ACrash fc "flat: field") (AV fc) (getAt (pred k) fs)
         _ => ACrash fc "flat: field"
-comp st kind k t (AExtPrim fc lz p (_ :: l :: arr :: i :: _))
-    = if k == 0 then AExtPrim fc lz (flatPrim "slotPresent") [l, arr, i]
-         else AExtPrim fc lz (flatPrim ("slotField" ++ typeLetter t ++ show (pred k))) [l, arr, i]
-comp st kind k t (ALet fc x v b) = ALet fc x v (comp st kind k t b)
-comp st kind k t (AConCase fc sc alts def)
-    = AConCase fc sc (map (\(MkAConAlt n ci tg as b) => MkAConAlt n ci tg as (comp st kind k t b)) alts)
-               (map (comp st kind k t) def)
-comp st kind k t (AConstCase fc sc alts def)
-    = AConstCase fc sc (map (\(MkAConstAlt c b) => MkAConstAlt c (comp st kind k t b)) alts)
-                 (map (comp st kind k t) def)
-comp st kind k t e = e
+comp sn st kind k t (AExtPrim fc lz p (_ :: l :: arr :: i :: _))
+    = if k == 0 then AExtPrim fc lz (flatPrim "slotPresent") [l, arr, i, sn]
+         else AExtPrim fc lz (flatPrim ("slotField" ++ typeLetter t ++ show (pred k))) [l, arr, i, sn]
+comp sn st kind k t (ALet fc x v b) = ALet fc x v (comp sn st kind k t b)
+comp sn st kind k t (AConCase fc sc alts def)
+    = AConCase fc sc (map (\(MkAConAlt n ci tg as b) => MkAConAlt n ci tg as (comp sn st kind k t b)) alts)
+               (map (comp sn st kind k t) def)
+comp sn st kind k t (AConstCase fc sc alts def)
+    = AConstCase fc sc (map (\(MkAConstAlt c b) => MkAConstAlt c (comp sn st kind k t b)) alts)
+                 (map (comp sn st kind k t) def)
+comp sn st kind k t e = e
+
+-- The snapshot of the element that an expression reads (see `split`): at
+-- the read, `slotSnap`, nothing (NULL) elsewhere.
+snapOf : ANF -> ANF
+snapOf (AExtPrim fc lz p (_ :: l :: arr :: i :: _))
+    = if isSlotPrim p "prim__slotGet" then AExtPrim fc lz (flatPrim "slotSnap") [l, arr, i]
+         else AV fc ANull
+snapOf (ALet fc x v b) = ALet fc x v (snapOf b)
+snapOf (AConCase fc sc alts def)
+    = AConCase fc sc (map (\(MkAConAlt n ci tg as b) => MkAConAlt n ci tg as (snapOf b)) alts) (map snapOf def)
+snapOf (AConstCase fc sc alts def)
+    = AConstCase fc sc (map (\(MkAConstAlt c b) => MkAConstAlt c (snapOf b)) alts) (map snapOf def)
+snapOf (ACrash fc m) = ACrash fc m
+snapOf e = AV EmptyFC ANull
+
+-- Does the expression read an element (in tail position)?
+readsSlot : ANF -> Bool
+readsSlot (AExtPrim _ _ p _) = isSlotPrim p "prim__slotGet"
+readsSlot (ALet _ _ _ b) = readsSlot b
+readsSlot (AConCase _ _ alts def) = any (\(MkAConAlt _ _ _ _ b) => readsSlot b) alts || maybe False readsSlot def
+readsSlot (AConstCase _ _ alts def) = any (\(MkAConstAlt _ b) => readsSlot b) alts || maybe False readsSlot def
+readsSlot _ = False
 
 -- An expression with all its binders made fresh.
 refresh : St -> ANF -> (ANF, St)
@@ -674,13 +697,25 @@ mutual
             -- say, are made once, before the components)
             (projs, v) = hoist (binders v0) v0
             ts = fieldTypes st kind
+            -- (an element read is first taken whole, its snapshot: nothing
+            -- when the array is accessed inline, else its value, read once
+            -- under the lock of a shared array, so that its fields are those
+            -- of one write)
+            (snap, st0) = the (List (Int, ANF), St) $
+                            if readsSlot v
+                               then let (c, s') = refresh st (snapOf v)
+                                        (sv, s'') = fresh s' in
+                                        ([(sv, c)], s'')
+                               else ([], st)
+            sn = maybe ANull (ALocal . fst) (head' snap)
             -- (the components, with their binders made fresh)
-            (cs, st1) = foldl (\(acc, s), (k, t) =>
-                                  let (c, s') = refresh s (comp s kind k t v)
+            (cs0, st1) = foldl (\(acc, s), (k, t) =>
+                                  let (c, s') = refresh s (comp sn s kind k t v)
                                       (cv, s'') = fresh s' in
                                       (acc :< (cv, c), s''))
-                              ([<], st) (zip [0 .. length ts] ts)
-            cvs = map (ALocal . fst) (cs <>> [])
+                              ([<], st0) (zip [0 .. length ts] ts)
+            cvs = map (ALocal . fst) (cs0 <>> [])
+            cs = the (SnocList (Int, ANF)) ([<] <>< (snap ++ (cs0 <>> [])))
             kn = case kind of
                    KRec c => KCon c (maybe DATACON recInfo (SortedMap.lookup c st.recs)) cvs
                    KOptR c => KOpt (fromMaybe ANull (head' cvs)) (Just c) (drop 1 cvs)

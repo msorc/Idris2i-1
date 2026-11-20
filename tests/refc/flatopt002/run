@@ -1,0 +1,6 @@
+. ../../testutils.sh
+
+idris2 --directive refc-flat-arrays -o main Main.idr
+./build/exec/main
+# (read by its fields, from its snapshot)
+grep -q "idris2_slotSnap(" build/exec/main.c && echo "read by its fields"

@@ -294,32 +294,25 @@ static Idris2_Value *slotValue(Idris2_Value *array, int64_t i) {
   return a->layout == 0 ? idris2_arrayGet(array, i) : idris2_slotGetGeneric(a, i);
 }
 
-int64_t idris2_slotPresentGeneric(Idris2_Value *array, int64_t i) {
-  Idris2_Value *v = slotValue(array, i);
-  int64_t r = v != NULL;
-  idris2_removeReference(v);
-  return r;
+Idris2_Value *idris2_slotSnapGeneric(Idris2_Value *array, int64_t i) {
+  return slotValue(array, i);
 }
 
-// The word `j` of the element of the slot, of the layout `l` that the caller
-// expects (the element is a record of raw fields, or a primitive).
-uint64_t idris2_slotWordGeneric(uint64_t l, Idris2_Value *array, int64_t i,
-                                int j) {
-  Idris2_Value *v = slotValue(array, i);
-  if (!v)
+// The word `j` of the element of a snapshot (the `Maybe` of a slot, see
+// prim.h) of the layout `l` that the caller expects (the element is a record
+// of raw fields, or a primitive).  (The snapshot is the caller's, released
+// after its last use.)
+uint64_t idris2_slotWordOf(uint64_t l, Idris2_Value *snap, int j) {
+  if (!snap)
     return 0;
-  Idris2_Value *x = ((Idris2_Constructor *)v)->args[0];
-  uint64_t w;
+  Idris2_Value *x = ((Idris2_Constructor *)snap)->args[0];
   if (IDRIS2_LAYOUT_KIND(l) == 2)
-    w = idris2_rawField(x, 0, j, uint64_t);
-  else
-    switch (IDRIS2_LAYOUT_PRIM(l)) {
-    case 1: w = idris2_doubleToWord(idris2_vp_to_Double(x)); break;
-    case 3: w = idris2_vp_to_Bits64(x); break;
-    default: w = (uint64_t)idris2_vp_to_Int64(x); break;
-    }
-  idris2_removeReference(v);
-  return w;
+    return idris2_rawField(x, 0, j, uint64_t);
+  switch (IDRIS2_LAYOUT_PRIM(l)) {
+  case 1: return idris2_doubleToWord(idris2_vp_to_Double(x));
+  case 3: return idris2_vp_to_Bits64(x);
+  default: return (uint64_t)idris2_vp_to_Int64(x);
+  }
 }
 
 // The element of the layout `l` (a record or a primitive) made from words.

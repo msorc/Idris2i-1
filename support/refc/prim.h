@@ -178,27 +178,37 @@ static inline uint64_t idris2_doubleToWord(double d) {
   memcpy(&w, &d, sizeof w);
   return w;
 }
-int64_t idris2_slotPresentGeneric(Idris2_Value *array, int64_t i);
-uint64_t idris2_slotWordGeneric(uint64_t l, Idris2_Value *array, int64_t i,
-                                int j);
+Idris2_Value *idris2_slotSnapGeneric(Idris2_Value *array, int64_t i);
+uint64_t idris2_slotWordOf(uint64_t l, Idris2_Value *snap, int j);
 void idris2_slotStoreWordsGeneric(uint64_t l, Idris2_Value *array, int64_t i,
                                   const uint64_t *w);
 void idris2_slotStoreElemGeneric(uint64_t l, Idris2_Value *array, int64_t i,
                                  Idris2_Value *x);
 
+// A read of an element by its fields starts with its snapshot: this
+// (unboxed, so never counted) when the slot is read inline, otherwise the
+// slot's value (the `Maybe`), taken once (under the lock of a shared array),
+// so that the fields read are all those of one write.
+#define IDRIS2_SLOT_INLINE ((Idris2_Value *)(uintptr_t)1)
+static inline Idris2_Value *idris2_slotSnap(uint64_t l, Idris2_Value *array,
+                                            int64_t i) {
+  if (idris2_slotFast(l, array, i))
+    return IDRIS2_SLOT_INLINE;
+  return idris2_slotSnapGeneric(array, i);
+}
 static inline int64_t idris2_slotPresent(uint64_t l, Idris2_Value *array,
-                                         int64_t i) {
-  unsigned char *s = idris2_slotFast(l, array, i);
-  if (s)
-    return *(uint64_t *)s != 0;
-  return idris2_slotPresentGeneric(array, i);
+                                         int64_t i, Idris2_Value *snap) {
+  if (snap == IDRIS2_SLOT_INLINE)
+    return *(uint64_t *)((unsigned char *)((Idris2_Array *)array)->arr +
+                         (size_t)i * IDRIS2_SLOT_SIZE(l)) != 0;
+  return snap != NULL;
 }
 static inline uint64_t idris2_slotWord(uint64_t l, Idris2_Value *array,
-                                       int64_t i, int j) {
-  unsigned char *s = idris2_slotFast(l, array, i);
-  if (s)
-    return *(uint64_t *)(s + 8 + 8 * (size_t)j);
-  return idris2_slotWordGeneric(l, array, i, j);
+                                       int64_t i, int j, Idris2_Value *snap) {
+  if (snap == IDRIS2_SLOT_INLINE)
+    return *(uint64_t *)((unsigned char *)((Idris2_Array *)array)->arr +
+                         (size_t)i * IDRIS2_SLOT_SIZE(l) + 8 + 8 * (size_t)j);
+  return idris2_slotWordOf(l, snap, j);
 }
 static inline void idris2_slotStoreWords(uint64_t l, Idris2_Value *array,
                                          int64_t i, const uint64_t *w) {
