@@ -13,7 +13,6 @@ Idris2_Value *Main_bump
     Idris2_Value * tmp_0 = NULL;                             // Main:21:8--21:12
     switch (((Idris2_Constructor *)var_0)->tag) {
     case 0: { /* Main.Leaf */
-        idris2_removeReference(var_0);
         tmp_0 = idris2_nullaryConstructor(0) /* Main.Leaf */;
       break;
     }
@@ -52,7 +51,6 @@ Idris2_Value *Main_dropLeft
     Idris2_Value * tmp_0 = NULL;                             // Main:31:12--31:16
     switch (((Idris2_Constructor *)var_0)->tag) {
     case 0: { /* Main.Leaf */
-        idris2_removeReference(var_0);
         tmp_0 = idris2_nullaryConstructor(0) /* Main.Leaf */;
       break;
     }
@@ -95,7 +93,6 @@ Idris2_Value *Main_dropLeft
     Idris2_Value * tmp_0 = NULL;                             // Main:31:12--31:16
     switch (((Idris2_Constructor *)var_0)->tag) {
     case 0: { /* Main.Leaf */
-        idris2_removeReference(var_0);
         tmp_0 = idris2_nullaryConstructor(0) /* Main.Leaf */;
       break;
     }

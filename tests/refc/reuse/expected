@@ -24,7 +24,6 @@ Idris2_Value *Main_insert
     switch (((Idris2_Constructor *)var_2)->tag) {
     case 0: { /* Main.Leaf */
         idris2_removeReference(var_0);
-        idris2_removeReference(var_2);
         Idris2_Value * var_3 = idris2_nullaryConstructor(0) /* Main.Leaf */;
         Idris2_Value * var_4 = idris2_nullaryConstructor(0) /* Main.Leaf */;
          // constructor Main.Node                            // Main:7:17--7:21

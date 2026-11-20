@@ -286,7 +286,9 @@ The code generator does the following, each of which a directive turns off
 - ``refc-no-static``: a closure that holds no argument yet (a function passed
   as a value), and a constructor whose fields are all such values, constants
   or other static constructors (the dictionary of an implementation), are
-  data of the C program instead of values allocated every time.
+  data of the C program instead of values allocated every time.  In a branch
+  of a ``case`` that matched a constructor without fields, the value is known
+  to be such data (or ``NULL``): no reference to it is taken or dropped.
 - ``refc-no-multi-reuse``: a branch that matches several cells of the same
   constructor (the merge of two lists matches a cons cell of each) keeps all
   of them for the constructors that it builds, instead of the first one only

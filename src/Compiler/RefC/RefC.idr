@@ -2351,6 +2351,16 @@ mutual
         tagSwitch : Bool
         tagSwitch = all plain alts && length alts >= 2
 
+        -- The static value of the scrutinee when it matched the
+        -- constructor (see `altBody`); not with `--directive refc-no-static`.
+        staticMatch : Env -> ConInfo -> Maybe Int -> List Int -> Maybe StaticVal
+        staticMatch env ci t [] = if not env.staticOK then Nothing
+            else if erasedCon ci then Just (MkStaticVal "NULL" [] 0)
+            else case conTag t of
+                   Just t' => if t' < 256 then Just (MkStaticVal "idris2_nullaryConstructor(\{show t'})" [] 0)
+                                          else Nothing
+                   Nothing => Nothing
+        staticMatch _ _ _ _ = Nothing
 
         -- The body of an alternative, in the environment `env` of the case.
         altBody : Env -> String -> AConAlt -> Core ()
@@ -2363,9 +2373,14 @@ mutual
             -- that we hold are ours (we take references to them, or take
             -- them over when it is not used any more).
             let scBorrowed = contains sc env.borrowed
+            -- A scrutinee that matched a constructor without fields is NULL
+            -- or one of the immortal values of the runtime (the code never
+            -- allocates them, see `ACon`): it is static in the branch, so
+            -- that no count operation is made on it (see `isStaticIn`).
+            let immortal = staticMatch env coninfo tag args
             let ownedWithArgs : Owned
                   = if scBorrowed then env.owned
-                       else union (fromList conArgs) $ if erased then delete sc env.owned else env.owned
+                       else union (fromList conArgs) $ if erased || isJust immortal then delete sc env.owned else env.owned
             let usedVars = freeVariables body
             let (shouldDrop, actualOwned) = dropUnusedOwnedVars ownedWithArgs usedVars
             let scDropped = isJust (find (== sc') shouldDrop)
@@ -2402,7 +2417,10 @@ mutual
             removeReuseConstructors env dropReuseCons
             put EnvTracker ({ owned := actualOwned, reuseMap := actualReuseMap
                             , borrowed := if scBorrowed then SortedSet.union (fromList conArgs) env.borrowed
-                                                         else env.borrowed } env)
+                                                         else env.borrowed
+                            , statics $= case (immortal, sc) of
+                                           (Just v, ALocal i) => insert i v
+                                           _ => id } env)
             assignResult switchReturnVar !(cResult body r)
             decreaseIndentation
 

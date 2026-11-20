@@ -760,6 +760,16 @@ should target this file (`CHANGELOG_NEXT`).
   treeInt -5%, mergeInt -6%, the merge sort of phase 0 (lists/mergeB) -20%.
   `--directive refc-no-reuse-copy` gives the code of before.
 
+* In a branch of a `case` that matched a constructor without fields (a `Leaf`
+  of a tree, `Nothing`, an enumeration), the value is the immortal one of the
+  runtime or `NULL`: no reference to it is dropped or taken any more (the
+  immortal test in line cost about 10 instructions).  The tree sort of
+  phase 0 (lists/treeB) runs with 3.3% fewer instructions, treeInt 0.8%.
+  Other immortal values (the closures of a dictionary that a function gets
+  as an argument, most of the count operations on immortal values of
+  treeInt) are not known when the code is generated.  Off with `--directive
+  refc-no-static`.
+
 * Backtraces: a program that dies of a fatal error (`idris_crash`, a missing
   case in `partial` code, a division by zero, a missing foreign function, or
   `SIGSEGV`, `SIGBUS`, `SIGFPE`, `SIGILL` or `SIGABRT` from foreign code or a
