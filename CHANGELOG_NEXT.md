@@ -1638,6 +1638,9 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Base
 
+* `Data.IOArray` has `newFlatIO`, `readFlatIO` and `writeFlatIO`,
+  `newFlatArray`, `readFlatArray` and `writeFlatArray` at `IO`.
+
 * Added `copyArrayRange` to `Data.IOArray`, which copies a range of an array
   to another one or to another place in the same one (the ranges may
   overlap), and `prim__arrayCopy` to `Data.IOArray.Prims`, which it calls;
@@ -1677,6 +1680,17 @@ should target this file (`CHANGELOG_NEXT`).
   on an error of `stdin` too.
 
 #### Contrib
+
+* `Data.Linear.Array.Flat`: linear arrays laid out by the `Flat` of their
+  elements (see `Data.IOArray.Flat`), `FlatArray` and `FlatIArray`, with the
+  functions of `Data.Linear.Array` under the same names (`mread`, `write`,
+  `msize`, `mcopy`, `toIArray`, `read`, `size`), `newFlatArray` and
+  `thawFlat`.  A program moves to them by importing the module, writing
+  `FlatArray` and `FlatIArray` for `LinArray` and `IArray`, and making its
+  arrays with `newFlatArray` (qualified as `Flat.newFlatArray` where
+  `Data.IOArray` is imported too); `Data.Linear.Array` is unchanged.  With
+  RefC and `--directive refc-flat-arrays`, their elements are inline.  The
+  test `allbackends/flatlinear001`.
 
 * `Data.Linear.Array`: added `copyInto`, which copies a range of an immutable
   array into a linear one, and `thaw`, which makes a linear copy of an

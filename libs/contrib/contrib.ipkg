@@ -41,6 +41,7 @@ modules = Control.ANSI,
           Data.Late,
 
           Data.Linear.Array,
+          Data.Linear.Array.Flat,
 
           Data.List.TailRec,
           Data.List.Equalities,

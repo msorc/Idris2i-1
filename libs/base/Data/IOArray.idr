@@ -124,6 +124,23 @@ export
 newFlatArray : {auto hio : HasIO io} -> Flat elem => Int -> io (IOArray elem)
 newFlatArray size = liftIO (newIO size)
 
+||| `newFlatArray`, `readFlatArray` and `writeFlatArray` at `IO`, for the
+||| libraries that run them as they are (Data.Linear.Array.Flat).
+%inline
+export
+newFlatIO : Flat elem => Int -> IO (IOArray elem)
+newFlatIO size = newIO size
+
+%inline
+export
+readFlatIO : Flat elem => IOArray elem -> Int -> IO (Maybe elem)
+readFlatIO arr pos = readIO arr pos
+
+%inline
+export
+writeFlatIO : Flat elem => IOArray elem -> Int -> elem -> IO Bool
+writeFlatIO arr pos el = writeIO arr pos el
+
 ||| `writeArray`, inline when the array was made with this `Flat`.
 %spec hio
 %inline

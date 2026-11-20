@@ -556,6 +556,20 @@ module Data.Linear.Array
   export implementation : Data.Linear.Array.Array Data.Linear.Array.LinArray
   export implementation : Data.Linear.Array.MArray Data.Linear.Array.LinArray
 
+module Data.Linear.Array.Flat
+  import public Data.IOArray.Flat
+  export data FlatArray : Type -> Type
+  export data FlatIArray : Type -> Type
+  export total mcopy : {0 t : Type} -> (1 _ : Data.Linear.Array.Flat.FlatArray t) -> Int -> (1 _ : Data.Linear.Array.Flat.FlatArray t) -> Int -> Int -> Builtin.DPair.Res Prelude.Basics.Bool (Prelude.Basics.const {b = Prelude.Basics.Bool} {a = Type} (Builtin.LPair (Data.Linear.Array.Flat.FlatArray t) (Data.Linear.Array.Flat.FlatArray t)))
+  export total mread : {0 t : Type} -> Data.IOArray.Flat.Flat t => (1 _ : Data.Linear.Array.Flat.FlatArray t) -> Int -> Builtin.DPair.Res (Prelude.Types.Maybe t) (Prelude.Basics.const {b = Prelude.Types.Maybe t} {a = Type} (Data.Linear.Array.Flat.FlatArray t))
+  export total msize : {0 t : Type} -> (1 _ : Data.Linear.Array.Flat.FlatArray t) -> Builtin.DPair.Res Int (Prelude.Basics.const {b = Int} {a = Type} (Data.Linear.Array.Flat.FlatArray t))
+  export total newFlatArray : {0 a : Type} -> {0 t : Type} -> Data.IOArray.Flat.Flat t => Int -> (1 _ : ((1 _ : Data.Linear.Array.Flat.FlatArray t) -> a)) -> a
+  export total read : {0 t : Type} -> Data.IOArray.Flat.Flat t => Data.Linear.Array.Flat.FlatIArray t -> Int -> Prelude.Types.Maybe t
+  export total size : {0 t : Type} -> Data.Linear.Array.Flat.FlatIArray t -> Int
+  export total thawFlat : {0 a : Type} -> {0 t : Type} -> Data.IOArray.Flat.Flat t => Data.Linear.Array.Flat.FlatIArray t -> Int -> (1 _ : ((1 _ : Data.Linear.Array.Flat.FlatArray t) -> a)) -> a
+  export total toIArray : {0 a : Type} -> {0 t : Type} -> (1 _ : Data.Linear.Array.Flat.FlatArray t) -> (Data.Linear.Array.Flat.FlatIArray t -> a) -> a
+  export total write : {0 t : Type} -> Data.IOArray.Flat.Flat t => (1 _ : Data.Linear.Array.Flat.FlatArray t) -> Int -> t -> Builtin.DPair.Res Prelude.Basics.Bool (Prelude.Basics.const {b = Prelude.Basics.Bool} {a = Type} (Data.Linear.Array.Flat.FlatArray t))
+
 module Data.List.Alternating
   export infixl 5 (+>)
   export infixr 5 (<+)
