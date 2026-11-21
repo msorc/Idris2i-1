@@ -30,8 +30,9 @@
 ||| On the way, the `let`s of a `let` are floated out, a closure that the
 ||| function makes and applies to its last argument is a call, and the
 ||| projections of a variable bound outside a read (the array of an
-||| `IOArray`) are made once before its components.  This runs in rounds, as
-||| a function rewritten can be one to inline in the next.
+||| `IOArray`) are made once: before its components where they cannot fail,
+||| a component of their own otherwise.  This runs in rounds, as a function
+||| rewritten can be one to inline in the next.
 |||
 ||| An element read by its fields is first taken whole, its snapshot
 ||| (`slotSnap`): nothing when the array is read inline, its value otherwise,
@@ -406,6 +407,13 @@ record St where
   lits : SortedMap Int Bits64
   recs : FlatRecords
   byShape : SortedMap (Nat, Int) (List Name)
+  ||| the variables made by a constructor where the code is: in a branch of
+  ||| a case on the variable, or after a projection of one of its fields
+  ||| (see `hoist`).  The other fields are about the binders of the
+  ||| function, which are distinct, and hold wherever these are in scope;
+  ||| this one is about variables bound before a branch, and is kept in the
+  ||| branch only.
+  cons : SortedMap Int Name
 
 zeroOf : PrimType -> Constant
 zeroOf DoubleType = Db 0.0
@@ -500,29 +508,45 @@ mutual
                           r <- kinds st bs
                           merge k r
 
+-- What a projection (see `hoist`), or a case of one alternative without a
+-- default, makes known of the variable that it takes apart, for the code
+-- after it.
+madeBy : ANF -> SortedMap Int Name -> SortedMap Int Name
+madeBy (AConCase _ (ALocal sc) [MkAConAlt c _ _ _ _] Nothing) cons = insert sc c cons
+madeBy _ cons = cons
+
+-- The projections of a field of a variable bound outside the expression
+-- (not one of `inner`) that the expression makes, taken out of it where they
+-- cannot fail: they can then be made before it, as they are pure.  A
+-- projection (`case v of C ... => f`, without a default) cannot fail where
+-- `v` is known to be made by `C` (`cons`, or an earlier projection made
+-- unconditionally), or where the expression makes it unconditionally
+-- (`guarded` is False: not in a branch).  In a branch, that it has a single
+-- alternative only means that the other constructors are impossible there:
+-- the type of `v` may depend on what the branch tests (`V b` with `b`
+-- True, say), and taken out of it the projection would read the fields of
+-- whatever `v` is.
+hoist : SortedMap Int Name -> List Int -> Bool -> ANF -> (List (Int, ANF), ANF)
+hoist cons inner guarded (ALet fc x v@(AConCase _ (ALocal sc) [MkAConAlt c _ _ as (AV _ (ALocal f))] Nothing) b)
+    = if not (elem sc inner) && elem f as && (not guarded || SortedMap.lookup sc cons == Just c)
+         then let (ps, b') = hoist (insert sc c cons) inner guarded b in ((x, v) :: ps, b')
+         else let (ps, b') = hoist cons inner guarded b in (ps, ALet fc x v b')
+hoist cons inner guarded (ALet fc x v b)
+    = let (pv, v') = hoist cons inner guarded v
+          (pb, b') = hoist (if guarded then cons else madeBy v cons) inner guarded b in
+          (pv ++ pb, ALet fc x v' b')
+hoist cons inner _ (AConCase fc sc alts def)
+    = let rs = map (\(MkAConAlt n ci tg as b) => let (ps, b') = hoist cons inner True b in (ps, MkAConAlt n ci tg as b')) alts
+          rd = map (hoist cons inner True) def in
+          (concatMap fst rs ++ maybe [] fst rd, AConCase fc sc (map snd rs) (map snd rd))
+hoist cons inner _ (AConstCase fc sc alts def)
+    = let rs = map (\(MkAConstAlt c b) => let (ps, b') = hoist cons inner True b in (ps, MkAConstAlt c b')) alts
+          rd = map (hoist cons inner True) def in
+          (concatMap fst rs ++ maybe [] fst rd, AConstCase fc sc (map snd rs) (map snd rd))
+hoist _ _ _ e = ([], e)
+
 -- The component `k` (of the types `ts`) of an expression of the kind
 -- `kind` (see `kindOf`).
--- The projections of a field of a variable bound outside the expression
--- (not one of `inner`) that the expression makes, taken out of it: they can
--- be made before it, as they are pure and cannot fail.
-hoist : List Int -> ANF -> (List (Int, ANF), ANF)
-hoist inner (ALet fc x v@(AConCase _ (ALocal sc) [MkAConAlt _ _ _ as (AV _ (ALocal f))] Nothing) b)
-    = let (ps, b') = hoist inner b in
-          if not (elem sc inner) && elem f as then ((x, v) :: ps, b') else (ps, ALet fc x v b')
-hoist inner (ALet fc x v b)
-    = let (pv, v') = hoist inner v
-          (pb, b') = hoist inner b in
-          (pv ++ pb, ALet fc x v' b')
-hoist inner (AConCase fc sc alts def)
-    = let rs = map (\(MkAConAlt n ci tg as b) => let (ps, b') = hoist inner b in (ps, MkAConAlt n ci tg as b')) alts
-          rd = map (hoist inner) def in
-          (concatMap fst rs ++ maybe [] fst rd, AConCase fc sc (map snd rs) (map snd rd))
-hoist inner (AConstCase fc sc alts def)
-    = let rs = map (\(MkAConstAlt c b) => let (ps, b') = hoist inner b in (ps, MkAConstAlt c b')) alts
-          rd = map (hoist inner) def in
-          (concatMap fst rs ++ maybe [] fst rd, AConstCase fc sc (map snd rs) (map snd rd))
-hoist _ e = ([], e)
-
 comp : AVar -> St -> Kind -> Nat -> PrimType -> ANF -> ANF
 comp sn st kind k t e@(ACon fc n ci _ as)
     = if isNothingCon ci then APrimVal fc (zeroOf t)
@@ -581,6 +605,89 @@ refresh st e
           ren = fromList (zipWith (\b, k => (b, ALocal (st.next + k))) bs [0 .. cast (length bs)]) in
           (rename ren e, { next $= (+ (cast (length bs) + 1)) } st)
 
+-- How often the variable `y` occurs in an expression: in all, and as the
+-- array of an access to the slots of an array.
+occurrences : Int -> ANF -> (Nat, Nat)
+occurrences y e = go e (0, 0)
+  where
+    isY : AVar -> Bool
+    isY (ALocal i) = i == y
+    isY ANull = False
+    count : List AVar -> Nat
+    count as = length (filter isY as)
+    -- (the position of the array among the arguments of an access)
+    arrayAt : Name -> Maybe Nat
+    arrayAt p = if isSlotPrim p "prim__slotGet" || isSlotPrim p "prim__slotSet" then Just 2
+                else if isJust (flatPrimName p) then Just 1
+                else Nothing
+    go : ANF -> (Nat, Nat) -> (Nat, Nat)
+    go (AV _ v) (n, a) = (n + count [v], a)
+    go (AAppName _ _ _ as) (n, a) = (n + count as, a)
+    go (AUnderApp _ _ _ as) (n, a) = (n + count as, a)
+    go (AApp _ _ f x) (n, a) = (n + count [f, x], a)
+    go (ACon _ _ _ _ as) (n, a) = (n + count as, a)
+    go (AOp _ _ _ as) (n, a) = (n + count (toList as), a)
+    go (AExtPrim _ _ p as) (n, a)
+        = (n + count as, a + maybe 0 (\k => maybe 0 (\v => count [v]) (getAt k as)) (arrayAt p))
+    go (ALet _ _ v b) acc = go b (go v acc)
+    go (AConCase _ (ALocal s) alts def) (n, a)
+        = foldl (\acc, (MkAConAlt _ _ _ _ b) => go b acc)
+                (maybe id go def (if s == y then S n else n, a)) alts
+    go (AConCase _ ANull alts def) acc
+        = foldl (\acc', (MkAConAlt _ _ _ _ b) => go b acc') (maybe id go def acc) alts
+    go (AConstCase _ (ALocal s) alts def) (n, a)
+        = foldl (\acc, (MkAConstAlt _ b) => go b acc)
+                (maybe id go def (if s == y then S n else n, a)) alts
+    go (AConstCase _ ANull alts def) acc
+        = foldl (\acc', (MkAConstAlt _ b) => go b acc') (maybe id go def acc) alts
+    go _ acc = acc
+
+-- The `let`s of an expression (of a value split, see `split`) that its
+-- components share: those on its spine (not in the values of other
+-- `let`s) of an array that it accesses (used only as such, so a value: the
+-- array of an `IOArray`, projected in the branch of a bounds test, say).
+-- Each is made once, a component itself, in the branches where the value
+-- makes it, rather than in every component.  (It cannot be made before the
+-- value, in every branch, as a projection that is made in a branch only
+-- may fail in the others, see `hoist`.)
+sharedLets : ANF -> ANF -> List Int
+sharedLets whole (ALet _ y v b)
+    = let (n, a) = occurrences y whole in
+          (if n > 0 && n == a then [y] else []) ++ sharedLets whole b
+sharedLets whole (AConCase _ _ alts def)
+    = concatMap (\(MkAConAlt _ _ _ _ b) => sharedLets whole b) alts ++ maybe [] (sharedLets whole) def
+sharedLets whole (AConstCase _ _ alts def)
+    = concatMap (\(MkAConstAlt _ b) => sharedLets whole b) alts ++ maybe [] (sharedLets whole) def
+sharedLets _ _ = []
+
+-- The component of the shared `let` of `r` (see `sharedLets`) of an
+-- expression: `r`, in the branches where the expression binds it, nothing
+-- (NULL) in the others.
+sharedComp : Int -> ANF -> ANF
+sharedComp r (ALet fc y v b)
+    = if y == r then ALet fc y v (AV fc (ALocal y)) else ALet fc y v (sharedComp r b)
+sharedComp r (AConCase fc sc alts def)
+    = AConCase fc sc (map (\(MkAConAlt n ci tg as b) => MkAConAlt n ci tg as (sharedComp r b)) alts)
+               (map (sharedComp r) def)
+sharedComp r (AConstCase fc sc alts def)
+    = AConstCase fc sc (map (\(MkAConstAlt c b) => MkAConstAlt c (sharedComp r b)) alts)
+                 (map (sharedComp r) def)
+sharedComp _ (ACrash fc m) = ACrash fc m
+sharedComp _ _ = AV EmptyFC ANull
+
+-- An expression with the `let`s of `sub` (shared, see `sharedLets`)
+-- dropped, and their variables those of `sub` (their components).
+unshare : SortedMap Int AVar -> ANF -> ANF
+unshare sub e = rename sub (dropLets e)
+  where
+    dropLets : ANF -> ANF
+    dropLets (ALet fc y v b) = if isJust (SortedMap.lookup y sub) then dropLets b else ALet fc y v (dropLets b)
+    dropLets (AConCase fc sc alts def)
+        = AConCase fc sc (map (\(MkAConAlt n ci tg as b) => MkAConAlt n ci tg as (dropLets b)) alts) (map dropLets def)
+    dropLets (AConstCase fc sc alts def)
+        = AConstCase fc sc (map (\(MkAConstAlt c b) => MkAConstAlt c (dropLets b)) alts) (map dropLets def)
+    dropLets e = e
+
 mutual
   simp : St -> ANF -> (ANF, St)
   simp st (AV fc v) = (AV fc (var st v), st)
@@ -602,7 +709,7 @@ mutual
   simp st (ALet fc x (ALet fc' y v1 b1) b) = simp st (ALet fc' y v1 (ALet fc x b1 b))
   simp st (ALet fc x v b)
       = let (v', st1) = simp st v
-            st2 = remember st1 x v' in
+            st2 = remember ({ cons $= madeBy v' } st1) x v' in
             -- (a constructor, or a variable, is known already: not split)
             if isCon v' then let (b', st3) = simp st2 b in (ALet fc x v' b', st3) else
             case kindOf st2 v' of
@@ -625,27 +732,37 @@ mutual
             (AConstCase fc sc' alts' def', st2)
   simp st e = (e, st)
 
+  -- A branch of a case, simplified with `st`: what it makes known of the
+  -- constructors of the variables (`cons`) holds there only, and is as
+  -- `outer` had it after it.
+  branch : St -> St -> ANF -> (ANF, St)
+  branch outer st b = let (b', st') = simp st b in (b', { cons := outer.cons } st')
+
   simpMaybe : St -> Maybe ANF -> (Maybe ANF, St)
   simpMaybe st Nothing = (Nothing, st)
-  simpMaybe st (Just e) = let (e', st') = simp st e in (Just e', st')
+  simpMaybe st (Just e) = let (e', st') = branch st st e in (Just e', st')
 
   simpConstAlts : St -> List AConstAlt -> (List AConstAlt, St)
   simpConstAlts st [] = ([], st)
   simpConstAlts st (MkAConstAlt c b :: rest)
-      = let (b', st1) = simp st b
+      = let (b', st1) = branch st st b
             (rest', st2) = simpConstAlts st1 rest in
             (MkAConstAlt c b' :: rest', st2)
 
-  simpAlts : St -> List AConAlt -> (List AConAlt, St)
-  simpAlts st [] = ([], st)
-  simpAlts st (MkAConAlt n ci t as b :: rest)
-      = let (b', st1) = simp st b
-            (rest', st2) = simpAlts st1 rest in
+  -- (in the branch of a constructor, the scrutinee is made by it)
+  simpAlts : St -> AVar -> List AConAlt -> (List AConAlt, St)
+  simpAlts st sc [] = ([], st)
+  simpAlts st sc (MkAConAlt n ci t as b :: rest)
+      = let inB = case sc of
+                    ALocal s => { cons $= insert s n } st
+                    ANull => st
+            (b', st1) = branch st inB b
+            (rest', st2) = simpAlts st1 sc rest in
             (MkAConAlt n ci t as b' :: rest', st2)
 
   plainCase : St -> FC -> AVar -> List AConAlt -> Maybe ANF -> (ANF, St)
   plainCase st fc sc alts def
-      = let (alts', st1) = simpAlts st alts
+      = let (alts', st1) = simpAlts st sc alts
             (def', st2) = simpMaybe st1 def in
             (AConCase fc sc alts' def', st2)
 
@@ -673,8 +790,8 @@ mutual
               Nothing => case the (Maybe AConAlt, Maybe ANF) (nothingAlt, def) of
                            -- (a `Just` takes the default)
                            (Just (MkAConAlt _ _ _ _ b), Just d) =>
-                             let (b', st1) = simp st b
-                                 (d', st2) = simp st1 d in
+                             let (b', st1) = branch st st b
+                                 (d', st2) = branch st st1 d in
                                  (AConstCase fc p [MkAConstAlt (I64 0) b'] (Just d'), st2)
                            -- (one branch for every element: the default,
                            -- or Nothing's when the case has no other one)
@@ -683,8 +800,9 @@ mutual
                                   Nothing => (ACrash fc "flat: no branch", st)
               Just (MkAConAlt _ _ _ [y] jb) =>
                 let (nb', st1) = simpMaybe st nothingB
-                    (jb', st2) = justBody st1 y mc fs jb in
-                    (AConstCase fc p [MkAConstAlt (I64 0) (fromMaybe (ACrash fc "flat: no branch") nb')] (Just jb'), st2)
+                    (jb', st2) = justBody st1 y mc fs jb
+                    st3 = { cons := st.cons } st2 in
+                    (AConstCase fc p [MkAConstAlt (I64 0) (fromMaybe (ACrash fc "flat: no branch") nb')] (Just jb'), st3)
               -- (a case on the value itself, not on its presence)
               Just _ => plainCase st fc sc alts def
 
@@ -704,9 +822,20 @@ mutual
   -- Split the value of `x` into its components.
   split : St -> FC -> Int -> ANF -> Kind -> ANF -> (ANF, St)
   split st fc x v0 kind b
-      = let -- (the projections in the value, of the array of an `IOArray`
-            -- say, are made once, before the components)
-            (projs, v) = hoist (binders v0) v0
+      = let -- (the projections in the value that cannot fail, of the
+            -- array of an `IOArray` say, are made once, before the
+            -- components)
+            (projs, v1) = hoist st.cons (binders v0) False v0
+            -- (and the `let`s that the components share, of the array of
+            -- an `IOArray` projected in the branch of a bounds test say,
+            -- are components, made once)
+            (shs, sub, stS) = foldl (\(acc, sub, s), r =>
+                                       let (c, s') = refresh s (dce (sharedComp r (unshare sub v1)))
+                                           (cv, s'') = fresh s' in
+                                           (acc :< (cv, c), insert r (ALocal cv) sub, s''))
+                                    (the (SnocList (Int, ANF)) [<], the (SortedMap Int AVar) empty, st)
+                                    (sharedLets v1 v1)
+            v = unshare sub v1
             ts = fieldTypes st kind
             -- (an element read is first taken whole, its snapshot: nothing
             -- when the array is accessed inline, else its value, read once
@@ -714,10 +843,10 @@ mutual
             -- of one write)
             (snap, st0) = the (List (Int, ANF), St) $
                             if readsSlot v
-                               then let (c, s') = refresh st (snapOf v)
+                               then let (c, s') = refresh stS (snapOf v)
                                         (sv, s'') = fresh s' in
                                         ([(sv, c)], s'')
-                               else ([], st)
+                               else ([], stS)
             sn = maybe ANull (ALocal . fst) (head' snap)
             -- (the components, with their binders made fresh)
             (cs0, st1) = foldl (\(acc, s), (k, t) =>
@@ -726,13 +855,15 @@ mutual
                                       (acc :< (cv, c), s''))
                               ([<], st0) (zip [0 .. length ts] ts)
             cvs = map (ALocal . fst) (cs0 <>> [])
-            cs = the (SnocList (Int, ANF)) ([<] <>< (snap ++ (cs0 <>> [])))
+            cs = the (SnocList (Int, ANF)) (shs <>< (snap ++ (cs0 <>> [])))
             kn = case kind of
                    KRec c => KCon c (maybe DATACON recInfo (SortedMap.lookup c st.recs)) cvs
                    KOptR c => KOpt (fromMaybe ANull (head' cvs)) (Just c) (drop 1 cvs)
                    KOptP _ => KOpt (fromMaybe ANull (head' cvs)) Nothing (drop 1 cvs)
                    _ => KCon (UN (Basic "?")) DATACON []
-            (b', st2) = simp ({ known $= insert x kn } st1) b in
+            -- (the projections taken out are made before the code after)
+            (b', st2) = simp ({ known $= insert x kn,
+                                cons $= \m => foldl (\m', (_, p) => madeBy p m') m projs } st1) b in
             (foldr (\(px, pv), acc => ALet fc px pv acc)
                    (foldr (\(cv, c), acc => ALet fc cv c acc) (ALet fc x v b') (cs <>> []))
                    projs, st2)
@@ -803,10 +934,10 @@ flatOpt recs defs = zipWith keep defs (rounds 3 defs)
                 (b1, next1) = inlineIn inl [n] 4 next0 b
                 -- (the simplification makes calls of the closures that the
                 -- function applies, which are inlined in turn)
-                (b2, st2) = simp (MkSt next1 empty empty empty recs byShape) b1
+                (b2, st2) = simp (MkSt next1 empty empty empty recs byShape empty) b1
                 (b3, next3) = inlineIn inl [n] 4 st2.next (dce b2) in
                 if not (accesses b3) then MkAFun args b3 else
-                  let (b4, _) = simp (MkSt next3 empty empty empty recs byShape) b3 in
+                  let (b4, _) = simp (MkSt next3 empty empty empty recs byShape empty) b3 in
                       MkAFun args (dce b4)
     rewriteDef _ _ _ d = d
 

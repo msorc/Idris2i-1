@@ -826,6 +826,12 @@ should target this file (`CHANGELOG_NEXT`).
   for `Nothing` and a default (`Nothing => ...; _ => ...`) takes the default
   for the elements that are there; it took Nothing's branch for every
   element.  The test `refc/flatopt003`.
+* Flat arrays: a projection of a field made in a branch, next to an element
+  read from a flat array by its fields, is made in the branch only.  It was
+  made before the branch when the `case` had a single alternative, which
+  only tells the constructor in that branch (the type of the value may
+  depend on what the branch tests): the program read the fields of another
+  constructor, and could crash.  The test `refc/flatopt004`.
 * A constant with fields stored raw (see below), whose fields are literals,
   is static data of the program, as the other constant constructors are.
 * Flat arrays, the plumbing (see `docs/source/backends/refc-flat-layout.rst`,
