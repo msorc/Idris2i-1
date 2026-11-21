@@ -39,6 +39,12 @@ out=$(topmake -o support -o src/IdrisPaths.idr idris2-exec)
 expect "RefC build of the compiler" "$(printf '%s\n' "$out" | grep -e '--build idris2.ipkg')" \
     "IDRIS2_CG=\"refc\"" "CPPFLAGS=\"-I$brew/include\"" "LDFLAGS=\"-L$brew/lib\""
 
+echo 'IDRIS2_CG = chez' > build/top/custom.mk
+out=$(topmake -o support -o src/IdrisPaths.idr idris2-exec)
+expect "IDRIS2_CG of custom.mk" "$(printf '%s\n' "$out" | grep -e '--build idris2.ipkg')" \
+    "IDRIS2_CG=\"chez\""
+rm build/top/custom.mk
+
 out=$(topmake testenv test retest test-installed)
 expect "test runner" "$(printf '%s\n' "$out" | grep -e '^-C tests testbin' | sed -n 1p)" \
     "CPPFLAGS=-I$brew/include" "LDFLAGS=-L$brew/lib"

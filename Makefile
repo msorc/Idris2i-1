@@ -125,7 +125,7 @@ ifeq ($(IDRIS2_CG), refc)
 	fi; \
 	IDRIS2_CG="${IDRIS2_CG}" ${C_FLAGS_ENV} IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:-$$DEFAULT_CFLAGS}}" ${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 else
-	${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
+	IDRIS2_CG="${IDRIS2_CG}" ${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 endif
 ifeq ($(IDRIS2_CG), refc)
 	mkdir -p ${TARGETDIR}/${NAME}_app

@@ -769,6 +769,10 @@ should target this file (`CHANGELOG_NEXT`).
   them are passed on to the compilers that compile C with RefC, which read
   them from the environment only.  Only `make test` and the first stage of
   `make bootstrap-c` did.
+* An `IDRIS2_CG` of `custom.mk` other than `refc` is passed on to the compiler
+  that builds the compiler: it built the compiler with RefC, its default code
+  generator, while the `Makefile` went on as if it were built with Chez or
+  Racket.
 
 ### Backend changes
 

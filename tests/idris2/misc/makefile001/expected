@@ -1,4 +1,5 @@
 RefC build of the compiler: ok
+IDRIS2_CG of custom.mk: ok
 test runner: ok
 test: ok
 retest: ok
