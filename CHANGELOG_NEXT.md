@@ -564,6 +564,12 @@ should target this file (`CHANGELOG_NEXT`).
   (the pass), and the compiler compiled by itself is as fast and as large as
   when it is compiled without the pass.  See `Compiler.Opts.EtaIO`; the tests
   `allbackends/ioeta001` (sharing) and `refc/ioeta001`.
+* A function in `IO` whose body is a cheap `let` before its action (`f x =
+  let y = x + 1 in do ...`) took no world before it was given the world as
+  a parameter, so an action made by `f (expensive x)` computed `expensive x`
+  once; it computed it at every run since.  Such a function is now treated
+  as the other functions given the world, whose partial applications compute
+  their arguments once (test `allbackends/ioeta002`).
 * The compiled definition of a data constructor has a table of its fields
   (`fields` of `MkCon`, `MkNmCon`, `MkLCon` and `MkACon`, a `FieldRep` each):
   `FPrim t` when the declared type of the field says that it always holds a

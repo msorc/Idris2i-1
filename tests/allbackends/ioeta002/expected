@@ -1,0 +1,4 @@
+letLam: [22, 22, 22], computed 0 times
+letLamInl: [22, 22, 22], computed 0 times
+caseLet: [22, 22, 22], computed 0 times
+list: [6, 10, 6, 10, 6, 10], computed 2 times

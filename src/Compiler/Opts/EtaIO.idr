@@ -101,10 +101,10 @@ ioetaWorld = MN "ioeta" 0
 ||| is `ioetaWorld`).  A partial application of such a function that lacks
 ||| only the world was a full application before, which computed its
 ||| arguments once: see `fixArityTm` in Compiler.Inline.  (A function whose
-||| actions are all lambdas, after lets and cases, is given a parameter of
+||| actions are all lambdas, after cases and no let, is given a parameter of
 ||| another name: it is one that the inliner gives the world to, by
-||| `caseLam` and `mergeLambdas`, when the lets are inlined, and its partial
-||| applications are as those of the functions that it gives the world to.)
+||| `caseLam` and `mergeLambdas`, and its partial applications are as those
+||| of the functions that it gives the world to.)
 export
 gotWorld : CDef -> Bool
 gotWorld (MkFun args _) = last' args == Just ioetaWorld
@@ -373,9 +373,12 @@ expand n
          let Just (MkFun args body) = compexpr gdef
               | _ => pure ()
          let fc = getFC body
-         -- (see `gotWorld`: the functions whose actions are all lambdas are
-         -- those that `mergeLambdas` would give the world to without the lets
-         -- or cases before their lambdas)
+         -- (see `gotWorld`: the functions whose actions are all lambdas, after
+         -- cases only, are those that `mergeLambdas` would give the world to
+         -- if `caseLam` had moved the lambdas out of the cases.  A let before
+         -- the lambdas is not moved, and the function took no world: an
+         -- application that lacks only the world was a full one, whose
+         -- arguments were computed once, and must still be.)
          let pn = if allLams body then MN "ext" 0 else ioetaWorld
          let body' = push (CRef fc ioetaWorld) body
          let body'' = mkLocals (mkSizeOf args) {vars = []} (Add pn ioetaWorld None)
@@ -383,11 +386,11 @@ expand n
          log "compiler.inline.ioeta" 5 $ "Giving the world to " ++ show !(toFullNames n)
          setCompiled n (MkFun (args ++ [pn]) body'')
   where
-    -- Whether the actions of the expression are all lambdas (or crashes)
+    -- Whether the actions of the expression are all lambdas (or crashes),
+    -- with no let before them
     allLams : CExp vs -> Bool
     allLams (CLam {}) = True
     allLams (CCrash {}) = True
-    allLams (CLet _ _ _ _ sc) = allLams sc
     allLams (CConCase _ _ alts def)
         = all (\(MkConAlt _ _ _ _ e) => allLams e) alts && all allLams def
     allLams (CConstCase _ _ alts def)
