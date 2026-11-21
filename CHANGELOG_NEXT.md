@@ -762,6 +762,13 @@ should target this file (`CHANGELOG_NEXT`).
   `IDRIS2_LDFLAGS`), which the RefC backend needs to compile programs; `CHEZ`
   is still set for `--cg chez`.  `buildIdris` installs the executable of RefC
   without its C sources and objects.
+* On macOS with the GMP of Homebrew and on FreeBSD, `make`, the second stage
+  of `make bootstrap-c`, the build of the test runner, `make retest` and `make
+  test-installed` find `gmp.h` and `-lgmp` again without `CPPFLAGS` and
+  `LDFLAGS` exported in the shell: the directories that `config.mk` adds to
+  them are passed on to the compilers that compile C with RefC, which read
+  them from the environment only.  Only `make test` and the first stage of
+  `make bootstrap-c` did.
 
 ### Backend changes
 

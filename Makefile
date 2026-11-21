@@ -31,6 +31,17 @@ endif
 IDRIS2_JOBS ?= $(shell n=$$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1); [ "$$n" -gt 16 ] && n=16; echo $$n)
 JOBS_ENV = IDRIS2_BUILD_JOBS=${IDRIS2_JOBS}
 
+# The C preprocessor and linker flags, with the directories of GMP that
+# config.mk adds on macOS (Homebrew) and FreeBSD, for the compilers that make
+# runs and that compile C with RefC: the boot compiler that builds the
+# compiler, and the compiler under test, which builds the test runner and the
+# programs of the tests.  RefC reads them from the environment only
+# (IDRIS2_CPPFLAGS or CPPFLAGS, IDRIS2_LDFLAGS or LDFLAGS), and they are not
+# exported: the Makefiles of support/ read config.mk again, and would add the
+# directories once more.  When they are empty, the environment is left as it
+# is.
+C_FLAGS_ENV = $(if ${CPPFLAGS},CPPFLAGS="${CPPFLAGS}") $(if ${LDFLAGS},LDFLAGS="${LDFLAGS}")
+
 MAJOR=0
 MINOR=8
 PATCH=0
@@ -112,7 +123,7 @@ ifeq ($(IDRIS2_CG), refc)
 		DEFAULT_CFLAGS=-O2; \
 		if sh bootstrap/cc-has-lto.sh "$${IDRIS2_CC:-$${CC:-cc}}"; then DEFAULT_CFLAGS="-O2 -flto=auto"; fi; \
 	fi; \
-	IDRIS2_CG="${IDRIS2_CG}" IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:-$$DEFAULT_CFLAGS}}" ${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
+	IDRIS2_CG="${IDRIS2_CG}" ${C_FLAGS_ENV} IDRIS2_CFLAGS="$${IDRIS2_CFLAGS:-$${CFLAGS:-$$DEFAULT_CFLAGS}}" ${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 else
 	${JOBS_ENV} ${IDRIS2_BOOT} --build ${IDRIS2_APP_IPKG}
 endif
@@ -272,7 +283,7 @@ test-support:
 testenv: test-support
 	mkdir -p ${TEST_PREFIX}/${NAME_VERSION}
 	@${MAKE} ${TEST_PREFIX}/${NAME_VERSION}
-	@${MAKE} -C tests testbin IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX}
+	@${MAKE} -C tests testbin IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX} ${C_FLAGS_ENV}
 
 testenv-clean:
 	$(RM) -r ${TEST_PREFIX}/${NAME_VERSION}
@@ -287,7 +298,7 @@ test: testenv
 	@echo "NOTE: \`${MAKE} test\` does not rebuild Idris or the libraries packaged with it; to do that run \`${MAKE}\`"
 	@if [ ! -x "${TARGET}" ]; then echo "ERROR: Missing IDRIS2 executable. Cannot run tests!\n"; exit 1; fi
 	@echo
-	@${MAKE} -C tests only=$(only) except=$(except) IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX} CPPFLAGS="${CPPFLAGS}" LDFLAGS="${LDFLAGS}"
+	@${MAKE} -C tests only=$(only) except=$(except) IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX} ${C_FLAGS_ENV}
 
 
 retest: testenv
@@ -295,11 +306,11 @@ retest: testenv
 	@echo "NOTE: \`${MAKE} retest\` does not rebuild Idris or the libraries packaged with it; to do that run \`${MAKE}\`"
 	@if [ ! -x "${TARGET}" ]; then echo "ERROR: Missing IDRIS2 executable. Cannot run tests!\n"; exit 1; fi
 	@echo
-	@${MAKE} -C tests retest only=$(only) IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX}
+	@${MAKE} -C tests retest only=$(only) IDRIS2=${TARGET} IDRIS2_PREFIX=${TEST_PREFIX} ${C_FLAGS_ENV}
 
 test-installed:
-	@${MAKE} -C tests testbin      IDRIS2=$(IDRIS2_PREFIX)/bin/idris2 IDRIS2_PREFIX=${IDRIS2_PREFIX}
-	@${MAKE} -C tests only=$(only) IDRIS2=$(IDRIS2_PREFIX)/bin/idris2 IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	@${MAKE} -C tests testbin      IDRIS2=$(IDRIS2_PREFIX)/bin/idris2 IDRIS2_PREFIX=${IDRIS2_PREFIX} ${C_FLAGS_ENV}
+	@${MAKE} -C tests only=$(only) IDRIS2=$(IDRIS2_PREFIX)/bin/idris2 IDRIS2_PREFIX=${IDRIS2_PREFIX} ${C_FLAGS_ENV}
 
 # Build the support libraries (in support/, where the Makefiles rebuild what
 # changed since the last time, so this does not use the file as a target).
