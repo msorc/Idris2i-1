@@ -1,0 +1,5 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+$VALGRIND ./build/exec/main
+grep -c "not a tail call" build/exec/main.c

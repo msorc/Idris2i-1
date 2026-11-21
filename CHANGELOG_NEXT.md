@@ -751,6 +751,14 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* A function that matches a borrowed constructor with fields stored raw (an
+  `Int` or a `Double`, see below) and passes one of them back to itself in
+  tail position, as `go k (MkP x rest) = go x rest`, failed to compile (an
+  `Idris2_Value *` assigned to an `int64_t` or a `double`, an error with GCC
+  14 and later) when it gives an `Int` or a `Double`, and otherwise lost the
+  tail call, so that a long loop overflowed the C stack.  The borrowing
+  takes such a field as owned (it is read into a new value), which makes
+  the parameter that it is passed to owned too.  The test `refc/borrow005`.
 * Flat arrays, the accesses (see `docs/source/backends/refc-flat-layout.rst`,
   stage C): in a program that uses flat arrays, the functions that access
   them have the small functions on their elements inlined (the

@@ -1122,6 +1122,13 @@ withSignature env n args
            Just sig => (True, zip args sig)
            Nothing => (False, map (\a => (a, False)) args)
 
+||| Must the call of `n` with `args`, in tail position, be made as a call
+||| that is not (see `tailBorrowsOK`)?
+tailCallBlocked : Env -> Name -> List AVar -> Bool
+tailCallBlocked env n args
+    = let (borrows, pairs) = withSignature env n args in
+          borrows && not (tailBorrowsOK env pairs)
+
 ||| The result of a call (not in tail position) of the function `fn` with
 ||| `nargs` arguments: through the trampoline, but for the functions that
 ||| always return a value.
@@ -1336,9 +1343,9 @@ makeTailCall : {auto a : Ref ArgCounter Nat}
             -> Core String
 makeTailCall fc n args = do
     env <- get EnvTracker
-    let (borrows, pairs) = withSignature env n args
+    let (_, pairs) = withSignature env n args
     let worker = workerOf env (cName n) (length args)
-    if borrows && not (tailBorrowsOK env pairs)
+    if tailCallBlocked env n args
        then do
          -- (the borrow analysis does not let this happen)
          emit fc "/* the call of \{cName n} below is not a tail call */"
@@ -2085,7 +2092,13 @@ mutual
            else case (tp, env.self) of
                   (InTailPosition, Just (self, params)) =>
                     if self == cn && length params == nargs
-                       then makeTailCall fc n args
+                       then if tailCallBlocked env n args
+                               then do
+                                 -- (as in `makeTailCall`, whose call would
+                                 -- give a value)
+                                 emit fc "/* the call of \{cn} below is not a tail call */"
+                                 other env cn nargs
+                               else makeTailCall fc n args
                        else other env cn nargs
                   _ => other env cn nargs
       where
@@ -4286,6 +4299,7 @@ generateCSourceFileParts defs0 outn =
                       (\f, k => do w <- SortedMap.lookup f workers
                                    if length w.params == k then Just (map isJust w.params)
                                                            else Nothing)
+                      (\n => map (\l => map (either (const False) (const True)) l.slots) (SortedMap.lookup n rawCons))
                       MaxExtractFunArgs
                       (`contains` trmcFns)
                       (map (\(cn, _, d) => (cn, d)) named)

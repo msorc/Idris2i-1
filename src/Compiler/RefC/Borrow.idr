@@ -34,8 +34,9 @@
 ||| parameters that are C integers (see Compiler.RefC.Unbox: the value is
 ||| released once it is unboxed).
 |||
-||| The variables bound by a `case` on a borrowed variable are borrowed too:
-||| the scrutinee, which the caller keeps alive during the whole call, keeps
+||| The variables bound by a `case` on a borrowed variable are borrowed too
+||| (but for the fields stored raw, which are read into new values): the
+||| scrutinee, which the caller keeps alive during the whole call, keeps
 ||| them alive.  So a function that walks a list it borrows takes no reference
 ||| at all.  When one of them is used in one of the ways above (or copied by a
 ||| `let`), the scrutinee is made owned instead, as in Lean: a reference to a
@@ -229,6 +230,9 @@ record Ctx where
   ||| this number of arguments takes as C integers (see `Worker` in
   ||| Compiler.RefC.RefC): the caller only reads its arguments there
   raw : String -> Nat -> Maybe (List Bool)
+  ||| the fields (by position) of a constructor that are stored raw (see
+  ||| `RawLayout` in Compiler.RefC.RefC)
+  rawCon : Name -> Maybe (List Bool)
 
 ||| A use of `v` that needs it owned.  When `v` is a borrowed parameter, it
 ||| must be owned.  When it is a field of a borrowed value (see `par`), that
@@ -311,12 +315,23 @@ analyse c t bor par (AConCase _ sc alts def) f
           f2 = foldl (\f', alt => analyseAlt sc alt f') f1 alts in
           maybe f2 (\d => analyse c t bor par d f2) def
   where
-    -- (the fields of a borrowed value are borrowed)
+    -- The fields of a borrowed value are borrowed, but for those stored
+    -- raw: the code generator reads them into C numbers or new values,
+    -- which the function owns (so a call in tail position that passes one
+    -- to a borrowed parameter makes the parameter owned, and the scrutinee
+    -- need not be owned for them).
+    pointerFields : Name -> List Int -> List Int
+    pointerFields n fields
+        = case c.rawCon n of
+               Just rs => map fst (filter (not . snd) (zip fields rs))
+               Nothing => fields
+
     analyseAlt : AVar -> AConAlt -> Found -> Found
-    analyseAlt (ALocal v) (MkAConAlt _ _ _ fields body) f'
+    analyseAlt (ALocal v) (MkAConAlt n _ _ fields body) f'
         = if contains v bor
-             then analyse c t (foldl (flip insert) bor fields)
-                          (foldl (\m, x => insert x v m) par fields) body f'
+             then let bfs = pointerFields n fields in
+                      analyse c t (foldl (flip insert) bor bfs)
+                              (foldl (\m, x => insert x v m) par bfs) body f'
              else analyse c t bor par body f'
     analyseAlt ANull (MkAConAlt _ _ _ _ body) f' = analyse c t bor par body f'
 analyse c t bor par (AConstCase _ _ alts def) f
@@ -333,11 +348,12 @@ record Fun where
 ||| The fixpoint of the analysis, over the functions `funs` (by C name),
 ||| starting from the signatures `sigs`.
 fixpoint : (key : Name -> String) -> (foreign : String -> Nat -> Bool) ->
-           (raw : String -> Nat -> Maybe (List Bool)) -> (maxArgs : Nat) -> (trmc : String -> Bool) ->
+           (raw : String -> Nat -> Maybe (List Bool)) ->
+           (rawCon : Name -> Maybe (List Bool)) -> (maxArgs : Nat) -> (trmc : String -> Bool) ->
            SortedMap String Fun -> (callers : SortedMap String (List String)) ->
            Signatures -> List String -> Signatures
-fixpoint key foreign raw maxArgs trmc funs callers sigs [] = sigs
-fixpoint key foreign raw maxArgs trmc funs callers sigs (g :: todo)
+fixpoint key foreign raw rawCon maxArgs trmc funs callers sigs [] = sigs
+fixpoint key foreign raw rawCon maxArgs trmc funs callers sigs (g :: todo)
     -- (every function is analysed, also those that own all their
     -- parameters: their calls in tail position may make other functions
     -- own theirs)
@@ -346,7 +362,7 @@ fixpoint key foreign raw maxArgs trmc funs callers sigs (g :: todo)
              let s = fromMaybe (map (const False) fn.params) (lookup g sigs)
                  bps = fromList (map fst (filter snd (zip fn.params s)))
                  c = MkCtx sigs key foreign maxArgs bps
-                       (if trmc g then Just (g, length fn.params) else Nothing) raw
+                       (if trmc g then Just (g, length fn.params) else Nothing) raw rawCon
                  found = analyse c True bps empty fn.body (MkFound empty [])
                  -- this function
                  s' = zipWith (\p, b => b && not (contains p found.owned)) fn.params s
@@ -365,8 +381,8 @@ fixpoint key foreign raw maxArgs trmc funs callers sigs (g :: todo)
                  -- a function whose signature changed is analysed again,
                  -- with its callers
                  again = concatMap (\h => h :: fromMaybe [] (lookup h callers)) changed in
-                 fixpoint key foreign raw maxArgs trmc funs callers sigs (again ++ todo)
-           Nothing => fixpoint key foreign raw maxArgs trmc funs callers sigs todo
+                 fixpoint key foreign raw rawCon maxArgs trmc funs callers sigs (again ++ todo)
+           Nothing => fixpoint key foreign raw rawCon maxArgs trmc funs callers sigs todo
   where
     index' : Nat -> List Bool -> Bool
     index' _ [] = False
@@ -388,16 +404,19 @@ fixpoint key foreign raw maxArgs trmc funs callers sigs (g :: todo)
 ||| code generator calls it), `foreign` tells the foreign functions (by C name
 ||| and number of arguments), `unboxed` the variables that are C integers.
 ||| `trmc` the functions with tail recursion modulo cons, whose calls to
-||| themselves made into cells are tail calls (see `trmcPlan`).
+||| themselves made into cells are tail calls (see `trmcPlan`).  `raw` gives
+||| the parameters of the workers that are C numbers, `rawCon` the fields
+||| of the constructors that are stored raw.
 export
 inferBorrowing : (key : Name -> String) ->
                  (foreign : String -> Nat -> Bool) ->
                  (unboxed : String -> SortedSet Int) ->
                  (raw : String -> Nat -> Maybe (List Bool)) ->
+                 (rawCon : Name -> Maybe (List Bool)) ->
                  (maxArgs : Nat) ->
                  (trmc : String -> Bool) ->
                  List (String, ANFDef) -> Signatures
-inferBorrowing key foreign unboxed raw maxArgs trmc defs
+inferBorrowing key foreign unboxed raw rawCon maxArgs trmc defs
     = let funs = mapMaybe (\case
                              (n, MkAFun args body) => Just (n, MkFun args body)
                              _ => Nothing) defs
@@ -416,7 +435,7 @@ inferBorrowing key foreign unboxed raw maxArgs trmc defs
                              foldl (\m', g => insert g (n :: fromMaybe [] (lookup g m')) m')
                                    m (Prelude.toList (calleesOf fn.body)))
                           empty funs in
-          fixpoint key foreign raw maxArgs trmc (fromList funs) callers start (map fst funs)
+          fixpoint key foreign raw rawCon maxArgs trmc (fromList funs) callers start (map fst funs)
   where
     calleesOf : ANF -> SortedSet String
     calleesOf body = fromList (map key (namesIn body []))
