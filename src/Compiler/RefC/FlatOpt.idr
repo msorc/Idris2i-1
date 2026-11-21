@@ -615,7 +615,7 @@ mutual
             case sc' of
               ALocal s => case SortedMap.lookup s st.known of
                 Just (KCon n _ as) => known st fc sc' n as alts def
-                Just (KOpt p mc fs) => option st fc p mc fs alts def
+                Just (KOpt p mc fs) => option st fc sc' p mc fs alts def
                 _ => plainCase st fc sc' alts def
               ANull => plainCase st fc sc' alts def
   simp st (AConstCase fc sc alts def)
@@ -660,22 +660,33 @@ mutual
                        Just d => simp st d
                        Nothing => (ACrash fc "flat: no branch", st)
 
-  -- A case on a `Maybe` of an element read: a test of its presence.
-  option : St -> FC -> AVar -> Maybe Name -> List AVar -> List AConAlt -> Maybe ANF -> (ANF, St)
-  option st fc p mc fs alts def
-      = let nothingB = case find (\(MkAConAlt _ ci _ _ _) => isNothingCon ci) alts of
+  -- A case on a `Maybe` of an element read (`sc`, of the presence `p`): a
+  -- test of its presence.
+  option : St -> FC -> AVar -> AVar -> Maybe Name -> List AVar -> List AConAlt -> Maybe ANF -> (ANF, St)
+  option st fc sc p mc fs alts def
+      = let nothingAlt = find (\(MkAConAlt _ ci _ _ _) => isNothingCon ci) alts
+            nothingB = case nothingAlt of
                          Just (MkAConAlt _ _ _ _ b) => Just b
                          Nothing => def
             justAlt = find (\(MkAConAlt _ ci _ _ _) => isJustCon ci) alts in
             case justAlt of
-              Nothing => case nothingB of
-                           Just b => simp st b -- (only Nothing is looked at; it is tested below)
-                           Nothing => (ACrash fc "flat: no branch", st)
+              Nothing => case the (Maybe AConAlt, Maybe ANF) (nothingAlt, def) of
+                           -- (a `Just` takes the default)
+                           (Just (MkAConAlt _ _ _ _ b), Just d) =>
+                             let (b', st1) = simp st b
+                                 (d', st2) = simp st1 d in
+                                 (AConstCase fc p [MkAConstAlt (I64 0) b'] (Just d'), st2)
+                           -- (one branch for every element: the default,
+                           -- or Nothing's when the case has no other one)
+                           _ => case the (Maybe ANF) nothingB of
+                                  Just b => simp st b
+                                  Nothing => (ACrash fc "flat: no branch", st)
               Just (MkAConAlt _ _ _ [y] jb) =>
                 let (nb', st1) = simpMaybe st nothingB
                     (jb', st2) = justBody st1 y mc fs jb in
                     (AConstCase fc p [MkAConstAlt (I64 0) (fromMaybe (ACrash fc "flat: no branch") nb')] (Just jb'), st2)
-              Just _ => plainCase st fc p alts def
+              -- (a case on the value itself, not on its presence)
+              Just _ => plainCase st fc sc alts def
 
   -- The branch of a `Just` of an element: the element `y` is the record
   -- made from the fields (made only if it is used as a value, see `dce`),

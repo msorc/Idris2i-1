@@ -822,6 +822,10 @@ should target this file (`CHANGELOG_NEXT`).
   4.47 G (16.09 G on the linear arrays of values), the heap of events
   11.85 G (44.47 G).  The log topic `compiler.refc.flat` shows the
   definitions changed.  The tests `refc/flatopt001` and `refc/flatopt002`.
+* Flat arrays: a `case` on an element read from a flat array with a branch
+  for `Nothing` and a default (`Nothing => ...; _ => ...`) takes the default
+  for the elements that are there; it took Nothing's branch for every
+  element.  The test `refc/flatopt003`.
 * A constant with fields stored raw (see below), whose fields are literals,
   is static data of the program, as the other constant constructors are.
 * Flat arrays, the plumbing (see `docs/source/backends/refc-flat-layout.rst`,
