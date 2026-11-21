@@ -778,6 +778,12 @@ should target this file (`CHANGELOG_NEXT`).
   there again, instead of building the support libraries in the source tree
   and installing them in `build/env`.  Its default is now the `lib` directory
   under `build/env`, where `make test` installs them.
+* The tests of the Scheme evaluator (`idris2/schemeeval`) are skipped only
+  when the compiler under test says that it does not run on Scheme ("Scheme
+  evaluator not available").  They were skipped too when the evaluator gave a
+  wrong result, which hid its faults.  A compiler that runs on Chez or Racket
+  but cannot load the support code of the evaluator now says "Scheme
+  evaluator could not be loaded" instead of "Scheme evaluator not available".
 
 ### Backend changes
 

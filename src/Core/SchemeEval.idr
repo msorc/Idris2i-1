@@ -61,13 +61,25 @@ snormaliseAll : {auto c : Ref Ctxt Defs} ->
                 Env Term vars -> Term vars -> Core (Term vars)
 snormaliseAll = snormaliseMode EvalAll
 
+-- The error when the Scheme evaluator cannot be used.  The compiler either
+-- does not run on a Scheme system that it supports (it is compiled with
+-- RefC, say), or it does but the support code of the evaluator could not be
+-- loaded, which is a fault: the test suite (tests/Main.idr) skips the tests
+-- of the evaluator in the first case only, so the messages must differ.
+schemeEvalUnavailable : Core a
+schemeEvalUnavailable
+    = throw $ InternalError $
+        if schemeEvalHost
+           then "Scheme evaluator could not be loaded"
+           else "Scheme evaluator not available"
+
 export
 snf : {auto c : Ref Ctxt Defs} ->
       {vars : _} ->
       Env Term vars -> Term vars -> Core (SNF vars)
 snf env tm
     = do True <- initialiseSchemeEval
-             | _ => throw (InternalError "Scheme evaluator not available")
+             | _ => schemeEvalUnavailable
          sval <- seval BlockExport env tm
          toSNF sval
 
@@ -77,6 +89,6 @@ snfAll : {auto c : Ref Ctxt Defs} ->
          Env Term vars -> Term vars -> Core (SNF vars)
 snfAll env tm
     = do True <- initialiseSchemeEval
-             | _ => throw (InternalError "Scheme evaluator not available")
+             | _ => schemeEvalUnavailable
          sval <- seval EvalAll env tm
          toSNF sval

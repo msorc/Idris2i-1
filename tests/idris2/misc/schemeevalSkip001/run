@@ -1,0 +1,40 @@
+. ../../../testutils.sh
+
+# The test runner skips the tests of the Scheme evaluator only when the
+# compiler under test says that it does not run on Scheme; with any other
+# answer they run, and show what is wrong.  The runner of the suite is run
+# here with fake compilers, in a tree of tests of its own: the pool of the
+# Scheme evaluator has a single test, and the other pools of the suite, which
+# the runner needs to find but --only leaves alone, an empty one.
+
+tests=$(cd ../../.. && pwd)
+runner="$tests/build/exec/runtests"
+
+mkdir -p build/tests/idris2/schemeeval/probe001 build/bin
+for d in "$tests"/*/ "$tests"/idris2/*/; do
+    d=${d%/}
+    case "$d" in
+        "$tests"/build|"$tests"/idris2|"$tests"/idris2/schemeeval) ;;
+        *) mkdir -p "build/tests${d#"$tests"}/empty001"
+           : > "build/tests${d#"$tests"}/empty001/run" ;;
+    esac
+done
+printf 'echo ran\n' > build/tests/idris2/schemeeval/probe001/run
+printf 'ran\n' > build/tests/idris2/schemeeval/probe001/expected
+
+# $1: the name of the fake compiler, $2: what its REPL says
+probe() {
+    printf '#!/bin/sh\ncat > /dev/null\nprintf "%%s\\n" "%s"\n' "$2" > "build/bin/$1"
+    chmod +x "build/bin/$1"
+    echo "$1:"
+    (cd build/tests && "$runner" "$(cd ../bin && pwd)/$1" --threads 1 --only idris2/schemeeval/) \
+      | grep -e 'Scheme evaluator' -e 'probe001' \
+      | sed -e 's| at .*/build/bin/| at |' -e 's/^ *//'
+}
+
+probe refc-hosted 'Main> [scheme] Main> Error: INTERNAL ERROR: Scheme evaluator not available'
+probe wrong-result 'Main> [scheme] Main> 41'
+probe not-loaded 'Main> [scheme] Main> Error: INTERNAL ERROR: Scheme evaluator could not be loaded'
+probe hosted 'Main> [scheme] Main> 42'
+
+rm -rf build

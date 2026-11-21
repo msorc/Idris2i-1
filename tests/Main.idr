@@ -114,12 +114,15 @@ idrisTestsTotality = testsInDir "idris2/total" "Totality checking"
 ||| system that the compiler runs on, so it only works with a compiler
 ||| compiled with Chez or Racket.  Ask the compiler under test whether it
 ||| evaluates with Scheme: a compiler compiled with another backend (RefC, the
-||| default) says that the Scheme evaluator is not available.
+||| default) says that the Scheme evaluator is not available, and the tests
+||| are skipped.  Whatever else happens (the evaluator gives a wrong result, or
+||| cannot load its support code, or the compiler fails) is a fault of the
+||| evaluator, which the tests must show: they run then.
 schemeHosted : (idris2 : String) -> Requirement
 schemeHosted idris2 = MkReq "Scheme evaluator" $ do
     (out, _) <- run $ "printf ':set eval scheme\\nthe Integer (6 * 7)\\n:q\\n' | "
                         ++ escapeArg idris2 ++ " --no-banner --no-color --console-width 0 2>&1"
-    pure $ toMaybe ("[scheme] Main> 42\n" `isInfixOf` out) idris2
+    pure $ toMaybe (not ("Scheme evaluator not available" `isInfixOf` out)) idris2
 
 idrisTestsSchemeEval : (idris2 : String) -> IO TestPool
 idrisTestsSchemeEval idris2 = testsInDir "idris2/schemeeval" "Scheme Evaluator"

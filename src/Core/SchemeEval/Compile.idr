@@ -605,6 +605,12 @@ initEvalWith "racket"
                             pure False)
 initEvalWith _ = pure False -- only works on Chez for now
 
+||| Whether the compiler runs on a Scheme system that the evaluator supports
+||| (see initEvalWith).
+export
+schemeEvalHost : Bool
+schemeEvalHost = System.Info.codegen `elem` the (List String) ["chez", "racket"]
+
 -- Initialise the internal functions we need to build/extend blocked
 -- applications
 -- These are in a support file, chez/support.ss. Returns True if loading
