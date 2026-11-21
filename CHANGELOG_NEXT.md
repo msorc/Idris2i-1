@@ -1418,6 +1418,10 @@ should target this file (`CHANGELOG_NEXT`).
   than the caller (`IDRIS2_MUSTTAIL_REG_ARGS`).  On Windows that is four
   arguments, where it was taken to be none: the generated code makes these
   jumps there too now.
+* `IDRIS2_REFC_MEMSTATS=1` (and `IDRIS2_REFC_LEAKCHECK`) stops the threads
+  that still run before it reports, as they changed the pages that it looked
+  at (it reported broken free lists, or wrong counts).  A thread that does not
+  stop within a second (in a system call, say) makes it skip the report.
 
 #### Chez Backend
 

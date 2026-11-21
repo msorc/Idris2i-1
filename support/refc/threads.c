@@ -355,6 +355,7 @@ typedef struct Sched {
   struct Sched *idle_next;
   int spinning; // looking for work in the other run queues
   int watching; // the watcher whose wait is over (see park)
+  int stopped;  // for good, see idris2_threadStopOthers (under idle_lock)
   uint32_t random;
 #endif
 } Sched;
@@ -817,6 +818,20 @@ static void init_cond(pthread_cond_t *cond) {
   pthread_condattr_destroy(&attr);
 #endif
 }
+
+// Set by idris2_threadStopOthers: the workers stop instead of running a
+// thread, or at the next safepoint of the one that they run.
+static int stopping = 0;
+
+// Stop the worker for good: the thread that it runs, if any, is never
+// resumed.
+static void stop_worker(Sched *s) {
+  pthread_mutex_lock(&idle_lock);
+  s->stopped = 1;
+  for (;;) {
+    pthread_cond_wait(&s->cond, &idle_lock);
+  }
+}
 #else
 static void wakep(void) {}
 static void timer_kick(void) {}
@@ -1102,6 +1117,11 @@ void idris2_preemptYield(void) {
   Idris2_Worker *w = idris2_worker();
   if (__atomic_load_n(&w->preempt, __ATOMIC_RELAXED)) {
     __atomic_store_n(&w->preempt, 0, __ATOMIC_RELAXED);
+#if IDRIS2_MULTICORE
+    if (__atomic_load_n(&stopping, __ATOMIC_ACQUIRE)) {
+      stop_worker(self());
+    }
+#endif
 #if IDRIS2_GREEN_THREADS
     yield_current(1);
 #endif
@@ -1356,6 +1376,11 @@ static void scheduler_loop(void) {
     s->after = AFTER_NOTHING;
     s->after_lock = NULL;
     thread = find_work(s);
+#if IDRIS2_MULTICORE
+    if (__atomic_load_n(&stopping, __ATOMIC_ACQUIRE)) {
+      stop_worker(s);
+    }
+#endif
     s->current = thread;
     __atomic_store_n(&s->current_id, thread->id, __ATOMIC_RELAXED);
     __atomic_store_n(&s->switches, s->switches + 1, __ATOMIC_RELAXED);
@@ -1674,6 +1699,46 @@ void idris2_threadSchedulerRun(Idris2_Value *(*mainAction)(void)) {
   // is done: the other threads, if any, are abandoned.
   thread_finish(&main_thread);
   idris2_reportAtExit(1, __atomic_load_n(&live_threads, __ATOMIC_RELAXED));
+}
+
+int idris2_threadStopOthers(void) {
+#if IDRIS2_MULTICORE
+  int n = idris2_workerCount();
+  if (n <= 1) {
+    return 0;
+  }
+  Sched *me = self();
+  // (seen by a parked worker when it takes idle_lock to wake up, see
+  // stop_worker)
+  __atomic_store_n(&stopping, 1, __ATOMIC_SEQ_CST);
+  for (int i = 0; i < n; i++) {
+    if (workers[i] != me) {
+      __atomic_store_n(&workers[i]->worker->preempt, 1, __ATOMIC_RELAXED);
+    }
+  }
+  __atomic_store_n(&idris2_preemptPending, 1, __ATOMIC_RELAXED);
+  // A worker may not get to a safepoint (it makes a system call, say): give
+  // up after a while.
+  int64_t give_up = idris2_monotonicNanoseconds() + 1000000000;
+  for (;;) {
+    int running = 0;
+    pthread_mutex_lock(&idle_lock);
+    for (int i = 0; i < n; i++) {
+      // A parked worker touches nothing on its way to stop_worker.
+      if (workers[i] != me && !workers[i]->stopped && !workers[i]->parked) {
+        running++;
+      }
+    }
+    pthread_mutex_unlock(&idle_lock);
+    if (running == 0 || idris2_monotonicNanoseconds() >= give_up) {
+      return running;
+    }
+    struct timespec delay = {0, 100000};
+    nanosleep(&delay, NULL);
+  }
+#else
+  return 0;
+#endif
 }
 
 int idris2_threadRunsElsewhere(int worker, int64_t thread) {

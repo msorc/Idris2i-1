@@ -1831,8 +1831,17 @@ void idris2_reportAtExit(int finished, long long threadsLeft) {
   idris2_spinLock(&releaseLock);
   exiting = 1;
   idris2_spinUnlock(&releaseLock);
-  if (finished && threadsLeft == 0)
-    collectAllRemoteFrees();
+  // The threads that still run stop too, so that the pages and the counters
+  // hold still while they are looked at.
+  int running = idris2_threadStopOthers();
+  if (running) {
+    fprintf(stderr,
+            "RefC memory statistics and leak check: skipped, %d worker%s "
+            "did not stop (in a system call, say)\n",
+            running, running == 1 ? "" : "s");
+    return;
+  }
+  collectAllRemoteFrees();
   if (memstats)
     idris2_dumpMemoryStats();
   if (leaks) {

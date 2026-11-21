@@ -94,6 +94,13 @@ void idris2_threadSleep(int64_t microseconds);
 // The index of the current worker.
 int idris2_workerIndex(void);
 
+// Stop the other workers for good, for the reports at exit (see
+// idris2_reportAtExit): each one stops at the next safepoint of the thread
+// that it runs, or before it runs one.  Returns the number of workers that
+// did not stop within a second (they make a system call, say) and may still
+// run.
+int idris2_threadStopOthers(void);
+
 // Is the thread `thread` running on the worker `worker`, another one than
 // the current one, which has nothing else to do?  (Then a lock that the
 // thread holds is worth spinning on for a while, as it runs at the same

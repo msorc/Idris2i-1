@@ -1,0 +1,11 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+# (not under Valgrind, which runs one thread at a time)
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  IDRIS2_WORKERS=8 IDRIS2_REFC_MEMSTATS=1 ./build/exec/main 2> stats || echo "exit code $?"
+  # (a page whose free list changes while the report looks at it seems
+  # broken)
+  grep -v '^ ' stats | sed 's/0x[0-9a-f]*/<page>/' | LC_ALL=C sort -u
+done | LC_ALL=C sort | uniq -c
+rm -f stats

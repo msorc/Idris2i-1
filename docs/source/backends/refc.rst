@@ -47,6 +47,11 @@ Two environment variables make a program report on its memory when it exits
   when other threads still run, or when the program exits early (with
   ``exitWith``, say).  Large values (more than 256 bytes) are only counted.
 
+The threads that still run stop before the report (at the end of an
+iteration of a loop, or when they block), so that it does not look at
+memory that changes under it.  When a thread does not stop within a second
+(it makes a system call, say), the report is skipped.
+
 When the support library and the program are both compiled with
 ``-DIDRIS2_REFC_STATS`` (``IDRIS2_CPPFLAGS=-DIDRIS2_REFC_STATS`` for the
 program), ``IDRIS2_REFC_MEMSTATS=1`` also prints counts of what the program
