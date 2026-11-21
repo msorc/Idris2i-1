@@ -1,0 +1,19 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+./build/exec/main > flat.out
+cat flat.out
+
+# The C of a function, and how often it reads an element (whole or its
+# snapshot).
+reads() {
+  awk -v f="$1" '$0 ~ "^[A-Za-z_0-9]+ \\*?" f "$" { n++ } n == 2 { print } n == 2 && /^}/ { exit }' build/exec/main.c \
+    | grep -c "idris2_slotSnap(\|idris2_slotGet("
+}
+echo "pick reads $(reads idris2_raw_Main_pick)"
+echo "two reads $(reads idris2_raw_Main_two)"
+echo "both reads $(reads idris2_raw_Main_both)"
+
+idris2 --directive refc-no-flat-arrays -o boxed Main.idr
+./build/exec/boxed | diff - flat.out && echo "same output without flat arrays"
+rm -f flat.out

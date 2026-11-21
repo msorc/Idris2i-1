@@ -832,6 +832,12 @@ should target this file (`CHANGELOG_NEXT`).
   only tells the constructor in that branch (the type of the value may
   depend on what the branch tests): the program read the fields of another
   constructor, and could crash.  The test `refc/flatopt004`.
+* Flat arrays: an element read from a shared flat array by its fields is
+  read once, as its snapshot, also where it is read in a branch of a record
+  that is split into its fields in turn (`if b then readOr a i else ...`),
+  and where the element is used as a value too (made from its fields).  Its
+  fields could be those of different writes, each one read from a snapshot
+  of its own.  The test `refc/flatopt005`.
 * A constant with fields stored raw (see below), whose fields are literals,
   is static data of the program, as the other constant constructors are.
 * Flat arrays, the plumbing (see `docs/source/backends/refc-flat-layout.rst`,

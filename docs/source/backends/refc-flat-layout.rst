@@ -729,11 +729,18 @@ Opt-in in the API, and automatic in the back end:
   branch of a bounds test) is its components, the presence and the fields,
   each a copy of the read's pure ``case`` with ``slotPresent`` or
   ``slotField`` at the leaf (the projections of the ``IOArray``, of
-  variables bound outside, are made once before them); a ``case`` on it
-  tests the presence, and its ``Just`` branch has the record made of the
-  fields, which is dropped when it is not used as a value; a record made by
-  a ``case`` whose branches all give one (an update in a branch) is its
-  fields, the same way; a write of a ``Just`` of a record known by its
+  variables bound outside, are made once: before them where they cannot
+  fail, made unconditionally or of a variable known to be made by their
+  constructor; otherwise, the array projected in the branch of the bounds
+  test, a component of its own, that the others share, NULL in the other
+  branches); a ``case`` on it tests the presence (a default is taken for
+  the constructor without a branch), and its ``Just`` branch has the record
+  made of the fields, which is dropped when it is not used as a value (the
+  element used as a value is made of its components too, when they are
+  used); a record made by a ``case`` whose branches all give one (an update
+  in a branch) is its fields, the same way (the snapshot of an element read
+  in a branch is a component that the others share; a value that reads an
+  element otherwise is not split); a write of a ``Just`` of a record known by its
   fields is ``slotStore`` of the fields, of another record ``slotStoreElem``
   of its cell (no ``Just``); the pure ``let`` s not used are dropped.  A
   function that has no access by fields in the end is kept as it was (its
