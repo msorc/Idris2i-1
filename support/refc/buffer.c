@@ -1,17 +1,26 @@
 #include "buffer.h"
 #include "memoryManagement.h"
+#include "prim.h"
 #include "refc_util.h"
+#include <inttypes.h>
+#include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
 
-void *newBuffer(int bytes) {
-  size_t size = sizeof(Buffer) + bytes * sizeof(uint8_t);
-
-  Buffer *buf = malloc(size);
+// The size of a buffer is an int (as for the length of an array, see
+// arrayLength in prim.c): a larger one, which was cut to an int, is an error,
+// and so is a negative one (Data.Buffer.newBuffer gives Nothing for that).
+void *newBuffer(int64_t bytes) {
+  if (bytes < 0 || bytes > INT_MAX) {
+    char msg[64];
+    snprintf(msg, sizeof(msg), "ERROR: Invalid buffer size: %" PRId64, bytes);
+    idris2_crashMsg(msg);
+  }
+  Buffer *buf = malloc(sizeof(Buffer) + (size_t)bytes);
   IDRIS2_REFC_VERIFY(buf, "malloc failed");
 
-  buf->size = bytes;
-  memset(buf->data, 0, bytes);
+  buf->size = (int)bytes;
+  memset(buf->data, 0, (size_t)bytes);
 
   return (void *)buf;
 }
@@ -24,7 +33,7 @@ static void assert_valid_range(Buffer *buf, int64_t offset, int64_t len) {
                      (long long)offset, (long long)len, (long long)buf->size);
 }
 
-void copyBuffer(void *from, int from_offset, int len, void *to, int to_offset) {
+void copyBuffer(void *from, int64_t from_offset, int64_t len, void *to, int64_t to_offset) {
   Buffer *bfrom = from;
   Buffer *bto = to;
 
@@ -37,7 +46,7 @@ void copyBuffer(void *from, int from_offset, int len, void *to, int to_offset) {
 
 int getBufferSize(void *buffer) { return ((Buffer *)buffer)->size; }
 
-void setBufferUIntLE(void *b, int loc, uint64_t val, size_t len) {
+void setBufferUIntLE(void *b, int64_t loc, uint64_t val, size_t len) {
   assert_valid_range((Buffer *)b, loc, len);
   while (len--) {
     ((Buffer *)b)->data[loc++] = (uint8_t)val;
@@ -45,7 +54,7 @@ void setBufferUIntLE(void *b, int loc, uint64_t val, size_t len) {
   }
 }
 
-uint64_t getBufferUIntLE(void *b, int loc, size_t len) {
+uint64_t getBufferUIntLE(void *b, int64_t loc, size_t len) {
   assert_valid_range((Buffer *)b, loc, len);
   uint64_t r = 0;
   loc += len;
@@ -56,7 +65,7 @@ uint64_t getBufferUIntLE(void *b, int loc, size_t len) {
   return r;
 }
 
-void setBufferDouble(void *buffer, int loc, double val) {
+void setBufferDouble(void *buffer, int64_t loc, double val) {
   union {
     double d;
     uint64_t i;
@@ -66,14 +75,14 @@ void setBufferDouble(void *buffer, int loc, double val) {
 }
 
 // (strings are Idris values, see buffer.h)
-void setBufferString(void *buffer, int loc, void *str) {
+void setBufferString(void *buffer, int64_t loc, void *str) {
   Buffer *b = buffer;
   Idris2_String *s = str;
   assert_valid_range(b, loc, s->len);
   memcpy((b->data) + loc, s->str, s->len);
 }
 
-double getBufferDouble(void *buffer, int loc) {
+double getBufferDouble(void *buffer, int64_t loc) {
   union {
     double d;
     uint64_t i;
@@ -82,7 +91,7 @@ double getBufferDouble(void *buffer, int loc) {
   return tmp.d;
 }
 
-void *getBufferString(void *buffer, int loc, int len) {
+void *getBufferString(void *buffer, int64_t loc, int64_t len) {
   Buffer *b = buffer;
   assert_valid_range(b, loc, len);
   return idris2_mkStringN((char const *)(b->data + loc), len);

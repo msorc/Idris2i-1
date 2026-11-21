@@ -9,11 +9,11 @@ typedef struct {
   char data[];
 } Buffer;
 
-void *newBuffer(int bytes);
+void *newBuffer(int64_t bytes);
 
 int getBufferSize(void *buffer);
 
-void setBufferUIntLE(void *buffer, int loc, uint64_t val, size_t len);
+void setBufferUIntLE(void *buffer, int64_t loc, uint64_t val, size_t len);
 #define setBufferUInt8(b, l, v)                                                \
   do {                                                                         \
     setBufferUIntLE(b, l, (uint64_t)v, 1);                                     \
@@ -48,13 +48,14 @@ void setBufferUIntLE(void *buffer, int loc, uint64_t val, size_t len);
     setBufferUIntLE(b, l, (uint64_t)v, 8);                                     \
   } while (0)
 
-void setBufferDouble(void *buffer, int loc, double val);
+void setBufferDouble(void *buffer, int64_t loc, double val);
 // The strings are Idris values (Idris2_String), which are declared later.
-void setBufferString(void *buffer, int loc, void *str);
+void setBufferString(void *buffer, int64_t loc, void *str);
 
-void copyBuffer(void *from, int start, int len, void *to, int loc);
+void copyBuffer(void *from, int64_t start, int64_t len, void *to,
+                int64_t loc);
 
-uint64_t getBufferUIntLE(void *buffer, int loc, size_t len);
+uint64_t getBufferUIntLE(void *buffer, int64_t loc, size_t len);
 #define getBufferUInt8(b, l) ((uint8_t)getBufferUIntLE(b, l, 1))
 #define getBufferUInt16LE(b, l) ((uint16_t)getBufferUIntLE(b, l, 2))
 #define getBufferUInt32LE(b, l) ((uint32_t)getBufferUIntLE(b, l, 4))
@@ -64,5 +65,5 @@ uint64_t getBufferUIntLE(void *buffer, int loc, size_t len);
 #define getBufferInt16LE(b, l) ((int64_t)getBufferUIntLE(b, l, 2))
 #define getBufferInt32LE(b, l) ((int64_t)getBufferUIntLE(b, l, 4))
 #define getBufferInt64LE(b, l) ((int64_t)getBufferUIntLE(b, l, 8))
-double getBufferDouble(void *buffer, int loc);
-void *getBufferString(void *buffer, int loc, int len);
+double getBufferDouble(void *buffer, int64_t loc);
+void *getBufferString(void *buffer, int64_t loc, int64_t len);

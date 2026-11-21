@@ -1,0 +1,14 @@
+--- new 10
+made a buffer of size 10
+--- new 4294967296
+ERROR: Invalid buffer size: 4294967296
+--- new 4294967297
+ERROR: Invalid buffer size: 4294967297
+--- new 2147483648
+ERROR: Invalid buffer size: 2147483648
+--- new -1
+no buffer of size -1
+--- set 0
+byte 0: 42
+--- set 4294967296
+assertion failed: offset (4294967296) + len (1) > buf.size (10)

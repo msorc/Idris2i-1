@@ -1443,6 +1443,11 @@ should target this file (`CHANGELOG_NEXT`).
   (`"5e-324|1"`), so that `cast (show x)` is `x` for the subnormal ones too.
   As with the Chez backend, x is rounded to that many bits, then to a
   `Double` (`"1.5|1"` is 2.0), and the casts to the integers truncate that.
+* `newBuffer` of a size of 2^31 or more stops the program with `ERROR:
+  Invalid buffer size: <n>`, like `newArray`: the size was cut to an `int`
+  (2^32 gave an empty buffer).  The offsets and lengths of the other buffer
+  functions are no longer cut either: an offset of 2^32 is outside a buffer
+  of 10 bytes instead of writing its first byte.
 
 #### Chez Backend
 

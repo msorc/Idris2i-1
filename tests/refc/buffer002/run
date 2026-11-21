@@ -1,0 +1,10 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+# (no size here allocates more than a few bytes)
+for args in "new 10" "new 4294967296" "new 4294967297" "new 2147483648" \
+            "new -1" "set 0" "set 4294967296"; do
+  echo "--- $args"
+  # (a range check names the file and line of the runtime that failed)
+  ./build/exec/main $args 2>&1 | sed 's/^assertion failed in .*: \(offset\)/assertion failed: \1/'
+done
