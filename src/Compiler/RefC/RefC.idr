@@ -280,8 +280,18 @@ constantName = \case
   where go : String -> String -> String
         go x y = "idris2_constant_\{x}_\{y}"
 
-||| The constants of a program, by value, for the definitions of the generated
-||| code to share.  The name of a constant is made of its value (see
+||| What the constants of a program are told apart by: their values, but the
+||| doubles by their C texts, as `compare` takes `-0.0` for `0.0` (and finds
+||| no NaN).
+ConstKey : Type
+ConstKey = Either String Constant
+
+constKey : Constant -> ConstKey
+constKey (Db x) = Left (cDouble x)
+constKey c = Right c
+
+||| The constants of a program, by value (see `ConstKey`), for the
+||| definitions of the generated code to share.  The name of a constant is made of its value (see
 ||| `stableName`), not of a counter, so that adding a constant does not
 ||| rename the others: that would change the text of every definition that
 ||| uses them, and with it the object files of the program that could be
@@ -289,7 +299,7 @@ constantName = \case
 record ConstTable where
   constructor MkConstTable
   ||| The constants and their definitions.
-  constByValue : SortedMap Constant ConstDef
+  constByValue : SortedMap ConstKey (Constant, ConstDef)
   ||| The names in use, to tell apart constants that have the same name.
   constNames : SortedSet String
   ||| The names of the constants that the definition being compiled uses.
@@ -333,7 +343,7 @@ bookConstant : {auto _ : Ref ConstDef ConstTable}
 bookConstant c mk stable
     = do tbl <- get ConstDef
          let cdef = fresh tbl.constNames 0
-         put ConstDef ({ constByValue $= insert c cdef
+         put ConstDef ({ constByValue $= insert (constKey c) (c, cdef)
                        , constNames $= insert (constantName cdef)
                        , constUses $= insert (constantName cdef) } tbl)
          pure cdef
@@ -1995,7 +2005,7 @@ mutual
         Str _ => do
           e <- cStatementsFromANF anf NotInTailPosition
           tbl <- get ConstDef
-          pure $ map (\cdef => MkStaticVal e [constantName cdef] 0) (lookup c tbl.constByValue)
+          pure $ map (\(_, cdef) => MkStaticVal e [constantName cdef] 0) (lookup (constKey c) tbl.constByValue)
         -- (these are made by macros, which give constant expressions)
         Ch _ => small
         B8 _ => small
@@ -2588,16 +2598,16 @@ mutual
              -- A large Integer literal is made once, the first time that it
              -- is needed, instead of being parsed every time.
              constdefs <- get ConstDef
-             cdef <- case lookup c constdefs.constByValue of
-                          Just cdef => do useConstant cdef
-                                          pure cdef
+             cdef <- case lookup (constKey c) constdefs.constByValue of
+                          Just (_, cdef) => do useConstant cdef
+                                               pure cdef
                           Nothing => bookConstant c CDBI (stableName $ show x)
              pure "idris2_integerConstant(&\{constantName cdef}, \"\{show x}\")"
     cStatementsFromANF (APrimVal fc c) _ = do
       constdefs <- get ConstDef
-      case lookup c constdefs.constByValue of
-           Just cdef => do useConstant cdef
-                           pure "((Idris2_Value*)&\{constantName cdef})" -- the constant already booked.
+      case lookup (constKey c) constdefs.constByValue of
+           Just (_, cdef) => do useConstant cdef
+                                pure "((Idris2_Value*)&\{constantName cdef})" -- the constant already booked.
            Nothing => dyngen
      where
         orStagen : (String -> ConstDef) -> (stable : String) -> Core String
@@ -3744,7 +3754,7 @@ genConstant c cdef = case c of
 constantTexts : ConstTable -> SortedMap String String
 constantTexts tbl = mergeLeft tbl.staticDefs $
                     fromList $ map (\(c, cdef) => (constantName cdef, genConstant c cdef))
-                                   (SortedMap.toList tbl.constByValue)
+                                   (values tbl.constByValue)
 
 ||| The beginning of every C file: the runtime and the headers of the foreign
 ||| functions.
