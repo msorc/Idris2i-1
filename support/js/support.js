@@ -22,6 +22,23 @@ function __prim_idris2js_array(x){
 // than 64 of them on the stack above the nearest caller that needs a value
 // (`__res`); beyond that, it returns a pending call instead, which unwinds
 // the stack up to that caller, where it is run.
+//
+// A pending call must never reach JavaScript code, which would take it for
+// the value.  So the calls are counted only where every caller up to the one
+// that runs the pending calls is Idris code: in `main` and in the functions
+// given to foreign code (`__resFn`).  Elsewhere, outside Idris code and in
+// the calls of foreign functions (see `wrapForeign` in Compiler.ES.Codegen),
+// the count is `__tcNone`, from which it never gets to 64: an Idris function
+// that JavaScript calls there (a closure that reached it in an `AnyPtr` or in
+// a record, a %nomangle function, ...) makes all its tail calls directly.
+//
+// Where the count is set, it is restored when the call returns, but not
+// when an exception goes through (nor do `__tcN` and `__res` restore it then,
+// which would cost on every call): an exception is caught by JavaScript code,
+// so in a call of a foreign function, which restores the count as it
+// returns, in the caller of a function given to foreign code, whose wrapper
+// restores it in a `finally` (`__resCall`), or outside Idris code, where the
+// `__resCall` that ran `main` or the callback restored it.
 class __TC { }
 class __TC0 extends __TC {
   constructor(f) { super(); this.f = f }
@@ -44,46 +61,74 @@ class __TCN extends __TC {
   run() { return this.f(...this.as) }
 }
 
-// The number of calls made by `__tcN` on the stack since the nearest `__res`
-let __tcDepth = 0
+// The count of the calls made by `__tcN` (a small integer, which keeps the
+// count a small integer for V8 however deep the calls go).
+const __tcNone = -1000000000
+
+// `depth` is the number of calls made by `__tcN` on the stack since the
+// nearest `__res` (or `__tcNone` and above, see above).  (A field of an
+// object costs less to read and write than a variable of the script, which
+// matters in the calls of foreign functions, which set it twice.)
+const __tc = { depth: __tcNone }
 
 function __tc0(f) {
-  if (__tcDepth >= 64) return new __TC0(f)
-  __tcDepth++; const r = f(); __tcDepth--; return r
+  if (__tc.depth >= 64) return new __TC0(f)
+  __tc.depth++; const r = f(); __tc.depth--; return r
 }
 function __tc1(f, a) {
-  if (__tcDepth >= 64) return new __TC1(f, a)
-  __tcDepth++; const r = f(a); __tcDepth--; return r
+  if (__tc.depth >= 64) return new __TC1(f, a)
+  __tc.depth++; const r = f(a); __tc.depth--; return r
 }
 function __tc2(f, a, b) {
-  if (__tcDepth >= 64) return new __TC2(f, a, b)
-  __tcDepth++; const r = f(a, b); __tcDepth--; return r
+  if (__tc.depth >= 64) return new __TC2(f, a, b)
+  __tc.depth++; const r = f(a, b); __tc.depth--; return r
 }
 function __tc3(f, a, b, c) {
-  if (__tcDepth >= 64) return new __TC3(f, a, b, c)
-  __tcDepth++; const r = f(a, b, c); __tcDepth--; return r
+  if (__tc.depth >= 64) return new __TC3(f, a, b, c)
+  __tc.depth++; const r = f(a, b, c); __tc.depth--; return r
 }
 function __tcN(f, as) {
-  if (__tcDepth >= 64) return new __TCN(f, as)
-  __tcDepth++; const r = f(...as); __tcDepth--; return r
+  if (__tc.depth >= 64) return new __TCN(f, as)
+  __tc.depth++; const r = f(...as); __tc.depth--; return r
 }
 
 // The value of `r`, once the pending calls are run.
 function __res(r) {
   if (!(r instanceof __TC)) return r
-  const depth = __tcDepth
-  __tcDepth = 0
+  const depth = __tc.depth
+  __tc.depth = 0
   do r = r.run(); while (r instanceof __TC)
-  __tcDepth = depth
+  __tc.depth = depth
   return r
 }
 
+// The value of `r` once the pending calls are run, as a caller from
+// JavaScript code (which has set the count to 0 and restores it).
+function __resRun(r) {
+  while (r instanceof __TC) r = r.run()
+  return r
+}
+
+// The value of `f.apply(self, args)` from JavaScript code, as a caller that
+// runs the pending calls.
+function __resCall(f, self, args) {
+  const depth = __tc.depth
+  __tc.depth = 0
+  try {
+    return __resRun(f.apply(self, args))
+  } finally {
+    __tc.depth = depth
+  }
+}
+
 // A function given to foreign code, whose calls run the pending calls, also
-// in the functions that it returns.
+// in the functions that it returns.  This is the function to call from
+// JavaScript to get the trampoline in an Idris function that reached it in
+// another way than as an argument of a function type of a foreign function.
 function __resFn(f) {
   if (typeof f !== 'function') return f
   return function (...args) {
-    const r = __res(f.apply(this, args))
+    const r = __resCall(f, this, args)
     return typeof r === 'function' ? __resFn(r) : r
   }
 }

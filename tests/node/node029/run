@@ -1,0 +1,11 @@
+. ../../testutils.sh
+
+# Idris functions that reach JavaScript code other than as arguments of a
+# function type, called from it: on Node, on its main thread (whose stack is
+# as small as a browser's), and with the browser back end.
+idris2 -o boundary Boundary.idr
+./build/exec/boundary
+IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/boundary
+
+idris2 --cg javascript -o boundary.js Boundary.idr
+node ./build/exec/boundary.js

@@ -1412,7 +1412,14 @@ should target this file (`CHANGELOG_NEXT`).
     faster than the 300,000 it could do on a big stack).  The cost on the
     benchmarks is from -30% (`mergeStr`) to +40% (`triples`) instructions;
     `--directive no-trampoline` turns it off.  Function arguments of foreign
-    functions are wrapped to run the pending calls of their results.
+    functions are wrapped to run the pending calls of their results.  No
+    pending call reaches JavaScript code: an Idris function that it calls
+    otherwise (a closure in an `AnyPtr` or a record, stored by JavaScript
+    and called later, from the event loop) makes its tail calls directly,
+    where it returned an object of class `__TC` after 64 nested calls; and an
+    exception thrown through such calls no longer leaves them counted (which
+    made the closures above fail after it, or the stack grow).  JavaScript
+    code can call such a function through `__resFn` to get the trampoline.
   + With Node, the main expression runs on a stack of 1GB in a worker
     thread, as with RefC, so that recursion that is not a tail call
     (`foldr`, `sort`, `traverse` on lists of 10^6 elements) works: four of

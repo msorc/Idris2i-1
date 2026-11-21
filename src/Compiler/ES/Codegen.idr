@@ -517,28 +517,34 @@ searchForeign knownBackends decls =
       backends = Left $ map fst pairs
    in maybe backends (Right. snd) $ find ((`elem` knownBackends) . fst) pairs
 
--- With the trampoline, a foreign function gets the function arguments
--- wrapped in `__resFn`, which runs the pending tail calls that they return.
--- (`f` is the foreign function and `args` the types of its arguments.)
-wrapCallbacks : {auto c : Ref ESs ESSt} -> List CFType -> Doc -> Core Doc
-wrapCallbacks args f = do
+-- With the trampoline, a foreign function is called with the count of the
+-- trampoline at `__tcNone`, so that an Idris function that the foreign code
+-- calls, however it got there, makes its tail calls directly rather than
+-- return a pending call to JavaScript code, which would take it for the
+-- value; and its arguments of a function type are wrapped in `__resFn`,
+-- whose calls run the pending calls (see `js/support.js`).  The count is
+-- restored when the call returns (when it throws, by the caller that catches
+-- the exception).  (`f` is the foreign function and `args` the types of its
+-- arguments.)
+wrapForeign : {auto c : Ref ESs ESSt} -> List CFType -> Doc -> Core Doc
+wrapForeign args f = do
   Just _ <- bouncing <$> get ESs
     | Nothing => pure f
-  let as = zipWith wrap [1 .. length args] args
-  if all (isNothing . snd) as
-     then pure f
-     else let ns = map fst as
-           in pure $ app (paren ("$f" <+> lambdaArrow <+> applyList "(" ")" softComma ns
-                                  <+> lambdaArrow <+> app "$f" (map arg as)))
-                         [f]
+  let ps = zipWith (\i, _ => Text ("$" ++ show i)) [1 .. length args] args
+  pure $ app (paren ("$f" <+> lambdaArrow <+> applyList "(" ")" softComma ps
+                     <+> lambdaArrow <+> block (body ps)))
+             [f]
   where
-    wrap : Nat -> CFType -> (Doc, Maybe ())
-    wrap i (CFFun _ _) = (Text ("$" ++ show i), Just ())
-    wrap i _           = (Text ("$" ++ show i), Nothing)
+    arg : CFType -> Doc -> Doc
+    arg (CFFun _ _) d = callFun1 "__resFn" d
+    arg _           d = d
 
-    arg : (Doc, Maybe ()) -> Doc
-    arg (d, Just ()) = callFun1 "__resFn" d
-    arg (d, Nothing) = d
+    body : List Doc -> Doc
+    body ps = vcat [ constant "$d" "__tc.depth"
+                   , "__tc.depth" <+> softEq <+> "__tcNone;"
+                   , constant "$r" (app "$f" (zipWith arg args ps))
+                   , "__tc.depth" <+> softEq <+> "$d;"
+                   , "return $r;" ]
 
 -- given a function name and FFI implementation string,
 -- generate a toplevel function definition.
@@ -553,17 +559,17 @@ makeForeign n args x = do
   nd <- var !(get NoMangleMap) <$> getOrRegisterRef n
   let (ty, def) = readCCPart x
   case ty of
-    "lambda" => constant nd <$> wrapCallbacks args (paren $ Text def)
+    "lambda" => constant nd <$> wrapForeign args (paren $ Text def)
     "support" => do
       let (name, lib) = breakDrop1 ',' def
       lib_code <- readDataFile ("js/" ++ lib ++ ".js")
       addToPreamble lib lib_code
-      constant nd <$> wrapCallbacks args (Text $ lib ++ "_" ++ name)
+      constant nd <$> wrapForeign args (Text $ lib ++ "_" ++ name)
     "stringIterator" =>
       case def of
         "new"      => pure $ constant nd "__prim_stringIteratorNew"
         "next"     => pure $ constant nd "__prim_stringIteratorNext"
-        "toString" => constant nd <$> wrapCallbacks args "__prim_stringIteratorToString"
+        "toString" => constant nd <$> wrapForeign args "__prim_stringIteratorToString"
         _ => errorConcat
                [ "Invalid string iterator function: ", def, ". "
                , "Supported functions are: "
@@ -964,9 +970,11 @@ compileToES c s cg tm ccTypes = do
   mainName <- compact . var !(get NoMangleMap) <$> getOrRegisterRef mainExpr
 
   -- main function and list of all declarations
-  let runMain =  "try{__res("
+  -- (`main` runs as a caller that runs pending calls of the trampoline,
+  -- which restores their count when an exception leaves it)
+  let runMain =  "try{__resCall("
               ++ mainName
-              ++ "())}catch(e){if(e instanceof IdrisError){console.log('ERROR: ' + e.message)}else{throw e} }"
+              ++ ",undefined,[])}catch(e){if(e instanceof IdrisError){console.log('ERROR: ' + e.message)}else{throw e} }"
 
       -- Node runs the main function on a large stack of its own
       -- (see `js/node_main.js`)

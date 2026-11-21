@@ -1,0 +1,51 @@
+in an AnyPtr, 3: value 42
+in an AnyPtr, 60: value 42
+in an AnyPtr, 100: value 42
+in an AnyPtr, 1000: value 42
+in an AnyPtr, with __resFn, 1000000: value 42
+stored, 100: value 42
+stored, 1000: value 42
+exception after 62: caught boom, count restored: True
+in an AnyPtr, 3: value 42
+exception after 200: caught boom, count restored: True
+in an AnyPtr, 3: value 42
+stored, 3: value 42
+from the event loop, 100: value 42
+in an AnyPtr, 3: value 42
+in an AnyPtr, 60: value 42
+in an AnyPtr, 100: value 42
+in an AnyPtr, 1000: value 42
+in an AnyPtr, with __resFn, 1000000: value 42
+stored, 100: value 42
+stored, 1000: value 42
+exception after 62: caught boom, count restored: True
+in an AnyPtr, 3: value 42
+exception after 200: caught boom, count restored: True
+in an AnyPtr, 3: value 42
+stored, 3: value 42
+from the event loop, 100: value 42
+in an AnyPtr, 3: value 42
+
+in an AnyPtr, 60: value 42
+
+in an AnyPtr, 100: value 42
+
+in an AnyPtr, 1000: value 42
+
+in an AnyPtr, with __resFn, 1000000: value 42
+
+stored, 100: value 42
+
+stored, 1000: value 42
+
+exception after 62: caught boom, count restored: True
+
+in an AnyPtr, 3: value 42
+
+exception after 200: caught boom, count restored: True
+
+in an AnyPtr, 3: value 42
+
+stored, 3: value 42
+
+from the event loop, 100: value 42
