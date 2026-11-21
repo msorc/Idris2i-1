@@ -80,7 +80,8 @@ IDRIS2_SUPPORT_DIR ?= ${IDRIS2_CURDIR}/support/c
 
 TEST_PREFIX ?= ${IDRIS2_CURDIR}/build/env
 
-TEST_IDRIS2_SUPPORT_DIR ?= ${TEST_PREFIX}/${NAME_VERSION}
+# The directory of the support library that the tests use (see test-support).
+TEST_IDRIS2_SUPPORT_DIR ?= ${TEST_PREFIX}/${NAME_VERSION}/lib
 
 # Library and data paths for bootstrap-test
 IDRIS2_BOOT_PREFIX := ${IDRIS2_CURDIR}/bootstrap-build
@@ -276,9 +277,21 @@ ${TEST_PREFIX}/${NAME_VERSION} :
 # check on the installed files would not see a change of the sources.  The
 # files are installed with their modification times (install -p), so that
 # reinstalling the same files does not make the executables that were built
-# with them, like the test runner, look out of date.
+# with them, like the test runner, look out of date.  When
+# TEST_IDRIS2_SUPPORT_DIR points elsewhere, to support libraries that were
+# built beforehand (as the check of nix/package.nix does), they are only
+# checked for, as with IDRIS2_SUPPORT_DIR (the tests find them through
+# TEST_IDRIS2_LIBS and TEST_IDRIS2_DATA, see tests/testutils.sh).
+ifeq (${TEST_IDRIS2_SUPPORT_DIR},${TEST_PREFIX}/${NAME_VERSION}/lib)
 test-support:
 	${MAKE} install-support PREFIX=${TEST_PREFIX}
+else
+test-support:
+	@if [ ! -f "${TEST_IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT}" ]; then \
+		echo "ERROR: TEST_IDRIS2_SUPPORT_DIR is set but ${TEST_IDRIS2_SUPPORT_DIR}/${IDRIS2_SUPPORT} is missing"; \
+		exit 1; \
+	fi
+endif
 
 testenv: test-support
 	mkdir -p ${TEST_PREFIX}/${NAME_VERSION}

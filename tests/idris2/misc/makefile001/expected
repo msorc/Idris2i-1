@@ -5,3 +5,6 @@ test: ok
 retest: ok
 test-installed runner: ok
 test-installed: ok
+support of the tests: ok
+prebuilt support of the tests: ok
+ERROR: TEST_IDRIS2_SUPPORT_DIR is set but .../missing/libidris2_support is missing

@@ -773,6 +773,11 @@ should target this file (`CHANGELOG_NEXT`).
   that builds the compiler: it built the compiler with RefC, its default code
   generator, while the `Makefile` went on as if it were built with Chez or
   Racket.
+* `make test` with `TEST_IDRIS2_SUPPORT_DIR` naming prebuilt support
+  libraries (as the check of the nix package does) only checks that they are
+  there again, instead of building the support libraries in the source tree
+  and installing them in `build/env`.  Its default is now the `lib` directory
+  under `build/env`, where `make test` installs them.
 
 ### Backend changes
 
