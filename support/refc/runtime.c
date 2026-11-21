@@ -222,22 +222,60 @@ Idris2_Value *idris2_run_primio(Idris2_Closure *action) {
 // position, when calls in tail position can be jumps (IDRIS2_MUSTTAIL, see
 // runtime.h): the function is called directly, its frame replacing this one,
 // rather than through the trampoline of the caller.  Only for functions that
-// take their arguments in registers (6 on x86-64, 8 on AArch64): a jump to a
-// function that takes more arguments than its caller is not possible.  The
-// generated code calls idris2_tailcall_apply_closure in tail position with a
-// jump too, so a loop through closures runs in constant stack.
+// take their arguments in registers (IDRIS2_MUSTTAIL_REG_ARGS: 6 on x86-64,
+// 4 on Windows, 8 on AArch64; up to 6 here), or that take no more arguments
+// than idris2_tailcall_apply_closure (2): a jump to a function that takes
+// more arguments than its caller on the stack is not possible, and GCC
+// refuses to compile one.  The generated code calls
+// idris2_tailcall_apply_closure in tail position with a jump too, so a loop
+// through closures runs in constant stack.
 //
 // The arguments are read and the reference to the closure dropped first:
 // the closure is gone once the call starts.
 #if defined(IDRIS2_MUSTTAIL)
+#if IDRIS2_MUSTTAIL_REG_ARGS >= 6
 #define IDRIS2_JUMP_MAX_ARGS 6
+#elif IDRIS2_MUSTTAIL_REG_ARGS > 2
+#define IDRIS2_JUMP_MAX_ARGS IDRIS2_MUSTTAIL_REG_ARGS
+#else
+#define IDRIS2_JUMP_MAX_ARGS 2
+#endif
+// The jumps to the functions with 3 to 6 arguments, where they are possible.
+#if IDRIS2_JUMP_MAX_ARGS >= 3
+#define IDRIS2_JUMP_3                                                          \
+  case 3:                                                                      \
+    IDRIS2_MUSTTAIL return (*(FUN3)f_)(x0_, x1_, x2_);
+#else
+#define IDRIS2_JUMP_3
+#endif
+#if IDRIS2_JUMP_MAX_ARGS >= 4
+#define IDRIS2_JUMP_4                                                          \
+  case 4:                                                                      \
+    IDRIS2_MUSTTAIL return (*(FUN4)f_)(x0_, x1_, x2_, x3_);
+#else
+#define IDRIS2_JUMP_4
+#endif
+#if IDRIS2_JUMP_MAX_ARGS >= 5
+#define IDRIS2_JUMP_5                                                          \
+  case 5:                                                                      \
+    IDRIS2_MUSTTAIL return (*(FUN5)f_)(x0_, x1_, x2_, x3_, x4_);
+#else
+#define IDRIS2_JUMP_5
+#endif
+#if IDRIS2_JUMP_MAX_ARGS >= 6
+#define IDRIS2_JUMP_6                                                          \
+  case 6:                                                                      \
+    IDRIS2_MUSTTAIL return (*(FUN6)f_)(x0_, x1_, x2_, x3_, x4_, x5_);
+#else
+#define IDRIS2_JUMP_6
+#endif
 #define IDRIS2_JUMP_TO_CLOSURE(clos, n, arg1, arg2)                           \
   do {                                                                         \
     int arity_ = (clos)->arity;                                                \
     if (arity_ <= IDRIS2_JUMP_MAX_ARGS && !idris2_isShared(clos)) {            \
       IDRIS2_SAFEPOINT();                                                      \
       int filled_ = (clos)->filled;                                            \
-      Idris2_Value *a_[IDRIS2_JUMP_MAX_ARGS + 2];                              \
+      Idris2_Value *a_[6 + 2];                                                 \
       int unique_ = (clos)->header.refCounter == 1;                            \
       IDRIS2_STAT_UNIQUE(clos, unique_);                                       \
       for (int i_ = 0; i_ < filled_; ++i_)                                     \
@@ -255,19 +293,18 @@ Idris2_Value *idris2_run_primio(Idris2_Closure *action) {
       }                                                                        \
       Idris2_Value *x0_ = a_[0], *x1_ = a_[1], *x2_ = a_[2], *x3_ = a_[3],     \
                    *x4_ = a_[4], *x5_ = a_[5];                                 \
+      (void)x2_, (void)x3_, (void)x4_, (void)x5_;                              \
       switch (arity_) {                                                        \
       case 1:                                                                  \
         IDRIS2_MUSTTAIL return (*(FUN1)f_)(x0_);                               \
       case 2:                                                                  \
         IDRIS2_MUSTTAIL return (*(FUN2)f_)(x0_, x1_);                          \
-      case 3:                                                                  \
-        IDRIS2_MUSTTAIL return (*(FUN3)f_)(x0_, x1_, x2_);                     \
-      case 4:                                                                  \
-        IDRIS2_MUSTTAIL return (*(FUN4)f_)(x0_, x1_, x2_, x3_);                \
-      case 5:                                                                  \
-        IDRIS2_MUSTTAIL return (*(FUN5)f_)(x0_, x1_, x2_, x3_, x4_);           \
-      default:                                                                 \
-        IDRIS2_MUSTTAIL return (*(FUN6)f_)(x0_, x1_, x2_, x3_, x4_, x5_);      \
+        IDRIS2_JUMP_3                                                          \
+        IDRIS2_JUMP_4                                                          \
+        IDRIS2_JUMP_5                                                          \
+        IDRIS2_JUMP_6                                                          \
+      default: /* (a closure takes at least one argument) */                   \
+        __builtin_unreachable();                                               \
       }                                                                        \
     }                                                                          \
   } while (0)

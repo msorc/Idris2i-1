@@ -1409,6 +1409,15 @@ should target this file (`CHANGELOG_NEXT`).
   (`IDRIS2_WORKERS=1`), threads are now preempted for that too, but still not
   to let the other runnable threads run.  `IDRIS2_PREEMPT=0` turns this off,
   with the rest of the preemption.
+* The support library compiles for 64 bit Windows with GCC 15 or later again
+  (MSYS2 MINGW64): the runtime jumped (`musttail`) from a function of two or
+  three arguments to the function of a closure with five or six, which the
+  Windows ABI (four arguments in registers) cannot do, and GCC refused to
+  compile it.  Like the generated code, the runtime now only jumps to a
+  function that takes all its arguments in registers, or no more arguments
+  than the caller (`IDRIS2_MUSTTAIL_REG_ARGS`).  On Windows that is four
+  arguments, where it was taken to be none: the generated code makes these
+  jumps there too now.
 
 #### Chez Backend
 

@@ -352,7 +352,7 @@ faster, and runs a few percent slower.
 A call in tail position is a jump when the C compiler can make one: with GCC
 15 or later (``__attribute__((musttail))``; not with Clang), when the callee
 takes no more arguments than the caller, or no more than are passed in
-registers (6 on x86-64, 8 on AArch64 and RISC-V 64).  Otherwise the call is left to the
+registers (6 on x86-64, 4 on x86-64 Windows, 8 on AArch64 and RISC-V 64).  Otherwise the call is left to the
 trampoline of the caller, which costs more but needs no support from the C
 compiler.  It is always the trampoline on 32 bit x86 and ARM, which pass
 arguments on the stack, where GCC cannot make every such call a jump.  Two macros, given in ``IDRIS2_CPPFLAGS`` or ``IDRIS2_CFLAGS``,

@@ -1,0 +1,36 @@
+. ../../testutils.sh
+
+# The 64 bit Windows ABI passes four arguments in registers, the x86-64 one
+# of the other systems six: a jump (musttail) to a function with five or six
+# arguments from one with fewer is possible on the other systems only, and
+# GCC refuses to compile one for Windows.  GCC for x86-64 compiles for the
+# Windows ABI with -mabi=ms: the runtime and the C code of a program are
+# compiled so, as for Windows (_WIN32, with stubs of the Windows headers
+# that the support headers include), but not linked.  Without a GCC 15 or
+# later for x86-64, the test only runs the program.
+
+idris2 -o main Main.idr
+./build/exec/main
+
+support=../../../support
+cc=${IDRIS2_CC:-${CC:-cc}}
+
+mkdir -p build/winstub
+cat > build/winstub/probe.c <<EOC
+typedef int (*F)(int);
+int f(F g, int x) { __attribute__((musttail)) return g(x); }
+EOC
+if "$cc" -mabi=ms -O1 -c build/winstub/probe.c -o build/winstub/probe.o 2>/dev/null; then
+    for h in io.h processthreadsapi.h Ws2tcpip.h; do
+        echo > build/winstub/$h
+    done
+    printf '#include <sys/socket.h>\ntypedef unsigned short u_short;\n' > build/winstub/winsock2.h
+    for f in "$support/refc/runtime.c" build/exec/main.c; do
+        for o in -O0 -O2; do
+            "$cc" -mabi=ms -D_WIN32 $o -Werror -Ibuild/winstub -I"$support/refc" -I"$support/c" \
+                -c "$f" -o build/winstub/out.o \
+                || echo "$(basename "$f") does not compile for Windows with $o"
+        done
+    done
+fi
+echo "compiled for Windows"

@@ -85,9 +85,13 @@ extern Idris2_Value const idris2_tailCallMarker;
 // How many arguments a function takes in registers: a call in tail position
 // of a function with no more arguments than that can be a jump whatever the
 // arguments of its caller are, as nothing is passed on the stack.
-// (-DIDRIS2_MUSTTAIL_REG_ARGS=0 turns these jumps off.)
+// (-DIDRIS2_MUSTTAIL_REG_ARGS=0 turns these jumps off.)  The x86-64 ABI of
+// Windows (also used by Cygwin) passes four arguments in registers, and the
+// caller always reserves room for them on the stack.
 #if defined(IDRIS2_MUSTTAIL) && !defined(IDRIS2_MUSTTAIL_REG_ARGS)
-#if defined(__x86_64__) && !defined(_WIN32)
+#if defined(__x86_64__) && (defined(_WIN32) || defined(__CYGWIN__))
+#define IDRIS2_MUSTTAIL_REG_ARGS 4
+#elif defined(__x86_64__)
 #define IDRIS2_MUSTTAIL_REG_ARGS 6
 #elif defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
 #define IDRIS2_MUSTTAIL_REG_ARGS 8
