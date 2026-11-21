@@ -1,5 +1,7 @@
 #include "casts.h"
 
+#include "refc_util.h"
+
 #include <inttypes.h>
 
 Idris2_Value *idris2_mkValidChar(int64_t c) {
@@ -331,7 +333,166 @@ static int idris2_numberSyntax(char const *s) {
       return IDRIS2_NOT_A_NUMBER;
     p += e;
   }
+  // (a mantissa width, `|<bits>`, as `show` writes after a subnormal Double)
+  if (*p == '|') {
+    size_t width = idris2_digits(p + 1);
+    return width > 0 && p[1 + width] == '\0' ? IDRIS2_DECIMAL_SYNTAX
+                                              : IDRIS2_NOT_A_NUMBER;
+  }
   return *p == '\0' ? IDRIS2_DECIMAL_SYNTAX : IDRIS2_NOT_A_NUMBER;
+}
+
+// The Double nearest to num/den (den > 0), the even one of two at the same
+// distance, as `exact->inexact` of Chez (mpq_get_d truncates instead).  The
+// quotient is taken with at least 55 bits, the lowest of which is set when
+// the division is not exact: then the bits below the 53 of the result (or
+// below 2^-1074, for a subnormal result) tell which way to round, and a
+// remainder is never taken for a tie.
+static double idris2_fractionToDouble(mpz_srcptr num, mpz_srcptr den) {
+  int sign = mpz_sgn(num);
+  if (sign == 0)
+    return 0.0;
+  // num/den is in [2^(n-m-1), 2^(n-m+1)): num/den * 2^e in [2^54, 2^56), but
+  // with no bit below 2^-1076.
+  long n = (long)mpz_sizeinbase(num, 2), m = (long)mpz_sizeinbase(den, 2);
+  long e = 55 - (n - m);
+  if (e > 1076)
+    e = 1076;
+  mpz_t a, b, r;
+  mpz_inits(a, b, r, NULL);
+  mpz_abs(a, num);
+  mpz_set(b, den);
+  if (e >= 0)
+    mpz_mul_2exp(a, a, (mp_bitcnt_t)e);
+  else
+    mpz_mul_2exp(b, b, (mp_bitcnt_t)-e);
+  mpz_tdiv_qr(a, r, a, b);
+  // (the quotient has at most 56 bits)
+  uint64_t quot = idris2_mpzLow64(a) | (mpz_sgn(r) != 0);
+  mpz_clears(a, b, r, NULL);
+
+  int bits = 64 - __builtin_clzll(quot);
+  long drop = bits - 53 > e - 1074 ? bits - 53 : e - 1074;
+  uint64_t mant = quot >> drop;
+  uint64_t rest = quot & (((uint64_t)1 << drop) - 1);
+  uint64_t half = (uint64_t)1 << (drop - 1);
+  if (rest > half || (rest == half && (mant & 1)))
+    ++mant;
+  double d = ldexp((double)mant, (int)(drop - e));
+  return sign < 0 ? -d : d;
+}
+
+// A decimal number (see idris2_numberSyntax) as a Double.  Without a mantissa
+// width, that is what strtod reads.  With one, `x|p`, the exact value of x is
+// rounded to p bits first (to the nearest, ties to even), then to a Double, as
+// Chez does (so that a subnormal one reads back as `show` writes it).
+static double idris2_decimalToDouble(char const *s) {
+  char const *bar = strchr(s, '|');
+  if (bar == NULL)
+    return strtod(s, NULL);
+
+  char const *p = s;
+  int negative = *p == '-';
+  if (*p == '+' || *p == '-')
+    ++p;
+  // the digits of x without the point and its leading zeros, and the exponent
+  // of their last one
+  size_t len = (size_t)(bar - p);
+  char *digits = malloc(len + 1);
+  IDRIS2_REFC_VERIFY(digits, "malloc failed");
+  size_t nd = 0;
+  long long exp10 = 0;
+  int point = 0;
+  for (; *p != '|' && *p != 'e' && *p != 'E'; ++p) {
+    if (*p == '.') {
+      point = 1;
+    } else {
+      if (nd > 0 || *p != '0')
+        digits[nd++] = *p;
+      if (point)
+        --exp10;
+    }
+  }
+  digits[nd] = '\0';
+  if (*p == 'e' || *p == 'E') {
+    // (saturated: beyond the bounds below, only the sign of the exponent
+    // matters)
+    ++p;
+    int eneg = *p == '-';
+    if (*p == '+' || *p == '-')
+      ++p;
+    long long e = 0;
+    for (; *p != '|'; ++p)
+      if (e < 1000000000)
+        e = 10 * e + (*p - '0');
+    exp10 += eneg ? -e : e;
+  }
+  unsigned long width = 0;
+  for (++p; *p != '\0'; ++p)
+    if (width < 1000000000)
+      width = 10 * width + (unsigned long)(*p - '0');
+
+  double d;
+  if (nd == 0 || width == 0) {
+    d = 0.0;
+  } else if ((long long)nd + exp10 > 310) {
+    // x >= 10^310 (rounding to p bits keeps it above the largest Double)
+    d = INFINITY;
+  } else if ((long long)nd + exp10 < -330) {
+    // x < 10^-330 (and below half the smallest subnormal after rounding)
+    d = 0.0;
+  } else {
+    mpz_t num, den, a, b, r;
+    mpz_inits(num, den, a, b, r, NULL);
+    mpz_set_str(num, digits, 10);
+    mpz_set_ui(den, 1);
+    if (exp10 >= 0) {
+      mpz_ui_pow_ui(a, 10, (unsigned long)exp10);
+      mpz_mul(num, num, a);
+    } else {
+      mpz_ui_pow_ui(den, 10, (unsigned long)-exp10);
+    }
+    long n = (long)mpz_sizeinbase(num, 2), m = (long)mpz_sizeinbase(den, 2);
+    // A width of at least the bits of num and den, and 55 more, leaves the
+    // Double that x rounds to as it is (Chez caps the width there).
+    if (width < (unsigned long)(n + m + 55)) {
+      // x in [2^k, 2^(k+1)), then q = x * 2^(p - 1 - k) rounded, of p bits
+      long k = n - m;
+      if (k >= 0) {
+        mpz_mul_2exp(a, den, (mp_bitcnt_t)k);
+        if (mpz_cmp(num, a) < 0)
+          --k;
+      } else {
+        mpz_mul_2exp(a, num, (mp_bitcnt_t)-k);
+        if (mpz_cmp(a, den) < 0)
+          --k;
+      }
+      long sh = (long)width - 1 - k;
+      mpz_set(a, num);
+      mpz_set(b, den);
+      if (sh >= 0)
+        mpz_mul_2exp(a, a, (mp_bitcnt_t)sh);
+      else
+        mpz_mul_2exp(b, b, (mp_bitcnt_t)-sh);
+      mpz_tdiv_qr(a, r, a, b);
+      mpz_mul_2exp(r, r, 1);
+      int c = mpz_cmp(r, b);
+      if (c > 0 || (c == 0 && mpz_odd_p(a)))
+        mpz_add_ui(a, a, 1);
+      // x is now a * 2^-sh
+      mpz_set_ui(den, 1);
+      if (sh >= 0) {
+        mpz_set(num, a);
+        mpz_mul_2exp(den, den, (mp_bitcnt_t)sh);
+      } else {
+        mpz_mul_2exp(num, a, (mp_bitcnt_t)-sh);
+      }
+    }
+    d = idris2_fractionToDouble(num, den);
+    mpz_clears(num, den, a, b, r, NULL);
+  }
+  free(digits);
+  return negative ? -d : d;
 }
 
 // The digits of an integer or of a fraction, for GMP (which does not take a
@@ -350,7 +511,7 @@ static void idris2_parseInteger(Idris2_String *str, mpz_t out) {
     mpz_set_str(out, idris2_gmpDigits(s), 10);
     break;
   case IDRIS2_DECIMAL_SYNTAX: {
-    double d = strtod(s, NULL);
+    double d = idris2_decimalToDouble(s);
     if (isfinite(d))
       mpz_set_d(out, trunc(d));
     else
@@ -401,46 +562,6 @@ static int idris2_isWord(char const *s, char const *word) {
   return *s == '\0';
 }
 
-// The Double nearest to num/den (den > 0), the even one of two at the same
-// distance, as `exact->inexact` of Chez (mpq_get_d truncates instead).  The
-// quotient is taken with at least 55 bits, the lowest of which is set when
-// the division is not exact: then the bits below the 53 of the result (or
-// below 2^-1074, for a subnormal result) tell which way to round, and a
-// remainder is never taken for a tie.
-static double idris2_fractionToDouble(mpz_srcptr num, mpz_srcptr den) {
-  int sign = mpz_sgn(num);
-  if (sign == 0)
-    return 0.0;
-  // num/den is in [2^(n-m-1), 2^(n-m+1)): num/den * 2^e in [2^54, 2^56), but
-  // with no bit below 2^-1076.
-  long n = (long)mpz_sizeinbase(num, 2), m = (long)mpz_sizeinbase(den, 2);
-  long e = 55 - (n - m);
-  if (e > 1076)
-    e = 1076;
-  mpz_t a, b, r;
-  mpz_inits(a, b, r, NULL);
-  mpz_abs(a, num);
-  mpz_set(b, den);
-  if (e >= 0)
-    mpz_mul_2exp(a, a, (mp_bitcnt_t)e);
-  else
-    mpz_mul_2exp(b, b, (mp_bitcnt_t)-e);
-  mpz_tdiv_qr(a, r, a, b);
-  // (the quotient has at most 56 bits)
-  uint64_t quot = idris2_mpzLow64(a) | (mpz_sgn(r) != 0);
-  mpz_clears(a, b, r, NULL);
-
-  int bits = 64 - __builtin_clzll(quot);
-  long drop = bits - 53 > e - 1074 ? bits - 53 : e - 1074;
-  uint64_t mant = quot >> drop;
-  uint64_t rest = quot & (((uint64_t)1 << drop) - 1);
-  uint64_t half = (uint64_t)1 << (drop - 1);
-  if (rest > half || (rest == half && (mant & 1)))
-    ++mant;
-  double d = ldexp((double)mant, (int)(drop - e));
-  return sign < 0 ? -d : d;
-}
-
 Idris2_Value *idris2_cast_string_to_Double(Idris2_Value *input) {
   char const *s = ((Idris2_String *)input)->str;
   int wellFormed = strlen(s) == ((Idris2_String *)input)->len;
@@ -455,8 +576,9 @@ Idris2_Value *idris2_cast_string_to_Double(Idris2_Value *input) {
   }
   switch (wellFormed ? idris2_numberSyntax(s) : IDRIS2_NOT_A_NUMBER) {
   case IDRIS2_INTEGER_SYNTAX:
-  case IDRIS2_DECIMAL_SYNTAX:
     return idris2_mkDouble(strtod(s, NULL));
+  case IDRIS2_DECIMAL_SYNTAX:
+    return idris2_mkDouble(idris2_decimalToDouble(s));
   case IDRIS2_FRACTION_SYNTAX: {
     mpq_t q;
     mpq_init(q);

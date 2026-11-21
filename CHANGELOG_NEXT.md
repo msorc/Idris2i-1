@@ -1438,6 +1438,11 @@ should target this file (`CHANGELOG_NEXT`).
   that still run before it reports, as they changed the pages that it looked
   at (it reported broken free lists, or wrong counts).  A thread that does not
   stop within a second (in a system call, say) makes it skip the report.
+* Casting a `String` to a `Double` reads a mantissa width after a decimal
+  number, `x|<bits>`, as `show` writes it after a subnormal `Double`
+  (`"5e-324|1"`), so that `cast (show x)` is `x` for the subnormal ones too.
+  As with the Chez backend, x is rounded to that many bits, then to a
+  `Double` (`"1.5|1"` is 2.0), and the casts to the integers truncate that.
 
 #### Chez Backend
 
