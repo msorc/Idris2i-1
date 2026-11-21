@@ -1317,6 +1317,10 @@ should target this file (`CHANGELOG_NEXT`).
   compiles the C code of a program with `cc -m32` where that works, as the C
   code does not depend on the machine of the compiler; there is no 32 bit
   build of the compiler itself.
+* Casting a fraction with a zero denominator (`"1/0"`, `"-3/0"`, `"0/0"`)
+  from a `String` to an `Integer`, a fixed width integer or a `Double` no
+  longer kills the program with `SIGFPE`: it is no number, and gives 0 or
+  0.0, as with the Chez backend.
 
 #### Chez Backend
 

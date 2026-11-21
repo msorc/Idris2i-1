@@ -300,8 +300,12 @@ static int idris2_numberSyntax(char const *s) {
   if (*p == '\0')
     return whole > 0 ? IDRIS2_INTEGER_SYNTAX : IDRIS2_NOT_A_NUMBER;
   if (*p == '/') {
+    // (a fraction with a zero denominator is no number for Scheme either)
     size_t denom = idris2_digits(p + 1);
-    return whole > 0 && denom > 0 && p[1 + denom] == '\0'
+    size_t zeros = 0;
+    while (zeros < denom && p[1 + zeros] == '0')
+      ++zeros;
+    return whole > 0 && denom > zeros && p[1 + denom] == '\0'
                ? IDRIS2_FRACTION_SYNTAX
                : IDRIS2_NOT_A_NUMBER;
   }
