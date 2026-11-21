@@ -2,6 +2,8 @@ module Libraries.Utils.Binary
 
 import Data.Buffer
 
+import System
+import System.Errno
 import System.File
 
 -- Serialising data as binary. Provides an interface TTC which allows
@@ -56,12 +58,31 @@ fromBuffer buf
     = do len <- rawSize buf
          pure (MkBin buf 0 len len)
 
+%foreign "C:rename, libc 6, stdio.h"
+prim__rename : (from : String) -> (to : String) -> PrimIO Int
+
+||| Write the binary to a file, which is replaced as a whole: the data are
+||| written under a temporary name, which is then renamed.  So a process that
+||| reads the file (another build in the same directory), or a process that
+||| writes it and is stopped half-way (a parallel build that stops on an
+||| error), never sees a file that is cut short.
 export
 writeToFile : (fname : String) -> Binary -> IO (Either FileError ())
 writeToFile fname c
-    = do Right ok <- writeBufferToFile fname (buf c) (cast $ used c)
-               | Left (err, size) => pure (Left err)
-         pure (Right ok)
+    = do pid <- getPID
+         let tmp = fname ++ ".tmp-" ++ show pid
+         Right () <- writeBufferToFile tmp (buf c) (cast $ used c)
+               | Left (err, size) => do ignore $ removeFile tmp
+                                        pure (Left err)
+         0 <- primIO $ prim__rename tmp fname
+           | _ => do -- (the `rename` of Windows does not replace a file)
+                     ignore $ removeFile fname
+                     0 <- primIO $ prim__rename tmp fname
+                       | _ => do err <- getErrno
+                                 ignore $ removeFile tmp
+                                 pure (Left (GenericFileError err))
+                     pure (Right ())
+         pure (Right ())
 
 export
 readFromFile : (fname : String) -> IO (Either FileError Binary)

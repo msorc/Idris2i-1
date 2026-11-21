@@ -784,6 +784,14 @@ should target this file (`CHANGELOG_NEXT`).
   wrong result, which hid its faults.  A compiler that runs on Chez or Racket
   but cannot load the support code of the evaluator now says "Scheme
   evaluator could not be loaded" instead of "Scheme evaluator not available".
+* Two parallel builds (`--jobs`) in the same directory at the same time no
+  longer make each other fail or print each other's output: the logs of the
+  processes of a build are named after it (`build/build-<pid>-<n>.log`), they
+  were `build/build-<n>.log` in every build.  A build that stops on an error
+  stops its processes and waits for them, instead of leaving them writing TTC
+  files after it is gone.  A TTC (and TTM) file is written under a temporary
+  name, which is then renamed: a process stopped while writing it, or one
+  that reads it at the same time, no longer leaves or sees a truncated file.
 
 ### Backend changes
 

@@ -1,0 +1,52 @@
+. ../../../testutils.sh
+
+# Two parallel builds (--jobs) in the same directory at the same time: the
+# processes of each write their output to logs of their own, which the other
+# build does not read, overwrite or remove.  The modules of y take a while to
+# build, those of x not: x is done while y's processes are still running.
+
+rm -rf work
+mkdir work
+for i in 1 2 3 4; do
+  printf 'module X%s\n\nx%s : Nat\nx%s = %s\n' "$i" "$i" "$i" "$i" > "work/X$i.idr"
+  { printf 'module Y%s\n\n' "$i"
+    j=1
+    while [ "$j" -le 300 ]; do
+      printf 'y%s_%s : List Nat -> Nat\ny%s_%s xs = foldr (+) %s (map (* %s) xs)\n\n' \
+        "$i" "$j" "$i" "$j" "$j" "$j"
+      j=$((j + 1))
+    done; } > "work/Y$i.idr"
+done
+printf 'package x\nsourcedir = "work"\nmodules = X1, X2, X3, X4\n' > x.ipkg
+printf 'package y\nsourcedir = "work"\nmodules = Y1, Y2, Y3, Y4\n' > y.ipkg
+
+idris2_no_clean --build y.ipkg --jobs 4 > y.out 2>&1 &
+y=$!
+idris2_no_clean --build x.ipkg --jobs 4 > x.out 2>&1
+echo "x: exit code $?"
+wait $y
+echo "y: exit code $?"
+# (the order in which the modules are built varies)
+echo "--- x"
+sed -n 's/.*Building \([XY][0-9]\).*/\1/p' x.out | sort
+grep -v Building x.out
+echo "--- y"
+sed -n 's/.*Building \([XY][0-9]\).*/\1/p' y.out | sort
+grep -v Building y.out
+echo "--- logs left"
+ls build | grep log
+
+# A TTC file is written under another name, and then renamed: a process
+# that reads it, or another link to the file, never sees it half-written.
+echo "--- a TTC file is replaced, not written over"
+ttc=$(ls build/ttc/*/X1.ttc)
+ln "$ttc" link.ttc
+cp "$ttc" copy.ttc
+printf 'module X1\n\nx1 : Nat\nx1 = 10\n' > work/X1.idr
+idris2_no_clean --build x.ipkg --jobs 4 > x.out 2>&1
+echo "x: exit code $?"
+cmp -s "$ttc" copy.ttc && echo "the TTC file did not change"
+cmp -s link.ttc copy.ttc && echo "the other link to the old TTC file is unchanged"
+ls build/ttc/*/ | grep tmp
+
+rm -rf work build x.ipkg y.ipkg x.out y.out link.ttc copy.ttc

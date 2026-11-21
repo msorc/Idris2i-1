@@ -18,6 +18,7 @@ import Data.SortedMap
 import Data.SortedSet
 import Data.String
 
+import System
 import System.Directory
 import System.File
 
@@ -97,6 +98,7 @@ mkModTree loc done modFP mod
 data DoneMod : Type where
 data BuildOrder : Type where
 data TTCPaths : Type where
+data RunningJobs : Type where
 
 -- Given a module tree, returns the modules in the reverse order they need to
 -- be built, including their dependencies
@@ -432,6 +434,15 @@ prim__waitAnyChild : PrimIO Int
 %foreign "C:idris2_lastChildExitStatus, libidris2_support, idris_system.h"
 prim__lastChildExitStatus : PrimIO Int
 
+-- (the `kill` of the C library, which System.Signal has but does not export,
+-- with any signal: there is no `Signal` for SIGTERM)
+%foreign "C:send_signal, libidris2_support, idris_signal.h"
+prim__sendSignal : (pid : Int) -> (signal : Int) -> PrimIO Int
+
+-- SIGTERM, which is 15 on every POSIX system
+sigTERM : Int
+sigTERM = 15
+
 record Job where
   constructor MkJob
   pid : Int
@@ -468,8 +479,17 @@ buildAllParallel jobs childCmd allFiles
          sizes <- traverse (\m => sourceSize m.buildFile) mods
          let chains = chainWeights (zip mods sizes)
          paths <- newRef TTCPaths SortedMap.empty
-         loop inBuild len logDir
-              (sortBy (longestFirst chains) (zip [1 .. len] mods)) [] empty False
+         -- The logs of the processes are named after this process: another
+         -- build may run in the same directory at the same time.
+         pid <- coreLift getPID
+         let logPrefix = logDir </> "build-" ++ show pid ++ "-"
+         jobsRef <- newRef RunningJobs []
+         -- If this process stops on an error, it stops its processes too, and
+         -- waits for them: they would go on writing TTC files once it is gone.
+         catch (loop inBuild len logPrefix
+                     (sortBy (longestFirst chains) (zip [1 .. len] mods)) [] empty False)
+               (\err => do stopJobs !(get RunningJobs)
+                           throw err)
   where
     -- the longest chain first, then in the order of the list
     longestFirst : StringMap Nat -> (Nat, BuildMod) -> (Nat, BuildMod) -> Ordering
@@ -563,38 +583,62 @@ buildAllParallel jobs childCmd allFiles
     -- Start what can be started, skip what is up to date.  Returns the
     -- pending, running and done modules, and whether anything changed.
     launch : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+             {auto jobsRef : Ref RunningJobs (List Job)} ->
              SortedSet ModuleIdent -> Nat -> String ->
              List (Nat, BuildMod) -> List Job -> SortedSet ModuleIdent ->
              Core (List (Nat, BuildMod), List Job, SortedSet ModuleIdent, Bool)
-    launch inBuild len logDir [] running done = pure ([], running, done, False)
-    launch inBuild len logDir ((num, mod) :: pending) running done
+    launch inBuild len logPrefix [] running done = pure ([], running, done, False)
+    launch inBuild len logPrefix ((num, mod) :: pending) running done
         = if blocked inBuild done mod || length running >= jobs
-             then do (p, r, d, ch) <- launch inBuild len logDir pending running done
+             then do (p, r, d, ch) <- launch inBuild len logPrefix pending running done
                      pure ((num, mod) :: p, r, d, ch)
              else if not !(needed mod)
-             then do (p, r, d, _) <- launch inBuild len logDir pending running
+             then do (p, r, d, _) <- launch inBuild len logPrefix pending running
                                             (SortedSet.insert mod.buildNS done)
                      pure (p, r, d, True)
-             else do let logFile = logDir </> "build-" ++ show num ++ ".log"
+             else do let logFile = logPrefix ++ show num ++ ".log"
                      pid <- coreLift $ primIO $ prim__spawnShell (childCmd mod.buildFile logFile)
                      when (pid < 0) $
                        throw (InternalError "Could not start a process to build \{mod.buildFile}")
+                     let job = MkJob pid mod logFile
+                     update RunningJobs (job ::)
                      let (msgPrefix, buildMsg) = buildMessage num len mod
                      iputStrLn (msgPrefix <++> "Building" <++> buildMsg)
-                     (p, r, d, _) <- launch inBuild len logDir pending
-                                            (MkJob pid mod logFile :: running) done
+                     (p, r, d, _) <- launch inBuild len logPrefix pending
+                                            (job :: running) done
                      pure (p, r, d, True)
 
+    -- Stop the processes that are still running (after an error), and wait
+    -- for them, so that none is left writing files.  What they printed is
+    -- dropped: the error is what is reported.
+    stopJobs : List Job -> Core ()
+    stopJobs [] = pure ()
+    stopJobs js
+        = do for_ js $ \j => coreLift_ (primIO $ prim__sendSignal j.pid sigTERM)
+             waitAll js
+      where
+        waitAll : List Job -> Core ()
+        waitAll [] = pure ()
+        waitAll js
+            = do pid <- coreLift $ primIO prim__waitAnyChild
+                 let (done, others) = partition (\j => j.pid == pid) js
+                 for_ done $ \j => coreLift_ (removeFile j.logFile)
+                 -- (-1: there are no more children to wait for)
+                 if pid < 0 then pure () else waitAll others
+
     -- Wait for a process to end, print what it printed.
-    waitJob : List Job -> Core (Job, Bool, List Job)
+    waitJob : {auto jobsRef : Ref RunningJobs (List Job)} ->
+              List Job -> Core (Job, Bool, List Job)
     waitJob running
         = do pid <- coreLift $ primIO prim__waitAnyChild
              status <- coreLift $ primIO prim__lastChildExitStatus
              let (js, others) = partition (\j => j.pid == pid) running
              case js of
                   (j :: _) =>
-                    do Right out <- coreLift $ readFile j.logFile
-                         | Left err => throw (FileErr j.logFile err)
+                    do update RunningJobs (filter (\r => r.pid /= pid))
+                       -- A process that did not get as far as starting the
+                       -- compiler may have left no log: it printed nothing.
+                       out <- either (const "") id <$> coreLift (readFile j.logFile)
                        unless (out == "") $ coreLift $ putStr out
                        ignore $ coreLift $ removeFile j.logFile
                        pure (j, status == 0, others)
@@ -603,16 +647,17 @@ buildAllParallel jobs childCmd allFiles
                            else waitJob running -- not one of ours
 
     loop : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+           {auto jobsRef : Ref RunningJobs (List Job)} ->
            SortedSet ModuleIdent -> Nat -> String ->
            List (Nat, BuildMod) -> List Job -> SortedSet ModuleIdent -> Bool ->
            Core (List Error)
-    loop inBuild len logDir pending running done failed
+    loop inBuild len logPrefix pending running done failed
         = do (pending, running, done, changed) <-
                  the (Core (List (Nat, BuildMod), List Job, SortedSet ModuleIdent, Bool)) $
                    if failed then pure ([], running, done, False)
-                             else launch inBuild len logDir pending running done
+                             else launch inBuild len logPrefix pending running done
              if changed
-                then loop inBuild len logDir pending running done failed
+                then loop inBuild len logPrefix pending running done failed
                 else case running of
                   [] => if failed
                            then pure [GenericMsg EmptyFC "Building the package failed"]
@@ -620,6 +665,6 @@ buildAllParallel jobs childCmd allFiles
                                   [] => pure []
                                   _ => throw (InternalError "Modules left that cannot be built")
                   _ => do (j, ok, running) <- waitJob running
-                          loop inBuild len logDir pending running
+                          loop inBuild len logPrefix pending running
                                (if ok then SortedSet.insert j.mod.buildNS done else done)
                                (failed || not ok)

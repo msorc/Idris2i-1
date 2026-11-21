@@ -1,0 +1,16 @@
+x: exit code 0
+y: exit code 0
+--- x
+X1
+X2
+X3
+X4
+--- y
+Y1
+Y2
+Y3
+Y4
+--- logs left
+--- a TTC file is replaced, not written over
+x: exit code 0
+the other link to the old TTC file is unchanged
