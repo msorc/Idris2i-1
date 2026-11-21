@@ -962,8 +962,10 @@ void idris2_threadWakeAll(Idris2_WaitQueue *queue) {
 }
 
 #if IDRIS2_GREEN_THREADS
-// Make the threads whose deadline has expired runnable again.
-static void expire_timers(void) {
+// Make the threads whose deadline has expired runnable again.  `preempted`
+// says that the running thread was asked to yield for them (see
+// monitor_main).
+static void expire_timers(int preempted) {
   int64_t deadline = __atomic_load_n(&next_deadline, __ATOMIC_ACQUIRE);
   if (deadline == INT64_MAX) {
     return;
@@ -990,14 +992,22 @@ static void expire_timers(void) {
     }
   }
   idris2_spinUnlock(&timer_lock);
-  // Only this worker may wake up the threads that it claimed.
+  // Only this worker may wake up the threads that it claimed.  Like any
+  // thread that a running one wakes up, they run next (see make_runnable),
+  // and so they do on a single worker too when the running thread was asked
+  // to yield for them: they would wait behind the threads of its run queue
+  // otherwise, which a single worker does not preempt.
+  Sched *s = self();
+  int next = s->current != NULL &&
+             (preempted || __atomic_load_n(&n_workers, __ATOMIC_RELAXED) > 1);
   while (expired) {
     Idris2_Thread *thread = expired;
     expired = thread->timer_next;
     thread->timer_next = NULL;
     // It leaves its wait queue itself (see block_current).
     thread->timed_out = 1;
-    make_runnable(thread);
+    thread->state = THREAD_RUNNABLE;
+    runq_put(s, thread, next);
   }
 }
 #endif
@@ -1066,9 +1076,9 @@ int idris2_threadBlockOnUntil(Idris2_WaitQueue *queue, Idris2_SpinLock *lock,
   return block_current(queue, lock, deadline_ns);
 }
 
-void idris2_threadYield(void) {
 #if IDRIS2_GREEN_THREADS
-  expire_timers();
+static void yield_current(int preempted) {
+  expire_timers(preempted);
   Sched *s = self();
   if (!queued(s)) {
     return; // nobody else wants to run here
@@ -1077,6 +1087,12 @@ void idris2_threadYield(void) {
   thread->state = THREAD_RUNNABLE;
   s->after = AFTER_YIELD;
   context_switch(&thread->ctx, &s->ctx);
+}
+#endif
+
+void idris2_threadYield(void) {
+#if IDRIS2_GREEN_THREADS
+  yield_current(0);
 #endif
 }
 
@@ -1086,7 +1102,9 @@ void idris2_preemptYield(void) {
   Idris2_Worker *w = idris2_worker();
   if (__atomic_load_n(&w->preempt, __ATOMIC_RELAXED)) {
     __atomic_store_n(&w->preempt, 0, __ATOMIC_RELAXED);
-    idris2_threadYield();
+#if IDRIS2_GREEN_THREADS
+    yield_current(1);
+#endif
   }
 }
 
@@ -1256,7 +1274,7 @@ static void thread_entry(void) {
 static Idris2_Thread *find_work(Sched *s) {
   Idris2_Thread *thread;
   for (;;) {
-    expire_timers();
+    expire_timers(0);
     thread = runq_get(s);
     if (thread) {
       break;
@@ -1280,7 +1298,7 @@ static Idris2_Thread *find_work(Sched *s) {
       if (thread) {
         break;
       }
-      expire_timers();
+      expire_timers(0);
       if ((thread = runq_get(s)) != NULL) {
         break;
       }
@@ -1392,8 +1410,44 @@ static void *worker_main(void *arg) {
 // run while others wait for its worker.
 #define PREEMPT_INTERVAL_NS ((int64_t)10000000)
 
+// Is every worker running a thread?  Then nobody looks at the deadlines:
+// a worker does in its scheduler, and a parked one waits for the earliest
+// deadline (see park), but a thread that computes may not switch out for
+// long.
+static int all_workers_busy(int n) {
+  if (__atomic_load_n(&n_parked, __ATOMIC_RELAXED) > 0) {
+    return 0;
+  }
+  for (int i = 0; i < n; i++) {
+    if (__atomic_load_n(&workers[i]->current_id, __ATOMIC_RELAXED) == -1) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+// Ask a worker to yield at its next safepoint.  Returns 1 when it was not
+// asked already.
+static int ask_to_yield(Sched *w) {
+  if (__atomic_load_n(&w->worker->preempt, __ATOMIC_RELAXED)) {
+    return 0;
+  }
+  __atomic_store_n(&w->worker->preempt, 1, __ATOMIC_RELAXED);
+  return 1;
+}
+
 // The monitor asks the threads that ran for a whole interval while other
-// threads waited for their worker to yield (see IDRIS2_SAFEPOINT).
+// threads waited for their worker to yield (see IDRIS2_SAFEPOINT), when
+// there are several workers.  (With a single one, threads are not preempted
+// to let the others run, see refc.rst.)
+//
+// It also wakes up for the earliest deadline, and when it is over while
+// every worker runs a thread, it asks one of them to yield:
+// idris2_threadYield makes the threads whose deadline is over runnable, and
+// lets them run.  Otherwise a thread that sleeps, or waits with a timeout,
+// would wait until a thread that computes blocks or ends.  (A deadline that
+// is set while the monitor sleeps, or while a worker is idle, may be missed
+// by up to PREEMPT_INTERVAL_NS, as nothing wakes the monitor up.)
 static void *monitor_main(void *arg) {
   (void)arg;
   int n = n_workers;
@@ -1401,29 +1455,70 @@ static void *monitor_main(void *arg) {
   if (!seen) {
     return NULL;
   }
+  int64_t next_look = idris2_monotonicNanoseconds() + PREEMPT_INTERVAL_NS;
+  int asked = 0; // a worker was asked to yield in the last round
+  // The worker asked last to yield for a deadline, and when.
+  Sched *victim = NULL;
+  int64_t victim_asked = 0;
+  int next_victim = 0;
   for (;;) {
-    struct timespec delay;
-    delay.tv_sec = 0;
-    delay.tv_nsec = (long)PREEMPT_INTERVAL_NS;
-    nanosleep(&delay, NULL);
+    int64_t now = idris2_monotonicNanoseconds();
+    int64_t until = next_look;
+    // (when a worker is idle, it looks at the deadlines itself)
+    int64_t deadline = __atomic_load_n(&next_deadline, __ATOMIC_ACQUIRE);
+    if (deadline > now && deadline < until && all_workers_busy(n)) {
+      until = deadline;
+    }
+    // Once a worker has been asked to yield, look again soon, so that the
+    // safepoints of the other workers stop calling idris2_preemptYield (see
+    // idris2_preemptPending) once it has.
+    if (asked && now + WATCH_INTERVAL_NS < until) {
+      until = now + WATCH_INTERVAL_NS;
+    }
+    if (until > now) {
+      struct timespec delay;
+      delay.tv_sec = (time_t)((until - now) / 1000000000);
+      delay.tv_nsec = (long)((until - now) % 1000000000);
+      nanosleep(&delay, NULL);
+      now = idris2_monotonicNanoseconds();
+    }
+    asked = 0;
+    if (now >= next_look) {
+      next_look = now + PREEMPT_INTERVAL_NS;
+      for (int i = 0; i < n; i++) {
+        Sched *w = workers[i];
+        uint64_t switches = __atomic_load_n(&w->switches, __ATOMIC_RELAXED);
+        if (n > 1 && switches == seen[i] &&
+            __atomic_load_n(&w->current_id, __ATOMIC_RELAXED) != -1 &&
+            queued(w) > 0) {
+          asked |= ask_to_yield(w);
+        }
+        seen[i] = switches;
+      }
+    }
+    deadline = __atomic_load_n(&next_deadline, __ATOMIC_ACQUIRE);
+    if (deadline <= now && all_workers_busy(n) &&
+        !(victim && __atomic_load_n(&victim->worker->preempt, __ATOMIC_RELAXED) &&
+          now - victim_asked < PREEMPT_INTERVAL_NS)) {
+      // (another worker every time, in case the one asked before does not
+      // get to a safepoint: it runs a system call, say)
+      victim = workers[next_victim];
+      next_victim = (next_victim + 1) % n;
+      victim_asked = now;
+      asked |= ask_to_yield(victim);
+    }
     int pending = 0;
     for (int i = 0; i < n; i++) {
-      Sched *w = workers[i];
-      uint64_t switches = __atomic_load_n(&w->switches, __ATOMIC_RELAXED);
-      if (switches == seen[i] &&
-          __atomic_load_n(&w->current_id, __ATOMIC_RELAXED) != -1 &&
-          queued(w) > 0) {
-        __atomic_store_n(&w->worker->preempt, 1, __ATOMIC_RELAXED);
-      }
-      pending |= __atomic_load_n(&w->worker->preempt, __ATOMIC_RELAXED);
-      seen[i] = switches;
+      pending |=
+          __atomic_load_n(&workers[i]->worker->preempt, __ATOMIC_RELAXED);
     }
     __atomic_store_n(&idris2_preemptPending, pending, __ATOMIC_RELAXED);
   }
   return NULL;
 }
 
-// Start the other workers, the first time that a thread is forked.
+// Start the other workers, the first time that a thread is forked, and the
+// monitor.
 static void start_workers(void) {
   static int started = 0;
   if (started) {
@@ -1431,60 +1526,62 @@ static void start_workers(void) {
   }
   started = 1;
   int n = configured_workers();
-  if (n <= 1) {
-    return;
-  }
-  // From now on, the values that threads hand over to each other are
-  // shared, and so are the constants of the program.
-  idris2_multicoreStarted = 1;
-  idris2_shareConstants();
-  idris2_markShared(main_thread.thread_data);
-
-  Sched **all = calloc((size_t)n, sizeof(Sched *));
-  seen_runnext = calloc((size_t)n, sizeof(Idris2_Thread *));
-  seen_runnext_gen = calloc((size_t)n, sizeof(uint64_t));
-  if (!all || !seen_runnext || !seen_runnext_gen) {
-    fatal("could not allocate the workers");
-  }
-  all[0] = &main_sched;
-  main_sched.random = 1;
-  int created = 1;
-  for (int i = 1; i < n; i++) {
-    Sched *s = calloc(1, sizeof(Sched));
-    Idris2_Worker *w = aligned_alloc(64, (sizeof(Idris2_Worker) + 63) / 64 * 64);
-    if (!s || !w) {
-      free(s);
-      free(w);
-      break;
-    }
-    memset(w, 0, sizeof(Idris2_Worker));
-    w->sched = s;
-    s->worker = w;
-    s->index = i;
-    s->current_id = -1;
-    s->random = (uint32_t)i * 2654435761u;
-    init_cond(&s->cond);
-    all[created++] = s;
-  }
-  workers = all;
-  __atomic_store_n(&n_workers, created, __ATOMIC_RELEASE);
   pthread_attr_t attr;
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
   // The scheduler of a worker runs on the stack of its OS thread.
   pthread_attr_setstacksize(&attr, SCHEDULER_STACK_SIZE);
-  for (int i = 1; i < created; i++) {
-    pthread_t pthread;
-    if (pthread_create(&pthread, &attr, worker_main, all[i]) != 0) {
-      fatal("could not start the workers (try IDRIS2_WORKERS=1)");
+  if (n > 1) {
+    // From now on, the values that threads hand over to each other are
+    // shared, and so are the constants of the program.
+    idris2_multicoreStarted = 1;
+    idris2_shareConstants();
+    idris2_markShared(main_thread.thread_data);
+
+    Sched **all = calloc((size_t)n, sizeof(Sched *));
+    seen_runnext = calloc((size_t)n, sizeof(Idris2_Thread *));
+    seen_runnext_gen = calloc((size_t)n, sizeof(uint64_t));
+    if (!all || !seen_runnext || !seen_runnext_gen) {
+      fatal("could not allocate the workers");
+    }
+    all[0] = &main_sched;
+    main_sched.random = 1;
+    int created = 1;
+    for (int i = 1; i < n; i++) {
+      Sched *s = calloc(1, sizeof(Sched));
+      Idris2_Worker *w =
+          aligned_alloc(64, (sizeof(Idris2_Worker) + 63) / 64 * 64);
+      if (!s || !w) {
+        free(s);
+        free(w);
+        break;
+      }
+      memset(w, 0, sizeof(Idris2_Worker));
+      w->sched = s;
+      s->worker = w;
+      s->index = i;
+      s->current_id = -1;
+      s->random = (uint32_t)i * 2654435761u;
+      init_cond(&s->cond);
+      all[created++] = s;
+    }
+    workers = all;
+    __atomic_store_n(&n_workers, created, __ATOMIC_RELEASE);
+    for (int i = 1; i < created; i++) {
+      pthread_t pthread;
+      if (pthread_create(&pthread, &attr, worker_main, all[i]) != 0) {
+        fatal("could not start the workers (try IDRIS2_WORKERS=1)");
+      }
     }
   }
-  // IDRIS2_PREEMPT=0 turns preemption off.
+  // IDRIS2_PREEMPT=0 turns preemption off.  The monitor runs with a single
+  // worker too, for the deadlines (see monitor_main).
   const char *preempt = getenv("IDRIS2_PREEMPT");
   if (!preempt || strcmp(preempt, "0") != 0) {
     pthread_t monitor;
     if (pthread_create(&monitor, &attr, monitor_main, NULL) != 0) {
-      fatal("could not start the workers (try IDRIS2_WORKERS=1)");
+      fatal("could not start the monitor of the workers (try "
+            "IDRIS2_PREEMPT=0)");
     }
   }
   pthread_attr_destroy(&attr);

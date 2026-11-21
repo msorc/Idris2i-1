@@ -1,0 +1,8 @@
+after a sleep: no computation finished
+after a timed wait: no computation finished
+after a timed channel get: no computation finished
+done
+after a sleep: no computation finished
+after a timed wait: no computation finished
+after a timed channel get: no computation finished
+done

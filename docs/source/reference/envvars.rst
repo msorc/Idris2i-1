@@ -119,7 +119,8 @@ runs; see :doc:`../backends/refc` for the details:
   program forks a thread (default: the number of processors; ``1`` runs them
   all on the main OS thread).
 * ``IDRIS2_PREEMPT`` - ``0`` turns off the preemption of a green thread that
-  has run for more than 10ms while others wait.
+  has run for more than 10ms while others wait, or that runs when the sleep
+  or the timed wait of another one is over.
 * ``IDRIS2_MAIN_STACK_SIZE`` - The size in bytes of the stack of the main
   expression (default: 4GB on 64-bit systems, 64MB on the others; the memory
   is only used as the stack grows).

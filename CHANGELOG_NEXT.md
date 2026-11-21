@@ -1400,6 +1400,15 @@ should target this file (`CHANGELOG_NEXT`).
   primitive `prim__newArray` of a negative length: the length was cut to an
   `int`, which made an array smaller than its length said (2^32 gave an
   empty array), that writes ran over.
+* A green thread that sleeps, or waits with a timeout (`conditionWaitTimeout`,
+  `channelGetWithTimeout`), wakes up when its time is over even when every
+  worker runs a thread that computes: the thread that computes yields at its
+  next safepoint, and the one that woke up runs first.  It used to wait until
+  a thread that computes blocked or ended (with two workers and two threads
+  computing for 2.7s, a `sleep 1` took 2.7s).  With a single worker
+  (`IDRIS2_WORKERS=1`), threads are now preempted for that too, but still not
+  to let the other runnable threads run.  `IDRIS2_PREEMPT=0` turns this off,
+  with the rest of the preemption.
 
 #### Chez Backend
 

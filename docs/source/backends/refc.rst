@@ -610,8 +610,11 @@ Within a worker, scheduling is mostly *cooperative*: a green thread runs
 until it blocks on a synchronisation object, sleeps, forks a thread, or
 finishes.  A thread that has run for more than 10ms while other threads wait
 for its worker yields at its next safepoint (the end of an iteration of a
-loop); ``IDRIS2_PREEMPT=0`` turns this off.  With a single worker, threads
-are never preempted.  This has a few consequences:
+loop).  So does a thread that runs while the sleep or the timed wait of
+another one is over and every worker is busy, so that the other one wakes
+up in time.  ``IDRIS2_PREEMPT=0`` turns both off.  With a single worker,
+threads are only preempted for the threads whose sleep or timed wait is
+over, which then run first.  This has a few consequences:
 
 * A thread that computes without looping (deep recursion, say) keeps the
   other threads of its worker waiting, until an idle worker takes them over.
