@@ -570,6 +570,9 @@ should target this file (`CHANGELOG_NEXT`).
   once; it computed it at every run since.  Such a function is now treated
   as the other functions given the world, whose partial applications compute
   their arguments once (test `allbackends/ioeta002`).
+* A function exported by `%export` is no longer given the world as a
+  parameter: it is called from JavaScript by the arity of its type (test
+  `node/nomangle003`).
 * The compiled definition of a data constructor has a table of its fields
   (`fields` of `MkCon`, `MkNmCon`, `MkLCon` and `MkACon`, a `FieldRep` each):
   `FPrim t` when the declared type of the field says that it always holds a

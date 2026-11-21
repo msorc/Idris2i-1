@@ -360,9 +360,15 @@ candidate n
               | _ => pure Nothing
          let True = mayPush body
               | False => pure Nothing
+         -- A function exported to the host language (`%export`) is called
+         -- there by the arity of its type: one more parameter would break
+         -- its callers.
+         fn <- toFullNames n
+         let Nothing = NameMap.lookup fn (foreignExports defs)
+              | Just _ => pure Nothing
          True <- returnsIO (eraseArgs gdef) (length args) (type gdef)
               | False => pure Nothing
-         pure (Just (!(toFullNames n), n))
+         pure (Just (fn, n))
 
 -- Give the world to the function `n`, as a last parameter.
 expand : {auto c : Ref Ctxt Defs} -> Name -> Core ()
