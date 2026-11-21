@@ -614,7 +614,6 @@ mkSpecDef : {auto c : Ref Ctxt Defs} ->
 mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
     = handleUnify {unResolve = True}
        (do defs <- get Ctxt
-           setAllPublic True
            let staticargs
                  = mapMaybe (\ (x, s) => case s of
                                               Dynamic => Nothing
@@ -743,8 +742,13 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
            let done = do put MD md
                          if isAuto then update Ctxt { autoSpecStack := stack }
                                    else update Ctxt { specStack := sstack }
-           processDecl [InPartialEval] (MkNested []) Env.empty
-                       (IDef fc (Resolved peidx) newpats)
+           -- The clauses of the copy may name what the module of the
+           -- function does not export (the clauses of the function, and what
+           -- they and the static arguments reduced to): they are checked as
+           -- if everything was public, and only they are (see withAllPublic).
+           withAllPublic
+             (processDecl [InPartialEval] (MkNested []) Env.empty
+                          (IDef fc (Resolved peidx) newpats))
              `catch` (\err => do done; throw err)
            done
            copyCovering (Resolved peidx) (keys specnames)
@@ -755,9 +759,7 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
            when isAuto $
              do bad <- callsItself (Resolved peidx)
                 when bad $
-                  do setAllPublic False
-                     throw (GenericMsg fc "\{show pename} calls itself")
-           setAllPublic False
+                  throw (GenericMsg fc "\{show pename} calls itself")
            pure peapp)
            -- If the partially evaluated definition fails, just use the initial
            -- application. It might indicates a bug in the P.E. function generation
@@ -866,8 +868,7 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
                   MissingCases cs =>
                     case fncov of
                          MissingCases _ => pure ()
-                         _ => do setAllPublic False
-                                 cs' <- traverse toFullNames cs
+                         _ => do cs' <- traverse toFullNames cs
                                  throw (GenericMsg fc
                                    "\{show pename} misses cases that \{show fn} does not: \{show cs'}")
                   NonCoveringCall _ =>

@@ -1,0 +1,14 @@
+1/2: Building A (A.idr)
+2/2: Building Main (Main.idr)
+Error: While processing right hand side of leak. Name A.secret is private.
+
+Main:19:8--19:16
+ 15 | h2 : List Int -> List Int
+ 16 | h2 xs = f (+1) xs
+ 17 |
+ 18 | leak : Int
+ 19 | leak = A.secret
+             ^^^^^^^^
+
+Suggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks.
+([2, 3, 4], ([2], 1))

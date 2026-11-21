@@ -213,6 +213,13 @@ should target this file (`CHANGELOG_NEXT`).
   its case blocks were specialised by the key, which is never known, and
   its copy called the generic function).  Lookups and deletions in a hash
   map take 7% to 8% fewer instructions with the RefC backend.
+* A module that calls a `%spec` function by the same arguments twice (the
+  second call reuses the copy) can no longer use the private names of the
+  modules it imports: the names were seen as public from the second call to
+  the end of the module.  (The functions of `base` that are `%spec` on their
+  `HasIO` argument, such as `getEnv`, made this common.)  Only the clauses of
+  a copy are checked as if every name were public now.  The test
+  `idris2/evaluator/specprivate001`.
 * With `--spec-interfaces`, a recursive function is copied once by an
   implementation: the recursive call in the copy took the implementation
   reduced a bit more each time, and made another copy (four copies of

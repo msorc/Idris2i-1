@@ -2266,6 +2266,21 @@ isAllPublic
     = do defs <- get Ctxt
          pure (allPublic (gamma defs))
 
+-- Run an action with all names viewed as public, and view them as before
+-- afterwards, however the action ends.  An action that set it back to
+-- False itself would leave it True on the paths that forgot to (a module
+-- could then use the private names of the modules it imports), and would
+-- end it too early for an action that runs inside another one.
+export
+withAllPublic : {auto c : Ref Ctxt Defs} ->
+                Core a -> Core a
+withAllPublic act
+    = do pub <- isAllPublic
+         setAllPublic True
+         res <- catch act (\err => do setAllPublic pub; throw err)
+         setAllPublic pub
+         pure res
+
 -- Return True if the given namespace is visible in the context (meaning
 -- the namespace itself, and any namespace it's nested inside)
 export
