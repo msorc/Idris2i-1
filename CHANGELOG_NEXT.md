@@ -1329,6 +1329,9 @@ should target this file (`CHANGELOG_NEXT`).
 * Casting a fraction from a `String` to a `Double` gives the `Double`
   nearest to it, as with the Chez backend, instead of the one towards zero
   (`"1/10"` gave 0.09999999999999999, `"1/5"` 0.19999999999999998).
+* Casting a NaN or an infinite `Double` to an `Integer` gives 0, as the
+  casts to the fixed width integers do, instead of killing the program with
+  `SIGFPE` (the Chez backend raises an exception).
 
 #### Chez Backend
 

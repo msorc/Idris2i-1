@@ -69,7 +69,11 @@ Idris2_Value *idris2_cast_Int64_to_string(Idris2_Value *input) {
   return (Idris2_Value *)retVal;
 }
 
+// (A NaN or an infinity, which the Chez backend raises an exception for and
+// GMP a SIGFPE, is 0, as in the casts to the fixed width integers.)
 Idris2_Value *idris2_mkIntegerFromDouble(double d) {
+  if (!isfinite(d))
+    return idris2_mkIntegerFromInt64(0);
   Idris2_Integer *retVal = idris2_mkInteger();
   mpz_set_d(retVal->i, d);
 
