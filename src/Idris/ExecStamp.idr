@@ -218,6 +218,19 @@ programOf p = if '/' `elem` unpack p
                  then pure (Just p)
                  else pathLookup [p]
 
+-- Compiler.Scheme.Chez.findChez, which this module cannot import
+findChez : IO String
+findChez = do Nothing <- idrisGetEnv "CHEZ"
+                | Just chez => pure chez
+              path <- pathLookup ["chez", "chezscheme", "chez-scheme", "chezscheme9.5", "scheme"]
+              pure $ fromMaybe "/usr/bin/env scheme" path
+
+||| The file of the tool that compiles the program for the backend (the C
+||| compiler, Chez Scheme), as it is found now
+toolOf : CG -> IO (Maybe String)
+toolOf RefC = findCC >>= programOf
+toolOf _ = findChez >>= programOf
+
 -- The backends whose executables are handled
 handled : CG -> Bool
 handled RefC = True
@@ -246,6 +259,11 @@ settings mainNS mainFile
               envs <- case cg of
                            RefC => coreLift $ traverse envLine refcEnv
                            _ => coreLift $ traverse envLine ["CHEZ"]
+              -- The tool as it is found now: the stamp lists the file that
+              -- was found when it was written, whose state it checks, but
+              -- another one may be found now (the `PATH` changed, or a
+              -- program was put in a directory that comes earlier in it).
+              tool <- coreLift $ toolOf cg
               pure $ Just $
                 [ "idris2 \{show idrisVersion}"
                 , "cwd \{show wd}"
@@ -270,6 +288,7 @@ settings mainNS mainFile
                 , "package_dirs \{show (package_dirs d)}"
                 , "lib_dirs \{show (lib_dirs d)}"
                 , "data_dirs \{show (data_dirs d)}"
+                , "tool \{show tool}"
                 ] ++ envs
 
 -- The directories of `-L` options in a list of flags
@@ -315,9 +334,7 @@ inputs exec
          supports <- traverse (\s => catch (Just <$> findDataFile s)
                                            (\_ => pure Nothing))
                               supportDirs
-         tool <- coreLift $ case cg of
-                      RefC => findCC >>= programOf
-                      _ => findChez >>= programOf
+         tool <- coreLift $ toolOf cg
          -- the headers that the C file of a RefC program includes, besides
          -- those of the runtime (see Compiler.RefC.CC.headerDepsFile)
          headers <- case cg of
@@ -354,12 +371,6 @@ inputs exec
           in if trim k == "extraRuntime" then Just (Input (trim (substr 1 (length v) v)))
                                          else Nothing
 
-    -- Compiler.Scheme.Chez.findChez, which this module cannot import
-    findChez : IO String
-    findChez = do Nothing <- idrisGetEnv "CHEZ"
-                    | Just chez => pure chez
-                  path <- pathLookup ["chez", "chezscheme", "chez-scheme", "chezscheme9.5", "scheme"]
-                  pure $ fromMaybe "/usr/bin/env scheme" path
 
 ||| What the compilation writes
 outputs : {auto c : Ref Ctxt Defs} -> (exec : String) -> Core (List Item)

@@ -1,0 +1,5 @@
+package exe
+
+sourcedir = "src"
+main = Main
+executable = exe

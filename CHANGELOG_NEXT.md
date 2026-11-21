@@ -792,6 +792,10 @@ should target this file (`CHANGELOG_NEXT`).
   files after it is gone.  A TTC (and TTM) file is written under a temporary
   name, which is then renamed: a process stopped while writing it, or one
   that reads it at the same time, no longer leaves or sees a truncated file.
+* The stamp of an executable records the C compiler (or Chez Scheme) as it is
+  found when the build starts: a `cc` put earlier in the `PATH`, for
+  instance, makes the executable be compiled again.  The stamp checked only
+  that the C compiler found when it was written had not changed.
 
 ### Backend changes
 

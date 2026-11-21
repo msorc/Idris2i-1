@@ -1,0 +1,9 @@
+--- first build
+Now compiling the executable: exe
+the executable
+--- nothing changed
+The executable exe is up to date, not compiling it again
+--- another cc first in the PATH
+Now compiling the executable: exe
+the executable
+the other cc
