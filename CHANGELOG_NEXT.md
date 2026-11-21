@@ -1341,6 +1341,11 @@ should target this file (`CHANGELOG_NEXT`).
   right gives 0 or -1, a shift left of 0 gives 0, and a shift left of any
   other number is an error, `ERROR: Integer shifted left by too many bits`
   (the Chez backend runs out of memory).
+* `newArray` (and `newFlatArray`) of a length of 2^31 or more stops the
+  program with `ERROR: Invalid array length: <n>`, and so does the
+  primitive `prim__newArray` of a negative length: the length was cut to an
+  `int`, which made an array smaller than its length said (2^32 gave an
+  empty array), that writes ran over.
 
 #### Chez Backend
 

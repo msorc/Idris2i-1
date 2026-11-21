@@ -1,5 +1,7 @@
 #include "prim.h"
 #include "refc_util.h"
+#include <inttypes.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -92,11 +94,24 @@ Idris2_Value *idris2_crashMsg(const char *msg) {
 //         Array operations
 // -----------------------------------
 
+// The length of a new array, which its `capacity` (an int) holds: an array
+// of more elements than that would be smaller than its length says, and one
+// of a negative length is no array (Chez raises an exception for it).
+static int arrayLength(int64_t length) {
+  if (length < 0 || length > INT_MAX) {
+    char msg[64];
+    snprintf(msg, sizeof(msg), "ERROR: Invalid array length: %" PRId64,
+             length);
+    idris2_crashMsg(msg);
+  }
+  return (int)length;
+}
+
 Idris2_Value *idris2_Data_IOArray_Prims_prim__newArray(Idris2_Value *erased,
                                                        Idris2_Value *_length,
                                                        Idris2_Value *v,
                                                        Idris2_Value *_word) {
-  int length = idris2_vp_to_Int64(_length);
+  int length = arrayLength(idris2_vp_to_Int64(_length));
   Idris2_Array *a = idris2_makeArray(length);
 
   // (calloc made the slots NULL: nothing to do for a NULL value)
@@ -227,6 +242,7 @@ Idris2_Value *idris2_newSlots(uint64_t layout, int64_t length,
   if (layout == 0)
     return idris2_Data_IOArray_Prims_prim__newArray(
         NULL, idris2_mkInt64(length), v, NULL);
+  length = arrayLength(length);
   Idris2_Array *a = IDRIS2_NEW_VALUE(Idris2_Array);
   a->header.tag = ARRAY_TAG;
   a->lock = 0;

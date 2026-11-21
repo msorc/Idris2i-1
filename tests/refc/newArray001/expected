@@ -1,0 +1,24 @@
+--- array 10
+made an array of length 10
+exit code: 0
+--- array 4294967296
+ERROR: Invalid array length: 4294967296
+exit code: 1
+--- array 4294967297
+ERROR: Invalid array length: 4294967297
+exit code: 1
+--- array 2147483648
+ERROR: Invalid array length: 2147483648
+exit code: 1
+--- flat 10
+made a flat array of length 10
+exit code: 0
+--- flat 4294967296
+ERROR: Invalid array length: 4294967296
+exit code: 1
+--- prim 3
+made a primitive array of length 3
+exit code: 0
+--- prim -1
+ERROR: Invalid array length: -1
+exit code: 1

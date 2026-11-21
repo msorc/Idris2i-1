@@ -1,0 +1,11 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+# (no length here allocates more than a few bytes)
+for args in "array 10" "array 4294967296" "array 4294967297" \
+            "array 2147483648" "flat 10" "flat 4294967296" "prim 3" \
+            "prim -1"; do
+  echo "--- $args"
+  ./build/exec/main $args
+  echo "exit code: $?"
+done
