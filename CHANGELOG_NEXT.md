@@ -1321,6 +1321,11 @@ should target this file (`CHANGELOG_NEXT`).
   from a `String` to an `Integer`, a fixed width integer or a `Double` no
   longer kills the program with `SIGFPE`: it is no number, and gives 0 or
   0.0, as with the Chez backend.
+* Casting a `Double` between -2^64 and -9.2e18 to `Int`, `Int64`, `Bits64`
+  or a narrower integer gives the exact value wrapped around, as with the
+  Chez backend: it was off by up to 1024 (`cast {to = Int}
+  (-9223372036854774784.0)` gave -9223372036854775808, and as an `Int32` 0
+  instead of 1024).
 
 #### Chez Backend
 

@@ -234,17 +234,18 @@ Idris2_Value *idris2_cast_Double_to_string(Idris2_Value *input) {
   return (Idris2_Value *)retVal;
 }
 
+// The Double truncated towards zero, modulo 2^64.
 uint64_t idris2_double_to_wrapped(double d) {
   if (!isfinite(d))
     return 0;
-  if (fabs(d) < 9.2e18)
+  if (d >= -9223372036854775808.0 && d < 9223372036854775808.0)
     return (uint64_t)(int64_t)d;
-  double t = fmod(trunc(d), 18446744073709551616.0);
-  if (t < 0)
-    t += 18446744073709551616.0;
-  if (t >= 18446744073709551616.0)
-    return 0;
-  return (uint64_t)t;
+  // |d| >= 2^63: d is an integer, and so is the remainder of its division by
+  // 2^64, which fmod computes exactly.  Its magnitude is below 2^64: it is
+  // negated as an integer (adding 2^64 to it as a Double would round).
+  double t = fmod(d, 18446744073709551616.0);
+  uint64_t m = (uint64_t)fabs(t);
+  return t < 0 ? -m : m;
 }
 
 int64_t idris2_double_to_char_code(double d) {
