@@ -117,8 +117,21 @@ idris2-exec: ${TARGET}
 # a launcher next to an idris2_app directory.  The compiler skips compiling an
 # executable that is up to date: then ${TARGET} is the launcher already (a
 # script), and the binary is where it was moved to.
+#
+# The C support library (support/c) that the RefC binary links, and its
+# headers, are those of this tree, which the sources of the compiler are
+# written for (a compiler on Chez loads the one of this tree too, copied
+# below): IDRIS2_LIBS gives the library, and IDRIS2_DATA a directory with
+# only the `c` headers.  The RefC runtime (support/refc) stays the one of
+# IDRIS2_BOOT, as it must match the code generator that writes the C.
+SUPPORT_C_DATA = ${IDRIS2_CURDIR}/build/support-c-data
 ${TARGET}: support src/IdrisPaths.idr
 ifeq ($(IDRIS2_CG), refc)
+	mkdir -p ${SUPPORT_C_DATA}
+	${LINK_CMD} ${IDRIS2_CURDIR}/support/c ${SUPPORT_C_DATA}/c
+	IDRIS2_LIBS="${IDRIS2_SUPPORT_DIR}$${IDRIS2_LIBS:+${SEP}$$IDRIS2_LIBS}"; \
+	IDRIS2_DATA="${SUPPORT_C_DATA}$${IDRIS2_DATA:+${SEP}$$IDRIS2_DATA}"; \
+	export IDRIS2_LIBS IDRIS2_DATA; \
 	DEFAULT_CFLAGS=-O1; \
 	if [ "${LTO}" = 1 ]; then \
 		DEFAULT_CFLAGS=-O2; \

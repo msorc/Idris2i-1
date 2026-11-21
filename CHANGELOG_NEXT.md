@@ -796,6 +796,13 @@ should target this file (`CHANGELOG_NEXT`).
   found when the build starts: a `cc` put earlier in the `PATH`, for
   instance, makes the executable be compiled again.  The stamp checked only
   that the C compiler found when it was written had not changed.
+* `make` with the RefC backend links the compiler with the C support library
+  (`support/c`) of the tree, and compiles its C with the headers of that
+  library, as a compiler on Chez loads it: it used the ones of the prefix of
+  `IDRIS2_BOOT`, so a change to `support/c` was not seen (or a new function
+  of it did not link) until it was installed.  The RefC runtime
+  (`support/refc`) is still the one of `IDRIS2_BOOT`, which matches the C
+  that it writes.
 
 ### Backend changes
 
