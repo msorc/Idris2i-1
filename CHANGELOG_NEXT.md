@@ -1326,6 +1326,9 @@ should target this file (`CHANGELOG_NEXT`).
   Chez backend: it was off by up to 1024 (`cast {to = Int}
   (-9223372036854774784.0)` gave -9223372036854775808, and as an `Int32` 0
   instead of 1024).
+* Casting a fraction from a `String` to a `Double` gives the `Double`
+  nearest to it, as with the Chez backend, instead of the one towards zero
+  (`"1/10"` gave 0.09999999999999999, `"1/5"` 0.19999999999999998).
 
 #### Chez Backend
 

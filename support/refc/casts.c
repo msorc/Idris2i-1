@@ -396,6 +396,46 @@ static int idris2_isWord(char const *s, char const *word) {
   return *s == '\0';
 }
 
+// The Double nearest to num/den (den > 0), the even one of two at the same
+// distance, as `exact->inexact` of Chez (mpq_get_d truncates instead).  The
+// quotient is taken with at least 55 bits, the lowest of which is set when
+// the division is not exact: then the bits below the 53 of the result (or
+// below 2^-1074, for a subnormal result) tell which way to round, and a
+// remainder is never taken for a tie.
+static double idris2_fractionToDouble(mpz_srcptr num, mpz_srcptr den) {
+  int sign = mpz_sgn(num);
+  if (sign == 0)
+    return 0.0;
+  // num/den is in [2^(n-m-1), 2^(n-m+1)): num/den * 2^e in [2^54, 2^56), but
+  // with no bit below 2^-1076.
+  long n = (long)mpz_sizeinbase(num, 2), m = (long)mpz_sizeinbase(den, 2);
+  long e = 55 - (n - m);
+  if (e > 1076)
+    e = 1076;
+  mpz_t a, b, r;
+  mpz_inits(a, b, r, NULL);
+  mpz_abs(a, num);
+  mpz_set(b, den);
+  if (e >= 0)
+    mpz_mul_2exp(a, a, (mp_bitcnt_t)e);
+  else
+    mpz_mul_2exp(b, b, (mp_bitcnt_t)-e);
+  mpz_tdiv_qr(a, r, a, b);
+  // (the quotient has at most 56 bits)
+  uint64_t quot = idris2_mpzLow64(a) | (mpz_sgn(r) != 0);
+  mpz_clears(a, b, r, NULL);
+
+  int bits = 64 - __builtin_clzll(quot);
+  long drop = bits - 53 > e - 1074 ? bits - 53 : e - 1074;
+  uint64_t mant = quot >> drop;
+  uint64_t rest = quot & (((uint64_t)1 << drop) - 1);
+  uint64_t half = (uint64_t)1 << (drop - 1);
+  if (rest > half || (rest == half && (mant & 1)))
+    ++mant;
+  double d = ldexp((double)mant, (int)(drop - e));
+  return sign < 0 ? -d : d;
+}
+
 Idris2_Value *idris2_cast_string_to_Double(Idris2_Value *input) {
   char const *s = ((Idris2_String *)input)->str;
   int wellFormed = strlen(s) == ((Idris2_String *)input)->len;
@@ -416,8 +456,7 @@ Idris2_Value *idris2_cast_string_to_Double(Idris2_Value *input) {
     mpq_t q;
     mpq_init(q);
     mpq_set_str(q, idris2_gmpDigits(s), 10);
-    mpq_canonicalize(q);
-    double d = mpq_get_d(q);
+    double d = idris2_fractionToDouble(mpq_numref(q), mpq_denref(q));
     mpq_clear(q);
     return idris2_mkDouble(d);
   }
