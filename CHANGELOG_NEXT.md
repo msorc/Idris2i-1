@@ -759,6 +759,10 @@ should target this file (`CHANGELOG_NEXT`).
   tail call, so that a long loop overflowed the C stack.  The borrowing
   takes such a field as owned (it is read into a new value), which makes
   the parameter that it is passed to owned too.  The test `refc/borrow005`.
+* A closure applied to itself (`f f`, as `f (MkRec f)` with an erased
+  `MkRec`), also with a second argument at once or in tail position, was
+  passed with one reference for two, and freed while still used (`free():
+  invalid size`).  The test `refc/selfApply001`.
 * Flat arrays, the accesses (see `docs/source/backends/refc-flat-layout.rst`,
   stage C): in a program that uses flat arrays, the functions that access
   them have the small functions on their elements inlined (the

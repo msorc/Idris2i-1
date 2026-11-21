@@ -1071,6 +1071,14 @@ avarsToC env owned (v::vars) =
           then v'::avarsToC env (delete v owned) vars
           else "idris2_newReference(\{v'})"::avarsToC env owned vars -- when v is borrowed
 
+||| The C expressions of two operands that are both consumed, as `avarToC`
+||| gives them.  The application of a closure to itself (`f f`) consumes
+||| two references to it: when we own it, it is passed once as it is, once
+||| with a new reference.
+avarPairToC : Env -> AVar -> AVar -> (String, String)
+avarPairToC env x y
+    = (avarToC env x, avarToC (if x == y then { owned $= delete x } env else env) y)
+
 moveFromOwnedToBorrowed : Env -> SortedSet AVar -> Env
 moveFromOwnedToBorrowed env vars = { owned $= (`difference` vars) } env
 
@@ -1869,8 +1877,8 @@ applyFirst env var body f a =
     let usedVars = freeVariables body
         borrowVal = intersection env.owned (delete (ALocal var) usedVars)
         valueEnv = moveFromOwnedToBorrowed env borrowVal
-    in (avarToC valueEnv f, avarToC valueEnv a,
-        { owned := insert (ALocal var) borrowVal } env)
+        (fStr, aStr) = avarPairToC valueEnv f a
+    in (fStr, aStr, { owned := insert (ALocal var) borrowVal } env)
 
 ||| What the translation of an expression gives: a value (which may be a
 ||| pending call, in tail position), or a C integer (see Compiler.RefC.Unbox),
@@ -2230,11 +2238,12 @@ mutual
         pure sv.expr
     cStatementsFromANF (AApp fc _ closure arg) tailPosition = do
        env <- get EnvTracker
+       let (cStr, aStr) = avarPairToC env closure arg
        case tailPosition of
            NotInTailPosition =>
-             pure "idris2_apply_closure(\{avarToC env closure}, \{avarToC env arg})"
+             pure "idris2_apply_closure(\{cStr}, \{aStr})"
            InTailPosition =>
-             tailApply fc "idris2_tailcall_apply_closure(\{avarToC env closure}, \{avarToC env arg})"
+             tailApply fc "idris2_tailcall_apply_closure(\{cStr}, \{aStr})"
 
     -- `let v = f a in let w = v b in body`, where `v` is not used anywhere
     -- else, applies `f` to both arguments at once (and likewise when the
