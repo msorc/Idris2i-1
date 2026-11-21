@@ -1332,6 +1332,10 @@ should target this file (`CHANGELOG_NEXT`).
 * Casting a NaN or an infinite `Double` to an `Integer` gives 0, as the
   casts to the fixed width integers do, instead of killing the program with
   `SIGFPE` (the Chez backend raises an exception).
+* `show` on a `Double` gives the shortest digits that read back as the same
+  number also when they are not the nearest to it, as with the Chez backend:
+  46 powers of two were shown with 17 digits instead of 16 (2^172 as
+  `5.9863107065073784e51` instead of `5.986310706507378e51`).
 
 #### Chez Backend
 

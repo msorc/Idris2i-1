@@ -92,57 +92,75 @@ Idris2_Value *idris2_cast_Double_to_Integer(Idris2_Value *input) {
  * "|<bits>" after a subnormal number.
  */
 /*
- * printf rounds a decimal tie to even, but Chez rounds it up (2.5 -> 3).  When
- * the shortest digits in buf (prec of them, d.ddde<exp>) are a tie, replace
- * them with the rounded up digits, provided those read back as x too.
+ * The shortest digits that read back as x (positive and finite), the nearest
+ * to x of those, and of two at the same distance the greater one, as Chez
+ * does (printf would round a tie to even): digits[0..*n) times
+ * 10^(*k - *n + 1).  For each number of digits, the candidates are the exact
+ * expansion of x truncated to that many digits and the next number up: x is
+ * between them.  The nearest of them, which printf would give, need not read
+ * back as x when the other one does: the Doubles next to a power of two are
+ * not at the same distance on both sides.
  */
-static void roundTiesUp(double x, int prec, char *buf) {
+static void shortestDigits(double x, char *digits, int *n, int *k) {
   /* A double has an exact decimal expansion of at most 767 digits. */
   char exact[800];
   snprintf(exact, sizeof(exact), "%.*e", 780, x);
 
   /* digits of the exact expansion, then its exponent */
   char d[800];
-  int n = 0;
+  int len = 0;
   char *p = exact;
   while (*p != 'e') {
     if (*p >= '0' && *p <= '9')
-      d[n++] = *p;
+      d[len++] = *p;
     p++;
   }
   int e = atoi(p + 1);
+  while (len > 1 && d[len - 1] == '0')
+    len--;
 
-  if (n <= prec || d[prec] != '5')
-    return;
-  for (int i = prec + 1; i < n; i++)
-    if (d[i] != '0')
+  for (int prec = 1;; prec++) {
+    if (prec >= len) {
+      /* x itself has prec digits */
+      memcpy(digits, d, len);
+      *n = len;
+      *k = e;
       return;
-
-  /* Truncate to prec digits and add one in the last place. */
-  int i = prec - 1;
-  while (i >= 0 && d[i] == '9') {
-    d[i] = '0';
-    i--;
+    }
+    /* The truncation, and the number up from it (a carry out of the first
+     * digit makes it 10^(e+1)). */
+    char down[20], up[20];
+    memcpy(down, d, prec);
+    memcpy(up, d, prec);
+    int upExp = e;
+    int i = prec - 1;
+    while (i >= 0 && up[i] == '9')
+      up[i--] = '0';
+    if (i < 0) {
+      up[0] = '1';
+      upExp++;
+    } else {
+      up[i]++;
+    }
+    char text[40];
+    sprintf(text, "%c.%.*se%d", down[0], prec - 1, down + 1, e);
+    int downOk = strtod(text, NULL) == x;
+    sprintf(text, "%c.%.*se%d", up[0], prec - 1, up + 1, upExp);
+    int upOk = strtod(text, NULL) == x;
+    if (downOk && upOk) {
+      /* the nearest: the rest of the expansion against a half (5000...) */
+      int cmp = d[prec] - '5';
+      for (int j = prec + 1; cmp == 0 && j < len; j++)
+        cmp = d[j] != '0';
+      downOk = cmp < 0;
+    }
+    if (downOk || upOk) {
+      memcpy(digits, downOk ? down : up, prec);
+      *n = prec;
+      *k = downOk ? e : upExp;
+      return;
+    }
   }
-  if (i < 0) {
-    memmove(d + 1, d, prec - 1);
-    d[0] = '1';
-    e++;
-  } else {
-    d[i]++;
-  }
-
-  char up[40];
-  char *o = up;
-  *o++ = d[0];
-  if (prec > 1) {
-    *o++ = '.';
-    memcpy(o, d + 1, prec - 1);
-    o += prec - 1;
-  }
-  sprintf(o, "e%d", e);
-  if (strtod(up, NULL) == x)
-    strcpy(buf, up);
 }
 
 static void formatDouble(double x, char *out) {
@@ -165,26 +183,9 @@ static void formatDouble(double x, char *out) {
     return;
   }
 
-  char buf[40];
-  int prec;
-  for (prec = 1; prec < 17; prec++) {
-    snprintf(buf, sizeof(buf), "%.*e", prec - 1, x);
-    if (strtod(buf, NULL) == x)
-      break;
-  }
-  snprintf(buf, sizeof(buf), "%.*e", prec - 1, x);
-  roundTiesUp(x, prec, buf);
-
-  /* buf is d[.ddd]e<exponent> */
   char digits[20];
-  int n = 0;
-  char *p = buf;
-  while (*p != 'e') {
-    if (*p >= '0' && *p <= '9')
-      digits[n++] = *p;
-    p++;
-  }
-  int k = atoi(p + 1);
+  int n, k;
+  shortestDigits(x, digits, &n, &k);
   while (n > 1 && digits[n - 1] == '0')
     n--;
 
