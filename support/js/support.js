@@ -121,16 +121,68 @@ function __resCall(f, self, args) {
   }
 }
 
+// The wrapper that `__resFn` made of a function (a property of the
+// function, which costs little more than making the wrapper, and of the
+// wrapper itself), and the wrappers of the functions that cannot be given a
+// property.
+const __resFnKey = Symbol('idris2 resFn')
+const __resFns = new WeakMap()
+
 // A function given to foreign code, whose calls run the pending calls, also
 // in the functions that it returns.  This is the function to call from
 // JavaScript to get the trampoline in an Idris function that reached it in
 // another way than as an argument of a function type of a foreign function.
+// The same function always gets the same wrapper, which has the same length
+// (so foreign code can recognise a function it was given before, as
+// `removeEventListener` does, or look at its arity), and a wrapper is its own
+// wrapper.  The wrapper passes on all the arguments it gets.  (Up to three
+// parameters, it has them, which gives it its length, and passes on its
+// `arguments`, which is as fast as rest parameters in a strict function;
+// `Object.defineProperty` of the length would cost more than the rest.)
 function __resFn(f) {
   if (typeof f !== 'function') return f
-  return function (...args) {
-    const r = __resCall(f, this, args)
-    return typeof r === 'function' ? __resFn(r) : r
+  let w = f[__resFnKey]
+  if (w !== undefined) return w
+  if ((w = __resFns.get(f)) !== undefined) return w
+  switch (f.length) {
+    case 0:
+      w = function () {
+        'use strict'
+        const depth = __tc.depth; __tc.depth = 0
+        try { return __resFn(__resRun(f.apply(this, arguments))) } finally { __tc.depth = depth }
+      }
+      break
+    case 1:
+      w = function (a) {
+        'use strict'
+        const depth = __tc.depth; __tc.depth = 0
+        try { return __resFn(__resRun(f.apply(this, arguments))) } finally { __tc.depth = depth }
+      }
+      break
+    case 2:
+      w = function (a, b) {
+        'use strict'
+        const depth = __tc.depth; __tc.depth = 0
+        try { return __resFn(__resRun(f.apply(this, arguments))) } finally { __tc.depth = depth }
+      }
+      break
+    case 3:
+      w = function (a, b, c) {
+        'use strict'
+        const depth = __tc.depth; __tc.depth = 0
+        try { return __resFn(__resRun(f.apply(this, arguments))) } finally { __tc.depth = depth }
+      }
+      break
+    default:
+      w = function (...args) { return __resFn(__resCall(f, this, args)) }
+      Object.defineProperty(w, 'length', { value: f.length })
   }
+  // (a function that cannot be given a property, frozen for instance, has
+  // its wrapper in `__resFns`)
+  try { f[__resFnKey] = w } catch (e) { }
+  if (f[__resFnKey] !== w) __resFns.set(f, w)
+  w[__resFnKey] = w
+  return w
 }
 
 function __lazy(thunk) {

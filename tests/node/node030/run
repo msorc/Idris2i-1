@@ -1,0 +1,8 @@
+. ../../testutils.sh
+
+# The functions given to foreign code, on Node and with the browser back end
+idris2 -o callbacks Callbacks.idr
+./build/exec/callbacks
+
+idris2 --cg javascript -o callbacks.js Callbacks.idr
+node ./build/exec/callbacks.js

@@ -1420,6 +1420,9 @@ should target this file (`CHANGELOG_NEXT`).
     exception thrown through such calls no longer leaves them counted (which
     made the closures above fail after it, or the stack grow).  JavaScript
     code can call such a function through `__resFn` to get the trampoline.
+    The same function given to foreign code gets the same wrapper every
+    time, with the `length` of the function (each call made a new one, of
+    length 0, so `removeEventListener` could not remove a listener).
   + With Node, the main expression runs on a stack of 1GB in a worker
     thread, as with RefC, so that recursion that is not a tail call
     (`foldr`, `sort`, `traverse` on lists of 10^6 elements) works: four of

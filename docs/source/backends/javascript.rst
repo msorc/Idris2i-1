@@ -236,11 +236,14 @@ trampoline: such a call is made directly while there are fewer than 64 of
 them on the stack, and beyond that it returns a pending call to the nearest
 caller that needs the value, which makes it.  So a loop through any monad
 runs in constant stack space.  A function given to foreign code (an argument
-whose type is a function) is wrapped so that its calls run the pending calls,
-and the functions that it returns are wrapped too.  A pending call never
-reaches foreign code: while a foreign function runs, and outside Idris code
-(from the event loop, or a ``%nomangle`` function called from JavaScript),
-the tail calls are made directly.  So a closure that reaches foreign code in another way, such as
+whose type is a function) is wrapped so that its calls run the pending calls;
+the same function gets the same wrapper every time (so foreign code can
+remove a callback it was given before, as with ``removeEventListener``), with
+the ``length`` of the function, and the functions that it returns are
+wrapped too.  A pending call never reaches foreign code: while a foreign
+function runs, and outside Idris code (from the event loop, or a
+``%nomangle`` function called from JavaScript), the tail calls are made
+directly.  So a closure that reaches foreign code in another way, such as
 inside an ``AnyPtr`` or a record, returns its value when JavaScript calls
 it, but its tail calls to unknown functions take stack as they do without
 the trampoline; the foreign code can call it through ``__resFn(f)``, the
