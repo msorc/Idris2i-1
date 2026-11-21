@@ -81,25 +81,38 @@ IDRIS2_INTEGER_OP2(idris2_mod_IntegerSlow,
                    mpz_mod(retVal->i, ma, mb))
 // (a shift by a negative count goes the other way, like `ash`; the right
 // shift is arithmetic: the floor of the division)
-#define IDRIS2_INTEGER_SHIFT(dst, x, n, left)                                  \
-  do {                                                                         \
-    if ((mpz_sgn(n) >= 0) == (left))                                           \
-      mpz_mul_2exp(dst, x, (mp_bitcnt_t)mpz_get_ui(n));                        \
-    else                                                                       \
-      mpz_fdiv_q_2exp(dst, x, (mp_bitcnt_t)mpz_get_ui(n));                     \
-  } while (0)
+static void idris2_shiftInteger(mpz_ptr dst, mpz_srcptr x, mpz_srcptr n,
+                                int left) {
+  int up = (mpz_sgn(n) >= 0) == left;
+  // A count that is no mp_bitcnt_t (mpz_get_ui would keep its low bits): a
+  // shift right by it leaves the sign, and a shift left makes a number that
+  // no memory holds (the Chez backend runs out of memory too), unless it is 0.
+  if (mpz_cmpabs_ui(n, ULONG_MAX) > 0) {
+    if (!up)
+      mpz_set_si(dst, mpz_sgn(x) < 0 ? -1 : 0);
+    else if (mpz_sgn(x) == 0)
+      mpz_set_ui(dst, 0);
+    else
+      idris2_crashMsg("ERROR: Integer shifted left by too many bits");
+    return;
+  }
+  if (up)
+    mpz_mul_2exp(dst, x, (mp_bitcnt_t)mpz_get_ui(n));
+  else
+    mpz_fdiv_q_2exp(dst, x, (mp_bitcnt_t)mpz_get_ui(n));
+}
 IDRIS2_INTEGER_OP2(
     idris2_shiftl_Integer,
     if (b >= 0 && b < 32) return idris2_mkIntegerFromInt64(a * ((int64_t)1 << b));
     if (b < 0) return idris2_mkIntegerFromInt64(b <= -63 ? (a < 0 ? -1 : 0)
                                                           : a >> -b);
-    , IDRIS2_INTEGER_SHIFT(retVal->i, ma, mb, 1))
+    , idris2_shiftInteger(retVal->i, ma, mb, 1))
 IDRIS2_INTEGER_OP2(
     idris2_shiftr_Integer,
     if (b >= 0) return idris2_mkIntegerFromInt64(b >= 63 ? (a < 0 ? -1 : 0)
                                                          : a >> b);
     if (b > -32) return idris2_mkIntegerFromInt64(a * ((int64_t)1 << -b));
-    , IDRIS2_INTEGER_SHIFT(retVal->i, ma, mb, 0))
+    , idris2_shiftInteger(retVal->i, ma, mb, 0))
 
 Idris2_Value *idris2_negate_Integer(Idris2_Value *x) {
   if (idris2_isSmallInteger(x))

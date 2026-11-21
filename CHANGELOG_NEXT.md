@@ -1336,6 +1336,11 @@ should target this file (`CHANGELOG_NEXT`).
   number also when they are not the nearest to it, as with the Chez backend:
   46 powers of two were shown with 17 digits instead of 16 (2^172 as
   `5.9863107065073784e51` instead of `5.986310706507378e51`).
+* Shifting an `Integer` by a count of 2^64 or more (`prim__shl_Integer`,
+  `prim__shr_Integer`) no longer shifts by the count's low bits: a shift
+  right gives 0 or -1, a shift left of 0 gives 0, and a shift left of any
+  other number is an error, `ERROR: Integer shifted left by too many bits`
+  (the Chez backend runs out of memory).
 
 #### Chez Backend
 
