@@ -1260,6 +1260,9 @@ should target this file (`CHANGELOG_NEXT`).
   integers.
 * Decrementing the reference count of a shared closure could make an
   immortal closure mortal again.
+* `IDRIS2_CC_JOBS=0` (or a value that is not a number of at least 1) is the
+  default number of C compilers for the units of a big program: with 0, no
+  unit was compiled, and the link failed on the missing object files.
 * The compiler itself can be compiled with RefC.  Such a compiler has no Chez
   Scheme evaluator (`:set eval scheme` in the REPL).
 * Big programs (more than 4MB of C) are compiled in parts by C compilers

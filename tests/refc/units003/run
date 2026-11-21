@@ -1,0 +1,31 @@
+. ../../testutils.sh
+
+# The units of a big program (see units001) are compiled by IDRIS2_CC_JOBS C
+# compilers at once.  A value that is not a number of at least 1 is as if the
+# variable was not set: with no C compiler at all, no unit would be compiled,
+# and the program would not link.
+
+rm -rf ed
+mkdir ed
+cd ed
+cp ../Main.idr .
+
+build() {
+    idris2_no_clean --directive refc-split-size=1000 -o main Main.idr > output 2>&1
+    echo "$1: exit code $?"
+    ./build/exec/main
+}
+
+(export IDRIS2_CC_JOBS=0; build "0 jobs")
+
+sed -i.bak 's/hello/hullo/' Main.idr
+(export IDRIS2_CC_JOBS=-2; build "-2 jobs")
+
+sed -i.bak 's/hullo/hallo/' Main.idr
+(export IDRIS2_CC_JOBS=many; build "many jobs")
+
+sed -i.bak 's/hallo/hello/' Main.idr
+(export IDRIS2_CC_JOBS=; build "empty")
+
+cd ..
+rm -rf ed

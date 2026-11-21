@@ -1,0 +1,20 @@
+0 jobs: exit code 0
+hello
+2432902008176640000
+55
+a b c
+-2 jobs: exit code 0
+hullo
+2432902008176640000
+55
+a b c
+many jobs: exit code 0
+hallo
+2432902008176640000
+55
+a b c
+empty: exit code 0
+hello
+2432902008176640000
+55
+a b c

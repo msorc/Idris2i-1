@@ -118,12 +118,17 @@ compileCObjectFile {asLibrary} sourceFile objectFile =
 -- How many C compilers to run at once: IDRIS2_CC_JOBS, or the number of
 -- processors up to 16 (the limit of the Makefile for IDRIS2_JOBS too): each
 -- C compiler of a unit of the compiler itself needs a few hundred MB, and
--- more of them gain little.
+-- more of them gain little.  An IDRIS2_CC_JOBS that is not a number of at
+-- least 1 (0, empty, ...) is as if it was not set: with no C compiler
+-- running, nothing would be compiled.
 findCCJobs : IO Nat
 findCCJobs
-  = do Just jobs <- idrisGetEnv "IDRIS2_CC_JOBS"
-         | Nothing => map (min 16 . fromMaybe 1) getNProcessors
-       pure $ fromMaybe 1 $ parsePositive {a = Nat} jobs
+  = do Just n <- map (>>= parsePositive {a = Nat}) (idrisGetEnv "IDRIS2_CC_JOBS")
+         | Nothing => byDefault
+       if n >= 1 then pure n else byDefault
+  where
+    byDefault : IO Nat
+    byDefault = map (max 1 . min 16 . fromMaybe 1) getNProcessors
 
 ------------------------------------------------------------------------
 -- Compiling a big program in units, and reusing their object files
