@@ -1572,6 +1572,15 @@ should target this file (`CHANGELOG_NEXT`).
   longer need a stack as deep as the list with JavaScript, and are faster with
   every backend: `length [1..10^6]` takes 63% fewer instructions with Chez and
   32% fewer with RefC, `for_ [1..10^6]` in `IO` 80% and 61% fewer.
+* Ranges with a step (`[x, y .. z]`) end: going down to zero in `Nat`
+  (`[the Nat 10, 9 .. 0]`, `[4, 2 .. 0]`) never did, since `minus` stops at
+  zero, and nor did a range of a type of fixed width whose next step went
+  past the end of the type (`[maxBound - 2, maxBound - 1 .. maxBound]`, `[the
+  Int8 0, 100 .. 127]`), where it wraps around.  The direction is that of `x`
+  to `y`, where it was computed from differences that could wrap around too
+  (`[the Int8 (-128), 0 .. 127]` was empty).  The finite ranges are as they
+  were otherwise.  The test `allbackends/range001` has every shape, of every
+  type.
 * `traverse`, `for` and `sequence` on lists in `IO` are transformed
   (`%transform`) to a loop that passes the world on and collects the results
   in a `SnocList` (`ioTraverseList`), and `foldlM` on lists in `IO` to one

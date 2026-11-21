@@ -1135,11 +1135,17 @@ rangeDownOnto : Ord n => (next : n -> n) -> (x : n) -> List n -> n -> List n
 rangeDownOnto next x acc i
     = if i >= x then x :: acc else rangeDownOnto next x (i :: acc) (next i)
 
-||| `takeBefore p (countFrom i next)`, appended to the elements in `sx`.
+||| `[i, next i, next (next i) ..]` for as long as `more i (next i)` says that
+||| the element after `i` is in the range, appended to the elements in `sx`.
+||| `i` is in the range.  (Whether the element after `i` is in it is decided
+||| from `i` too: a step past the end of a type of fixed width wraps around,
+||| and a step down from a small `Nat` stops at zero, which a test of the next
+||| element alone takes for one in the range.)
 public export covering
-rangeStepOnto : (p : n -> Bool) -> (next : n -> n) -> SnocList n -> n -> List n
-rangeStepOnto p next sx i
-    = if p i then sx <>> [] else rangeStepOnto p next (sx :< i) (next i)
+rangeStepOnto : (more : n -> n -> Bool) -> (next : n -> n) -> SnocList n -> n -> List n
+rangeStepOnto more next sx i
+    = let j = next i in
+          if more i j then rangeStepOnto more next (sx :< i) j else sx <>> [i]
 
 public export
 Range Nat where
@@ -1149,10 +1155,17 @@ Range Nat where
     GT => assert_total $ rangeDownOnto S x [] y
   rangeFromThenTo x y z = case compare x y of
     LT => if z >= x
-             then assert_total $ rangeStepOnto (> z) (plus (minus y x)) [<] x
+             then let d = minus y x in
+                      assert_total $ rangeStepOnto (\_, j => j <= z) (plus d) [<] x
              else Nil
     EQ => if x == z then pure x else Nil
-    GT => assert_total $ rangeStepOnto (< z) (\n => minus n (minus x y)) [<] x
+    -- (the element after `i` is in the range when `i >= z + d`: `minus i d`
+    -- stops at zero, which is never below `z`, and would repeat it forever)
+    GT => if z <= x
+             then let d = minus x y
+                      zd = plus z d in
+                      assert_total $ rangeStepOnto (\i, _ => zd <= i) (\n => minus n d) [<] x
+             else Nil
   rangeFrom x = countFrom x S
   rangeFromThen x y
       = if y > x
@@ -1165,13 +1178,24 @@ public export
     LT => assert_total $ rangeUpOnto (\x => x-1) x [] y
     EQ => pure x
     GT => assert_total $ rangeDownOnto (+1) x [] y
-  rangeFromThenTo x y z = case compare (z - x) (z - y) of
-    -- Go down
-    LT => assert_total $ rangeStepOnto (< z) (\n => n - (x - y)) [<] x
-    -- Meaningless
-    EQ => if x == y && y == z then pure x else Nil
+  -- The direction is that of `x` to `y`, and a step that goes past the end
+  -- of a type of fixed width, where it wraps around, ends the range: the
+  -- next element is then not past the current one.  (The distances to `z`,
+  -- and the step `y - x` itself, can wrap around too: `y - x` gives `y` from
+  -- `x` all the same, and the element after `y` is past the end then.)
+  rangeFromThenTo x y z = case compare x y of
     -- Go up
-    GT => assert_total $ rangeStepOnto (> z) (+ (y-x)) [<] x
+    LT => if x <= z
+             then let d = y - x in
+                      assert_total $ rangeStepOnto (\i, j => i < j && j <= z) (+ d) [<] x
+             else Nil
+    -- Meaningless
+    EQ => if x == z then pure x else Nil
+    -- Go down
+    GT => if z <= x
+             then let d = x - y in
+                      assert_total $ rangeStepOnto (\i, j => j < i && z <= j) (\n => n - d) [<] x
+             else Nil
   rangeFrom x = countFrom x (1+)
   rangeFromThen x y
       = if y > x

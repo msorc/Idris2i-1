@@ -795,7 +795,7 @@ module Prelude.Types
   public export total plus : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   public export total pow : Double -> Double -> Double
   public export covering rangeDownOnto : {0 n : Type} -> Prelude.EqOrd.Ord n => (n -> n) -> n -> Prelude.Basics.List n -> n -> Prelude.Basics.List n
-  public export covering rangeStepOnto : {0 n : Type} -> (n -> Prelude.Basics.Bool) -> (n -> n) -> Prelude.Basics.SnocList n -> n -> Prelude.Basics.List n
+  public export covering rangeStepOnto : {0 n : Type} -> (n -> n -> Prelude.Basics.Bool) -> (n -> n) -> Prelude.Basics.SnocList n -> n -> Prelude.Basics.List n
   public export covering rangeUpOnto : {0 n : Type} -> Prelude.EqOrd.Ord n => (n -> n) -> n -> Prelude.Basics.List n -> n -> Prelude.Basics.List n
   public export total reverse : String -> String
   public export total sin : Double -> Double
