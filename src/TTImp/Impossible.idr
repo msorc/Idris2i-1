@@ -32,7 +32,7 @@ match nty (n, i, rty)
     sameRet _ (NErased {}) = pure True
     sameRet (NApp {}) _ = pure True
     sameRet (NErased {}) _ = pure True
-    sameRet (NTCon _ n _ _) (NTCon _ n' _ _) = pure (n == n')
+    sameRet (NTCon _ n _ _ _) (NTCon _ n' _ _ _) = pure (n == n')
     sameRet (NPrimVal _ c) (NPrimVal _ c') = pure (c == c')
     sameRet (NType {}) (NType {}) = pure True
     sameRet nf (NBind fc _ (Pi {}) sc)

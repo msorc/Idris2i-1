@@ -40,7 +40,7 @@ nameIn defs tyns (NApp _ nh args)
          if hn `elem` tyns then pure True else
           anyM (nameIn defs tyns)
            !(traverse (evalClosure defs . snd) args)
-nameIn defs tyns (NTCon _ n _ args)
+nameIn defs tyns (NTCon _ n _ _ args)
     = if n `elem` tyns
          then pure True
          else do args' <- traverse (evalClosure defs . snd) args
@@ -86,7 +86,7 @@ numbered i (x :: xs) = (i, x) :: numbered (S i) xs
 -- parameters that tc itself uses strictly positively; report positivity
 -- failure if it appears anywhere else. Without the second condition
 -- `MkBad : Neg Bad -> Bad` with `MkNeg : (a -> Void) -> Neg a` is accepted.
-posArg defs seen tyns nf@(NTCon loc tc _ args) =
+posArg defs seen tyns nf@(NTCon loc tc _ _ args) =
   do logNF "totality.positivity" 50 "Found a type constructor" Env.empty nf
      Just def <- lookupDefExact tc (gamma defs)
        | Nothing => notLoaded
@@ -228,7 +228,7 @@ paramPositive defs seen tc i
     etaVar k vs _ = pure Nothing
 
     paramName : ClosedNF -> Core (Maybe Name)
-    paramName (NTCon _ n _ args)
+    paramName (NTCon _ n _ _ args)
         = if n /= tc then pure Nothing else
           case drop i (map snd args) of
             (cl :: _) => etaVar 0 [] !(evalClosure defs cl)
@@ -237,7 +237,7 @@ paramPositive defs seen tc i
 
 
     inIndex : Name -> ClosedNF -> Core Bool
-    inIndex p (NTCon _ _ _ args)
+    inIndex p (NTCon _ _ _ _ args)
         = do Just (TCon _ params _ _ _ _ _) <- lookupDefExact tc (gamma defs)
                | _ => pure True
              let (_, indices) = NatSet.partition params (map snd args)

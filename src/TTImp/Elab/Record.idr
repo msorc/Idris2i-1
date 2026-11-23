@@ -18,7 +18,7 @@ import Data.SortedSet
 %default covering
 
 getRecordType : Env Term vars -> NF vars -> Maybe Name
-getRecordType env (NTCon _ n _ _) = Just n
+getRecordType env (NTCon _ n _ _ _) = Just n
 getRecordType env _ = Nothing
 
 getNames : {auto c : Ref Ctxt Defs} -> Defs -> ClosedNF -> Core $ SortedSet Name
@@ -32,7 +32,7 @@ getNames defs (NApp _ hd args)
 getNames defs (NDCon _ _ _ _ args)
     = do eargs <- traverse (evalClosure defs . snd) args
          pure $ concat !(traverse (getNames defs) eargs)
-getNames defs (NTCon _ _ _ args)
+getNames defs (NTCon _ _ _ _ args)
   = do eargs <- traverse (evalClosure defs . snd) args
        pure $ concat !(traverse (getNames defs) eargs)
 getNames defs (NDelayed _ _ tm) = getNames defs tm

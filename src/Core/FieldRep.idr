@@ -56,7 +56,7 @@ conFieldsFlag (_ :: fs) = conFieldsFlag fs
 ||| types.
 typeRep : Defs -> ClosedNF -> Core FieldRep
 typeRep defs (NPrimVal _ (PrT t)) = pure (primRep t)
-typeRep defs (NTCon _ tn _ _)
+typeRep defs (NTCon _ tn _ _ _)
     = do Just (TCon _ _ _ _ _ (Just cons@(_ :: _)) _) <- lookupDefExact tn (gamma defs)
               | _ => pure FBoxed
          Just k <- enumSize cons
@@ -230,11 +230,11 @@ addFlatHint fc tn [con]
                    | _ => pure ()
               tnfull <- toFullNames tn
               let code : Integer = 2 + 256 * cast (length fields) + 16777216 * cast tag
-              let ty = Ref fc (TyCon tyArity) tn
+              let ty = Ref fc (TyCon tyArity []) tn
               let layout = apply fc (Ref fc (DataCon ltag lar) mkLayout)
                                  [ty, PrimVal fc (B64 (cast code))]
               let val = apply fc (Ref fc (DataCon ftag far) mkFlat) [ty, layout]
-              let hty = App fc (Ref fc (TyCon 1) flat) ty
+              let hty = App fc (Ref fc (TyCon 1 []) flat) ty
               let hn = NS (currentNS defs) (MN ("flat layout of " ++ show tnfull) 0)
               -- (the names resolved, as those of the elaborated terms are:
               -- the search compares them)

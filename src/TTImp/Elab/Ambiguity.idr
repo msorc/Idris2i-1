@@ -218,7 +218,7 @@ mutual
   mightMatch defs target (NBind fc n (Pi {}) sc)
       = mightMatchD defs target !(sc defs (toClosure defaultOpts Env.empty (Erased fc Placeholder)))
   mightMatch defs (NBind {}) (NBind {}) = pure Poly -- lambdas might match
-  mightMatch defs (NTCon _ n a args) (NTCon _ n' a' args')
+  mightMatch defs (NTCon _ n a _ args) (NTCon _ n' a' _ args')
       = if n == n'
            then do amatch <- mightMatchArgs defs (map snd args) (map snd args')
                    if amatch then pure Concrete else pure NoMatch
@@ -260,7 +260,7 @@ couldBeFn defs ty _ = pure Poly
 couldBe : {auto c : Ref Ctxt Defs} ->
           {vars : _} ->
           Defs -> NF vars -> RawImp -> Core (Maybe (Bool, RawImp))
-couldBe {vars} defs ty@(NTCon _ n _ _) app
+couldBe {vars} defs ty@(NTCon _ n _ _ _) app
    = case !(couldBeFn {vars} defs ty (getFn app)) of
           Concrete => pure $ Just (True, app)
           Poly => pure $ Just (False, app)

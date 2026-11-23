@@ -399,7 +399,7 @@ interfaceArgs : {auto c : Ref Ctxt Defs} ->
 interfaceArgs (Bind _ x (Pi _ rig _ ty) sc)
     = do rest <- interfaceArgs sc
          case getFn ty of
-              Ref _ (TyCon _) n =>
+              Ref _ (TyCon _ _) n =>
                 if isErased rig then pure rest else do
                   n' <- toFullNames n
                   syn <- get Syn
@@ -417,7 +417,7 @@ isProofType (Bind _ _ (Pi {}) sc) = isProofType sc
 isProofType (TType {}) = pure (Just True)
 isProofType ty
     = case getFn ty of
-           Ref _ (TyCon _) n =>
+           Ref _ (TyCon _ _) n =>
              do n' <- toFullNames n
                 pure $ Just (n' == NS builtinNS (UN $ Basic "Equal")
                              || n' == NS builtinNS (UN $ Basic "Void"))
@@ -432,7 +432,7 @@ isProofNF (S k) (NBind fc _ (Pi {}) sc)
     = do defs <- get Ctxt
          isProofNF k !(sc defs (toClosure defaultOpts Env.empty (Erased fc Placeholder)))
 isProofNF _ (NType {}) = pure True
-isProofNF _ (NTCon _ n _ _)
+isProofNF _ (NTCon _ n _ _ _)
     = do n' <- toFullNames n
          pure (n' == NS builtinNS (UN $ Basic "Equal")
                || n' == NS builtinNS (UN $ Basic "Void"))
@@ -485,7 +485,7 @@ autoInterfaceArgs ty
     go (Bind _ x (Pi _ rig _ aty) sc)
         = do rest <- go sc
              case getFn aty of
-                  Ref _ (TyCon _) n =>
+                  Ref _ (TyCon _ _) n =>
                     if isErased rig then pure rest else do
                       n' <- toFullNames n
                       syn <- get Syn
@@ -806,7 +806,7 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
         isImplementation defs (Bind _ _ (Pi {}) sc) = isImplementation defs sc
         isImplementation defs ty
             = case getFn ty of
-                   Ref _ (TyCon _) n =>
+                   Ref _ (TyCon _ _) n =>
                      do n' <- toFullNames n
                         syn <- get Syn
                         pure (isJust (lookupExact n' (ifaces syn)))
@@ -1259,7 +1259,7 @@ erasedPositions = go 0
 -- the arguments of quantity 0 of a function or a constructor, and all the
 -- arguments of a type constructor.
 erasedArgsOf : {auto c : Ref Ctxt Defs} -> Term vars -> Core (Nat -> Bool)
-erasedArgsOf (Ref _ (TyCon _) _) = pure (const True)
+erasedArgsOf (Ref _ (TyCon _ _) _) = pure (const True)
 erasedArgsOf (Ref _ Bound _) = pure (const False)
 erasedArgsOf (Ref _ _ n)
     = do defs <- get Ctxt
@@ -1535,9 +1535,9 @@ mutual
   quoteGenNF q defs bound env (NDCon fc n t ar args)
       = do args' <- quoteArgsWithFC q defs bound env args
            pure $ applyStackWithFC (Ref fc (DataCon t ar) n) args'
-  quoteGenNF q defs bound env (NTCon fc n ar args)
+  quoteGenNF q defs bound env (NTCon fc n ar inst args)
       = do args' <- quoteArgsWithFC q defs bound env args
-           pure $ applyStackWithFC (Ref fc (TyCon ar) n) args'
+           pure $ applyStackWithFC (Ref fc (TyCon ar inst) n) args'
   quoteGenNF q defs bound env (NAs fc s n pat)
       = do n' <- quoteGenNF q defs bound env n
            pat' <- quoteGenNF q defs bound env pat

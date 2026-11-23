@@ -25,7 +25,11 @@ data NameType : Type where
      Bound   : NameType
      Func    : NameType
      DataCon : (tag : Int) -> (arity : Nat) -> NameType
-     TyCon   : (arity : Nat) -> NameType
+     ||| A type constructor. 'inst' is the universe instance of this use
+     ||| of it (with --check-universes, see Core.UniverseCheck): the names
+     ||| given to the universes of its family, in the order of the family's
+     ||| universe schema. Empty means the family's own universes.
+     TyCon   : (arity : Nat) -> (inst : List Name) -> NameType
 
 %name NameType nt
 
@@ -35,12 +39,12 @@ Show NameType where
   showPrec d Bound = "Bound"
   showPrec d Func = "Func"
   showPrec d (DataCon tag ar) = showCon d "DataCon" $ showArg tag ++ showArg ar
-  showPrec d (TyCon ar) = showCon d "TyCon" $ showArg ar
+  showPrec d (TyCon ar _) = showCon d "TyCon" $ showArg ar
 
 export
 isCon : NameType -> Maybe Nat
 isCon (DataCon t a) = Just a
-isCon (TyCon a) = Just a
+isCon (TyCon a _) = Just a
 isCon _ = Nothing
 
 -- Typechecked terms

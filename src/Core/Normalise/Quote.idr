@@ -197,9 +197,9 @@ mutual
   quoteGenNF q opts defs bound env (NDCon fc n t ar args)
       = do args' <- quoteArgsWithFC q opts defs bound env args
            pure $ applyStackWithFC (Ref fc (DataCon t ar) n) args'
-  quoteGenNF q opts defs bound env (NTCon fc n ar args)
+  quoteGenNF q opts defs bound env (NTCon fc n ar inst args)
       = do args' <- quoteArgsWithFC q opts defs bound env args
-           pure $ applyStackWithFC (Ref fc (TyCon ar) n) args'
+           pure $ applyStackWithFC (Ref fc (TyCon ar inst) n) args'
   quoteGenNF q opts defs bound env (NAs fc s n pat)
       = do n' <- quoteGenNF q opts defs bound env n
            pat' <- quoteGenNF q opts defs bound env pat

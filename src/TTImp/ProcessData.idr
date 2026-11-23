@@ -61,7 +61,7 @@ checkFamily loc cn tn env nf
     = checkRetType env nf $
          \case
            NType {} => throw $ BadDataConType loc cn tn
-           NTCon _ n' _ _ =>
+           NTCon _ n' _ _ _ =>
                  if tn == n'
                     then pure ()
                     else throw $ BadDataConType loc cn tn
@@ -141,7 +141,7 @@ getIndexPats tm
     getRetType defs t = pure t
 
     getPats : Defs -> ClosedNF -> Core (List ClosedNF)
-    getPats defs (NTCon fc _ _ args)
+    getPats defs (NTCon fc _ _ _ args)
         = do args' <- traverse (evalClosure defs . snd) args
              pure (toList args')
     getPats defs _ = pure [] -- Can't happen if we defined the type successfully!
@@ -172,7 +172,7 @@ getDetags fc tys
                        argsnf <- traverse (evalClosure defs . snd) args
                        args'nf <- traverse (evalClosure defs . snd) args'
                        disjointArgs argsnf args'nf
-      disjoint (NTCon _ n _ args) (NTCon _ n' _ args')
+      disjoint (NTCon _ n _ _ args) (NTCon _ n' _ _ args')
           = if n /= n'
                then pure True
                else do defs <- get Ctxt
@@ -269,7 +269,7 @@ firstArg (Bind _ _ (Pi _ c _ val) sc)
 firstArg tm = Nothing
 
 typeCon : Term vs -> Maybe Name
-typeCon (Ref _ (TyCon _) n) = Just n
+typeCon (Ref _ (TyCon _ _) n) = Just n
 typeCon (App _ fn _) = typeCon fn
 typeCon _ = Nothing
 

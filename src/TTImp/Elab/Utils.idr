@@ -18,7 +18,7 @@ import Libraries.Data.List.SizeOf
 
 detagSafe : {auto c : Ref Ctxt Defs} ->
             Defs -> ClosedNF -> Core Bool
-detagSafe defs (NTCon _ n _ args)
+detagSafe defs (NTCon _ n _ _ args)
     = do Just (TCon _ _ _ _ _ _ (Just detags)) <- lookupDefExact n (gamma defs)
               | _ => pure False
          args' <- traverse (evalClosure defs . snd) args

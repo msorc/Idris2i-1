@@ -67,7 +67,7 @@ export
 termHead : Term vs -> Maybe RigidHead
 termHead tm
     = case getFnArgs tm of
-           (Ref _ (TyCon ar) n, as) => Just (tconHead n ar as)
+           (Ref _ (TyCon ar _) n, as) => Just (tconHead n ar as)
            (Ref _ (DataCon t _) _, _) => Just (RDCon t)
            (PrimVal _ c, []) => Just (RPrim c)
            (TType {}, []) => Just RType
@@ -79,7 +79,7 @@ termHead tm
     tconHead n _ _ = RTCon n
 
 nfHead : NF vs -> Maybe RigidHead
-nfHead (NTCon _ n _ _) = Just (RTCon n)
+nfHead (NTCon _ n _ _ _) = Just (RTCon n)
 nfHead (NDCon _ _ t _ _) = Just (RDCon t)
 nfHead (NPrimVal _ c) = Just (RPrim c)
 nfHead (NType {}) = Just RType
@@ -106,7 +106,7 @@ export
 targetHeads : {vars : _} ->
               {auto c : Ref Ctxt Defs} ->
               NF vars -> Core (Maybe TargetHeads)
-targetHeads (NTCon _ n _ args)
+targetHeads (NTCon _ n _ _ args)
     = do defs <- get Ctxt
          catch (do hs <- traverse (closureHead defs) (map snd args)
                    pure (Just (n, hs)))
@@ -143,7 +143,7 @@ localCanMatch env th ty = catch (canMatch ty) (\ _ => pure True)
                Just h =>
                  if clash (RTCon tyn) h then pure False
                     else case ty of
-                           NTCon _ _ _ args =>
+                           NTCon _ _ _ _ args =>
                              if length args /= length ths
                                 then pure True
                                 else do defs <- get Ctxt
@@ -445,7 +445,7 @@ usableLocal loc defaults env (NApp fc (NMeta (PV {}) _ _) args)
     = pure True
 usableLocal loc defaults env (NApp fc (NMeta {}) args)
     = pure False
-usableLocal {vars} loc defaults env (NTCon _ n _ args)
+usableLocal {vars} loc defaults env (NTCon _ n _ _ args)
     = do sd <- getSearchData loc (not defaults) n
          usableLocalArg 0 (detArgs sd) (map snd args)
   -- usable if none of the determining arguments of the local's type are
@@ -546,7 +546,7 @@ searchLocalWith {vars} fc rigc defaults trying depth def top env heads (prf, ty)
               NF vars ->  -- local's type
               (target : NF vars) ->
               Core (Term vars)
-    findPos defs f nty@(NTCon pfc pn _ [(_, xty), (_, yty)]) target
+    findPos defs f nty@(NTCon pfc pn _ _ [(_, xty), (_, yty)]) target
         = tryUnifyUnambig (findDirect defs f nty target) $
              do fname <- maybe (throw (CantSolveGoal fc (gamma defs) Env.empty top Nothing))
                                pure
@@ -603,7 +603,7 @@ searchLocalVars fc rig defaults trying depth def top env heads target
 
 isPairNF : {auto c : Ref Ctxt Defs} ->
            Env Term vars -> NF vars -> Defs -> Core Bool
-isPairNF env (NTCon _ n _ _) defs
+isPairNF env (NTCon _ n _ _ _) defs
     = isPairType n
 isPairNF env (NBind fc b (Pi {}) sc) defs
     = isPairNF env !(sc defs (toClosure defaultOpts env (Erased fc Placeholder))) defs
@@ -717,7 +717,7 @@ concreteDets {vars} fc defaults env top pos dets (arg :: args)
     concrete defs (NBind nfc x b sc) atTop
         = do scnf <- sc defs (toClosure defaultOpts env (Erased nfc Placeholder))
              concrete defs scnf False
-    concrete defs (NTCon nfc n a args) atTop
+    concrete defs (NTCon nfc n a _ args) atTop
         = do sd <- getSearchData nfc False n
              let args' = NatSet.take (detArgs sd) args
              traverse_ (\ parg => do argnf <- evalClosure defs parg
@@ -743,7 +743,7 @@ checkConcreteDets : {vars : _} ->
                     Env Term vars -> (top : ClosedTerm) ->
                     NF vars ->
                     Core ()
-checkConcreteDets fc defaults env top (NTCon tfc tyn a args)
+checkConcreteDets fc defaults env top (NTCon tfc tyn a inst args)
     = do defs <- get Ctxt
          if !(isPairType tyn)
             then case args of
@@ -789,14 +789,14 @@ searchType {vars} fc rigc defaults trying depth def checkdets top env target
          let trying' = target :: trying
          nty <- nf defs env target
          case nty of
-              NTCon tfc tyn a args =>
+              NTCon tfc tyn a inst args =>
                   if a == length args
                      then do logNF "auto" 10 "Next target" env nty
                              sd <- getSearchData fc defaults tyn
                              -- Check determining arguments are okay for 'args'
                              when checkdets $
                                  checkConcreteDets fc defaults env top
-                                                   (NTCon tfc tyn a args)
+                                                   (NTCon tfc tyn a inst args)
                              -- The heads of the arguments of the goal, to
                              -- reject candidates that cannot match it
                              heads <- targetHeads nty

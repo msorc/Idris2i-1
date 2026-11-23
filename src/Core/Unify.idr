@@ -758,10 +758,10 @@ mutual
                  (margs' : List (Closure vars)) ->
                  NF vars ->
                  Core UnifyResult
-  unifyHoleApp swap mode loc env mname mref margs margs' (NTCon nfc n a args')
+  unifyHoleApp swap mode loc env mname mref margs margs' (NTCon nfc n a inst args')
       = do defs <- get Ctxt
            mty <- lookupTyFresh n (gamma defs)
-           unifyInvertible swap (lower mode) loc env mname mref margs margs' mty (NTCon nfc n a) args'
+           unifyInvertible swap (lower mode) loc env mname mref margs margs' mty (NTCon nfc n a inst) args'
   unifyHoleApp swap mode loc env mname mref margs margs' (NDCon nfc n t a args')
       = do defs <- get Ctxt
            mty <- lookupTyFresh n (gamma defs)
@@ -1199,13 +1199,13 @@ mutual
              else convertError loc env
                        (NDCon xfc x tagx ax xs)
                        (NDCon yfc y tagy ay ys)
-  unifyNoEta mode loc env (NTCon xfc x ax xs) (NTCon yfc y ay ys)
+  unifyNoEta mode loc env (NTCon xfc x ax xi xs) (NTCon yfc y ay yi ys)
    = do logC "unify" 20 $ do
           x <- toFullNames x
           y <- toFullNames y
           pure $ "Comparing type constructors " ++ show x ++ " and " ++ show y
         if x == y
-           then do let mismatch = convertError loc env (NTCon xfc x ax xs) (NTCon yfc y ay ys)
+           then do let mismatch = convertError loc env (NTCon xfc x ax xi xs) (NTCon yfc y ay yi ys)
                    let xs = map snd xs
                    let ys = map snd ys
 
@@ -1222,8 +1222,8 @@ mutual
 --                then postpone True loc mode env (quote empty env (NTCon x ax xs))
 --                                           (quote empty env (NTCon y ay ys))
            else convertError loc env
-                     (NTCon xfc x ax xs)
-                     (NTCon yfc y ay ys)
+                     (NTCon xfc x ax xi xs)
+                     (NTCon yfc y ay yi ys)
   unifyNoEta mode loc env (NDelayed xfc _ x) (NDelayed yfc _ y)
       = unify (lower mode) loc env x y
   unifyNoEta mode loc env tx@(NDelay xfc _ xty x) ty@(NDelay yfc _ yty y)

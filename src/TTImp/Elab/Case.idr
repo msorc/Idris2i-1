@@ -447,7 +447,7 @@ checkCase rig elabinfo nest env fc opts scr scrty_in alts exp
     getRetTy : Defs -> ClosedNF -> Core (Maybe (Name, ClosedNF))
     getRetTy defs (NBind fc _ (Pi {}) sc)
         = getRetTy defs !(sc defs (toClosure defaultOpts Env.empty (Erased fc Placeholder)))
-    getRetTy defs (NTCon _ n arity _)
+    getRetTy defs (NTCon _ n arity _ _)
         = do Just ty <- lookupTyFresh n (gamma defs)
                   | Nothing => pure Nothing
              pure (Just (n, !(nf defs Env.empty ty)))

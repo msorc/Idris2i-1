@@ -26,7 +26,7 @@ data Args
 ||| Extract the number of arguments from a term, or return that it's
 ||| a newtype by a given argument position
 numArgs : Defs -> Term vars -> Core Args
-numArgs defs (Ref _ (TyCon arity) n) = pure (Arity arity)
+numArgs defs (Ref _ (TyCon arity _) n) = pure (Arity arity)
 numArgs defs (Ref _ _ n)
     = do Just gdef <- lookupCtxtExact n (gamma defs)
               | Nothing => pure (Arity 0)
@@ -163,7 +163,7 @@ toCExpTm n (Ref fc (DataCon tag arity) fn)
          cn <- getFullName fn
          fl <- dconFlag cn
          pure $ CCon fc cn fl (Just tag) []
-toCExpTm n (Ref fc (TyCon arity) fn)
+toCExpTm n (Ref fc (TyCon arity _) fn)
     = pure $ CCon fc fn TYCON Nothing []
 toCExpTm n (Ref fc _ fn)
     = do full <- getFullName fn
@@ -468,7 +468,7 @@ nfToCFType _ (NBind fc _ (Pi _ _ _ ty) sc) False
          pure (CFFun sty tty)
 nfToCFType _ (NBind fc _ _ _) True
     = throw (GenericMsg fc "Function types not allowed in a foreign struct")
-nfToCFType _ (NTCon fc n_in _ args) s
+nfToCFType _ (NTCon fc n_in _ _ args) s
     = do defs <- get Ctxt
          n <- toFullNames n_in
          case !(getNArgs defs n $ map snd args) of

@@ -287,14 +287,16 @@ TTC NameType where
   toBuf Bound = tag 0
   toBuf Func = tag 1
   toBuf (DataCon t arity) = do tag 2; toBuf t; toBuf arity
-  toBuf (TyCon arity) = do tag 3; toBuf arity
+  toBuf (TyCon arity []) = do tag 3; toBuf arity
+  toBuf (TyCon arity inst) = do tag 4; toBuf arity; toBuf inst
 
   fromBuf
       = case !getTag of
              0 => pure Bound
              1 => pure Func
              2 => do x <- fromBuf; y <- fromBuf; pure (DataCon x y)
-             3 => do y <- fromBuf; pure (TyCon y)
+             3 => do y <- fromBuf; pure (TyCon y [])
+             4 => do y <- fromBuf; inst <- fromBuf; pure (TyCon y inst)
              _ => corrupt "NameType"
 
 -- Assumption is that it was type safe when we wrote it out, so believe_me

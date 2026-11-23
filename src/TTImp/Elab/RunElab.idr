@@ -314,7 +314,7 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
              nf empty env checktm
     elabCon defs "GetDecEqConPairs" [_, x1]
         = do
-            NTCon _ n _ _ <- evalClosure defs x1
+            NTCon _ n _ _ _ <- evalClosure defs x1
               | _ => failWith defs "not a type constructor"
             Just (TCon arty params _ _ _ cons _) <- lookupDefExact n (gamma defs)
               | _ => failWith defs "not a type constructor"
@@ -323,7 +323,7 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
                 getNFArgs (NBind fc _ (Pi _ _ _ _) sc) = do
                     res <- sc defs (MkClosure defaultOpts [] [] (Erased fc Placeholder))
                     getNFArgs res
-                getNFArgs (NTCon _ _ _ sp) = traverse (evalClosure defs) (toList (map snd sp))
+                getNFArgs (NTCon _ _ _ _ sp) = traverse (evalClosure defs) (toList (map snd sp))
                 getNFArgs x = pure []
             let mkCon : GlobalDef -> Core (String, List (NF []))
                 mkCon condef = do

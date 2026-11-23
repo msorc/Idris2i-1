@@ -196,7 +196,7 @@ compileStk svs stk (Ref fc (DataCon t a) name)
                        (toScheme !(toResolvedNames name) ::
                         toScheme fc :: stk)
          else pure $ unload (Apply (Var (schName name)) []) stk
-compileStk svs stk (Ref fc (TyCon a) name)
+compileStk svs stk (Ref fc (TyCon a _) name)
     = if length stk == a -- inline it if it's fully applied
          then pure $ Vector (-1)
                        (StringVal (show name) ::

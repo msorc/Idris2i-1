@@ -78,5 +78,5 @@ parameters
   -- interesting ones
   intro (Bind _ x (Pi _ rig Explicit ty) _) = pure <$> introLam x rig ty
   intro t = case getFnArgs t of
-    (Ref _ (TyCon ar) n, _) => introCon n t
+    (Ref _ (TyCon ar _) n, _) => introCon n t
     _ => pure []

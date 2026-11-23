@@ -67,7 +67,7 @@ findTyName defs env n (Bind _ x b@(PVar _ c p ty) sc)
     = if n == x
          then do tynf <- nf defs env ty
                  case tynf of
-                      NTCon _ tyn _ _ => pure $ Just tyn
+                      NTCon _ tyn _ _ _ => pure $ Just tyn
                       _ => pure Nothing
          else findTyName defs (b :: env) n sc
 findTyName defs env n (Bind _ x b sc) = findTyName defs (b :: env) n sc

@@ -28,7 +28,7 @@ conflictMatch ((x, tm) :: ms) = conflictArgs x tm ms || conflictMatch ms
     clash : Term vars -> Term vars -> ClashResult
     clash (Ref _ (DataCon t _) _) (Ref _ (DataCon t' _) _)
         = if t /= t' then Distinct else Same
-    clash (Ref _ (TyCon _) n) (Ref _ (TyCon _) n')
+    clash (Ref _ (TyCon _ _) n) (Ref _ (TyCon _ _) n')
         = if n /= n' then Distinct else Same
     clash (PrimVal _ c) (PrimVal _ c') = if c /= c' then Distinct else Same
     clash (Ref _ t _) (PrimVal {}) = if isJust (isCon t) then Distinct else Incomparable
@@ -120,7 +120,7 @@ conflict defs env nfty n
           = if t == t'
                then conflictArgs i (map snd args) (map snd args')
                else pure Nothing
-      conflictNF i (NTCon _ n a args) (NTCon _ n' a' args')
+      conflictNF i (NTCon _ n a _ args) (NTCon _ n' a' _ args')
           = if n == n'
                then conflictArgs i (map snd args) (map snd args')
                else pure Nothing
@@ -136,14 +136,14 @@ export
 isEmpty : {vars : _} ->
           {auto c : Ref Ctxt Defs} ->
           Defs -> Env Term vars -> NF vars -> Core Bool
-isEmpty defs env (NTCon fc n a args)
+isEmpty defs env (NTCon fc n a inst args)
   = do Just nty <- lookupDefExact n (gamma defs)
          | _ => pure False
        case nty of
             TCon _ _ _ flags _ Nothing _ => pure False
             TCon _ _ _ flags _ (Just cons) _
                  => if not (external flags)
-                       then allM (conflict defs env (NTCon fc n a args)) cons
+                       then allM (conflict defs env (NTCon fc n a inst args)) cons
                        else pure False
             _ => pure False
 isEmpty defs env _ = pure False

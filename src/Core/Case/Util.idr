@@ -17,7 +17,7 @@ record DataCon where
 ||| type family, with their type, name, tag, and arity.
 export
 getCons : Defs -> NF vars -> Core (List DataCon)
-getCons defs (NTCon _ tn _ _)
+getCons defs (NTCon _ tn _ _ _)
     = case !(lookupDefExact tn (gamma defs)) of
            Just (TCon _ _ _ _ _ cons _) =>
                 do cs' <- traverse addTy (fromMaybe [] cons)

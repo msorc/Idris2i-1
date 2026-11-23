@@ -51,7 +51,7 @@ mutual
   mismatchNF : {auto c : Ref Ctxt Defs} ->
                {vars : _} ->
                Defs -> NF vars -> NF vars -> Core Bool
-  mismatchNF defs (NTCon _ xn _ xargs) (NTCon _ yn _ yargs)
+  mismatchNF defs (NTCon _ xn _ _ xargs) (NTCon _ yn _ _ yargs)
       = if xn /= yn
            then pure True
            else anyM (mismatch defs) (zipWith (curry $ mapHom snd) xargs yargs)
@@ -99,7 +99,7 @@ export
 impossibleOK : {auto c : Ref Ctxt Defs} ->
                {vars : _} ->
                Defs -> NF vars -> NF vars -> Core Bool
-impossibleOK defs (NTCon _ xn xa xargs) (NTCon _ yn ya yargs)
+impossibleOK defs (NTCon _ xn xa _ xargs) (NTCon _ yn ya _ yargs)
     = if xn /= yn
          then pure True
          else anyM (mismatch defs) (zipWith (curry $ mapHom snd) xargs yargs)
@@ -627,7 +627,7 @@ checkClause {vars} mult vis totreq hashit n opts nest env
       let eqName = NS builtinNS (UN $ Basic "Equal")
       Just (TCon ar _ _ _ _ _ _) <- lookupDefExact eqName (gamma defs)
         | _ => throw (InternalError "Cannot find builtin Equal")
-      let eqTyCon = Ref vfc (TyCon ar) !(toResolvedNames eqName)
+      let eqTyCon = Ref vfc (TyCon ar []) !(toResolvedNames eqName)
 
       let wargn : Name
           wargn = MN "warg" 0

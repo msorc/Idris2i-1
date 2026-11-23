@@ -3123,7 +3123,7 @@ intSignature n params = do
     -- The fixed width integer type of a value of the type `t`.
     intType : Defs -> ClosedNF -> Core (Maybe PrimType)
     intType defs (NPrimVal _ (PrT t)) = pure (unboxedType t)
-    intType defs (NTCon _ tn _ args)
+    intType defs (NTCon _ tn _ _ args)
         = do tn <- toFullNames tn
              case args of
                   [(_, a)] => if isPrimIO "IORes" tn
@@ -3149,7 +3149,7 @@ intSignature n params = do
                  pure (map (mapFst (t ::)) rest)
     binders defs es i Z t = pure (Just ([], !(intType defs t)))
     -- the world, given to the action of the result
-    binders defs es i (S Z) (NTCon _ tn _ [(_, a)])
+    binders defs es i (S Z) (NTCon _ tn _ _ [(_, a)])
         = if isPrimIO "IO" !(toFullNames tn)
              then pure (Just ([Nothing], !(intType defs !(evalClosure defs a))))
              else pure Nothing

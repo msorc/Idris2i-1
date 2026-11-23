@@ -156,7 +156,7 @@ mutual
   mismatchNF : {auto c : Ref Ctxt Defs} ->
                {vars : _} ->
                Defs -> NF vars -> NF vars -> Core Bool
-  mismatchNF defs (NTCon _ xn _ xargs) (NTCon _ yn _ yargs)
+  mismatchNF defs (NTCon _ xn _ _ xargs) (NTCon _ yn _ _ yargs)
       = if xn /= yn
            then pure True
            else anyM (mismatch defs) (zipWith (curry $ mapHom snd) xargs yargs)
@@ -180,7 +180,7 @@ contra : {auto c : Ref Ctxt Defs} ->
          {vars : _} ->
          Defs -> NF vars -> NF vars -> Core Bool
 -- Unlike 'impossibleOK', any mismatch indicates an unrecoverable error
-contra defs (NTCon _ xn xa xargs) (NTCon _ yn ya yargs)
+contra defs (NTCon _ xn xa _ xargs) (NTCon _ yn ya _ yargs)
     = if xn /= yn
          then pure True
          else anyM (mismatch defs) (zipWith (curry $ mapHom snd) xargs yargs)

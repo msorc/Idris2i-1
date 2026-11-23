@@ -1028,7 +1028,7 @@ isParentHint _ = False
 retHead : Term vars -> Maybe Name
 retHead (Bind _ _ (Pi {}) sc) = retHead sc
 retHead tm = case getFn tm of
-                  Ref _ (TyCon _) n => Just n
+                  Ref _ (TyCon _ _) n => Just n
                   _ => Nothing
 
 ||| The type constructor at the head of the last explicit argument of a type
@@ -1054,7 +1054,7 @@ unsolvedMetas _ = []
 goalHead : Term vars -> Maybe (Name, List (Term vars))
 goalHead tm
     = case getFnArgs tm of
-           (Ref _ (TyCon _) n, args) => Just (n, args)
+           (Ref _ (TyCon _ _) n, args) => Just (n, args)
            _ => Nothing
 
 ||| Whether a type (after its Pi binders) is the type constructor `n` applied

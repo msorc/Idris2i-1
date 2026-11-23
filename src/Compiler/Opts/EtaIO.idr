@@ -298,7 +298,7 @@ returnsIO es k ty
                     Z => pure False
     surelyNot i Z t
         = case getFn t of
-               Ref _ (TyCon _) tn =>
+               Ref _ (TyCon _ _) tn =>
                    do NS ns (UN (Basic "IO")) <- toFullNames tn
                            | _ => pure True
                       pure (ns /= primIONS)
@@ -317,7 +317,7 @@ returnsIO es k ty
                     Z => do NPrimVal _ (PrT WorldType) <- evalClosure defs argty
                                  | _ => pure False
                             pure True
-    go defs i Z (NTCon _ tn _ [_])
+    go defs i Z (NTCon _ tn _ _ [_])
         = do NS ns (UN (Basic "IO")) <- toFullNames tn
                   | _ => pure False
              pure (ns == primIONS)

@@ -14,7 +14,7 @@ import Libraries.Data.NatSet
 getRetTy : Defs -> ClosedNF -> Core Name
 getRetTy defs (NBind fc _ (Pi {}) sc)
     = getRetTy defs !(sc defs (toClosure defaultOpts Env.empty (Erased fc Placeholder)))
-getRetTy defs (NTCon _ n _ _) = pure n
+getRetTy defs (NTCon _ n _ _ _) = pure n
 getRetTy defs ty
     = throw (GenericMsg (getLoc ty)
              "Can only add hints for concrete return types")
@@ -181,7 +181,7 @@ specPositions fc gdef ns
       getDeps inparam (NDCon _ n t a args) ns
           = do defs <- get Ctxt
                getDepsArgs False !(traverse (evalClosure defs . snd) args) ns
-      getDeps inparam (NTCon _ n a args) ns
+      getDeps inparam (NTCon _ n a _ args) ns
           = do defs <- get Ctxt
                params <- case !(lookupDefExact n (gamma defs)) of
                               Just (TCon _ ps _ _ _ _ _) => pure ps

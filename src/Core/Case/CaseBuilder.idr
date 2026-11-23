@@ -779,7 +779,7 @@ sameType {ns} fc phase fn env (p :: xs)
 
     headEq : NF ns -> NF ns -> Phase -> Bool
     headEq (NBind _ _ (Pi {}) _) (NBind _ _ (Pi {}) _) _ = True
-    headEq (NTCon _ n _ _) (NTCon _ n' _ _) _ = n == n'
+    headEq (NTCon _ n _ _ _) (NTCon _ n' _ _ _) _ = n == n'
     headEq (NPrimVal _ c) (NPrimVal _ c') _ = c == c'
     headEq (NType {}) (NType {}) _ = True
     headEq (NApp _ (NRef _ n) _) (NApp _ (NRef _ n') _) RunTime = n == n'
@@ -998,7 +998,7 @@ mkPat : {auto c : Ref Ctxt Defs} ->
         (matchable : Bool) -> List Pat -> ClosedTerm -> ClosedTerm -> Core Pat
 mkPat _ [] orig (Ref fc Bound n) = pure $ PLoc fc n
 mkPat True args orig (Ref fc (DataCon t a) n) = pure $ PCon fc n t a args
-mkPat True args orig (Ref fc (TyCon a) n) = pure $ PTyCon fc n a args
+mkPat True args orig (Ref fc (TyCon a _) n) = pure $ PTyCon fc n a args
 mkPat True args orig (Ref fc Func n)
   = do prims <- getPrimitiveNames
        mtm <- normalisePrims (const True) isPConst True prims n args orig Env.empty

@@ -171,7 +171,7 @@ mutual
       = quoteOrInvalid cname_in $ \ cname => do
            let fc = emptyFC -- quoteFC fc_in
            args <- traverse (quote' svs) args_in
-           pure (apply fc (Ref fc (TyCon (length args)) cname)
+           pure (apply fc (Ref fc (TyCon (length args) []) cname)
                            args)
   quoteVector svs (-15) [_, r_in, ty_in] -- Delayed
       = do ty <- quote' svs ty_in

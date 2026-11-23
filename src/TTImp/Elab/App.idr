@@ -594,7 +594,7 @@ mutual
       -- meta, shouldn't we delay the check instead of declaring the tm dotted?
       ||| Count the constructors of a fully applied concrete datatype
       countConstructors : NF vars -> Core (Maybe Nat)
-      countConstructors (NTCon _ tycName n args) =
+      countConstructors (NTCon _ tycName n _ args) =
         if length args == n
         then do defs <- get Ctxt
                 Just gdef <- lookupCtxtExact tycName (gamma defs)

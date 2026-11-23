@@ -111,7 +111,7 @@ mutual
       quickConvArg _ (NBind {}) = True
       quickConvArg (NApp _ h _) (NApp _ h' _) = quickConvHead h h'
       quickConvArg (NDCon _ _ t _ _) (NDCon _ _ t' _ _) = t == t'
-      quickConvArg (NTCon _ n _ _) (NTCon _ n' _ _) = n == n'
+      quickConvArg (NTCon _ n _ _ _) (NTCon _ n' _ _ _) = n == n'
       quickConvArg (NAs _ _ _ t) (NAs _ _ _ t') = quickConvArg t t'
       quickConvArg (NDelayed _ _ t) (NDelayed _ _ t') = quickConvArg t t'
       quickConvArg (NDelay {}) (NDelay {}) = True
@@ -389,7 +389,7 @@ mutual
         = if tag == tag'
              then allConv q i defs env (map snd args) (map snd args')
              else pure False
-    convGen q i defs env (NTCon _ nm _ args) (NTCon _ nm' _ args')
+    convGen q i defs env (NTCon _ nm _ _ args) (NTCon _ nm' _ _ args')
         = if nm == nm'
              then allConv q i defs env (map snd args) (map snd args')
              else pure False
