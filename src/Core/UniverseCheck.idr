@@ -14,6 +14,8 @@
 |||  * `u = v` when conversion checking compares `Type u` with `Type v`
 |||    anywhere else (Core.Normalise.Convert collects these), and on the
 |||    left hand side of clauses,
+|||  * `w <= a` for the variables bound by a pattern which matches on a
+|||    type of `Type w` (see 'inferPat'),
 |||  * `a <= u` for every field of a constructor of a data type in `Type u`,
 |||    where the field's type is in `Type a`. Parameters are not fields; the
 |||    universes of a parameter in the constructor's type are made equal to
@@ -278,6 +280,24 @@ subtypeU True env (NBind fc x (Pi _ c p aty) sc) (NBind _ _ (Pi _ c' p' aty') sc
          subtypeU True env !(sc defs cl) !(sc' defs cl)
 subtypeU _ env x y = convertU env x y
 
+-- The binders of a constructor type which are parameters of the data type:
+-- those given as an argument in a parameter position of the return type.
+-- Indices count from the outermost binder.
+paramBinders : NatSet -> Nat -> Term vs -> List Nat
+paramBinders ps depth (Bind _ _ (Pi {}) sc) = paramBinders ps (S depth) sc
+paramBinders ps depth tm
+    = let (_, args) = getFnArgs tm in
+          mapMaybe (\ (i, a) =>
+                      if i `elem` ps
+                         then case a of
+                                   Local _ _ idx _ =>
+                                     if idx < depth
+                                        then Just (minus depth (S idx))
+                                        else Nothing
+                                   _ => Nothing
+                         else Nothing)
+                   (zip [0 .. length args] args)
+
 mutual
   -- The universe of a type
   sortOf : {auto c : Ref Ctxt Defs} ->
@@ -337,13 +357,13 @@ mutual
                    -- (with postponed elaboration, for instance), and the
                    -- elaborator does not check solutions against it
                    do ty <- solutionType (fullname gdef) sol
-                      inferSpine False env fc (Meta fc n i []) (embed ty) args
+                      inferSpine False (const False) env fc (Meta fc n i []) (embed ty) args
                 _ => do checkMeta (Resolved i) gdef
-                        inferSpine False env fc (Meta fc n i []) (embed (type gdef)) args
+                        inferSpine False (const False) env fc (Meta fc n i []) (embed (type gdef)) args
   infer env tm@(App fc _ _)
       = do let (f, args) = getFnArgs tm
            fty <- infer env f
-           inferSpine True env fc f fty args
+           inferSpine True (const False) env fc f fty args
   infer env (Bind fc x b sc)
       = do inferPiInfo env b
            case b of
@@ -447,23 +467,25 @@ mutual
 
   -- The arguments of an application. With 'cumul' False, the types of the
   -- arguments have to be in the same universes as those of the function.
+  -- 'lhs' says which arguments (by position) are patterns of a left hand
+  -- side that match at run time (see 'inferPat').
   inferSpine : {auto c : Ref Ctxt Defs} ->
                {auto s : Ref UCK UCState} ->
                {vars : _} ->
-               (cumul : Bool) ->
+               (cumul : Bool) -> (lhs : Nat -> Bool) ->
                Env Term vars -> FC -> (fn : Term vars) -> Term vars ->
                List (Term vars) -> Core (Term vars)
-  inferSpine cumul env fc fn fty [] = pure fty
-  inferSpine cumul env fc fn fty args
+  inferSpine cumul lhs env fc fn fty [] = pure fty
+  inferSpine cumul lhs env fc fn fty args
       = do defs <- get Ctxt
-           go !(nf defs env fty) args
+           go 0 !(nf defs env fty) args
     where
-      go : NF vars -> List (Term vars) -> Core (Term vars)
-      go fty [] = do defs <- get Ctxt
-                     quote defs env fty
-      go (NBind _ _ (Pi _ _ _ aty) sc) (a :: as)
+      go : Nat -> NF vars -> List (Term vars) -> Core (Term vars)
+      go _ fty [] = do defs <- get Ctxt
+                       quote defs env fty
+      go i (NBind _ _ (Pi _ _ _ aty) sc) (a :: as)
           = do defs <- get Ctxt
-               aT <- if cumul then infer env a else inferPat env a
+               aT <- if cumul then infer env a else inferPat (lhs i) env a
                catch (subtypeU cumul env !(nf defs env aT) !(evalClosure defs aty))
                      (\ err => case err of
                                      GenericMsg efc msg =>
@@ -471,12 +493,12 @@ mutual
                                                  ++ show !(toFullNames a) ++ " of "
                                                  ++ show !(toFullNames fn) ++ ")"))
                                      _ => throw err)
-               go !(sc defs (toClosure defaultOpts env a)) as
-      go (NErased {}) (a :: as)
+               go (S i) !(sc defs (toClosure defaultOpts env a)) as
+      go i (NErased {}) (a :: as)
           = do ignore $ the (Core (Term vars))
-                          (if cumul then infer env a else inferPat env a)
-               go (NErased fc Placeholder) as
-      go t (a :: _)
+                          (if cumul then infer env a else inferPat (lhs i) env a)
+               go (S i) (NErased fc Placeholder) as
+      go _ t (a :: _)
           = do defs <- get Ctxt
                gap ("applying something whose type is not a function type: "
                     ++ show !(toFullNames !(quote defs env t)))
@@ -484,17 +506,84 @@ mutual
 
   -- Patterns, on the left hand side of a clause: the types of the pattern
   -- variables are what the constructors say, not something smaller, so
-  -- the universes in applications have to be equal
+  -- the universes in applications have to be equal.
+  --
+  -- With 'lhs', the term is a pattern of a left hand side, and a pattern
+  -- which matches on a type (a type constructor applied to patterns, or a
+  -- function type) gets the variables it binds no smaller than the
+  -- universe of the type it matches. The universes of the type which is
+  -- matched at run time are not those of the pattern: `elemOf (Seq a) = a`
+  -- can be given `Seq X` for any X up to the universe of the argument of
+  -- elemOf, so `a` has to be in that universe, or elemOf would take a type
+  -- out of a universe into a smaller one (and `elemOf (Seq Type)` would be
+  -- a `Type` in its own universe). The arguments of a constructor pattern
+  -- which are parameters of its data type (`Right {a = OneOf es p} x`) don't
+  -- match anything at run time: they are given by the type of the value
+  -- matched, which is made equal to the pattern's.
   inferPat : {auto c : Ref Ctxt Defs} ->
              {auto s : Ref UCK UCState} ->
              {vars : _} ->
-             Env Term vars -> Term vars -> Core (Term vars)
-  inferPat env tm@(App fc _ _)
+             (lhs : Bool) -> Env Term vars -> Term vars -> Core (Term vars)
+  inferPat lhs env tm@(App fc _ _)
       = do let (f, args) = getFnArgs tm
            fty <- infer env f
-           inferSpine False env fc f fty args
-  inferPat env (As _ _ _ p) = inferPat env p
-  inferPat env tm = infer env tm
+           ps <- the (Core (List Nat)) (if lhs then conParams f else pure [])
+           rty <- inferSpine False (\ i => lhs && not (any (== i) ps)) env fc f fty args
+           when (lhs && isTyCon f) $
+             do defs <- get Ctxt
+                case !(nf defs env rty) of
+                     NType _ w => traverse_ (bindsAbove env w) args
+                     _ => pure ()
+           pure rty
+    where
+      isTyCon : Term vars -> Bool
+      isTyCon (Ref _ (TyCon {}) _) = True
+      isTyCon _ = False
+
+      -- The positions of the arguments of a data constructor which are
+      -- parameters of its data type
+      conParams : Term vars -> Core (List Nat)
+      conParams (Ref _ (DataCon {}) cn)
+          = do defs <- get Ctxt
+               Just cty <- lookupTyExact cn (gamma defs)
+                    | Nothing => pure []
+               let Just tn = retHead cty
+                    | Nothing => pure []
+               Just tdef <- lookupCtxtExact tn (gamma defs)
+                    | Nothing => pure []
+               let TCon _ ps _ _ _ _ _ = definition tdef
+                    | _ => pure []
+               pure (paramBinders ps 0 cty)
+        where
+          retHead : Term vs -> Maybe Name
+          retHead (Bind _ _ (Pi {}) sc) = retHead sc
+          retHead tm = case getFnArgs tm of
+                            (Ref _ _ n, _) => Just n
+                            _ => Nothing
+      conParams _ = pure []
+  inferPat True env tm@(Bind fc x b@(Pi _ _ _ ty) sc)
+      = do rty <- infer env tm
+           defs <- get Ctxt
+           case !(nf defs env rty) of
+                NType _ w =>
+                  do whenJust !(sortOf env ty) $ \ a => addLE w a
+                     whenJust !(sortOf (b :: env) sc) $ \ a => addLE w a
+                _ => pure ()
+           pure rty
+  inferPat lhs env (As _ _ _ p) = inferPat lhs env p
+  inferPat lhs env tm = infer env tm
+
+  -- The universes in the type of an argument of a type pattern are no
+  -- smaller than the universe 'w' of the type matched (see 'inferPat')
+  bindsAbove : {auto c : Ref Ctxt Defs} ->
+               {auto s : Ref UCK UCState} ->
+               {vars : _} ->
+               Env Term vars -> Name -> Term vars -> Core ()
+  bindsAbove env w a
+      = do aty <- infer env a
+           defs <- get Ctxt
+           aty <- quote defs env !(nf defs env aty)
+           traverse_ (addLE w) (levelsOf aty [])
 
   solutionType : {auto c : Ref Ctxt Defs} ->
                  {auto s : Ref UCK UCState} ->
@@ -749,7 +838,7 @@ checkClauseUniverses fc n pats
                   (vs ** (Env Term vs, Term vs, Term vs)) -> Core ()
     checkClause (_ ** (env, lhs, rhs))
         = do checkEnv env
-             lhsty <- inferPat env lhs
+             lhsty <- inferPat True env lhs
              rhsty <- infer env rhs
              defs <- get Ctxt
              subtypeU True env !(nf defs env rhsty) !(nf defs env lhsty)
@@ -763,24 +852,6 @@ resultUniverse env (NBind fc x b@(Pi {}) sc)
          resultUniverse env !(sc defs (toClosure defaultOpts env (Erased fc Placeholder)))
 resultUniverse env (NType _ u) = pure (Just u)
 resultUniverse env _ = pure Nothing
-
--- The binders of a constructor type which are parameters of the data type:
--- those given as an argument in a parameter position of the return type.
--- Indices count from the outermost binder.
-paramBinders : NatSet -> Nat -> Term vs -> List Nat
-paramBinders ps depth (Bind _ _ (Pi {}) sc) = paramBinders ps (S depth) sc
-paramBinders ps depth tm
-    = let (_, args) = getFnArgs tm in
-          mapMaybe (\ (i, a) =>
-                      if i `elem` ps
-                         then case a of
-                                   Local _ _ idx _ =>
-                                     if idx < depth
-                                        then Just (minus depth (S idx))
-                                        else Nothing
-                                   _ => Nothing
-                         else Nothing)
-                   (zip [0 .. length args] args)
 
 -- The universes in the fields of a constructor (not in its parameters)
 fieldLevels : List Nat -> Nat -> Term vs -> List Name -> List Name
@@ -847,7 +918,7 @@ checkDataUniverses fc tn tty cons
         go i (NBind _ _ (Pi _ _ _ aty) sc) (a :: as)
             = do defs <- get Ctxt
                  let param = i `elem` ps
-                 aT <- if param then inferPat env a else infer env a
+                 aT <- if param then inferPat False env a else infer env a
                  subtypeU (not param) env !(nf defs env aT) !(evalClosure defs aty)
                  go (S i) !(sc defs (toClosure defaultOpts env a)) as
         go _ _ [] = pure ()

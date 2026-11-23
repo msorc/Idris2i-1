@@ -1,0 +1,27 @@
+1/1: Building ElemOf (ElemOf.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    the universe of `Type` at ElemOf:19:17--19:21 < an inferred universe (from ElemOf.T)
+    an inferred universe <= the universe of `Type` at ElemOf:19:17--19:21 (from ElemOf.selfT)
+
+ElemOf:22:1--22:10
+ 18 | T : Type
+ 19 | T = elemOf (Seq Type)
+ 20 |
+ 21 | selfT : T
+ 22 | selfT = T
+      ^^^^^^^^^
+
+1/1: Building Cod (Cod.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    the universe of `Type` at Cod:14:18--14:22 < an inferred universe (from Cod.T)
+    an inferred universe <= the universe of `Type` at Cod:14:18--14:22 (from Cod.selfT)
+
+Cod:17:1--17:10
+ 13 | T : Type
+ 14 | T = cod (Unit -> Type)
+ 15 |
+ 16 | selfT : T
+ 17 | selfT = T
+      ^^^^^^^^^
+
+1/1: Building Ok (Ok.idr)

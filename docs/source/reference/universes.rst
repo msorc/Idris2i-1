@@ -21,6 +21,10 @@ hierarchy hold:
   when ``u <= v`` (cumulativity, also in the codomain of a function type);
   elsewhere, when two types are compared, the universes in them have to be
   equal, and they also have to be equal on the left hand side of a clause;
+* a pattern which matches on a type (``elemOf (List a) = a``, or a function
+  type) binds its variables in universes no smaller than that of the type
+  it matches, since the type given at run time can be any type of that
+  universe;
 * each field of a constructor of a data type in ``Type u`` must be in a
   universe no bigger than ``u`` (parameters are not fields). The indices of
   a data type are not fields either: the index in the return type of a

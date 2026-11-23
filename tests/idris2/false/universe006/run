@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+check --no-prelude --check-universes ElemOf.idr
+check --no-prelude --check-universes Cod.idr
+check --no-prelude --check-universes Ok.idr
