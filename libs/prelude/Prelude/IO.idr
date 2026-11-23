@@ -50,12 +50,12 @@ ioTraverseList_ f xs = fromPrim (go xs)
 %transform "ioSequenceList_" sequence_ {t = List} {f = IO} {a} xs = ioTraverseList_ {a = IO a} {b = a} id xs
 
 public export
-interface Monad io => HasIO io where
+interface Monad io => HasIO (0 io : Type -> Type) where
   constructor MkHasIO
   liftIO : IO a -> io a
 
 public export
-interface Monad io => HasLinearIO io where
+interface Monad io => HasLinearIO (0 io : Type -> Type) where
   constructor MkHasLinearIO
   liftIO1 : (1 _ : IO a) -> io a
 

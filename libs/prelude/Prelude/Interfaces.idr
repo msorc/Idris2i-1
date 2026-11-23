@@ -155,7 +155,7 @@ Monoid b => Monoid (a -> b) where
 ||| Functors allow a uniform action over a parameterised type.
 ||| @ f a parameterised type
 public export
-interface Functor f where
+interface Functor (0 f : Type -> Type) where
   constructor MkFunctor
   ||| Apply a function across everything of type 'a' in a parameterised type
   ||| @ f the parameterised type
@@ -203,7 +203,7 @@ namespace Functor
 ||| @f The action of the Bifunctor on pairs of objects
 ||| A minimal definition includes either `bimap` or both `mapFst` and `mapSnd`.
 public export
-interface Bifunctor f where
+interface Bifunctor (0 f : Type -> Type -> Type) where
   constructor MkBifunctor
   ||| The action of the Bifunctor on pairs of morphisms
   |||
@@ -249,7 +249,7 @@ namespace Bifunctor
     mapSnd = map . mapSnd
 
 public export
-interface Functor f => Applicative f where
+interface Functor f => Applicative (0 f : Type -> Type) where
   constructor MkApplicative
   pure : a -> f a
   (<*>) : f (a -> b) -> f a -> f b
@@ -278,7 +278,7 @@ namespace Applicative
 ||| @f is the underlying applicative functor
 ||| We expect (f a, empty, (<|>)) to be a type family of monoids.
 public export
-interface Applicative f => Alternative f where
+interface Applicative f => Alternative (0 f : Type -> Type) where
   constructor MkAlternative
   empty : f a
   (<|>) : f a -> Lazy (f a) -> f a
@@ -287,7 +287,7 @@ interface Applicative f => Alternative f where
 ||| @m The underlying functor
 ||| A minimal definition includes either `(>>=)` or `join`.
 public export
-interface Applicative m => Monad m where
+interface Applicative m => Monad (0 m : Type -> Type) where
   constructor MkMonad
   ||| Also called `bind`.
   total
@@ -349,7 +349,7 @@ unless = when . not
 ||| @ t The type of the 'Foldable' parameterised type.
 ||| A minimal definition includes `foldr`
 public export
-interface Foldable t where
+interface Foldable (0 t : Type -> Type) where
   constructor MkFoldable
   ||| Successively combine the elements in a parameterised type using the
   ||| provided function, starting with the element that is in the final position
@@ -594,7 +594,7 @@ namespace Foldable
 ||| Common examples are `Either` and `Pair`.
 ||| A minimal definition includes `bifoldr`
 public export
-interface Bifoldable p where
+interface Bifoldable (0 p : Type -> Type -> Type) where
   constructor MkBifoldable
   bifoldr : (a -> acc -> acc) -> (b -> acc -> acc) -> acc -> p a b -> acc
 
@@ -624,7 +624,7 @@ namespace Bifoldable
     binull fp = null fp || all binull fp
 
 public export
-interface (Functor t, Foldable t) => Traversable t where
+interface (Functor t, Foldable t) => Traversable (0 t : Type -> Type) where
   constructor MkTraversable
   ||| Map each element of a structure to a computation, evaluate those
   ||| computations and combine the results.
@@ -641,7 +641,7 @@ for : Applicative f => Traversable t => t a -> (a -> f b) -> f (t b)
 for = flip traverse
 
 public export
-interface (Bifunctor p, Bifoldable p) => Bitraversable p where
+interface (Bifunctor p, Bifoldable p) => Bitraversable (0 p : Type -> Type -> Type) where
   constructor MkBitraversable
   ||| Map each element of a structure to a computation, evaluate those
   ||| computations and combine the results.

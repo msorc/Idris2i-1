@@ -2128,6 +2128,14 @@ should target this file (`CHANGELOG_NEXT`).
   elsewhere.  `id` and `(.)` of `Data.Linear.Notation` (linear) are gone:
   the Prelude's are used instead.
 
+* The interfaces of the Prelude whose parameter is a type constructor
+  (`Functor`, `Bifunctor`, `Applicative`, `Alternative`, `Monad`, `Foldable`,
+  `Bifoldable`, `Traversable`, `Bitraversable`, `HasIO`, `HasLinearIO`) give
+  the type of the parameter (`interface Functor (0 f : Type -> Type)`)
+  instead of having it inferred. The interfaces and their methods have the
+  same types as before (the API snapshots do not change). With
+  `--check-universes`, an inferred parameter type was a solved metavariable
+  whose universes were shared by every use of the interface.
 * `System.IO.Fd.writeFd` to a pipe or a socket whose reader is gone
   returns `-EPIPE` instead of the program being killed by SIGPIPE: the
   signal is blocked in the calling thread for the write (and the one that
