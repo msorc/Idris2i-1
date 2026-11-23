@@ -26,11 +26,16 @@ useMod' f x y = mod' f x y
 useDivmod' : Nat -> Nat -> Nat -> (Nat, Nat)
 useDivmod' f x y = divmod' f x y
 
+useIsLTE : (m, n : Nat) -> Bool
+useIsLTE m n = case isLTE m n of
+                    Yes _ => True
+                    No _ => False
+
 useDiv : Nat -> Nat -> Nat
 useDiv x y = x `div` S y
 
 main : IO ()
 main = do
-  printLn [useLte 3 4, useGt 3 4]
+  printLn [useLte 3 4, useGt 3 4, useIsLTE 3 4, useIsLTE 4 3]
   printLn [useMinimum 3 4, useMaximum 3 4, usePower 3 4, useDiv' 9 9 1, useMod' 9 9 1]
   printLn (useDivmod' 9 9 1, gcd 12 18, useDiv 9 1)

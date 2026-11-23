@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+# The run-time versions that rely on the Integer representation of LTE and
+# Fin, on each backend: RefC (the default), Chez and Node.
+run Runtime.idr
+idris2 --cg chez -o runtime-chez Runtime.idr && ./build/exec/runtime-chez
+idris2 --cg node -o runtime.js Runtime.idr && node ./build/exec/runtime.js

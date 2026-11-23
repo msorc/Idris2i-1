@@ -2235,6 +2235,16 @@ should target this file (`CHANGELOG_NEXT`).
   (List); `length` 1.33 times fewer on RefC, 1.5 on Chez without its
   start-up; `foldr` 1.04 on RefC, 1.9 on Chez without its start-up.
 
+* Some run-time versions rely on the representation of `Nat`-shaped types
+  (`LTE`, `Fin`) as `Integer`, which holds on every backend (the compiler
+  makes a type with a constructor without arguments and one with one
+  argument of the type itself an `Integer`), and make a value with
+  `believe_me`: `isLTE` (and so `isGTE`, `isLT`, `isGT` and `natToFin`,
+  which goes through `isLT`) compares two `Integer`s and gives the proof
+  `believe_me m`, which is what the `LTESucc`s of a proof of `LTE m n` are at
+  run time.  Measured with `natOps`/`vectFin` on RefC (instructions): `isLTE`
+  83 times fewer, `natToFin` 36.
+
 * `System.Crash` runs an action in a crash boundary: `catchCrash act` gives
   `Left` a `CrashInfo` (the kind: `CrashCall`, `MissingCase` or
   `FailedCheck`, the message, and the backtrace when backtraces are on) if

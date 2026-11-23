@@ -235,6 +235,24 @@ isLTE (S k) (S j)
            No contra => No (contra . fromLteSucc)
            Yes prf => Yes (LTESucc prf)
 
+||| `isLTE` on `Integer`, used at run time in place of `isLTE` (a `%transform`
+||| rule), and so in place of `isGTE`, `isLT` and `isGT`.
+|||
+||| This relies on the representation of `LTE` at run time: `LTE` has the
+||| shape of `Nat` (a constructor without arguments and one with one argument
+||| of the same type), so on every backend it is an `Integer` (`calcNaty` in
+||| the compiler), and the proof of `LTE m n` that `isLTE` makes is `m`, the
+||| number of `LTESucc`.  `believe_me m` is that value.  The refutation is
+||| never called: it is a proof that a proof cannot exist.
+export
+isLTEInteger : (m, n : Nat) -> Dec (LTE m n)
+isLTEInteger m n
+    = if natToInteger m <= natToInteger n
+         then Yes (believe_me m)
+         else No (\_ => assert_total $ idris_crash "Data.Nat.isLTE: a refutation was applied")
+
+%transform "isLTEInteger" isLTE = isLTEInteger
+
 public export
 isGTE : (m, n : Nat) -> Dec (GTE m n)
 isGTE m n = isLTE n m

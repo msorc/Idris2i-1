@@ -7,7 +7,7 @@ idris2 --dumpcases Main.cases -o Main Main.idr
 # The divisions of Data.Nat (divNatNZ, modNatNZ, and gcd through modNatNZ)
 # reach them too.
 for f in Main.useLte Main.useGt Main.useMinimum Main.useMaximum Main.usePower \
-         "Main.useDiv'" "Main.useMod'" "Main.useDivmod'" \
+         "Main.useDiv'" "Main.useMod'" "Main.useDivmod'" Main.useIsLTE \
          Data.Nat.divNatNZ Data.Nat.modNatNZ Data.Nat.gcd; do
     printf '%s:' "$f"
     grep "^$f = " Main.cases | sed -e 's/^[^=]*= //' | grep -o "Data\.Nat\.[A-Za-z']*" | sort -u | tr '\n' ' '
