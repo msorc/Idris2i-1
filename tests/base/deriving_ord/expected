@@ -1,0 +1,44 @@
+1/1: Building DeriveOrd (DeriveOrd.idr)
+LOG derive.ord.clauses:1: 
+  compareEnum : Enum -> Enum -> Ordering
+  compareEnum A A = EQ
+  compareEnum B B = EQ
+  compareEnum C C = EQ
+  compareEnum x y = compare (conIndexEnum x) (conIndexEnum y)
+LOG derive.ord.clauses:1: 
+  compareTree : {0 a : _} -> Ord a => Tree a -> Tree a -> Ordering
+  compareTree (Leaf x0) (Leaf y0) = compare x0 y0
+  compareTree (Node x0 x1 x2) (Node y0 y1 y2) = thenCompare (compareTree x0 y0) (thenCompare (compare x1 y1) (compareTree x2 y2))
+  compareTree x y = compare (conIndexTree x) (conIndexTree y)
+LOG derive.ord.clauses:1: 
+  compareVect : {0 n, a : _} -> Ord a => Vect n a -> Vect n a -> Ordering
+  compareVect Nil Nil = EQ
+  compareVect (x0 :: x1) (y0 :: y1) = thenCompare (compare x0 y0) (compareVect x1 y1)
+LOG derive.ord.clauses:1: 
+  compareRose : {0 a : _} -> Ord a => Rose a -> Rose a -> Ordering
+  compareRose (MkRose x0 x1) (MkRose y0 y1) = thenCompare (compare x0 y0) (assert_total (compare x1 y1))
+LOG derive.ord.clauses:1: 
+  compareVersion : Version -> Version -> Ordering
+  compareVersion (MkVersion x0 x1 x2 x3) (MkVersion y0 y1 y2 y3) = thenCompare (compare x0 y0) (thenCompare (compare x1 y1) (compare x2 y2))
+LOG derive.ord.clauses:1: 
+  compareEl : {0 b : _} -> El b -> El b -> Ordering
+  compareEl (ElNat x0) (ElNat y0) = compare x0 y0
+  compareEl (ElStr x0) (ElStr y0) = compare x0 y0
+  compareEl (ElAny x0) (ElAny y0) = compare x0 y0
+  compareEl x y = compare (conIndexEl x) (conIndexEl y)
+LOG derive.ord.clauses:1: 
+  compareT : T -> T -> Ordering
+  compareT (MkT x0) (MkT y0) = compare x0 y0
+[LT, GT, EQ]
+C
+[A, A, B, C]
+[LT, LT, GT]
+True
+[LT, GT]
+GT
+True
+[LT, GT, LT]
+[True, False]
+LT
+GT
+EQ

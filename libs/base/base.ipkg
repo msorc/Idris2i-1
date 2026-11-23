@@ -111,8 +111,11 @@ modules = Control.App,
           Decidable.Equality.Core,
 
           Deriving.Common,
+          Deriving.DecEq,
+          Deriving.Eq,
           Deriving.Foldable,
           Deriving.Functor,
+          Deriving.Ord,
           Deriving.Show,
           Deriving.Traversable,
 

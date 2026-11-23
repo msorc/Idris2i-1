@@ -1,0 +1,6 @@
+. ../../testutils.sh
+
+# The derived clauses are logged when the module is checked; it is not
+# elaborated again when it is run
+check DeriveOrd.idr
+run DeriveOrd.idr

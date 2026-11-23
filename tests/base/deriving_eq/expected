@@ -1,0 +1,69 @@
+1/1: Building DeriveEq (DeriveEq.idr)
+LOG derive.eq.clauses:1: 
+  eqEnum : Enum -> Enum -> Bool
+  eqEnum A A = True
+  eqEnum B B = True
+  eqEnum C C = True
+  eqEnum _ _ = False
+LOG derive.eq.clauses:1: 
+  eqSum : Sum -> Sum -> Bool
+  eqSum (AString x0) (AString y0) = x0 == y0
+  eqSum (ANat x0) (ANat y0) = x0 == y0
+  eqSum _ _ = False
+LOG derive.eq.clauses:1: 
+  eqTree : {0 a : _} -> Eq a => Tree a -> Tree a -> Bool
+  eqTree (Leaf x0) (Leaf y0) = x0 == y0
+  eqTree (Node x0 x1 x2) (Node y0 y1 y2) = (eqTree x0 y0) && ((x1 == y1) && (eqTree x2 y2))
+  eqTree _ _ = False
+LOG derive.eq.clauses:1: 
+  eqVect : {0 n, a : _} -> Eq a => Vect n a -> Vect n a -> Bool
+  eqVect Nil Nil = True
+  eqVect (x0 :: x1) (y0 :: y1) = (x0 == y0) && (eqVect x1 y1)
+LOG derive.eq.clauses:1: 
+  eqRose : {0 a : _} -> Eq a => Rose a -> Rose a -> Bool
+  eqRose (MkRose x0 x1) (MkRose y0 y1) = (x0 == y0) && (assert_total (x1 == y1))
+LOG derive.eq.clauses:1: 
+  eqFull : {0 a : _} -> Eq a => Full a -> Full a -> Bool
+  eqFull (FLeaf x0) (FLeaf y0) = x0 == y0
+  eqFull (FNode x0) (FNode y0) = eqFull x0 y0
+  eqFull _ _ = False
+LOG derive.eq.clauses:1: 
+  eqRTree : {0 a : _} -> Eq a => RTree a -> RTree a -> Bool
+  eqRTree (RLeaf x0) (RLeaf y0) = x0 == y0
+  eqRTree (RNode x0) (RNode y0) = assert_total (x0 == y0)
+  eqRTree _ _ = False
+LOG derive.eq.clauses:1: 
+  eqForest : {0 a : _} -> Eq a => Forest a -> Forest a -> Bool
+  eqForest None None = True
+  eqForest (Plant x0 x1) (Plant y0 y1) = (assert_total (x0 == y0)) && (eqForest x1 y1)
+  eqForest _ _ = False
+LOG derive.eq.clauses:1: 
+  eqPoint : Point -> Point -> Bool
+  eqPoint (MkPoint x0 x1 x2) (MkPoint y0 y1 y2) = (x0 == y0) && (x1 == y1)
+LOG derive.eq.clauses:1: 
+  eqTagged : {0 tag, a : _} -> Eq a => Tagged tag a -> Tagged tag a -> Bool
+  eqTagged (MkTagged x0) (MkTagged y0) = x0 == y0
+LOG derive.eq.clauses:1: 
+  eqEl : {0 b : _} -> El b -> El b -> Bool
+  eqEl (ElNat x0) (ElNat y0) = x0 == y0
+  eqEl (ElStr x0) (ElStr y0) = x0 == y0
+  eqEl (ElAny x0) (ElAny y0) = x0 == y0
+  eqEl _ _ = False
+LOG derive.eq.clauses:1: 
+  eqEmpty : Empty -> Empty -> Bool
+  eqEmpty x _ impossible
+LOG derive.eq.clauses:1: 
+  eqX : X -> X -> Bool
+  eqX X0 X0 = True
+  eqX (X2 x0 x1) (X2 y0 y1) = (x0 == y0) && (x1 == y1)
+  eqX _ _ = False
+(True, (False, (True, False)))
+(True, (False, True))
+(True, False)
+(True, False)
+(True, False)
+(True, False)
+(True, False)
+True
+(True, (False, False))
+(True, False)

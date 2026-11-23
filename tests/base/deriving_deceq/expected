@@ -1,0 +1,57 @@
+1/1: Building DeriveDecEq (DeriveDecEq.idr)
+LOG derive.deceq.clauses:1: 
+  decEqEnum : (x1, x2 : Enum) -> Dec (Equal x1 x2)
+  decEqEnum A A = Yes Refl
+  decEqEnum B B = Yes Refl
+  decEqEnum C C = Yes Refl
+  decEqEnum A B = No (\ h => case h of { Refl impossible })
+  decEqEnum A C = No (\ h => case h of { Refl impossible })
+  decEqEnum B A = No (\ h => case h of { Refl impossible })
+  decEqEnum B C = No (\ h => case h of { Refl impossible })
+  decEqEnum C A = No (\ h => case h of { Refl impossible })
+  decEqEnum C B = No (\ h => case h of { Refl impossible })
+LOG derive.deceq.clauses:1: 
+  decEqTree : {0 a : _} -> DecEq a => (x1, x2 : Tree a) -> Dec (Equal x1 x2)
+  decEqTree (Leaf x0) (Leaf y0) = case decEq x0 y0 of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }
+  decEqTree (Node x0 x1 x2) (Node y0 y1 y2) = case decEqTree x0 y0 of { Yes Refl => case decEq x1 y1 of { Yes Refl => case decEqTree x2 y2 of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }; No contra1 => No (\ h => case h of { Refl => contra1 Refl }) }; No contra2 => No (\ h => case h of { Refl => contra2 Refl }) }
+  decEqTree (Leaf _) (Node _ _ _) = No (\ h => case h of { Refl impossible })
+  decEqTree (Node _ _ _) (Leaf _) = No (\ h => case h of { Refl impossible })
+LOG derive.deceq.clauses:1: 
+  decEqVect : {0 n, a : _} -> DecEq a => (x1, x2 : Vect n a) -> Dec (Equal x1 x2)
+  decEqVect Nil Nil = Yes Refl
+  decEqVect (x0 :: x1) (y0 :: y1) = case decEq x0 y0 of { Yes Refl => case decEqVect x1 y1 of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }; No contra1 => No (\ h => case h of { Refl => contra1 Refl }) }
+LOG derive.deceq.clauses:1: 
+  decEqRose : {0 a : _} -> DecEq a => (x1, x2 : Rose a) -> Dec (Equal x1 x2)
+  decEqRose (MkRose x0 x1) (MkRose y0 y1) = case decEq x0 y0 of { Yes Refl => case assert_total (decEq x1 y1) of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }; No contra1 => No (\ h => case h of { Refl => contra1 Refl }) }
+LOG derive.deceq.clauses:1: 
+  decEqSized : (x1, x2 : Sized) -> Dec (Equal x1 x2)
+  decEqSized (MkSized x0 x1) (MkSized y0 y1) = case decEq x0 y0 of { Yes Refl => case decEq x1 y1 of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }; No contra1 => No (\ h => case h of { Refl => contra1 Refl }) }
+LOG derive.deceq.clauses:1: 
+  decEqTy : (x1, x2 : Ty) -> Dec (Equal x1 x2)
+  decEqTy TNat TNat = Yes Refl
+  decEqTy TBool TBool = Yes Refl
+  decEqTy (TList x0) (TList y0) = case decEqTy x0 y0 of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }
+  decEqTy TNat TBool = No (\ h => case h of { Refl impossible })
+  decEqTy TNat (TList _) = No (\ h => case h of { Refl impossible })
+  decEqTy TBool TNat = No (\ h => case h of { Refl impossible })
+  decEqTy TBool (TList _) = No (\ h => case h of { Refl impossible })
+  decEqTy (TList _) TNat = No (\ h => case h of { Refl impossible })
+  decEqTy (TList _) TBool = No (\ h => case h of { Refl impossible })
+LOG derive.deceq.clauses:1: 
+  decEqVal : {0 t : _} -> (x1, x2 : Val t) -> Dec (Equal x1 x2)
+  decEqVal (VNat x0) (VNat y0) = case decEq x0 y0 of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }
+  decEqVal (VBool x0) (VBool y0) = case decEq x0 y0 of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }
+  decEqVal VNil VNil = Yes Refl
+  decEqVal (VCons x0 x1) (VCons y0 y1) = case decEqVal x0 y0 of { Yes Refl => case decEqVal x1 y1 of { Yes Refl => Yes Refl; No contra0 => No (\ h => case h of { Refl => contra0 Refl }) }; No contra1 => No (\ h => case h of { Refl => contra1 Refl }) }
+  decEqVal VNil (VCons _ _) = No (\ h => case h of { Refl impossible })
+  decEqVal (VCons _ _) VNil = No (\ h => case h of { Refl impossible })
+LOG derive.deceq.clauses:1: 
+  decEqEmpty : (x1, x2 : Empty) -> Dec (Equal x1 x2)
+  decEqEmpty x _ impossible
+(True, False)
+(True, False)
+(True, False)
+(True, False)
+(True, False)
+(True, False)
+(True, False)
