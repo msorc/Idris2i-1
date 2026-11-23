@@ -20,6 +20,26 @@ refIsLTE (S k) (S j)
            No contra => No (contra . fromLteSucc)
            Yes prf => Yes (LTESucc prf)
 
+refDecEq : (n, m : Nat) -> Dec (n = m)
+refDecEq Z     Z     = Yes Refl
+refDecEq (S n) (S m) = decEqCong $ refDecEq n m
+refDecEq Z     (S _) = No absurd
+refDecEq (S _) Z     = No absurd
+
+yes : Dec p -> Bool
+yes (Yes _) = True
+yes (No _) = False
+
+-- decEq through a DecEq dictionary
+decEqPoly : DecEq a => a -> a -> Bool
+decEqPoly x y = yes (decEq x y)
+
+-- The proof of an equality, used at run time to change the type of a value
+castBy : (n, m : Nat) -> List (Fin (S n)) -> Maybe (List (Fin (S m)))
+castBy n m xs = case decEq n m of
+                     Yes prf => Just (rewrite sym prf in xs)
+                     No _ => Nothing
+
 -- The number of LTESucc in a proof, by matching on it
 size : LTE m n -> Nat
 size LTEZero = 0
@@ -54,3 +74,8 @@ main = do
   check "isGT" [(dec (isGT a b), dec (refIsLTE (S b) a)) | (a, b) <- pairs 25]
   let big = the Nat 98765432109876543210
   printLn (dec (isLTE big (big + 1)), dec (isLTE (big + 1) big))
+  check "decEq" [(yes (decEq a b), yes (refDecEq a b)) | (a, b) <- pairs 25]
+  check "decEq (poly)" [(decEqPoly a b, yes (refDecEq a b)) | (a, b) <- pairs 25]
+  check "decEq (List Nat)" [(decEqPoly [a, b] [b, a], a == b) | (a, b) <- pairs 25]
+  printLn (map (map finToNat) (castBy 2 2 [0, 1, 2]), map (map finToNat) (castBy 2 3 [0, 1]))
+  printLn (yes (decEq big big), yes (decEq big (big + 1)))

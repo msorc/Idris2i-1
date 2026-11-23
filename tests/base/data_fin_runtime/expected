@@ -3,13 +3,28 @@ isGTE: 676 agree
 isLT: 676 agree
 isGT: 676 agree
 (Just 98765432109876543210, Nothing)
+decEq: 676 agree
+decEq (poly): 676 agree
+decEq (List Nat): 676 agree
+(Just [0, 1, 2], Nothing)
+(True, False)
 isLTE: 676 agree
 isGTE: 676 agree
 isLT: 676 agree
 isGT: 676 agree
 (Just 98765432109876543210, Nothing)
+decEq: 676 agree
+decEq (poly): 676 agree
+decEq (List Nat): 676 agree
+(Just [0, 1, 2], Nothing)
+(True, False)
 isLTE: 676 agree
 isGTE: 676 agree
 isLT: 676 agree
 isGT: 676 agree
 (Just 98765432109876543210, Nothing)
+decEq: 676 agree
+decEq (poly): 676 agree
+decEq (List Nat): 676 agree
+(Just [0, 1, 2], Nothing)
+(True, False)

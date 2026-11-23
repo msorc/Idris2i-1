@@ -8,9 +8,13 @@ idris2 --dumpcases Main.cases -o Main Main.idr
 # reach them too.
 for f in Main.useLte Main.useGt Main.useMinimum Main.useMaximum Main.usePower \
          "Main.useDiv'" "Main.useMod'" "Main.useDivmod'" Main.useIsLTE \
+         Main.useDecEq \
          Data.Nat.divNatNZ Data.Nat.modNatNZ Data.Nat.gcd; do
     printf '%s:' "$f"
-    grep "^$f = " Main.cases | sed -e 's/^[^=]*= //' | grep -o "Data\.Nat\.[A-Za-z']*" | sort -u | tr '\n' ' '
+    grep "^$f = " Main.cases | sed -e 's/^[^=]*= //' | grep -o "Data\.Nat\.[A-Za-z']*\|Decidable\.Equality\.[A-Za-z]*" | sort -u | tr '\n' ' '
     echo
 done
+# The dictionary of DecEq Nat that main passes to usePoly
+printf 'DecEq Nat dictionary:'
+grep -o 'Main\.usePoly \[(%lam {eta:0} (%lam {eta:1} ([A-Za-z.]*' Main.cases | sed -e 's/.*(//'
 rm -f Main.cases

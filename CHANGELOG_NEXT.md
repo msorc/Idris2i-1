@@ -2242,8 +2242,10 @@ should target this file (`CHANGELOG_NEXT`).
   `believe_me`: `isLTE` (and so `isGTE`, `isLT`, `isGT` and `natToFin`,
   which goes through `isLT`) compares two `Integer`s and gives the proof
   `believe_me m`, which is what the `LTESucc`s of a proof of `LTE m n` are at
-  run time.  Measured with `natOps`/`vectFin` on RefC (instructions): `isLTE`
-  83 times fewer, `natToFin` 36.
+  run time.  The `decEq` of `DecEq Nat` is now the function `decEqNat` (with
+  the clauses it had), which compares two `Integer`s at run time and gives
+  `believe_me Refl`.  Measured with `natOps`/`vectFin` on RefC
+  (instructions): `isLTE` 83 times fewer, `natToFin` 36, `decEq` 154.
 
 * `System.Crash` runs an action in a crash boundary: `catchCrash act` gives
   `Left` a `CrashInfo` (the kind: `CrashCall`, `MissingCase` or

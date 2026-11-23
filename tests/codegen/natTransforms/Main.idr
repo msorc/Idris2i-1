@@ -1,6 +1,7 @@
 -- The %transform rules of Data.Nat: each of these functions calls the
 -- run-time version on Integer (lteInteger, ...), not the unary definition.
 import Data.Nat
+import Decidable.Equality
 
 useLte : Nat -> Nat -> Bool
 useLte = lte
@@ -31,11 +32,23 @@ useIsLTE m n = case isLTE m n of
                     Yes _ => True
                     No _ => False
 
+useDecEq : (m, n : Nat) -> Bool
+useDecEq m n = case decEq m n of
+                    Yes _ => True
+                    No _ => False
+
+-- through the dictionary of DecEq Nat
+%noinline
+usePoly : DecEq a => a -> a -> Bool
+usePoly x y = case decEq x y of
+                   Yes _ => True
+                   No _ => False
+
 useDiv : Nat -> Nat -> Nat
 useDiv x y = x `div` S y
 
 main : IO ()
 main = do
-  printLn [useLte 3 4, useGt 3 4, useIsLTE 3 4, useIsLTE 4 3]
+  printLn [useLte 3 4, useGt 3 4, useIsLTE 3 4, useIsLTE 4 3, useDecEq 3 3, useDecEq 3 4, usePoly (the Nat 3) 4]
   printLn [useMinimum 3 4, useMaximum 3 4, usePower 3 4, useDiv' 9 9 1, useMod' 9 9 1]
   printLn (useDivmod' 9 9 1, gcd 12 18, useDiv 9 1)

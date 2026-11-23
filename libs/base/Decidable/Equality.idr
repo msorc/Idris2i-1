@@ -37,12 +37,36 @@ DecEq Bool where
 -- Nat
 --------------------------------------------------------------------------------
 
+||| The `decEq` of `DecEq Nat` (as `mapImpl` is the `map` of `Functor List`):
+||| its own function, so that a `%transform` rule can name it.
+public export
+decEqNat : (n, m : Nat) -> Dec (n = m)
+decEqNat Z     Z     = Yes Refl
+decEqNat (S n) (S m) = decEqCong $ decEqNat n m
+decEqNat Z     (S _) = No absurd
+decEqNat (S _) Z     = No absurd
+
+||| `decEqNat` on `Integer`, used at run time in place of `decEqNat` (a
+||| `%transform` rule), and so of the `decEq` of `DecEq Nat`.
+|||
+||| This relies on the representation of `Nat` at run time: on every backend
+||| a `Nat` is an `Integer` (`calcNaty` in the compiler), so two `Nat`s are
+||| equal when their `Integer`s are, and `believe_me (Refl {x = n})` is the
+||| proof of `n = m` then (`Refl` has no fields at run time: it is the same
+||| value for every equality).  The refutation is never called: it is a
+||| proof that a proof cannot exist.
+export
+decEqNatInteger : (n, m : Nat) -> Dec (n = m)
+decEqNatInteger n m
+    = if natToInteger n == natToInteger m
+         then Yes (believe_me (Refl {x = n}))
+         else No (\_ => assert_total $ idris_crash "Decidable.Equality.decEq: a refutation was applied")
+
+%transform "decEqNatInteger" decEqNat = decEqNatInteger
+
 public export
 DecEq Nat where
-  decEq Z     Z     = Yes Refl
-  decEq (S n) (S m) = decEqCong $ decEq n m
-  decEq Z     (S _) = No absurd
-  decEq (S _) Z     = No absurd
+  decEq = decEqNat
 
 --------------------------------------------------------------------------------
 -- Maybe
