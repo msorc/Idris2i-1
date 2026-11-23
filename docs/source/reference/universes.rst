@@ -39,8 +39,8 @@ then reported, naming the ``Type`` occurrences and the definitions involved,
 for instance::
 
     Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-        the universe of `Type` at Hurkens:15:5--15:9 <= the universe of `Type` at Hurkens:16:10--16:14 (from Hurkens.sigma)
-        the universe of `Type` at Hurkens:16:10--16:14 < the universe of `Type` at Hurkens:15:5--15:9 (from Hurkens.U)
+        the universe of `Type` at Hurkens:16:10--16:14 < an inferred universe (from Hurkens.U)
+        an inferred universe <= the universe of `Type` at Hurkens:16:10--16:14 (from Hurkens.sigma)
 
 Each declaration is checked when it has been elaborated, so the error is
 reported at the definition which completes the cycle. The constraints of a
@@ -85,17 +85,33 @@ How far it gets
 ===============
 
 With ``--check-universes``, the ``prelude`` library is checked completely, at
-a cost of about 20% more instructions for building it. ``base`` is not
-accepted: universes in the fields of a constructor are monomorphic, and the
-methods of an interface are such fields, so a method which quantifies over
-types (``(>>=) : m a -> (a -> m b) -> m b``) is at the same universe in every
-implementation. ``Language.Reflection`` then needs the method universes of
-``Functor``/``Monad`` to be both above and below the universe of the fields of
-``Elab``. This is a limitation, not an inconsistency: lifting it needs
-definitions which are polymorphic in the universes of their fields, which
-needs the universe instance of a use to be recorded in terms. For the same
-reason a type such as ``data HList : List Type -> Type`` can't contain an
-``HList`` of its own universe.
+a cost of about 21% more instructions for building it. ``base`` is not
+accepted yet. What stops it, found by building it with the cycles reported
+and the build carried on:
+
+* Universes in the fields of a constructor are monomorphic, and the methods
+  of an interface are such fields, so a method which quantifies over types
+  (``(>>=) : m a -> (a -> m b) -> m b``) is at the same universes in every
+  use and every implementation, and so are the fields of an ordinary record
+  (``Data.DPair.Subset``). Constraints which unrelated modules put on these
+  universes (``Data.List1``'s ``traverse``, ``Control.Monad.Trans``,
+  ``Prelude``'s ``traverse_``) then meet those of the ``Functor``,
+  ``Applicative`` and ``Monad`` implementations for ``Elab`` in
+  ``Language.Reflection``, and those of ``Show``, ``Eq`` and ``Functor`` in
+  ``Data.SnocList.Quantifiers``. The ``Deriving`` modules fail through the
+  same universes. This is a limitation, not an inconsistency: lifting it
+  needs universe instances recorded on the uses of type constructors (see
+  the roadmap). For the same reason a type such as
+  ``data HList : List Type -> Type`` can't contain an ``HList`` of its own
+  universe.
+* ``Monad Elab`` takes ``join`` from the default ``join x = x >>= id``, which
+  is ``Bind`` at ``a = Elab b``: an ``Elab`` computation stored in a field of
+  ``Elab`` at the universe of ``Elab``. No universe polymorphism makes this
+  well typed; it needs ``join`` to be a constructor of ``Elab``.
+
+Two definitions of ``base`` are reported as not checked completely
+(``Data.Vect.Quantifiers.All.drop'`` and
+``Data.List1.Quantifiers.All.indexAll``).
 
 What is not covered
 ===================

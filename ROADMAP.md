@@ -210,6 +210,21 @@ unless they say otherwise.
   functions; the compiler could load those modules, or say what is missing.
 * `Join` hides its nested occurrence of `Elab` from the positivity checker
   with `assert_total`, since `Elab` is an index of `Elab`.
+* `--check-universes` (experimental, off by default) passes `prelude` but
+  not `base`. Two things are missing. The universes in the fields of a data
+  type or record are monomorphic, so the method universes of `Functor`,
+  `Applicative`, `Monad` and the field universes of records are shared by all
+  their uses, and constraints from unrelated modules meet in a cycle in
+  `Language.Reflection`, `Data.SnocList.Quantifiers` and the `Deriving`
+  modules. The planned fix records a universe instance on each reference to
+  a type constructor (`TyCon` in `NameType`, `NTCon` in `NF`) and makes the
+  field universes part of the polymorphism of the family; implementations
+  would stay monomorphic (their right hand sides fix their universes), which
+  may leave cycles where an `Elab` computation returns one of the same
+  dictionary.
+* The universe check does not check terms built by the REPL or by
+  interactive editing, and modules built without the flag contribute no
+  constraints.
 
 ### Libraries
 
