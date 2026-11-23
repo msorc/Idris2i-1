@@ -159,3 +159,31 @@ unless they say otherwise.
 * The comparison with Rust in the `bench-vs` branch uses servers written by
   hand, because no asynchronous HTTP framework was available to build
   offline; there is no Rust row for HTTPS, HTTP/2 or WebSocket.
+
+### Language
+
+* `Nat`, `Fin`, `Vect` at run time: the functions of `Data.Nat`, `Data.Fin`
+  and `Data.Vect` that recursed once per unit run on `Integer` through
+  `%transform` rules (see `benchmark/benchmarks/natOps` and `vectFin`), but
+  only where a caller names them: code that copies their clauses, or a
+  function defined before its rule in the same module, still runs the unary
+  definition. Not covered: `hyper`, `cmp`, `maybeLTE`/`maybeLT`, `shift`,
+  `weakenN`, `Vect.index`, `replaceAt`, `take`/`drop` (O(index), inherent
+  to a list), and the `Subset` versions of `tabulate` and `range` (still
+  O(n²)).
+* `weakenLTE : Fin n -> LTE n m -> Fin m` takes its proof at quantity ω, so
+  callers build a proof at run time. At quantity 0 its clauses are rejected
+  (the match on the proof refines the bound); a definition without that
+  match would reduce differently at type-checking time.
+* The `believe_me` run-time versions (`isLTE`, `decEq` on `Nat`,
+  `strengthen`, the `Num` of `Fin`, `complement`) rely on `Nat`-shaped
+  types being `Integer`s on every backend (`calcNaty`). A backend that
+  represents them otherwise would need the rules switched off.
+* A proof search on a large `Nat` literal is unary: `gcd big 1234567890`
+  with its auto `NotBothZero` hangs the type checker (it is not a run-time
+  cost; give the proof, `{ok = LeftIsNotZero}`).
+* `Data.Array` stores boxed elements. A `Flat a =>` variant over the flat
+  slots of `Data.IOArray.Flat` (unboxed `Double`, `Int`, raw records on
+  RefC) is not written: those slots are `Maybe`-typed at the primitive
+  level, so it needs its own primitives or a `Maybe`-free slot interface.
+  `zipWith` on an `Array` costs 17% more than on a `Vect` on RefC.

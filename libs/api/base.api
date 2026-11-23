@@ -590,6 +590,25 @@ module Control.WellFounded
   export implementation : {0 a : Type} -> Control.WellFounded.Sized (Prelude.Basics.List a)
   export implementation : {0 b : Type} -> {0 a : Type} -> (Control.WellFounded.Sized a, Control.WellFounded.Sized b) => Control.WellFounded.Sized (a, b)
 
+module Data.Array
+  import public Data.Zippable
+  export data Array : Prelude.Types.Nat -> Type -> Type
+  export total empty : {0 a : Type} -> Data.Array.Array Prelude.Types.Z a
+  export total fromList : {0 a : Type} -> Prelude.Basics.List a -> (n : Prelude.Types.Nat ** Data.Array.Array n a)
+  export total fromVect : {0 a : Type} -> {0 n : Prelude.Types.Nat} -> Data.Vect.Vect n a -> Data.Array.Array n a
+  export total index : {0 a : Type} -> {0 n : Prelude.Types.Nat} -> Data.Fin.Fin n -> Data.Array.Array n a -> a
+  export total replaceAt : {0 a : Type} -> {0 n : Prelude.Types.Nat} -> Data.Fin.Fin n -> a -> Data.Array.Array n a -> Data.Array.Array n a
+  export total replicate : {0 a : Type} -> (n : Prelude.Types.Nat) -> a -> Data.Array.Array n a
+  export total size : {0 a : Type} -> {0 n : Prelude.Types.Nat} -> Data.Array.Array n a -> Prelude.Types.Nat
+  export total tabulate : {0 a : Type} -> {n : Prelude.Types.Nat} -> (Data.Fin.Fin n -> a) -> Data.Array.Array n a
+  export total toVect : {0 a : Type} -> {n : Prelude.Types.Nat} -> Data.Array.Array n a -> Data.Vect.Vect n a
+  export total updateAt : {0 a : Type} -> {0 n : Prelude.Types.Nat} -> Data.Fin.Fin n -> (a -> a) -> Data.Array.Array n a -> Data.Array.Array n a
+  export implementation : {0 n : Prelude.Types.Nat} -> Data.Zippable.Zippable (Data.Array.Array n)
+  export implementation : {0 n : Prelude.Types.Nat} -> Prelude.Interfaces.Foldable (Data.Array.Array n)
+  export implementation : {0 n : Prelude.Types.Nat} -> Prelude.Interfaces.Functor (Data.Array.Array n)
+  export implementation : {0 n : Prelude.Types.Nat} -> {0 a : Type} -> Prelude.EqOrd.Eq a => Prelude.EqOrd.Eq (Data.Array.Array n a)
+  export implementation : {0 n : Prelude.Types.Nat} -> {0 a : Type} -> Prelude.Show.Show a => Prelude.Show.Show (Data.Array.Array n a)
+
 module Data.Bifoldable
   public export total biall : {0 b : Type} -> {0 a : Type} -> {0 p : Type -> Type -> Type} -> Prelude.Interfaces.Bifoldable p => (a -> Prelude.Basics.Bool) -> (b -> Prelude.Basics.Bool) -> p a b -> Prelude.Basics.Bool
   public export total biand : {0 p : Type -> Type -> Type} -> Prelude.Interfaces.Bifoldable p => p (Lazy Prelude.Basics.Bool) (Lazy Prelude.Basics.Bool) -> Prelude.Basics.Bool
@@ -949,9 +968,17 @@ module Data.Fin
     constructor FS : {0 k : Prelude.Types.Nat} -> Data.Fin.Fin k -> Data.Fin.Fin (Prelude.Types.S k)
   public export total List.allFins : (n : Prelude.Types.Nat) -> Prelude.Basics.List (Data.Fin.Fin n)
   public export total List1.allFins : (n : Prelude.Types.Nat) -> Data.List1.List1 (Data.Fin.Fin (Prelude.Types.S n))
+  export total allFinsCounter : (n : Prelude.Types.Nat) -> Prelude.Basics.List (Data.Fin.Fin n)
+  export total allFinsCounter1 : (n : Prelude.Types.Nat) -> Data.List1.List1 (Data.Fin.Fin (Prelude.Types.S n))
+  export total allFinsFrom : {0 n : Prelude.Types.Nat} -> (k : Prelude.Types.Nat) -> (r : Prelude.Types.Nat) -> (0 _ : Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} k r) n) -> Prelude.Basics.List (Data.Fin.Fin n)
   public export total coerce : {0 m : Prelude.Types.Nat} -> {n : Prelude.Types.Nat} -> (0 _ : Builtin.(===) {a = Prelude.Types.Nat} m n) -> Data.Fin.Fin m -> Data.Fin.Fin n
   public export total complement : {n : Prelude.Types.Nat} -> Data.Fin.Fin n -> Data.Fin.Fin n
+  export total complementInteger : {n : Prelude.Types.Nat} -> Data.Fin.Fin n -> Data.Fin.Fin n
   public export total finFromInteger : {0 n : Prelude.Types.Nat} -> (x : Integer) -> {auto 0 _ : Data.So.So (Prelude.EqOrd.(<) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Ord_Nat} (Prelude.Num.fromInteger {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} x) n)} -> Data.Fin.Fin n
+  public export total finMult : {n : Prelude.Types.Nat} -> Data.Fin.Fin (Prelude.Types.S n) -> Data.Fin.Fin (Prelude.Types.S n) -> Data.Fin.Fin (Prelude.Types.S n)
+  export total finMultInteger : {n : Prelude.Types.Nat} -> Data.Fin.Fin (Prelude.Types.S n) -> Data.Fin.Fin (Prelude.Types.S n) -> Data.Fin.Fin (Prelude.Types.S n)
+  public export total finPlus : {n : Prelude.Types.Nat} -> Data.Fin.Fin (Prelude.Types.S n) -> Data.Fin.Fin (Prelude.Types.S n) -> Data.Fin.Fin (Prelude.Types.S n)
+  export total finPlusInteger : {n : Prelude.Types.Nat} -> Data.Fin.Fin (Prelude.Types.S n) -> Data.Fin.Fin (Prelude.Types.S n) -> Data.Fin.Fin (Prelude.Types.S n)
   public export total finS : {n : Prelude.Types.Nat} -> Data.Fin.Fin n -> Data.Fin.Fin n
   public export total finToInteger : {0 n : Prelude.Types.Nat} -> Data.Fin.Fin n -> Integer
   public export total finToNat : {0 n : Prelude.Types.Nat} -> Data.Fin.Fin n -> Prelude.Types.Nat
@@ -959,6 +986,7 @@ module Data.Fin
   public export total integerLessThanNat : Integer -> Prelude.Types.Nat -> Prelude.Basics.Bool
   public export total integerToFin : Integer -> (n : Prelude.Types.Nat) -> Prelude.Types.Maybe (Data.Fin.Fin n)
   public export total last : {n : Prelude.Types.Nat} -> Data.Fin.Fin (Prelude.Types.S n)
+  export total 0 ltOfPlusSucc : {0 n : Prelude.Types.Nat} -> (k : Prelude.Types.Nat) -> (r : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} k (Prelude.Types.S r)) n -> Data.Nat.LT k n
   public export total maybeLT : (x : Prelude.Types.Nat) -> (y : Prelude.Types.Nat) -> Prelude.Types.Maybe (Data.Nat.LT x y)
   public export total maybeLTE : (x : Prelude.Types.Nat) -> (y : Prelude.Types.Nat) -> Prelude.Types.Maybe (Data.Nat.LTE x y)
   public export total natToFin : Prelude.Types.Nat -> (n : Prelude.Types.Nat) -> Prelude.Types.Maybe (Data.Fin.Fin n)
@@ -967,6 +995,7 @@ module Data.Fin
   public export total restrict : (n : Prelude.Types.Nat) -> Integer -> Data.Fin.Fin (Prelude.Types.S n)
   public export total shift : {0 n : Prelude.Types.Nat} -> (m : Prelude.Types.Nat) -> Data.Fin.Fin n -> Data.Fin.Fin (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} m n)
   export total strengthen : {n : Prelude.Types.Nat} -> Data.Fin.Fin (Prelude.Types.S n) -> Prelude.Types.Maybe (Data.Fin.Fin n)
+  export total strengthenInteger : {n : Prelude.Types.Nat} -> Data.Fin.Fin (Prelude.Types.S n) -> Prelude.Types.Maybe (Data.Fin.Fin n)
   public export total weaken : {0 n : Prelude.Types.Nat} -> Data.Fin.Fin n -> Data.Fin.Fin (Prelude.Types.S n)
   public export total weakenLTE : {0 m : Prelude.Types.Nat} -> {0 n : Prelude.Types.Nat} -> Data.Fin.Fin n -> Data.Nat.LTE n m -> Data.Fin.Fin m
   public export total weakenN : {0 m : Prelude.Types.Nat} -> (0 n : Prelude.Types.Nat) -> Data.Fin.Fin m -> Data.Fin.Fin (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} m n)
@@ -1651,9 +1680,11 @@ module Data.Nat
   public export total div' : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   export partial divCeil : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   export covering divCeilNZ : Prelude.Types.Nat -> (y : Prelude.Types.Nat) -> (0 _ : Data.Nat.NonZero y) -> Prelude.Types.Nat
+  export total divInteger' : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   export partial divNat : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   public export total divNatNZ : Prelude.Types.Nat -> (y : Prelude.Types.Nat) -> (0 _ : Data.Nat.NonZero y) -> Prelude.Types.Nat
   public export total divmod' : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat -> (Prelude.Types.Nat, Prelude.Types.Nat)
+  export total divmodInteger' : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat -> (Prelude.Types.Nat, Prelude.Types.Nat)
   public export total divmodNatNZ : Prelude.Types.Nat -> (y : Prelude.Types.Nat) -> (0 _ : Data.Nat.NonZero y) -> (Prelude.Types.Nat, Prelude.Types.Nat)
   export total eqSucc : (0 left : Prelude.Types.Nat) -> (0 right : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} left right -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Types.S left) (Prelude.Types.S right)
   export total fromLteSucc : {0 n : Prelude.Types.Nat} -> {0 m : Prelude.Types.Nat} -> Data.Nat.LTE (Prelude.Types.S m) (Prelude.Types.S n) -> Data.Nat.LTE m n
@@ -1668,6 +1699,7 @@ module Data.Nat
   public export total isItSucc : (n : Prelude.Types.Nat) -> Prelude.Types.Dec (Data.Nat.IsSucc n)
   public export total isLT : (m : Prelude.Types.Nat) -> (n : Prelude.Types.Nat) -> Prelude.Types.Dec (Data.Nat.LT m n)
   public export total isLTE : (m : Prelude.Types.Nat) -> (n : Prelude.Types.Nat) -> Prelude.Types.Dec (Data.Nat.LTE m n)
+  export total isLTEInteger : (m : Prelude.Types.Nat) -> (n : Prelude.Types.Nat) -> Prelude.Types.Dec (Data.Nat.LTE m n)
   public export total isSucc : Prelude.Types.Nat -> Prelude.Basics.Bool
   public export total isZero : Prelude.Types.Nat -> Prelude.Basics.Bool
   export partial lcm : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
@@ -1676,6 +1708,7 @@ module Data.Nat
   export total ltReflectsLT : (k : Prelude.Types.Nat) -> (n : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Basics.Bool} (Data.Nat.lt k n) Prelude.Basics.True -> Data.Nat.LT k n
   public export total lte : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Basics.Bool
   export total lteAddRight : {0 m : Prelude.Types.Nat} -> (n : Prelude.Types.Nat) -> Data.Nat.LTE n (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} n m)
+  export total lteInteger : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Basics.Bool
   export total lteReflectsLTE : (k : Prelude.Types.Nat) -> (n : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Basics.Bool} (Data.Nat.lte k n) Prelude.Basics.True -> Data.Nat.LTE k n
   export total lteSuccLeft : {0 m : Prelude.Types.Nat} -> {0 n : Prelude.Types.Nat} -> Data.Nat.LTE (Prelude.Types.S n) m -> Data.Nat.LTE n m
   export total lteSuccRight : {0 m : Prelude.Types.Nat} -> {0 n : Prelude.Types.Nat} -> Data.Nat.LTE n m -> Data.Nat.LTE n (Prelude.Types.S m)
@@ -1683,6 +1716,7 @@ module Data.Nat
   export total maximumAssociative : (l : Prelude.Types.Nat) -> (c : Prelude.Types.Nat) -> (r : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.maximum l (Data.Nat.maximum c r)) (Data.Nat.maximum (Data.Nat.maximum l c) r)
   export total maximumCommutative : (l : Prelude.Types.Nat) -> (r : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.maximum l r) (Data.Nat.maximum r l)
   export total maximumIdempotent : (n : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.maximum n n) n
+  export total maximumInteger : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   export total maximumLeftUpperBound : (m : Prelude.Types.Nat) -> (n : Prelude.Types.Nat) -> Data.Nat.LTE m (Data.Nat.maximum m n)
   export total maximumRightUpperBound : (m : Prelude.Types.Nat) -> (n : Prelude.Types.Nat) -> Data.Nat.LTE n (Data.Nat.maximum m n)
   export total maximumSuccSucc : (left : Prelude.Types.Nat) -> (right : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Types.S (Data.Nat.maximum left right)) (Data.Nat.maximum (Prelude.Types.S left) (Prelude.Types.S right))
@@ -1691,6 +1725,7 @@ module Data.Nat
   export total minimumAssociative : (l : Prelude.Types.Nat) -> (c : Prelude.Types.Nat) -> (r : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.minimum l (Data.Nat.minimum c r)) (Data.Nat.minimum (Data.Nat.minimum l c) r)
   export total minimumCommutative : (l : Prelude.Types.Nat) -> (r : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.minimum l r) (Data.Nat.minimum r l)
   export total minimumIdempotent : (n : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.minimum n n) n
+  export total minimumInteger : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   export total minimumSuccSucc : (left : Prelude.Types.Nat) -> (right : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.minimum (Prelude.Types.S left) (Prelude.Types.S right)) (Prelude.Types.S (Data.Nat.minimum left right))
   export total minimumZeroZeroLeft : (left : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.minimum left Prelude.Types.Z) Prelude.Types.Z
   export total minusLtMonotone : {0 p : Prelude.Types.Nat} -> {0 n : Prelude.Types.Nat} -> {0 m : Prelude.Types.Nat} -> Data.Nat.LT m n -> Data.Nat.LT p n -> Data.Nat.LT (Prelude.Types.minus m p) (Prelude.Types.minus n p)
@@ -1706,6 +1741,7 @@ module Data.Nat
   export total minusZeroN : (n : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} Prelude.Types.Z (Prelude.Types.minus n n)
   export total minusZeroRight : (left : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Types.minus left Prelude.Types.Z) left
   public export total mod' : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
+  export total modInteger' : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   export partial modNat : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   public export total modNatNZ : Prelude.Types.Nat -> (y : Prelude.Types.Nat) -> (0 _ : Data.Nat.NonZero y) -> Prelude.Types.Nat
   export total multAssociative : (left : Prelude.Types.Nat) -> (centre : Prelude.Types.Nat) -> (right : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} left (Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} centre right)) (Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} (Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} left centre) right)
@@ -1739,6 +1775,7 @@ module Data.Nat
   export total plusZeroLeftNeutral : (right : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} (Prelude.Num.fromInteger {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} 0) right) right
   export total plusZeroRightNeutral : (left : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} left Prelude.Types.Z) left
   public export total power : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
+  export total powerInteger : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
   public export total pred : Prelude.Types.Nat -> Prelude.Types.Nat
   export total sucMaxL : (l : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.maximum (Prelude.Types.S l) l) (Prelude.Types.S l)
   export total sucMaxR : (l : Prelude.Types.Nat) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.maximum l (Prelude.Types.S l)) (Prelude.Types.S l)
@@ -2277,6 +2314,8 @@ module Data.Vect
   public export total (++) : {0 n : Prelude.Types.Nat} -> {0 elem : Type} -> {0 m : Prelude.Types.Nat} -> Data.Vect.Vect m elem -> Data.Vect.Vect n elem -> Data.Vect.Vect (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} m n) elem
   public export total Fin.range : {len : Prelude.Types.Nat} -> Data.Vect.Vect len (Data.Fin.Fin len)
   public export total Fin.tabulate : {0 a : Type} -> {len : Prelude.Types.Nat} -> (Data.Fin.Fin len -> a) -> Data.Vect.Vect len a
+  export total Fin.tabulateCounter : {0 a : Type} -> {len : Prelude.Types.Nat} -> (Data.Fin.Fin len -> a) -> Data.Vect.Vect len a
+  export total Fin.tabulateFrom : {0 a : Type} -> {0 len : Prelude.Types.Nat} -> (Data.Fin.Fin len -> a) -> (k : Prelude.Types.Nat) -> (r : Prelude.Types.Nat) -> (0 _ : Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} k r) len) -> Data.Vect.Vect r a
   public export total Stream.take : {0 a : Type} -> (n : Prelude.Types.Nat) -> Prelude.Types.Stream.Stream a -> Data.Vect.Vect n a
   public export total Subset.range : {len : Prelude.Types.Nat} -> Data.Vect.Vect len (Data.DPair.Subset.Subset Prelude.Types.Nat (\arg : Prelude.Types.Nat => Data.Nat.LT arg len))
   public export total Subset.tabulate : {0 a : Type} -> {len : Prelude.Types.Nat} -> (Data.DPair.Subset.Subset Prelude.Types.Nat (\arg : Prelude.Types.Nat => Data.Nat.LT arg len) -> a) -> Data.Vect.Vect len a
@@ -2284,6 +2323,7 @@ module Data.Vect
     constructor Nil : {0 elem : Type} -> Data.Vect.Vect Prelude.Types.Z elem
     constructor (::) : {0 len : Prelude.Types.Nat} -> {0 elem : Type} -> elem -> Data.Vect.Vect len elem -> Data.Vect.Vect (Prelude.Types.S len) elem
   public export total allFins : (n : Prelude.Types.Nat) -> Data.Vect.Vect n (Data.Fin.Fin n)
+  export total allFinsCounter : (n : Prelude.Types.Nat) -> Data.Vect.Vect n (Data.Fin.Fin n)
   public export total catMaybes : {0 elem : Type} -> {0 n : Prelude.Types.Nat} -> Data.Vect.Vect n (Prelude.Types.Maybe elem) -> (p : Prelude.Types.Nat ** Data.Vect.Vect p elem)
   public export total concat : {0 elem : Type} -> {0 n : Prelude.Types.Nat} -> {0 m : Prelude.Types.Nat} -> Data.Vect.Vect m (Data.Vect.Vect n elem) -> Data.Vect.Vect (Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} m n) elem
   public export total delete : {0 elem : Type} -> {len : Prelude.Types.Nat} -> Prelude.EqOrd.Eq elem => elem -> Data.Vect.Vect len elem -> (p : Prelude.Types.Nat ** Data.Vect.Vect p elem)
@@ -2305,6 +2345,7 @@ module Data.Vect
   public export total foldr1 : {0 n : Prelude.Types.Nat} -> {0 t : Type} -> (t -> t -> t) -> Data.Vect.Vect (Prelude.Types.S n) t -> t
   public export total foldrImpl : {0 n : Prelude.Types.Nat} -> {0 acc : Type} -> {0 t : Type} -> (t -> acc -> acc) -> acc -> (acc -> acc) -> Data.Vect.Vect n t -> acc
   export total foldrImplGoLemma : {0 b : Type} -> {0 n : Prelude.Types.Nat} -> {0 a : Type} -> (x : a) -> (xs : Data.Vect.Vect n a) -> (f : (a -> b -> b)) -> (e : b) -> (go : (b -> b)) -> Builtin.(===) {a = b} (go (Data.Vect.foldrImpl {n} {acc = b} {t = a} f e (f x) xs)) (Data.Vect.foldrImpl {n} {acc = b} {t = a} f e (Prelude.Basics.(.) {a = b} {c = b} {b} go (f x)) xs)
+  export total foldrImplList : {0 n : Prelude.Types.Nat} -> {0 acc : Type} -> {0 t : Type} -> (t -> acc -> acc) -> acc -> (acc -> acc) -> Data.Vect.Vect n t -> acc
   public export total fromList : {0 elem : Type} -> (xs : Prelude.Basics.List elem) -> Data.Vect.Vect (Prelude.Types.List.length {a = elem} xs) elem
   public export total fromList' : {0 elem : Type} -> {0 len : Prelude.Types.Nat} -> Data.Vect.Vect len elem -> (l : Prelude.Basics.List elem) -> Data.Vect.Vect (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} (Prelude.Types.List.length {a = elem} l) len) elem
   public export total hasAny : {0 len : Prelude.Types.Nat} -> {0 m : Prelude.Types.Nat} -> {0 elem : Type} -> Prelude.EqOrd.Eq elem => Data.Vect.Vect m elem -> Data.Vect.Vect len elem -> Prelude.Basics.Bool
@@ -2324,6 +2365,8 @@ module Data.Vect
   public export total last : {0 elem : Type} -> {0 len : Prelude.Types.Nat} -> Data.Vect.Vect (Prelude.Types.S len) elem -> elem
   public export total length : {0 elem : Type} -> {0 len : Prelude.Types.Nat} -> Data.Vect.Vect len elem -> Prelude.Types.Nat
   export total lengthCorrect : {0 elem : Type} -> {0 len : Prelude.Types.Nat} -> (xs : Data.Vect.Vect len elem) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Vect.length {elem} {len} xs) len
+  export total lengthPlus : {0 elem : Type} -> {0 len : Prelude.Types.Nat} -> Prelude.Types.Nat -> Data.Vect.Vect len elem -> Prelude.Types.Nat
+  export total lengthTR : {0 elem : Type} -> {0 len : Prelude.Types.Nat} -> Data.Vect.Vect len elem -> Prelude.Types.Nat
   public export total lookup : {0 val : Type} -> {0 n : Prelude.Types.Nat} -> {0 key : Type} -> Prelude.EqOrd.Eq key => key -> Data.Vect.Vect n (key, val) -> Prelude.Types.Maybe val
   public export total lookupBy : {0 val : Type} -> {0 n : Prelude.Types.Nat} -> {0 key : Type} -> (key -> key -> Prelude.Basics.Bool) -> key -> Data.Vect.Vect n (key, val) -> Prelude.Types.Maybe val
   export total mapMaybe : {0 len : Prelude.Types.Nat} -> {0 b : Type} -> {0 a : Type} -> (a -> Prelude.Types.Maybe b) -> Data.Vect.Vect len a -> (m : Prelude.Types.Nat ** Data.Vect.Vect m b)
@@ -2355,6 +2398,7 @@ module Data.Vect
   public export total transpose : {0 elem : Type} -> {0 m : Prelude.Types.Nat} -> {n : Prelude.Types.Nat} -> Data.Vect.Vect m (Data.Vect.Vect n elem) -> Data.Vect.Vect n (Data.Vect.Vect m elem)
   public export total unsnoc : {0 a : Type} -> {0 n : Prelude.Types.Nat} -> Data.Vect.Vect (Prelude.Types.S n) a -> (Data.Vect.Vect n a, a)
   public export total updateAt : {0 elem : Type} -> {0 len : Prelude.Types.Nat} -> Data.Fin.Fin len -> (elem -> elem) -> Data.Vect.Vect len elem -> Data.Vect.Vect len elem
+  export total vectToList : {0 a : Type} -> {0 n : Prelude.Types.Nat} -> Data.Vect.Vect n a -> Prelude.Basics.List a
   public export total vectToMaybe : {0 elem : Type} -> {0 len : Prelude.Types.Nat} -> Data.Vect.Vect len elem -> Prelude.Types.Maybe elem
   export total zipWith3IndexLinear : {0 a : Type} -> {0 a : Type} -> {0 n : Prelude.Types.Nat} -> (0 f : (a -> a -> a -> a)) -> (xs : Data.Vect.Vect n a) -> (ys : Data.Vect.Vect n a) -> (zs : Data.Vect.Vect n a) -> (i : Data.Fin.Fin n) -> Builtin.(===) {a} (Data.Vect.index {elem = a} {len = n} i (Data.Zippable.zipWith3 {d = a} {c = a} {b = a} {a} {z = Data.Vect.Vect n} {__con = Data.Vect.__Impl_Zippable_(Vect $k) {k = n}} f xs ys zs)) (f (Data.Vect.index {elem = a} {len = n} i xs) (Data.Vect.index {elem = a} {len = n} i ys) (Data.Vect.index {elem = a} {len = n} i zs))
   export total zipWithIndexLinear : {0 a : Type} -> {0 a : Type} -> {0 n : Prelude.Types.Nat} -> (0 f : (a -> a -> a)) -> (xs : Data.Vect.Vect n a) -> (ys : Data.Vect.Vect n a) -> (i : Data.Fin.Fin n) -> Builtin.(===) {a} (Data.Vect.index {elem = a} {len = n} i (Data.Zippable.zipWith {c = a} {b = a} {a} {z = Data.Vect.Vect n} {__con = Data.Vect.__Impl_Zippable_(Vect $k) {k = n}} f xs ys)) (f (Data.Vect.index {elem = a} {len = n} i xs) (Data.Vect.index {elem = a} {len = n} i ys))
@@ -2527,6 +2571,8 @@ module Decidable.Decidable
 
 module Decidable.Equality
   import public Decidable.Equality.Core as Decidable.Equality
+  public export total decEqNat : (n : Prelude.Types.Nat) -> (m : Prelude.Types.Nat) -> Prelude.Types.Dec (Builtin.(===) {a = Prelude.Types.Nat} n m)
+  export total decEqNatInteger : (n : Prelude.Types.Nat) -> (m : Prelude.Types.Nat) -> Prelude.Types.Dec (Builtin.(===) {a = Prelude.Types.Nat} n m)
   public export implementation : Decidable.Equality.Core.DecEq Bits16
   public export implementation : Decidable.Equality.Core.DecEq Bits32
   public export implementation : Decidable.Equality.Core.DecEq Bits64
