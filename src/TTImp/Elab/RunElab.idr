@@ -152,6 +152,39 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
         pathDoesNotEscape n     ("." ::rest) = pathDoesNotEscape n rest
         pathDoesNotEscape n     (_   ::rest) = pathDoesNotEscape (S n) rest
 
+    -- Elaborate a term with no expected type, as `Check` does with one.
+    -- Defaults (such as `Integer` for a literal) are resolved, and the
+    -- solved metavariables are substituted in the term and its type.
+    inferTerm : RawImp -> Core (Term vars, Term vars)
+    inferTerm raw
+        = do tidx <- resolveName (UN $ Basic "[elaborator script]")
+             e <- newRef EST (initEState tidx env)
+             constart <- getNextEntry
+             (tm, gty) <- runDelays (const True) $
+                     check rig (initElabInfo InExpr) nest env raw Nothing
+             solveConstraintsAfter constart inTerm Defaults
+             -- No more information will come: a search which fails now
+             -- (for an interface without implementation) is an error
+             solveConstraintsAfter constart inTerm LastChance
+             ty <- getTerm gty
+             -- Substitute the solutions of the metavariables, including
+             -- those found by search (which `clearDefs` would not unfold)
+             defs <- get Ctxt
+             pure (!(normaliseHoles defs env tm), !(normaliseHoles defs env ty))
+
+    -- A term returned to the script must not mention a metavariable which
+    -- is still unsolved: the script could not refer to it in a sensible way
+    noUnsolved : RawImp -> (what : String) -> Term vars -> Core ()
+    noUnsolved raw what tm
+        = do let ms = keys (getMetas tm)
+             unless (null ms) $
+               do ms <- traverse toFullNames ms
+                  throw (GenericMsg fc $
+                           "Can't infer the " ++ what ++ " of " ++ show raw ++
+                           " completely: it contains the unsolved " ++
+                           showSep ", " (map (("?" ++) . show) ms) ++
+                           ". Give more type information, for example with `the`.")
+
     elabCon : Defs -> String -> List (Closure vars) -> Core (NF vars)
     elabCon defs "Pure" [_,val]
         = do empty <- clearDefs defs
@@ -393,6 +426,14 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
              scriptRet ()
     elabCon defs "IdrisDir" [lk]
         = do evalClosure defs lk >>= lookupDir defs >>= scriptRet
+    elabCon defs "Infer" [ttimp]
+        = do raw <- reify defs !(evalClosure defs ttimp)
+             (tm, ty) <- inferTerm raw
+             noUnsolved raw "term" tm
+             noUnsolved raw "type" ty
+             rtm <- unelabUniqueBinders env tm
+             rty <- unelabUniqueBinders env ty
+             scriptRet (map rawName rtm, map rawName rty)
     elabCon defs n args = failWith defs $ "unexpected Elab constructor " ++ n ++
                                           ", or incorrect count of arguments: " ++ show (length args)
 elabScript rig fc nest env script exp

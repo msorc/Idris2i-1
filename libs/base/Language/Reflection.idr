@@ -112,6 +112,11 @@ data Elab : Type -> Type where
      ||| Returns the specified type of dir related to the current idris project
      IdrisDir : LookupDir -> Elab String
 
+     ||| Elaborate a term without an expected type. Returns the elaborated
+     ||| term and its type, quoted as `Quote` does. Fails if the term or its
+     ||| type contains a metavariable which is still unsolved.
+     Infer : TTImp -> Elab (TTImp, TTImp)
+
 export
 Functor Elab where
   map = Map
@@ -227,6 +232,16 @@ interface Monad m => Elaboration m where
   ||| Returns the specified type of dir related to the current idris project
   idrisDir : LookupDir -> m String
 
+  ||| Elaborate a term without an expected type, and return the elaborated
+  ||| term and its type.
+  |||
+  ||| Defaults are resolved (a literal such as `3` is an `Integer`), and the
+  ||| metavariables solved during elaboration are substituted. If the term or
+  ||| its type still contains an unsolved metavariable (for example `Nil`,
+  ||| whose element type is unknown), `infer` fails: give a type annotation
+  ||| with `the`.
+  infer : TTImp -> m (TTImp, TTImp)
+
 export %inline
 ||| Report an error in elaboration
 fail : Elaboration m => String -> m a
@@ -271,6 +286,7 @@ Elaboration Elab where
   readFile         = ReadFile
   writeFile        = WriteFile
   idrisDir         = IdrisDir
+  infer            = Infer
 
 public export
 Elaboration m => MonadTrans t => Monad (t m) => Elaboration (t m) where
@@ -301,6 +317,7 @@ Elaboration m => MonadTrans t => Monad (t m) => Elaboration (t m) where
   readFile            = lift .: readFile
   writeFile d         = lift .: writeFile d
   idrisDir            = lift . idrisDir
+  infer               = lift . infer
 
 ||| Catch failures and use the `Maybe` monad instead
 export

@@ -1,0 +1,19 @@
+1/1: Building Infer (Infer.idr)
+LOG 0: term: ((Prelude.Types.plus (Prelude.Types.S Prelude.Types.Z)) (Prelude.Types.S (Prelude.Types.S Prelude.Types.Z)))
+LOG 0: type: Prelude.Types.Nat
+LOG 0: term: ((Prelude.Basics.the (Prelude.Basics.List Prelude.Types.Nat)) (((Prelude.Basics.(::) [a = Prelude.Types.Nat]) (Prelude.Types.S Prelude.Types.Z)) (((Prelude.Basics.(::) [a = Prelude.Types.Nat]) (Prelude.Types.S (Prelude.Types.S Prelude.Types.Z))) (Prelude.Basics.Nil [a = Prelude.Types.Nat]))))
+LOG 0: type: (Prelude.Basics.List Prelude.Types.Nat)
+LOG 0: term: (((Prelude.Num.fromInteger [ty = Integer]) [__con = Prelude.Num.defaultInteger]) 3)
+LOG 0: type: Integer
+LOG 0: term: (%lam RigW Explicit (Just x) Prelude.Types.Nat ((((Prelude.Num.(+) [ty = Prelude.Types.Nat]) [__con = Prelude.Types.Num implementation at Prelude.Types:1]) x) (Prelude.Types.S Prelude.Types.Z)))
+LOG 0: type: (%pi RigW Explicit (Just x) Prelude.Types.Nat Prelude.Types.Nat)
+LOG 0: term: (%pi RigW Explicit (Just {arg:1}) Prelude.Types.Nat %type)
+LOG 0: type: %type
+LOG 0: term: ((Prelude.Types.Just [ty = Char]) (((Builtin.fromChar [ty = Char]) [__con = Builtin.defaultChar]) 'c'))
+LOG 0: type: (Prelude.Types.Maybe Char)
+LOG 0: term: ((((Prelude.Num.(*) [ty = Prelude.Types.Nat]) [__con = Prelude.Types.Num implementation at Prelude.Types:1]) n) (Prelude.Types.S (Prelude.Types.S Prelude.Types.Z)))
+LOG 0: type: Prelude.Types.Nat
+LOG 0: term: (((Prelude.Basics.(::) [a = Prelude.Types.Nat]) n) (((Prelude.Basics.(::) [a = Prelude.Types.Nat]) (Prelude.Types.S n)) (Prelude.Basics.Nil [a = Prelude.Types.Nat])))
+LOG 0: type: (Prelude.Basics.List Prelude.Types.Nat)
+LOG 0: round trip: (((Prelude.Basics.(::) [a = Prelude.Types.Nat]) (Prelude.Types.S (Prelude.Types.S (Prelude.Types.S (Prelude.Types.S Prelude.Types.Z))))) (Prelude.Basics.Nil [a = Prelude.Types.Nat]))
+LOG 0: caught: False
