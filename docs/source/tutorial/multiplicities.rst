@@ -208,6 +208,46 @@ Remember the intuition from the type of ``MkLin`` is that if ``MkLin x`` is
 used exactly once, ``x`` is used exactly once. But, we didn't say that
 ``MkLin x`` would be used exactly once, so there is no restriction on ``x``.
 
+Linear functions where unrestricted ones are expected
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A function that uses its argument exactly once can be used anywhere a
+function with an unrestricted argument is expected: whoever calls it may
+pass any value, and the function uses it once, which is allowed. So, with
+a list type whose fields are linear, the constructor can be given to the
+Prelude's higher-order functions:
+
+.. code-block:: idris
+
+    data LList : Type -> Type where
+      Nil  : LList a
+      (::) : (1 x : a) -> (1 xs : LList a) -> LList a
+
+    fromList : List a -> LList a
+    fromList = foldr (::) []
+
+Idris does this by *eta-expanding* the function: here ``(::)`` becomes
+``\x, xs => x :: xs``, a function with unrestricted arguments. It happens
+only when the type of the function and the type expected are both known to
+be function types at that point, only for the arguments that are ``1`` in the
+function and unrestricted in the expected type, and only along the result
+of the function type: ``List ((1 _ : a) -> b)`` is not a ``List (a -> b)``,
+and a function of type ``((1 _ : a) -> b) -> c`` is not one of type
+``(a -> b) -> c`` (that would need the opposite). The other direction is
+never allowed (a function with an unrestricted argument may use it many
+times), and a ``0`` argument never matches a ``1`` or an unrestricted one.
+Since the expected type has to be known, ``map lcons xs`` with the
+``Functor`` method ``map`` fails where the same with a function on lists
+works: ``map``'s function argument is checked before the type of its result
+is known. Giving the type of the function at that point, for example with
+``map {b = LList a -> LList a} lcons xs``, helps.
+
+The example above also shows that a value of a type with linear fields
+that is itself unrestricted behaves like one with unrestricted fields: if
+``xs : LList a`` is unrestricted, matching it as ``(y :: ys)`` gives an
+unrestricted ``y`` and ``ys``, and ``x :: x :: []`` is fine for an
+unrestricted ``x`` (as ``getLin`` above shows for ``MkLin``).
+
 Resource protocols
 ~~~~~~~~~~~~~~~~~~
 

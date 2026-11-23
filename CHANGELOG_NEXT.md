@@ -92,6 +92,20 @@ should target this file (`CHANGELOG_NEXT`).
   as the implementation for monad transformers does). The TTC format does not
   change.
 
+* A function with linear arguments can be used where a function with
+  unrestricted arguments is expected: it is eta-expanded (`\x => f x`), which
+  uses an unrestricted `x` once.  So `foldr (::) []` turns a `List a` into a
+  list type with linear fields, `zipWith (#)` makes `LPair`s, and a linear
+  `f` can be given to `map`.  Only `1` becomes unrestricted, never the other
+  way and never from or to `0`; only where both types are known to be
+  function types when the expression is checked; only along the result of
+  the function type (not inside an argument type, nor inside a data type such
+  as `List ((1 _ : a) -> b)`); not in patterns or types.  Unification still
+  requires equal quantities.  Of the meanings of an overloaded name that
+  work, one that needs no expansion is preferred, so no name becomes
+  ambiguous.  See "Linear functions where unrestricted ones are expected" in
+  `docs/source/tutorial/multiplicities.rst`.
+
 * "Can't find an implementation for G." says why.  When an implementation
   matched but needs a constraint that fails, the message names it by its
   type and where it is defined, and gives the chain of constraints down to

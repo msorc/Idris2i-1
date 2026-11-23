@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+check Eta.idr
+run Run.idr

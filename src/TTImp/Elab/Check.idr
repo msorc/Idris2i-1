@@ -5,6 +5,7 @@ module TTImp.Elab.Check
 
 import Core.Env
 import Core.Metadata
+import Core.Normalise
 import Core.Unify
 import Core.Value
 
@@ -535,7 +536,7 @@ successful : {vars : _} ->
              Bool -> -- constraints allowed
              List (Maybe Name, Core a) ->
              Core (List (Either (Int, Maybe Name, Error)
-                                (Nat, a, Defs, UState, EState vars, Metadata)))
+                                (Nat, Bool, a, Defs, UState, EState vars, Metadata)))
 successful allowCons [] = pure []
 successful allowCons ((tm, elab) :: elabs)
     = do ust <- get UST
@@ -575,6 +576,7 @@ successful allowCons ((tm, elab) :: elabs)
                    elabs' <- successful allowCons elabs
                    -- Record success, and the state we ended at
                    pure (Right (minus ncons' ncons,
+                                linearEtas ust' /= linearEtas ust,
                                 res, defs', ust', est', md') :: elabs'))
                (\err => do -- How far the attempt got before failing: the
                            -- number of names it generated (for implicit
@@ -705,13 +707,23 @@ exactlyOne' {vars} allowCons fc env all
                        pure res
               Left rs => throw (altError !(rankFailures (lefts elabs)) rs)
   where
-    getRight : List (Either err (Nat, res)) -> Either (List res) res
+    -- Of several successes, the one that needed no eta-expansion of a
+    -- linear function (see `checkExp`), if it is the only one: the
+    -- coercion makes alternatives work that would fail without it, and
+    -- must not make a name ambiguous where it was not.  Then the one that
+    -- left no constraints.
+    getRight : List (Either err (Nat, Bool, res)) -> Either (List res) res
     getRight es
         = case rights es of
-               [(_, res)] => Right res
-               rs => case filter (\x => fst x == Z) rs of
-                          [(_, res)] => Right res
-                          _ => Left (map snd rs)
+               [(_, _, res)] => Right res
+               rs => let rs' = case filter (\x => not (fst (snd x))) rs of
+                                    [] => rs
+                                    exact => exact in
+                         case rs' of
+                              [(_, _, res)] => Right res
+                              _ => case filter (\x => fst x == Z) rs' of
+                                        [(_, _, res)] => Right res
+                                        _ => Left (map (snd . snd) rs')
 
     getRes : ((Term vars, Glued vars), Defs, st) -> (Context, Term vars)
     getRes ((tm, _), defs, thisst) = (gamma defs, tm)
@@ -870,6 +882,74 @@ convertUnordered : {vars : _} ->
                    Core UnifyResult
 convertUnordered = convertWithLazy False Unordered
 
+-- Linear-to-unrestricted coercion by eta-expansion (used by checkExp).
+--
+-- A function whose argument is linear can be used where a function with an
+-- unrestricted argument is expected: `\x => f x` takes an unrestricted `x`
+-- and uses it once, which is allowed.  The converse is not.  Unification and
+-- conversion keep requiring equal quantities (subusaging at function types
+-- was removed as unsound for inference); instead, when the conversion of a
+-- checked term's type against the expected type fails, checkExp looks at the
+-- two Pi telescopes once more.
+--
+-- Variance rule.  Walk the leading Pi binders of both types (each normalised
+-- to expose its Pis, as far as both are Pis).  At each position:
+--   given 1, expected omega: the position is relaxed (the eta-expansion's
+--     lambda binds the argument at omega and passes it to the linear
+--     argument of the term);
+--   anything else: the quantity is left as given, so the conversion below
+--     requires it to be equal (0 never meets 1 or omega, omega never
+--     becomes 1).
+-- Binder types (the domains, contravariant) and everything after the last
+-- relaxed position (including any function types inside argument types,
+-- or inside the result of a data type) are compared by the ordinary
+-- conversion, unchanged.  So the only coercion is 1 -> omega, along the spine
+-- of the result, never inside an argument (where it would have to be
+-- omega -> 1).
+--
+-- The relaxed type is returned with the number of binders to expand; the
+-- caller converts it against the expected type, and only if that succeeds
+-- uses the eta-expanded term.
+relaxLinearPis : Term vs -> Term vs -> Maybe (Nat, Term vs)
+relaxLinearPis (Bind fc x (Pi pfc cg pig tyg) scg) (Bind _ _ (Pi _ ce _ _) sce)
+    = let relaxHere = isLinear cg && ce == top
+          cg' = if relaxHere then ce else cg in
+          case relaxLinearPis scg (compat sce) of
+               Just (k, scg') => Just (S k, Bind fc x (Pi pfc cg' pig tyg) scg')
+               Nothing => if relaxHere
+                             then Just (1, Bind fc x (Pi pfc cg' pig tyg) scg)
+                             else Nothing
+relaxLinearPis _ _ = Nothing
+
+-- `\x1, ..., xn => tm x1 ... xn`, with the binders of the given Pi telescope
+etaExpandPis : Nat -> Term vs -> Term vs -> Term vs
+etaExpandPis (S k) (Bind fc x (Pi pfc c p ty) sc) tm
+    = Bind fc x (Lam pfc c p ty)
+           (etaExpandPis k sc (App fc (weaken tm) (Local fc Nothing _ First)))
+etaExpandPis _ _ tm = tm
+
+-- If the given and expected types are Pi telescopes that differ (at least)
+-- in a linear argument where an unrestricted one is expected, the relaxed
+-- given type and the eta-expanded term.  Only on the right hand side of a
+-- definition: patterns and types are never coerced.
+linearToUnrestricted : {vars : _} ->
+                       {auto c : Ref Ctxt Defs} ->
+                       ElabInfo -> Env Term vars ->
+                       (term : Term vars) -> (got : Glued vars) ->
+                       (expected : Glued vars) ->
+                       Core (Maybe (Term vars, Glued vars))
+linearToUnrestricted elabinfo env tm got exp
+    = case elabMode elabinfo of
+           InExpr =>
+             do defs <- get Ctxt
+                gty <- normalisePis defs env !(getTerm got)
+                ety <- normalisePis defs env !(getTerm exp)
+                let Just (n, gty') = relaxLinearPis gty ety
+                    | Nothing => pure Nothing
+                logTerm "elab.linear" 5 "Eta-expanding linear function" tm
+                pure (Just (etaExpandPis n gty' tm, gnf env gty'))
+           _ => pure Nothing
+
 -- Check whether the type we got for the given type matches the expected
 -- type.
 -- Returns the term and its type.
@@ -884,27 +964,39 @@ checkExp : {vars : _} ->
            (got : Glued vars) -> (expected : Maybe (Glued vars)) ->
            Core (Term vars, Glued vars)
 checkExp rig elabinfo env fc tm got (Just exp)
-    = do vs <- convertWithLazy True GotExpected fc elabinfo env got exp
-         case (constraints vs) of
-              [] => case addLazy vs of
-                         NoLazy => do logTerm "elab" 5 "Solved" tm
-                                      pure (tm, got)
-                         AddForce r => do logTerm "elab" 5 "Force" tm
-                                          logGlue "elab" 5 "Got" got
-                                          logGlue "elab" 5 "Exp" exp
-                                          pure (TForce fc r tm, exp)
-                         AddDelay r => do ty <- getTerm got
-                                          logTerm "elab" 5 "Delay" tm
-                                          pure (TDelay fc r ty tm, exp)
-              cs => do logTerm "elab" 5 "Not solved" tm
-                       defs <- get Ctxt
-                       empty <- clearDefs defs
-                       cty <- getTerm exp
-                       ctm <- newConstant fc rig env tm cty cs
-                       dumpConstraints "elab" 5 False
-                       case addLazy vs of
-                            NoLazy => pure (ctm, got)
-                            AddForce r => pure (TForce fc r tm, exp)
-                            AddDelay r => do ty <- getTerm got
-                                             pure (TDelay fc r ty tm, exp)
+    = catch (checkExpWith tm got) $ \err =>
+        do Just (tm', got') <- linearToUnrestricted elabinfo env tm got exp
+               | Nothing => throw err
+           -- If the expansion does not fit either, undo what trying it did
+           -- and report the original mismatch
+           Right res <- tryErrorUnify (checkExpWith tm' got')
+               | Left _ => throw err
+           update UST { linearEtas $= S }
+           pure res
+  where
+    checkExpWith : Term vars -> Glued vars -> Core (Term vars, Glued vars)
+    checkExpWith tm got
+        = do vs <- convertWithLazy True GotExpected fc elabinfo env got exp
+             case (constraints vs) of
+                  [] => case addLazy vs of
+                             NoLazy => do logTerm "elab" 5 "Solved" tm
+                                          pure (tm, got)
+                             AddForce r => do logTerm "elab" 5 "Force" tm
+                                              logGlue "elab" 5 "Got" got
+                                              logGlue "elab" 5 "Exp" exp
+                                              pure (TForce fc r tm, exp)
+                             AddDelay r => do ty <- getTerm got
+                                              logTerm "elab" 5 "Delay" tm
+                                              pure (TDelay fc r ty tm, exp)
+                  cs => do logTerm "elab" 5 "Not solved" tm
+                           defs <- get Ctxt
+                           empty <- clearDefs defs
+                           cty <- getTerm exp
+                           ctm <- newConstant fc rig env tm cty cs
+                           dumpConstraints "elab" 5 False
+                           case addLazy vs of
+                                NoLazy => pure (ctm, got)
+                                AddForce r => pure (TForce fc r tm, exp)
+                                AddDelay r => do ty <- getTerm got
+                                                 pure (TDelay fc r ty tm, exp)
 checkExp rig elabinfo env fc tm got Nothing = pure (tm, got)

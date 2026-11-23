@@ -119,6 +119,7 @@ knownTopics = [
     ("elab.implementation", Nothing),
     ("elab.interface", Nothing),
     ("elab.interface.default", Nothing),
+    ("elab.linear", Just "Eta-expanding a function with linear arguments where unrestricted ones are expected."),
     ("elab.local", Nothing),
     ("elab.prune", Nothing),
     ("elab.record", Nothing),

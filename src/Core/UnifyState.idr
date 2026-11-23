@@ -142,6 +142,12 @@ record UState where
                 -- Where some metavariables were solved: those solved while
                 -- there were constraints left, which a constraint retried
                 -- later may fail because of (see `Core.Unify.retry`)
+  linearEtas : Nat
+                -- How many functions with linear arguments were eta-expanded
+                -- to be used where unrestricted arguments are expected (see
+                -- `TTImp.Elab.Check.checkExp`).  Of the candidates of an
+                -- ambiguous name that succeed, those that needed no such
+                -- coercion are preferred.
 
 export
 initUState : UState
@@ -161,6 +167,7 @@ initUState = MkUState
   , specVars = Nothing
   , logging = False
   , solvedAt = empty
+  , linearEtas = 0
   }
 
 export
