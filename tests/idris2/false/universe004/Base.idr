@@ -7,3 +7,8 @@ data Code : Type where
 public export
 decode : Code -> Type
 decode (MkCode t) = t
+
+-- one copy of Code
+public export
+C : Type
+C = Code

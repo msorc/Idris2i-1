@@ -17,14 +17,15 @@ UseA:1:1--3:12
 
 3/3: Building UseB (UseB.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    Base.{u:1} < an inferred universe (from Base.Code)
-    an inferred universe <= Base.{u:1} (from UseB.codeOfCode)
+    Base.{uf:1} < an inferred universe (from Base.C)
+    an inferred universe <= an inferred universe (from UseB.codeOfCode)
+    an inferred universe <= Base.{uf:1} (from UseB.codeOfCode)
 
-UseB:8:1--8:25
+UseB:8:1--8:22
  4 | import UseA
  5 |
- 6 | -- Code would contain itself
- 7 | codeOfCode : Code
- 8 | codeOfCode = MkCode Code
-     ^^^^^^^^^^^^^^^^^^^^^^^^
+ 6 | -- C would contain itself (the constraints of C come from Base's TTC file)
+ 7 | codeOfCode : C
+ 8 | codeOfCode = MkCode C
+     ^^^^^^^^^^^^^^^^^^^^^
 

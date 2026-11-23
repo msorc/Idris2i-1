@@ -673,8 +673,10 @@ should target this file (`CHANGELOG_NEXT`).
   off by default. The universe constraints of a module are saved in its TTC
   file (the TTC version changes), so a program is only checked completely
   when all the libraries it uses were built with the flag too; the compiler
-  warns about imports which were not. The `prelude` passes the check; `base`
-  does not yet. A universe inconsistency is error `E0107`; the warnings about
+  warns about imports which were not. Each use of a type constructor
+  records the universes of its fields (a universe instance), so data types
+  are universe polymorphic in their fields too (a list of types holds lists
+  of types). The `prelude` passes the check; `base` does not yet. A universe inconsistency is error `E0107`; the warnings about
   definitions not checked completely and about imports built without the flag
   are `W0008` and `W0009`. See the "Universe checking" section of the
   reference documentation for what the check covers and what it does not.

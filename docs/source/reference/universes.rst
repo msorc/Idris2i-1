@@ -55,63 +55,70 @@ check is only as complete as the set of modules built with it (see below).
 Universe polymorphism
 =====================
 
-Terms do not record at which universes a global definition is used, so a
-definition can only be polymorphic in universes which evaluation can never
+Terms do not record at which universes a global function is used, so a
+function can only be polymorphic in universes which evaluation can never
 produce: if ``T = Type`` could be used at a different universe each time,
 ``T : T`` would be accepted. The universes which are never renamed ("fixed")
 are those occurring in the right hand side of a clause (or in the solution of
-a metavariable used there or in the definition's type), and those in a field
-of a constructor: the contents of a data type do not depend on the universe
-it is used at. A definition is polymorphic in the other universes of its
-type and of its left hand sides; each use of it renames them and copies the
-constraints which its own checking put on them. A data type and its
-constructors are renamed together, and the universes of a parameter in a
-constructor are made equal to those in the data type. This covers ``id``,
-``(.)``, ``map`` and other functions, and data types such as ``List``, ``Pair``
-or ``Vect``: a list of types can contain lists of types.
+a metavariable used there or in the definition's type). A function is
+polymorphic in the other universes of its type and of its left hand sides;
+each use of it renames them and copies the constraints which its own checking
+put on them. The solved metavariables of a type (the inferred type of a
+parameter, for instance) are part of it and renamed with it.
 
-To keep these renamings independent, the elaborator gives the universes in
-the type of a global a fresh name at each use when the option is on (it
-copies parts of those types into the terms it builds). A universe which
-also occurs in the type of another definition is renamed only if that
-definition is polymorphic in it and was checked completely before.
+A use of a type constructor does record its universes: with the option on,
+the elaborator gives each use the names of its own copy of the universes in
+the fields of the data type (its *universe instance*), and conversion between
+two uses of the same type constructor makes their instances equal. So the
+fields of a data type are polymorphic too: a list of types can contain lists
+of types, an ``HList`` can contain ``HList`` s, and two implementations of an
+interface can use its methods at different universes. The other universes of
+a data type (of its parameters, indices and of the data type itself) are
+renamed at each use, and the universes of a parameter in a constructor are
+made equal to those in the data type. A use without an instance stands for
+the data type's own universes. The recursive uses of a data type in its own
+constructors are at its own universes.
 
-A definition is used with its own universes (monomorphically) until it has
-been checked completely, so recursive and mutual uses are monomorphic, and so
-are definitions which used a metavariable that was still unsolved when they
-were checked.
+Why this is sound, in short:
+
+#. A data type ``F`` has a list of field universes and the constraints which
+   checking its declaration produced (each field no bigger than ``F``'s
+   universe, strictly when the field is a type). A use ``F{s}`` is the copy of
+   ``F`` whose field universes are ``s``, with those constraints renamed.
+#. A constructor gets fresh universes at each use; the type it builds,
+   ``F{s'}``, meets the expected type ``F{s}`` only through conversion, which
+   makes ``s'`` and ``s`` equal. So a value of ``F{s}`` stores fields of the
+   copy ``s``, and matching on it (the pattern's type is made equal to the
+   type of the value) gives them back at ``s``.
+#. Matching on a *type* gives back types of the copy given at run time, which
+   is not known: so every variable bound by a pattern on a type is put no
+   lower than the universe of the type matched.
+#. Every identification the check relies on goes through its own conversion
+   calls, so two different copies never convert silently (unification may
+   ignore instances: the check sees the elaborated term again).
+#. Unfolding a definition gives its right hand side with its own universes,
+   instances included, which are fixed, never renamed.
+#. Any part of the compiler which builds a use of a type constructor without
+   an instance makes it monomorphic: more constraints, never fewer.
+
+Implementations of interfaces stay monomorphic: their right hand sides (the
+lambdas of the methods, the solved implicit arguments) fix their universes.
 
 How far it gets
 ===============
 
 With ``--check-universes``, the ``prelude`` library is checked completely, at
-a cost of about 21% more instructions for building it. ``base`` is not
-accepted yet. What stops it, found by building it with the cycles reported
-and the build carried on:
-
-* Universes in the fields of a constructor are monomorphic, and the methods
-  of an interface are such fields, so a method which quantifies over types
-  (``(>>=) : m a -> (a -> m b) -> m b``) is at the same universes in every
-  use and every implementation, and so are the fields of an ordinary record
-  (``Data.DPair.Subset``). Constraints which unrelated modules put on these
-  universes (``Data.List1``'s ``traverse``, ``Control.Monad.Trans``,
-  ``Prelude``'s ``traverse_``) then meet those of the ``Functor``,
-  ``Applicative`` and ``Monad`` implementations for ``Elab`` in
-  ``Language.Reflection``, and those of ``Show``, ``Eq`` and ``Functor`` in
-  ``Data.SnocList.Quantifiers``. The ``Deriving`` modules fail through the
-  same universes. This is a limitation, not an inconsistency: lifting it
-  needs universe instances recorded on the uses of type constructors (see
-  the roadmap). For the same reason a type such as
-  ``data HList : List Type -> Type`` can't contain an ``HList`` of its own
-  universe.
-* ``Monad Elab`` takes ``join`` from the default ``join x = x >>= id``, which
-  is ``Bind`` at ``a = Elab b``: an ``Elab`` computation stored in a field of
-  ``Elab`` at the universe of ``Elab``. No universe polymorphism makes this
-  well typed; it needs ``join`` to be a constructor of ``Elab``.
-
-Two definitions of ``base`` are reported as not checked completely
-(``Data.Vect.Quantifiers.All.drop'`` and
-``Data.List1.Quantifiers.All.indexAll``).
+a cost of about twice the instructions of building it without the option.
+``base`` is not accepted yet: three cycles remain in
+``Language.Reflection``, in the implementations of ``Alternative``,
+``Monad`` and ``Elaboration`` for ``Elab``. Since ``Join`` (a script
+returning a script) has an ``Elab`` as an index of ``Elab``, the index
+universe of ``Elab`` is above its own; these implementations, which are
+monomorphic, use their methods at a type variable whose universe is
+identified with the index universe, and the method bodies store values of
+that type variable in fields of ``Elab``. The same cycle for ``Functor``
+goes away when the parameter of the interface is given its type
+(``interface Functor (0 f : Type -> Type)``) instead of having it inferred.
 
 What is not covered
 ===================

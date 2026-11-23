@@ -3,6 +3,6 @@ module UseB
 import Base
 import UseA
 
--- Code would contain itself
-codeOfCode : Code
-codeOfCode = MkCode Code
+-- C would contain itself (the constraints of C come from Base's TTC file)
+codeOfCode : C
+codeOfCode = MkCode C

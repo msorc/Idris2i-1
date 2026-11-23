@@ -13,6 +13,15 @@ data Seq : Type -> Type where
 data Wrap : Type where
   MkWrap : Seq Small -> Wrap
 
--- Wrap holds a list of Smalls, so it is at least as big as Small
+-- Wrap holds a list of Smalls, so it is at least as big as Small: this is
+-- accepted, as the Smalls in Wrap are of another copy of Small than the one
+-- holding Wrap
 wrapSmall : Small
 wrapSmall = MkSmall Wrap (MkWrap [])
+
+-- S is one copy of Small: a list of S can't be held by S
+S : Type
+S = Small
+
+seqSmall : S
+seqSmall = MkSmall (Seq S) []

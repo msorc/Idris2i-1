@@ -13,8 +13,9 @@ Fixed:10:1--10:10
 
 1/1: Building Russell (Russell.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    the universe of `Type` at Russell:5:14--5:18 < an inferred universe (from Russell.Set)
-    an inferred universe <= the universe of `Type` at Russell:5:14--5:18 (from Russell.setOfAll)
+    Russell.{uf:1} < an inferred universe (from Russell.Set)
+    an inferred universe <= an inferred universe (from Russell.setOfAll)
+    an inferred universe <= Russell.{uf:1} (from Russell.setOfAll)
 
 Russell:9:1--9:22
  5 |   Sup : (a : Type) -> (a -> Set) -> Set
@@ -26,22 +27,27 @@ Russell:9:1--9:22
 
 1/1: Building Box (Box.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    the universe of `Type` at Box:7:18--7:22 < an inferred universe (from Box.Wrap)
-    an inferred universe <= the universe of `Type` at Box:7:18--7:22 (from Box.wrapSmall)
+    an inferred universe <= an inferred universe (from Box.Seq)
+    an inferred universe <= an inferred universe (from Box.seqSmall)
+    an inferred universe <= Box.{uf:1} (from Box.seqSmall)
+    Box.{uf:1} < an inferred universe (from Box.S)
+    an inferred universe <= an inferred universe (from Box.seqSmall)
+    an inferred universe <= an inferred universe (from Box.Seq)
 
-Box:18:1--18:37
- 14 |   MkWrap : Seq Small -> Wrap
- 15 |
- 16 | -- Wrap holds a list of Smalls, so it is at least as big as Small
- 17 | wrapSmall : Small
- 18 | wrapSmall = MkSmall Wrap (MkWrap [])
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Box:27:1--27:30
+ 23 | S : Type
+ 24 | S = Small
+ 25 |
+ 26 | seqSmall : S
+ 27 | seqSmall = MkSmall (Seq S) []
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1/1: Building Delta (Delta.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    the universe of `Type` at Delta:6:34--6:40 < an inferred universe (from Delta.Delta)
+    Delta.{uf:1} < an inferred universe (from Delta.Delta)
+    an inferred universe <= Delta.{uf:2} (from Delta.absurd)
+    Delta.{uf:2} <= an inferred universe (from Delta.absurd)
     an inferred universe <= Delta.{uf:1} (from Delta.absurd)
-    Delta.{uf:1} <= the universe of `Type` at Delta:6:34--6:40 (from Delta.absurd)
 
 Delta:8:1--8:46
  4 |

@@ -740,16 +740,21 @@ whenChecking act
 
 -- A definition has been checked completely: make it polymorphic in the
 -- universes of its type ('extra' are further universes of its type, for
--- data constructors) which are not fixed.
+-- data constructors) which are not fixed. Of these, those in 'instOnly' (the
+-- universes in the fields of a data type) are renamed only through a
+-- universe instance of a type constructor (see 'globalType').
 complete : {auto c : Ref Ctxt Defs} ->
            (constraintsOf : Name) -> (owners : List Name) -> Name -> List Name ->
-           Core ()
-complete cn owners n extra
+           (instOnly : List Name) -> Core ()
+complete cn owners n extra instOnly
     = do defs <- get Ctxt
          fn <- getFullName n
          fcn <- getFullName cn
          Just ty <- lookupTyExact n (gamma defs)
               | Nothing => pure ()
+         -- the solved metavariables of the type are renamed with it (see
+         -- 'globalType')
+         ty <- normaliseHoles defs Env.empty ty
          tyls <- canonicalLevels ty
          -- what evaluating the type can produce can't be renamed either
          tyfixed <- metaLevels ty
@@ -766,7 +771,7 @@ complete cn owners n extra
                 ++ (if pending then " (but met an unsolved metavariable)" else "")
          unless (pending || null ps) $
            do let stamp = completions info
-              let sch = MkUSchema ps (filter (touches ps) es) [] stamp
+              let sch = MkUSchema ps (filter (touches ps) es) (filter (\ u => elem u instOnly) ps) stamp
               update Ctxt { universes->completions := stamp + 1,
                             universes->schemas $= insert fn sch,
                             universes->savedSchemas $= ((fn, sch) ::) }
@@ -839,7 +844,7 @@ checkClauseUniverses fc n pats
            -- pattern variables) are this definition's own, so they are
            -- renamed too
            lhsls <- nub . concat <$> traverse lhsLevels pats
-           complete n [n] n lhsls
+           complete n [n] n lhsls []
   where
     checkEnv : {vs : _} -> {auto s : Ref UCK UCState} ->
                Env Term vs -> Core ()
@@ -907,9 +912,13 @@ export
 checkDataUniverses : {auto c : Ref Ctxt Defs} ->
                      FC -> Name -> ClosedTerm -> List (Name, ClosedTerm) ->
                      Core ()
-checkDataUniverses fc tn tty cons
+checkDataUniverses fc tn tty_in cons_in
     = whenChecking $
         do defs <- get Ctxt
+           -- the solved metavariables of the types are part of them (see
+           -- 'globalType')
+           tty <- normaliseHoles defs Env.empty tty_in
+           cons <- traverse (\ (cn, cty) => pure (cn, !(normaliseHoles defs Env.empty cty))) cons_in
            Just tdef <- lookupCtxtExact tn (gamma defs)
                 | Nothing => throw (InternalError "Universe check: undefined data type")
            let TCon _ ps _ _ _ _ _ = definition tdef
@@ -922,22 +931,33 @@ checkDataUniverses fc tn tty cons
                 case !(resultUniverse Env.empty !(nf defs Env.empty tty)) of
                      Nothing => gap "the type of the data type does not end in a universe"
                      Just u => traverse_ (checkCon u ps) cons
-           -- The contents of the data type are fixed
-           addFixed . nub . concat =<<
-             traverse (\ (_, cty) =>
-                         do ls <- traverse canonical
-                                    (fieldLevels (paramBinders ps 0 cty) 0 cty [])
-                            ms <- metaLevels cty
-                            pure (ls ++ ms))
-                      cons
+           -- What evaluating the types of the constructors can produce is
+           -- fixed
+           addFixed . nub . concat =<< traverse (\ (_, cty) => metaLevels cty) cons
+           -- The universes in the fields: the contents of the data type. A
+           -- use of the type constructor says at which universes they are
+           -- (its universe instance, see TyCon in Core.TT.Term), and a
+           -- conversion between two uses makes them equal, so they are
+           -- renamed only through an instance
+           fieldls <- nub . concat <$>
+                        traverse (\ (_, cty) =>
+                                    traverse canonical
+                                      (fieldLevels (paramBinders ps 0 cty) 0 cty []))
+                                 cons
            -- The universes of the type constructor and of the constructors
            -- are renamed together (the parameters' are made equal)
            tyls <- canonicalLevels tty
            conls <- concat <$> traverse (\ (_, cty) => canonicalLevels cty) cons
            let famls = tyls ++ conls
            let family = tn :: map fst cons
-           complete tn family tn famls
-           traverse_ (\ (cn, _) => complete tn family cn famls) cons
+           complete tn family tn famls fieldls
+           traverse_ (\ (cn, _) => complete tn family cn famls fieldls) cons
+           -- If the data type is not polymorphic, its uses have no instance,
+           -- and the contents are fixed, as they are the same at every use
+           defs <- get Ctxt
+           ftn <- getFullName tn
+           when (isNothing (lookup ftn (schemas (universes defs)))) $
+             addFixed fieldls
   where
     -- The return type `T a1 ... an` of a constructor. The universes of a
     -- parameter are those of the data type's type (they are made equal, so

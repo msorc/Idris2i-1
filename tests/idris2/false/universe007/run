@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+check --no-prelude --check-universes Pack.idr
+check --no-prelude --check-universes Wrap.idr
+check --no-prelude --check-universes Monads.idr
+check --no-prelude --check-universes HList.idr
