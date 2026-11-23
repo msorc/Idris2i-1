@@ -2222,6 +2222,19 @@ should target this file (`CHANGELOG_NEXT`).
   `div`/`mod` 56, `divCeilNZ` and `gcd` 107 to 111, `power` 47.  `lcm` no
   longer overflows the C stack on RefC for operands of a few thousand.
 
+* `Fin.tabulate`, `Fin.range` and the three `allFins` (of `Data.Vect`, and
+  the `List` and `List1` ones of `Data.Fin`) are O(n) at run time instead of
+  O(n²): they count with a `Nat` and make each `Fin` with `natToFinLT`, an
+  identity at run time, where the definitions compose `f . FS` or map `FS`
+  at each level.  `Vect.length` is tail recursive at run time, and the
+  `foldr` of `Foldable (Vect n)` is the `foldr` of lists on the same cells
+  instead of a chain of closures.  As for `Data.Nat`, these are `%transform`
+  rules and the definitions are unchanged.  Measured with
+  `benchmark/benchmarks/vectFin` (instructions, n = 3000): `tabulate` and
+  `range` 241 and 269 times fewer on RefC, `allFins` 208 (Vect) and 278
+  (List); `length` 1.33 times fewer on RefC, 1.5 on Chez without its
+  start-up; `foldr` 1.04 on RefC, 1.9 on Chez without its start-up.
+
 * `System.Crash` runs an action in a crash boundary: `catchCrash act` gives
   `Left` a `CrashInfo` (the kind: `CrashCall`, `MissingCase` or
   `FailedCheck`, the message, and the backtrace when backtraces are on) if

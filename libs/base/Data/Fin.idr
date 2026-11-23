@@ -189,6 +189,45 @@ natToFinLT : (x : Nat) -> {0 n : Nat} ->
 natToFinLT Z {prf = LTESucc _} = FZ
 natToFinLT (S k) {prf = LTESucc _} = FS $ natToFinLT k
 
+||| The counter of a loop over the Fins below `n` is below `n` while `r` of
+||| them are left: used by the counter-based versions of `allFins`, `tabulate`
+||| and `range`.
+export
+0 ltOfPlusSucc : (k, r : Nat) -> k + S r = n -> LT k n
+ltOfPlusSucc k r prf
+    = rewrite sym prf in
+      rewrite sym (plusSuccRightSucc k r) in
+              LTESucc (lteAddRight k)
+
+||| The Fins from `k` on, `r` of them: `natToFinLT k`, ..., `natToFinLT (k + r - 1)`.
+||| `natToFinLT` is an identity at run time and its proof is erased, so this
+||| is O(r), where `allFins` maps `FS` over the list at each level, O(r^2).
+||| Used at run time in place of `allFins` (`%transform` rules).
+export
+allFinsFrom : (k, r : Nat) -> (0 _ : k + r = n) -> List (Fin n)
+allFinsFrom k Z prf = []
+allFinsFrom k (S r) prf
+    = natToFinLT k {prf = ltOfPlusSucc k r prf}
+      :: allFinsFrom (S k) r (trans (plusSuccRightSucc k r) prf)
+
+||| Counter-based `List.allFins`, used at run time in place of it (a
+||| `%transform` rule).
+export
+allFinsCounter : (n : Nat) -> List (Fin n)
+allFinsCounter n = allFinsFrom 0 n Refl
+
+||| Counter-based `List1.allFins`, used at run time in place of it (a
+||| `%transform` rule).
+export
+allFinsCounter1 : (n : Nat) -> List1 (Fin (S n))
+allFinsCounter1 n = FZ ::: allFinsFrom 1 n Refl
+
+-- (The rules name functions of this module only: the right-hand side of a
+-- rule is used in the modules that call `allFins`, which may not see
+-- Data.List1.)
+%transform "allFinsCounter" List.allFins = allFinsCounter
+%transform "allFinsCounter1" List1.allFins = allFinsCounter1
+
 public export
 natToFinLt : (x : Nat) -> {0 n : Nat} ->
              {auto 0 prf : So (x < n)} ->

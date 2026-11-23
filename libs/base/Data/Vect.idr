@@ -28,6 +28,20 @@ length : (xs : Vect len elem) -> Nat
 length [] = 0
 length (_::xs) = 1 + length xs
 
+||| The first argument plus the length of the vector.
+export
+lengthPlus : Nat -> Vect len elem -> Nat
+lengthPlus n [] = n
+lengthPlus n (_ :: xs) = lengthPlus (S n) xs
+
+||| Tail-recursive `length`, used at run time in place of `length` (a
+||| `%transform` rule).
+export
+lengthTR : Vect len elem -> Nat
+lengthTR = lengthPlus Z
+
+%transform "tailRecLengthVect" Vect.length = Vect.lengthTR
+
 ||| Show that the length function on vectors in fact calculates the length
 export
 lengthCorrect : (xs : Vect len elem) -> length xs = len
@@ -423,6 +437,23 @@ foldrImplGoLemma z (y :: ys) f e go = Calc $
   ~~ go ((f z) (foldrImpl f e (f y) ys))   ... (cong go (sym (foldrImplGoLemma y ys f e (f z))))
   ~~ (go . (f z)) (foldrImpl f e (f y) ys) ... (cong go Refl)
   ~~ foldrImpl f e (go . (f z) . (f y)) ys ... (foldrImplGoLemma y ys f e (go . (f z)))
+
+||| The elements of a vector as a list: an identity at run time (see
+||| `Compiler.Opts.Identity`).  The same as `toList`, which is defined below.
+export
+vectToList : Vect n a -> List a
+vectToList [] = []
+vectToList (x :: xs) = x :: vectToList xs
+
+-- `foldrImpl` builds a closure per element (`go . f x`) and calls them at
+-- the end; the `foldr` on the same cells as a list does not.
+||| `foldrImpl` as the `foldr` of lists, used at run time in place of it (a
+||| `%transform` rule).
+export %inline
+foldrImplList : (t -> acc -> acc) -> acc -> (acc -> acc) -> Vect n t -> acc
+foldrImplList f e go xs = go (foldr f e (vectToList xs))
+
+%transform "foldrImplList" foldrImpl = foldrImplList
 
 public export
 implementation Foldable (Vect n) where
@@ -874,9 +905,36 @@ namespace Fin
   tabulate {len = Z} f = []
   tabulate {len = S _} f = f FZ :: tabulate (f . FS)
 
+  ||| `f` at the Fins from `k` on, `r` of them.  `natToFinLT` is an identity
+  ||| at run time and its proof is erased, so this is O(r), where `tabulate`
+  ||| composes `f . FS` at each level and is O(r^2).  Used at run time in
+  ||| place of `tabulate`, `range` and `allFins` (`%transform` rules).
+  export
+  tabulateFrom : (Fin len -> a) -> (k, r : Nat) -> (0 _ : k + r = len) -> Vect r a
+  tabulateFrom f k Z prf = []
+  tabulateFrom f k (S r) prf
+      = f (natToFinLT k {prf = ltOfPlusSucc k r prf})
+        :: tabulateFrom f (S k) r (trans (plusSuccRightSucc k r) prf)
+
+  ||| Counter-based `tabulate`, used at run time in place of it (a
+  ||| `%transform` rule).
+  export
+  tabulateCounter : {len : Nat} -> (Fin len -> a) -> Vect len a
+  tabulateCounter f = tabulateFrom f 0 len Refl
+
+  %transform "tabulateCounter" Fin.tabulate = Fin.tabulateCounter
+
   public export
   range : {len : Nat} -> Vect len (Fin len)
   range = tabulate id
+
+||| Counter-based `allFins`, used at run time in place of it (a `%transform`
+||| rule).
+export
+allFinsCounter : (n : Nat) -> Vect n (Fin n)
+allFinsCounter n = Fin.tabulateFrom id 0 n Refl
+
+%transform "allFinsCounter" Vect.allFins = Vect.allFinsCounter
 
 namespace Subset
 

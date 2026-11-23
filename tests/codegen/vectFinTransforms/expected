@@ -1,0 +1,12 @@
+Dumping case trees to Main.cases
+([0, 1, 2], ([0, 1, 2], [0, 1, 2]))
+([0, 1, 2], [0, 1, 2, 3])
+(3, 2)
+Main.useTabulate:Data.Vect.Fin.tabulateCounter 
+Main.useRange:Data.Vect.Fin.range 
+Main.useVectAllFins:Data.Vect.allFinsCounter 
+Main.useListAllFins:Data.Fin.allFinsCounter 
+Main.useList1AllFins:Data.Fin.allFinsCounter1 
+Main.useLength:Data.Vect.lengthTR 
+Main.useFoldr:Prelude.Types.foldr 
+Data.Vect.Fin.range:Data.Vect.Fin.tabulateCounter 

@@ -1,0 +1,32 @@
+-- The %transform rules of Data.Vect and Data.Fin: each of these functions
+-- calls the run-time version (tabulateFrom, ...), not the definition.
+import Data.Fin
+import Data.List1
+import Data.Vect
+
+useTabulate : (n : Nat) -> Vect n Integer
+useTabulate n = tabulate finToInteger
+
+useRange : (n : Nat) -> Vect n (Fin n)
+useRange n = range
+
+useVectAllFins : (n : Nat) -> Vect n (Fin n)
+useVectAllFins n = allFins n
+
+useListAllFins : (n : Nat) -> List (Fin n)
+useListAllFins n = List.allFins n
+
+useList1AllFins : (n : Nat) -> List1 (Fin (S n))
+useList1AllFins n = List1.allFins n
+
+useLength : Vect n a -> Nat
+useLength xs = length xs
+
+useFoldr : Vect n Integer -> Integer
+useFoldr xs = foldr (-) 0 xs
+
+main : IO ()
+main = do
+  printLn (useTabulate 3, useRange 3, useVectAllFins 3)
+  printLn (useListAllFins 3, forget (useList1AllFins 3))
+  printLn (useLength [1, 2, 3], useFoldr [1, 2, 3])
