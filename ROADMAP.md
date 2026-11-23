@@ -211,15 +211,14 @@ unless they say otherwise.
 * `Join` hides its nested occurrence of `Elab` from the positivity checker
   with `assert_total`, since `Elab` is an index of `Elab`.
 * `--check-universes` (experimental, off by default) passes `prelude`, at
-  about twice the instructions, but not `base`: three cycles remain in the
-  `Alternative`, `Monad` and `Elaboration` implementations for `Elab`
-  (`Join` puts the index universe of `Elab` above its own, and these
-  monomorphic implementations use their methods at a type variable whose
-  universe is identified with that index universe). Making the right hand
-  sides of implementations universe polymorphic would need instances on
-  references to functions too, not only to type constructors. The cost also
-  needs work: every use of a data type with type fields copies its
-  constraints into the TTC file.
+  about twice the instructions, but not `base`: `Deriving.Traversable` fails
+  through the method universes of monomorphic implementations (`Monad Elab`
+  and the `StateT`/`EitherT` monads), shared by all their uses. Typing it
+  needs universe-polymorphic implementations, that is universe instances on
+  references to functions and constants too, not only on type
+  constructors. The inferred parameter types of the Prelude interfaces also
+  fix their universes; explicit `(0 f : Type -> Type)` avoids that (tried,
+  not committed).
 * The universe check does not check terms built by the REPL or by
   interactive editing, and modules built without the flag contribute no
   constraints.

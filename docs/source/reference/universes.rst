@@ -109,16 +109,20 @@ How far it gets
 
 With ``--check-universes``, the ``prelude`` library is checked completely, at
 a cost of about twice the instructions of building it without the option.
-``base`` is not accepted yet: three cycles remain in
-``Language.Reflection``, in the implementations of ``Alternative``,
-``Monad`` and ``Elaboration`` for ``Elab``. Since ``Join`` (a script
-returning a script) has an ``Elab`` as an index of ``Elab``, the index
-universe of ``Elab`` is above its own; these implementations, which are
-monomorphic, use their methods at a type variable whose universe is
-identified with the index universe, and the method bodies store values of
-that type variable in fields of ``Elab``. The same cycle for ``Functor``
-goes away when the parameter of the interface is given its type
-(``interface Functor (0 f : Type -> Type)``) instead of having it inferred.
+``base`` is not accepted yet. ``Language.Reflection`` passes, and
+``Deriving.Common`` does too when the ``Prelude`` interfaces give their
+parameter type (see below); ``Deriving.Traversable`` does not: its cycles go through the method
+universes of implementations (``Monad Elab``, the monads of ``StateT`` and
+``EitherT``), which are monomorphic, so all uses of ``>>=`` through one
+implementation share them, and one of these uses binds a type (the result of
+``check {expected = Type}``). The ``Prelude`` interfaces whose parameter type
+is inferred also make the universes of that parameter fixed; giving the type
+(``interface Functor (0 f : Type -> Type)``) avoids it.
+
+Each binder of a declared type whose type is a universe gets a universe of
+its own: the elaborator infers the type of a type variable by unification
+(in ``f a``, as the domain of ``f``), where cumulativity only needs it to be
+no bigger.
 
 What is not covered
 ===================
