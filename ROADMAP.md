@@ -211,14 +211,20 @@ unless they say otherwise.
 * `Join` hides its nested occurrence of `Elab` from the positivity checker
   with `assert_total`, since `Elab` is an index of `Elab`.
 * `--check-universes` (experimental, off by default) passes `prelude`, at
-  about twice the instructions, but not `base`: `Deriving.Traversable` fails
-  through the method universes of monomorphic implementations (`Monad Elab`
-  and the `StateT`/`EitherT` monads), shared by all their uses. Typing it
-  needs universe-polymorphic implementations, that is universe instances on
-  references to functions and constants too, not only on type
-  constructors. The inferred parameter types of the Prelude interfaces also
-  fix their universes; explicit `(0 f : Type -> Type)` avoids that (tried,
-  not committed).
+  about 2.3 times the instructions, but not `base`: with universe instances
+  on all references, `Deriving.Traversable.derive` still fails, through the
+  copies of `MonadError e (EitherT e m)` and `Monad Elab` it uses at
+  `m = Elab` (the index universe of `Elab` is above `Elab`'s own because of
+  `Join`, and `EitherT` stores `m (Either e a)`). What it needs is not
+  known yet: less equality between universes where the elaborator unifies
+  types (as `decoupleBinderUniverses` does for type binders), or `Join`
+  without the nested `Elab`.
+* `--check-universes` costs: every reference carries an instance, so the TTC
+  files of a library built with the flag are 2-3 times bigger, and a group
+  with more than 256 universes (after the minimisation described in
+  `docs/source/reference/universes.rst`) is not made polymorphic. A string
+  table in TTC files, or Coq-style minimisation of more universes, would
+  cut that.
 * The universe check does not check terms built by the REPL or by
   interactive editing, and modules built without the flag contribute no
   constraints.

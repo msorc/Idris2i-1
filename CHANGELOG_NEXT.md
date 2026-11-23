@@ -673,10 +673,17 @@ should target this file (`CHANGELOG_NEXT`).
   off by default. The universe constraints of a module are saved in its TTC
   file (the TTC version changes), so a program is only checked completely
   when all the libraries it uses were built with the flag too; the compiler
-  warns about imports which were not. Each use of a type constructor
-  records the universes of its fields (a universe instance), so data types
-  are universe polymorphic in their fields too (a list of types holds lists
-  of types). The `prelude` passes the check; `base` does not yet. A universe inconsistency is error `E0107`; the warnings about
+  warns about imports which were not. Every definition is universe
+  polymorphic: each reference to a function or a type constructor records
+  the universes of its copy (a universe instance), unfolding it gives the
+  definition's body at them, and conversion makes the instances of two
+  references to the same definition equal. So `x : T; x = T` with
+  `T = Type` is accepted (as in Coq), a list of types holds lists of types,
+  and two uses of one interface implementation can be at different
+  universes; the uses within a `mutual` block, among a definition's local
+  definitions and case blocks, and within an implementation are of one copy.
+  The `prelude` passes the check; `base` does not yet (it stops in
+  `Deriving.Traversable`). A universe inconsistency is error `E0107`; the warnings about
   definitions not checked completely and about imports built without the flag
   are `W0008` and `W0009`. See the "Universe checking" section of the
   reference documentation for what the check covers and what it does not.
