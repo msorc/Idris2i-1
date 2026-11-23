@@ -51,23 +51,22 @@ failing "Trying to use linear name x in non-linear context"
   applied : (1 x : a) -> a
   applied x = pid {%q = omega} x
 
--- The variables of a definition, when it is unfolded in a type, stay its
--- own: rigid, and not those of the definition that uses it
+-- When a definition is unfolded in a type, its variables are unrestricted
+-- (see "Unfolding" on the soundness page): `PolyT f` is `Nat -> Nat`
 PolyT : ((%q _ : Nat) -> Nat) -> Type
 PolyT _ = (%q y : Nat) -> Nat
 
 ok : PolyT (\y => y)
 ok = \y => y
 
-failing "Trying to use %q name y in non-linear context"
-  stale : PolyT (\y => y)
-  stale = \y => y + y
+twice : PolyT (\y => y)
+twice = \y => y + y
 
-failing "Mismatch between: (%q _ : Nat) -> Nat and Nat -> Nat"
-  staleOmega : PolyT (\y => y) -> Nat -> Nat
-  staleOmega f = f
+asOmega : PolyT (\y => y) -> Nat -> Nat
+asOmega f = f
 
-failing "Trying to use %q (of Reject.staleNext) name x in %q (of Reject.PolyT) context"
+-- and not those of the definition that uses it
+failing "Trying to use %q name x in non-linear context"
   staleNext : (%q x : Nat) -> PolyT (\y => y) -> Nat
   staleNext x f = f x
 

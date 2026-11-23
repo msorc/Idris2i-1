@@ -140,6 +140,15 @@ dconFlag n
     ciFlags def (ConType ci :: xs) = ci
     ciFlags def (x :: xs) = ciFlags def xs
 
+-- (Experimental) A reference to a definition with quantity variables, at
+-- the quantities chosen for it (`let qinst : T = f in qinst`, see
+-- TTImp.Elab.App.instantiateQuantities), is the reference: the type is
+-- only for LinearCheck, and the function is called (and inlined,
+-- specialised) as any other
+unQInst : Term vars -> Term vars
+unQInst (Bind _ (MN "qinst" _) (Let _ _ val _) sc) = unQInst (subst val sc)
+unQInst tm = tm
+
 toCExpTm : {auto c : Ref Ctxt Defs} ->
            Name -> Term vars ->
            Core (CExp vars)
@@ -190,10 +199,12 @@ toCExpTm n (PrimVal fc c) = pure $ CPrimVal fc c -- Non-type constant
 toCExpTm n (Erased fc _) = pure $ CErased fc
 toCExpTm n (TType fc _) = pure $ CCon fc (UN (Basic "Type")) TYCON Nothing []
 
-toCExp n tm
-    = case getFnArgs tm of
-           (f, args) =>
-              do args' <- traverse (toCExp n) args
+toCExp n tm_in
+    = let tm = unQInst tm_in in
+      case getFnArgs tm of
+           (f_in, args) =>
+              do let f = unQInst f_in
+                 args' <- traverse (toCExp n) args
                  defs <- get Ctxt
                  f' <- toCExpTm n f
                  case !(numArgs defs f) of

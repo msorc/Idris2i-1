@@ -1,6 +1,7 @@
 module TTImp.TTImp.Traversals
 
 import Core.TT
+import Core.Case.CaseTree
 import TTImp.TTImp
 import Core.WithData
 
@@ -194,3 +195,17 @@ substQuantities f (TDelay fc r t v) = TDelay fc r (substQuantities f t) (substQu
 substQuantities f (TForce fc r t) = TForce fc r (substQuantities f t)
 substQuantities f (Meta fc n i args) = Meta fc n i (map (substQuantities f) args)
 substQuantities f tm = tm
+
+||| The same in a case tree
+export covering
+substQuantitiesTree : (QuantityVar -> Maybe RigCount) -> CaseTree vs -> CaseTree vs
+substQuantitiesTree f (Case idx p scTy alts)
+    = Case idx p (substQuantities f scTy) (map alt alts)
+  where
+    alt : forall vs . CaseAlt vs -> CaseAlt vs
+    alt (ConCase n t args sc) = ConCase n t args (substQuantitiesTree f sc)
+    alt (DelayCase ty arg sc) = DelayCase ty arg (substQuantitiesTree f sc)
+    alt (ConstCase c sc) = ConstCase c (substQuantitiesTree f sc)
+    alt (DefaultCase sc) = DefaultCase (substQuantitiesTree f sc)
+substQuantitiesTree f (STerm i tm) = STerm i (substQuantities f tm)
+substQuantitiesTree f t = t

@@ -131,7 +131,8 @@ should target this file (`CHANGELOG_NEXT`).
   the application; else from the explicit arguments that tell without being
   elaborated (a linear variable `ts` in `map value ts`, the type of `value`,
   a lambda `\1 x => ...`); else unrestricted.  An error in the application
-  says what was chosen and why.  Local functions (`where`, `let`) can have
+  says what was chosen and why.  Reflection gives a variable as `MW` (the
+  unrestricted instance).  Local functions (`where`, `let`) can have
   quantity variables too.  A `%q`-bound variable is used exactly once; it
   can't be given to a `1` or to an unrestricted argument.  Not in data
   types, records, interfaces or reflection (`Count` has no variables).  The rules, and why they accept no

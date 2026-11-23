@@ -234,10 +234,10 @@ mutual
            pure (term, gnf env (embed ty))
   -- (Experimental) A reference to a definition with quantity variables,
   -- at the chosen quantities (see TTImp.Elab.App.instantiateQuantities),
-  -- is shown as the reference
-  unelabTy' umode nest env (Bind fc (MN "qinst" _) (Let _ _ val ty) (Local _ _ Z _))
-      = do (val', _) <- unelabTy umode nest env val
-           pure (val', gnf env ty)
+  -- is shown as the reference (also after the application has moved into
+  -- the let, by evaluation)
+  unelabTy' umode nest env (Bind fc (MN "qinst" _) (Let _ _ val ty) sc)
+      = unelabTy' umode nest env (subst val sc)
   unelabTy' umode nest env (Bind fc x b sc)
       = case umode of
           NoSugar True => do

@@ -930,6 +930,14 @@ lookupOrAddAlias _ _ _ fc n _
   = do defs <- get Ctxt
        lookupCtxtExact n (gamma defs)
 
+-- (Experimental) Does the definition have quantity variables?
+hasQuantityVars : {auto c : Ref Ctxt Defs} -> Name -> Core Bool
+hasQuantityVars n
+    = do defs <- get Ctxt
+         Just gdef <- lookupCtxtExact n (gamma defs)
+              | Nothing => pure False
+         pure (not (null (quantityVarsOf (flags gdef))))
+
 export
 processDef : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
@@ -990,6 +998,17 @@ processDef opts nest env fc n_in cs_in
          let pi = case lookup n (userHoles defs) of
                         Nothing => defaultPI
                         Just e => { externalDecl := e } defaultPI
+         -- (Experimental) In what is unfolded during type checking, the
+         -- quantity variables of a definition (or of the definition it is
+         -- inside) are unrestricted: a lambda bound at %q uses its argument
+         -- once, so binding it unrestricted is sound (as the eta-expansion
+         -- of checkExp is), and it is then convertible with the lambdas of
+         -- other definitions.  The clauses (pats), which LinearCheck reads,
+         -- keep the variables.
+         tree_ct <- do poly <- anyM hasQuantityVars (defsStack defs <>> [])
+                       pure $ if poly
+                                 then substQuantitiesTree (const (Just top)) tree_ct
+                                 else tree_ct
          -- Add compile time tree as a placeholder for the runtime tree,
          -- but we'll rebuild that in a later pass once all the case
          -- blocks etc are resolved

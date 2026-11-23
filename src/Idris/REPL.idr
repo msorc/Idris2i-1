@@ -53,6 +53,7 @@ import TTImp.Interactive.GenerateDef
 import TTImp.Interactive.Intro
 import TTImp.Interactive.MakeLemma
 import TTImp.TTImp
+import TTImp.TTImp.Traversals
 import TTImp.Unelab
 import TTImp.Utils
 import TTImp.BindImplicits
@@ -993,7 +994,9 @@ process (TypeSearch searchTerm)
                                 guard (isJust $ userNameRoot (fullname d))
                                 pure d
               allDefs <- traverse (resolved ctxt) defs
-              filterM (\def => equivTypes def.type ty') allDefs
+              -- (experimental) the quantity variables of a candidate
+              -- match unrestricted arguments
+              filterM (\def => equivTypes (substQuantities (const (Just top)) def.type) ty') allDefs
          put Ctxt defs
          doc <- traverse (docsOrSignature replFC) $ fullname <$> filteredDefs
          pure $ PrintedDoc $ vsep doc

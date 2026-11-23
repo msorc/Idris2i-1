@@ -727,10 +727,10 @@ Reflect RigCount where
              ViewZero => getCon fc defs (reflectiontt "M0")
              ViewOne => getCon fc defs (reflectiontt "M1")
              ViewOmega => getCon fc defs (reflectiontt "MW")
-             -- `Count` has no quantity variables (experimental)
-             ViewVars _ => throw (GenericMsg fc
-                             ("Can't reflect the quantity " ++ maybe "" id (showVarsCount r)
-                              ++ " (a quantity variable) as a Count"))
+             -- `Count` has no quantity variables (experimental): a type
+             -- with variables is reflected at its unrestricted instance,
+             -- which is a type of the definition too
+             ViewVars _ => getCon fc defs (reflectiontt "MW")
 
 export
 Reify t => Reify (PiInfo t) where

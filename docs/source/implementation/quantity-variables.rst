@@ -188,6 +188,20 @@ the definition's own clauses bind).
 A local function (in a ``where`` block or a ``let``) can have quantity
 variables of its own; references to it are instantiated by the same rule.
 
+Unfolding
+=========
+
+The compile-time case tree of a definition with variables, and of what is
+defined inside it (its case blocks and ``where`` blocks), has its
+variables replaced by ω (``TTImp.ProcessDef``). That tree is what the
+evaluator unfolds during type checking; the clauses, which
+``LinearCheck`` reads, and the run-time tree keep or do not need the
+variables. Without this, ``flip f x`` unfolded in a type is
+``\%q y => f y x`` with ``flip``'s own rigid ``%q``, and it is not
+convertible with an ordinary lambda ``\y => f y x`` (lambdas convert only
+at equal quantities), so proofs about ``flip`` and ``(.)`` stopped
+checking (``contrib``'s ``Control.Validation`` did).
+
 Why this cannot accept an ill-typed program
 ===========================================
 
@@ -237,9 +251,22 @@ here).
   them, in particular for the choice that σ makes of the chosen quantities.
   A wrong choice can only make the caller's checks fail.
 * Variables of different owners are different, so substituting into one
-  definition's variables never changes another's. When a definition is
-  unfolded during conversion, its variables stay its own and rigid: at
-  worst a spurious mismatch (``Reject.idr``, ``staleOmega``, ``staleNext``).
+  definition's variables never changes another's.
+* Unfolding is not covered by the claim as stated: under σ, the checker
+  without variables unfolds ``(.)`` at its instance, ``\1 x => ...`` for a
+  linear use, and finds it different from ``\x => ...``, where the unfolded
+  tree here gives ``\x => ...``. So more conversions hold here than under
+  σ, and the claim becomes: accepted here implies accepted under σ by the
+  checker without variables *if the unfolded bodies are taken at ω*. The
+  argument that this is harmless: a lambda bound at a variable in the
+  definition was checked to use its argument exactly once, and binding a
+  lambda that uses its argument once at ω is the sound direction (the one
+  the eta-expansion of ``checkExp`` uses); a Pi type with a variable
+  computed by the definition becomes unrestricted for every use of the
+  definition alike (producer and consumer of a value of that type see the
+  same type), and nothing about erasure changes (no variable is ``0``).
+  Terms unfolded this way can end up in the solutions of metavariables,
+  which ``LinearCheck`` checks again. This was not argued further.
 
 What is not covered
 ===================
@@ -264,6 +291,8 @@ What is not covered
   supported (they are rejected). References that do not go through the
   elaboration of a name (a solution found by ``%search``, for one) are not
   instantiated: the variables stay rigid there, which can only reject.
-* Reflection: ``Count`` has no variables; reflecting a quantity variable is
-  an error ("Can't reflect the quantity %q"), so ``Elab`` scripts cannot
-  observe or make one.
+* Reflection: ``Count`` has no variables; a quantity variable is reflected
+  as ``MW``, so a type is reflected at its unrestricted instance (which is
+  a type of the definition, by the claim), and ``Elab`` scripts cannot
+  observe or make a variable. (It was an error; with ``%q`` in the
+  Prelude's ``id``, ``derive`` reflects types that mention it.)
