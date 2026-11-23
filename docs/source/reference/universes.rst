@@ -104,6 +104,82 @@ Why this is sound, in short:
 Implementations of interfaces stay monomorphic: their right hand sides (the
 lambdas of the methods, the solved implicit arguments) fix their universes.
 
+Planned: universe instances on all references
+=============================================
+
+Implementations of interfaces are monomorphic today, and ``base`` needs them
+to be polymorphic (see below). The plan is to record a universe instance on
+every reference to a global definition, not only on type constructors, as Coq
+and Lean do. This is the argument it has to meet, written before the
+implementation.
+
+#. **What a definition's schema is.** All universes of its type, of its left
+   hand sides and of its right hand side, and the instances of the references
+   in them, are the definition's own. A reference ``f{s}`` stands for the copy
+   of ``f`` with them renamed by ``s``. A reference inside ``f``'s body to
+   another global ``g`` carries an instance made of ``f``'s own names, so it is
+   renamed with ``f``: unfolding ``f{s}`` gives ``g{s(t)}``. A reference
+   without an instance (one built by a part of the compiler that does not
+   make instances, or read from a TTC file written without the option) stands
+   for ``g``'s own universes, which are not ``f``'s: it is never renamed, so
+   it only adds constraints. A constructor carries no instance: its type is
+   fixed by the type it is expected at, whose type constructor instance is
+   one of ``f``'s names.
+#. **Unfolding.** Unfolding ``f{s}`` gives ``f``'s right hand side renamed by
+   ``s``. This is what replaces the old rule that the universes evaluation
+   can produce are fixed: they are now renamed with the reference. With
+   ``T = Type``, ``T{a}`` unfolds to ``Type a`` and has type ``Type a'`` with
+   ``a < a'``. So ``x : T; x = T`` is ``x : T{a} = T{b}``, which needs
+   ``b < a``: it is accepted, as in Coq, because it says no more than
+   ``Type b : Type a``. What the old rule prevented, ``T : T`` at one
+   universe, is still rejected wherever the two uses are the same copy: in
+   ``T``'s own mutual group, or through a monomorphic alias. ``Wrap``/``Pack``
+   and Russell's paradox through an interface stay rejected for the reason
+   they are now: the ``Wrap`` held and the ``Wrap`` holding it are made one
+   copy by conversion.
+#. **Conversion.** Two references to the same definition are compared by
+   recording that their instances are equal (through the existing hook) and
+   comparing their arguments, without unfolding; unfolding happens only when
+   the heads differ or the arguments do not convert. Recording eagerly is
+   sound (it only adds constraints) and can reject a program that unfolding
+   would accept (two copies of a definition whose body does not depend on the
+   differing universes); that is the side to err on. It also keeps the cost
+   of the check close to that of the conversion the elaborator does anyway.
+#. **Recursion.** The references of a definition to itself and to the other
+   members of its mutual group carry no instance: they are at the group's
+   own universes, as in Coq. An implementation, its methods and the default
+   methods elaborated for it are one group in this sense: the dictionary
+   refers to the method bodies before they are checked.
+#. **Metavariables.** A definition which met an unsolved metavariable is not
+   made polymorphic, as now: a solution found later can't change a schema
+   that uses have already been renamed by.
+#. **References not made by the elaborator's name lookup.** A reference that
+   proof search builds (an implementation found for a constraint, a hint, a
+   parent implementation) gets a fresh instance where search builds it, like
+   one written by the user; the checker relates it to its uses. The
+   dictionary of an implementation refers to its method bodies and parents:
+   the bodies are in its group (above), the parents are found by search.
+   Default method bodies are elaborated again for each implementation, as
+   definitions of their own.
+#. **Case blocks, with blocks, local definitions.** They are lifted to top
+   level but share their parent's universes: the parent's reference to them
+   carries the parent's own names as instance, so they are renamed with the
+   parent, and they are checked with the parent.
+#. **Other sources of terms.** Copies made by partial evaluation and the
+   right hand sides of ``%transform`` rules are used at run time only and
+   are not part of any type. A term quoted by elaborator reflection loses its
+   instances; a declaration given to ``Declare`` goes through the declaration
+   processor, and a ``Check`` or ``Infer`` result is spliced back as
+   ``TTImp``, which is elaborated again: either way it gets fresh instances
+   and is checked as part of the definition that contains it, so no term
+   enters unchecked. TTC files written without the option give references
+   without instances (monomorphic), and their modules contribute no
+   constraints, as now.
+#. **The rest of the check.** The rule for patterns on types and the
+   cumulativity of indices do not change: a pattern on a type matches a type
+   constructor, and the variables it binds are bounded by the universe of
+   the type matched whatever the instances.
+
 How far it gets
 ===============
 
