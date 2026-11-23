@@ -1074,6 +1074,33 @@ freshenUse nt n ty
                                pure (TyCon a (map snd inst), ty')
                 _ => pure (nt, !(freshenWith empty ty))
 
+||| When checking universes, give each binder of a declared type whose type
+||| is a universe (`{0 a : Type}`) a universe of its own. The elaborator
+||| infers the type of an implicitly bound type variable by unification, so
+||| in `empty : f a` the type of `a` is the very universe of the domain of
+||| `f`, where the use `f a` needs only `a`'s universe to be no bigger
+||| (which the universe checker checks, cumulatively). Without this, an
+||| implementation of the interface would need its methods at a type variable
+||| as big as the domain of `f`, which can be bigger than what the
+||| implementation's data type can store (the index universe of `Elab` is
+||| above `Elab`'s own, because of `Join`). Without the option, the type as
+||| it is.
+export
+decoupleBinderUniverses : {auto c : Ref Ctxt Defs} ->
+                          Term vars -> Core (Term vars)
+decoupleBinderUniverses tm
+    = do sess <- getSession
+         if not (checkUniverses sess) then pure tm else go tm
+  where
+    go : Term vs -> Core (Term vs)
+    go (Bind fc x (Pi pfc c p (TType tfc u)) sc)
+        = do (_, u') <- freshCopy u
+             pure (Bind fc x (Pi pfc c p (TType tfc u')) !(go sc))
+    go (Bind fc x b sc)
+        = pure (Bind fc x !(traverse go b) !(go sc))
+    go (App fc f a) = pure (App fc !(go f) !(go a))
+    go t = pure t
+
 ||| The type of a global, with fresh universe names when checking universes
 ||| (see 'freshenLevels')
 export

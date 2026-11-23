@@ -1,0 +1,3 @@
+. ../../../testutils.sh
+
+check --no-prelude --check-universes Method.idr

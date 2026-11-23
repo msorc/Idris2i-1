@@ -111,7 +111,7 @@ checkCon {vars} opts nest env vis tn_in tn ty_raw
 
          -- Check 'ty' returns something in the right family
          checkFamily fc cn tn env !(nf defs env ty)
-         let fullty = abstractEnvType fc env ty
+         fullty <- decoupleBinderUniverses (abstractEnvType fc env ty)
          logTermNF "declare.data.constructor" 5 ("Constructor " ++ show cn) Env.empty fullty
 
          traverse_ addToSave (keys (getMetas ty))
