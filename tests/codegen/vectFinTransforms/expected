@@ -3,6 +3,7 @@ Dumping case trees to Main.cases
 ([0, 1, 2], [0, 1, 2, 3])
 (3, 2)
 (Just 2, (Nothing, 0))
+(2, (2, (3, 0)))
 Main.useTabulate:Data.Vect.Fin.tabulateCounter 
 Main.useRange:Data.Vect.Fin.range 
 Main.useVectAllFins:Data.Vect.allFinsCounter 
@@ -13,3 +14,7 @@ Main.useFoldr:Prelude.Types.foldr
 Data.Vect.Fin.range:Data.Vect.Fin.tabulateCounter 
 Main.useStrengthen:Data.Fin.strengthenInteger 
 Data.Fin.finS:Data.Fin.strengthenInteger 
+Main.usePlus:Data.Fin.finPlusInteger 
+Main.useMult:Data.Fin.finMultInteger 
+Main.useComplement:Data.Fin.complementInteger 
+Num (Fin 5) dictionary:Data.Fin.finMultInteger Data.Fin.finPlusInteger 

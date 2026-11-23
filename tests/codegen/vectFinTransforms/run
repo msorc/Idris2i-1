@@ -8,9 +8,14 @@ idris2 --dumpcases Main.cases -o Main Main.idr
 # on the same cells (vectToList is an identity).
 for f in Main.useTabulate Main.useRange Main.useVectAllFins Main.useListAllFins \
          Main.useList1AllFins Main.useLength Main.useFoldr Data.Vect.Fin.range \
-         Main.useStrengthen Data.Fin.finS; do
+         Main.useStrengthen Data.Fin.finS Main.usePlus Main.useMult \
+         Main.useComplement; do
     printf '%s:' "$f"
     grep "^$f = " Main.cases | sed -e 's/^[^=]*= //' | grep -o "Data\.\(Vect\|Fin\)\.[A-Za-z0-9.]*\|Prelude\.Types\.foldr" | sort -u | tr '\n' ' '
     echo
 done
+# The dictionary of Num (Fin 5) that main passes to usePoly
+printf 'Num (Fin 5) dictionary:'
+grep -o 'Main\.usePoly \[.*' Main.cases | grep -o 'Data\.Fin\.[A-Za-z]*Integer' | sort -u | tr '\n' ' '
+echo
 rm -f Main.cases

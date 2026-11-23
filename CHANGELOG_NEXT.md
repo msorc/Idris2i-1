@@ -2248,6 +2248,10 @@ should target this file (`CHANGELOG_NEXT`).
   (instructions): `isLTE` 83 times fewer, `natToFin` 36, `decEq` 154.
   `strengthen` compares the `Integer` with the bound and gives the same
   value as a `Fin n`, and `finS` goes through it: 94 and 111 times fewer.
+  The `+` and `*` of `Num (Fin (S n))` are now the functions `finPlus` and
+  `finMult` (with the clauses they had), which compute modulo `S n` on
+  `Integer` at run time, and so does `complement` (and through it `negate`
+  and `-`): `+` 297 times fewer than before, `*` 39, `complement` 39.
 
 * `System.Crash` runs an action in a crash boundary: `catchCrash act` gives
   `Left` a `CrashInfo` (the kind: `CrashCall`, `MissingCase` or

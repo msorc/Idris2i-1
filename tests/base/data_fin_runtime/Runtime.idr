@@ -52,6 +52,18 @@ refFinS {n = S _} x = case refStrengthen x of
     Nothing => FZ
     Just y => FS y
 
+refPlus : {n : Nat} -> Fin (S n) -> Fin (S n) -> Fin (S n)
+refPlus FZ y = y
+refPlus {n = S _} (FS x) y = refFinS $ refPlus (assert_smaller x (weaken x)) y
+
+refMult : {n : Nat} -> Fin (S n) -> Fin (S n) -> Fin (S n)
+refMult FZ y = FZ
+refMult (FS x) y = refPlus y (refMult (assert_smaller x $ weaken x) y)
+
+refComplement : {n : Nat} -> Fin n -> Fin n
+refComplement {n = S _} FZ = last
+refComplement {n = S _} (FS x) = weaken $ refComplement x
+
 -- The number of LTESucc in a proof, by matching on it
 size : LTE m n -> Nat
 size LTEZero = 0
@@ -100,3 +112,13 @@ main = do
                      | n <- range 20, x <- fins (S n) ]
   check "finS" [(unFin (finS x), unFin (refFinS x)) | n <- range 20, x <- fins n]
   printLn (map finToNat (strengthen (the (Fin 101) 99)), map finToNat (strengthen (the (Fin 101) 100)))
+  check "+" [(unFin (x + y), unFin (refPlus x y)) | n <- range 12, x <- fins (S n), y <- fins (S n)]
+  check "*" [(unFin (x * y), unFin (refMult x y)) | n <- range 12, x <- fins (S n), y <- fins (S n)]
+  check "complement" [(unFin (complement x), unFin (refComplement x)) | n <- range 20, x <- fins n]
+  check "negate" [ (unFin (negate x), unFin (refFinS (refComplement x)))
+                 | n <- range 20, x <- fins (S n) ]
+  check "-" [ (unFin (x - y), unFin (refPlus x (refFinS (refComplement y))))
+            | n <- range 12, x <- fins (S n), y <- fins (S n) ]
+  check "sum" [(unFin (sum (fins (S n))), unFin (foldl refPlus FZ (fins (S n)))) | n <- range 20]
+  let m = the Nat 1000000000000
+  printLn (finToInteger (restrict m 999999999999 + restrict m 5), finToInteger (restrict m 999999 * restrict m 1000001))

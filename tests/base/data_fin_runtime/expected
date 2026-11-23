@@ -11,6 +11,13 @@ decEq (List Nat): 676 agree
 strengthen: 231 agree
 finS: 210 agree
 (Just 99, Nothing)
++: 819 agree
+*: 819 agree
+complement: 210 agree
+negate: 231 agree
+-: 819 agree
+sum: 21 agree
+(3, 999999999999)
 isLTE: 676 agree
 isGTE: 676 agree
 isLT: 676 agree
@@ -24,6 +31,13 @@ decEq (List Nat): 676 agree
 strengthen: 231 agree
 finS: 210 agree
 (Just 99, Nothing)
++: 819 agree
+*: 819 agree
+complement: 210 agree
+negate: 231 agree
+-: 819 agree
+sum: 21 agree
+(3, 999999999999)
 isLTE: 676 agree
 isGTE: 676 agree
 isLT: 676 agree
@@ -37,3 +51,10 @@ decEq (List Nat): 676 agree
 strengthen: 231 agree
 finS: 210 agree
 (Just 99, Nothing)
++: 819 agree
+*: 819 agree
+complement: 210 agree
+negate: 231 agree
+-: 819 agree
+sum: 21 agree
+(3, 999999999999)

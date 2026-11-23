@@ -320,13 +320,59 @@ restrict n val = let -- `S n` is not zero, so neither is the divisor
 -- Num
 --------------------------------------------------------------------------------
 
+-- `+` and `*` of `Num (Fin (S n))` are functions of their own (as `mapImpl`
+-- is the `map` of `Functor List`), with the clauses the implementation had, so
+-- that `%transform` rules can name them; at type-checking time `x + y`
+-- unfolds to the same clauses.
+
+||| The `+` of `Num (Fin (S n))`: addition modulo `S n`.
+public export
+finPlus : {n : Nat} -> Fin (S n) -> Fin (S n) -> Fin (S n)
+finPlus FZ y = y
+finPlus {n = S _} (FS x) y = finS $ finPlus (assert_smaller x (weaken x)) y
+
+||| The `*` of `Num (Fin (S n))`: multiplication modulo `S n`.
+public export
+finMult : {n : Nat} -> Fin (S n) -> Fin (S n) -> Fin (S n)
+finMult FZ y = FZ
+finMult (FS x) y = finPlus y (finMult (assert_smaller x $ weaken x) y)
+
+-- The run-time versions of `finPlus`, `finMult` and `complement` compute on
+-- `Integer` and give the result with `believe_me`.  This relies on the
+-- representation of `Fin` at run time: `Fin` has the shape of `Nat`
+-- (calcNaty in the compiler), so on every backend a `Fin` is the `Integer` it
+-- counts, and an `Integer` below `n` is a `Fin n`.
+
+||| `finPlus` on `Integer`, used at run time in place of it (a `%transform`
+||| rule).
+export
+finPlusInteger : {n : Nat} -> Fin (S n) -> Fin (S n) -> Fin (S n)
+finPlusInteger x y
+    = believe_me $ assert_total $
+        (finToInteger x + finToInteger y) `mod` (natToInteger n + 1)
+
+||| `finMult` on `Integer`, used at run time in place of it (a `%transform`
+||| rule).
+export
+finMultInteger : {n : Nat} -> Fin (S n) -> Fin (S n) -> Fin (S n)
+finMultInteger x y
+    = believe_me $ assert_total $
+        (finToInteger x * finToInteger y) `mod` (natToInteger n + 1)
+
+||| `complement` on `Integer`, used at run time in place of it (a
+||| `%transform` rule), and so in `negate` and `-`.
+export
+complementInteger : {n : Nat} -> Fin n -> Fin n
+complementInteger x = believe_me (natToInteger n - 1 - finToInteger x)
+
+%transform "finPlusInteger" finPlus = finPlusInteger
+%transform "finMultInteger" finMult = finMultInteger
+%transform "complementInteger" complement = complementInteger
+
 public export
 {n : Nat} -> Num (Fin (S n)) where
-  FZ + y = y
-  (+) {n = S _} (FS x) y = finS $ assert_smaller x (weaken x) + y
-
-  FZ * y = FZ
-  (FS x) * y = y + (assert_smaller x $ weaken x) * y
+  (+) = finPlus
+  (*) = finMult
 
   fromInteger = restrict n
 
