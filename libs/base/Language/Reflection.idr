@@ -119,6 +119,9 @@ data Elab : Type -> Type where
      ||| Quote a value back to TTImp after normalising it. Without
      ||| `unfoldAll`, only definitions which are visible here are unfolded.
      QuoteNF : (unfoldAll : Bool) -> (0 _ : val) -> Elab TTImp
+     ||| Elaborate two terms, the second at the type of the first, and test
+     ||| whether they are convertible. Nothing the elaboration did is kept.
+     Convert : TTImp -> TTImp -> Elab Bool
 
 export
 Functor Elab where
@@ -254,6 +257,18 @@ interface Monad m => Elaboration m where
   ||| export-only ones of other modules.
   quoteNF : (unfoldAll : Bool) -> (0 _ : val) -> m TTImp
 
+  ||| Test whether two terms are convertible, that is, equal up to
+  ||| evaluation.
+  |||
+  ||| The first term is elaborated without an expected type (as `infer`
+  ||| does), the second one at the type of the first. An elaboration error
+  ||| fails the script; use `catch` or `try` to turn it into `False`. The
+  ||| metavariables solved and the definitions added while elaborating are
+  ||| undone: only the answer is kept. An unsolved metavariable is only
+  ||| convertible with itself. This is a test, not unification: to unify,
+  ||| use `check`, inside `try` if it may fail.
+  convertible : TTImp -> TTImp -> m Bool
+
 ||| Normalise a term: elaborate it as `infer` does, then quote the value with
 ||| `quoteNF`. Tactics hold syntax, so this is the form they usually need.
 export
@@ -310,6 +325,7 @@ Elaboration Elab where
   idrisDir         = IdrisDir
   infer            = Infer
   quoteNF          = QuoteNF
+  convertible      = Convert
 
 public export
 Elaboration m => MonadTrans t => Monad (t m) => Elaboration (t m) where
@@ -342,6 +358,7 @@ Elaboration m => MonadTrans t => Monad (t m) => Elaboration (t m) where
   idrisDir            = lift . idrisDir
   infer               = lift . infer
   quoteNF u v         = lift $ quoteNF u v
+  convertible         = lift .: convertible
 
 ||| Catch failures and use the `Maybe` monad instead
 export

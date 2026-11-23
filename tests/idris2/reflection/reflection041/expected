@@ -1,0 +1,21 @@
+1/1: Building Convert (Convert.idr)
+LOG 0: first: ((plus (fromInteger 1)) (fromInteger 1))
+LOG 0: second: (fromInteger 2)
+LOG 0:   convertible: True
+LOG 0: first: (%lam RigW Explicit (Just x) ? ((plus (fromInteger 0)) x))
+LOG 0: second: (%lam RigW Explicit (Just y) ? y)
+LOG 0:   convertible: True
+LOG 0: first: (%lam RigW Explicit (Just x) ? ((plus x) (fromInteger 0)))
+LOG 0: second: (%lam RigW Explicit (Just y) ? y)
+LOG 0:   convertible: False
+LOG 0: first: (List Nat)
+LOG 0: second: (List Nat)
+LOG 0:   convertible: True
+LOG 0: first: Nat
+LOG 0: second: Bool
+LOG 0:   convertible: False
+LOG 0: first: ((the Integer) (fromInteger 2))
+LOG 0: second: ((+ (fromInteger 1)) (fromInteger 1))
+LOG 0:   convertible: True
+LOG 0: caught: Nothing
+LOG 0: hole ~ 1: False

@@ -172,6 +172,19 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
              defs <- get Ctxt
              pure (!(normaliseHoles defs env tm), !(normaliseHoles defs env ty))
 
+    -- Elaborate a term at a given type
+    checkTermAt : RawImp -> Term vars -> Core (Term vars)
+    checkTermAt raw ty
+        = do tidx <- resolveName (UN $ Basic "[elaborator script]")
+             e <- newRef EST (initEState tidx env)
+             constart <- getNextEntry
+             (tm, _) <- runDelays (const True) $
+                     check rig (initElabInfo InExpr) nest env raw
+                           (Just (gnf env ty))
+             solveConstraintsAfter constart inTerm Defaults
+             solveConstraintsAfter constart inTerm LastChance
+             pure tm
+
     -- A term returned to the script must not mention a metavariable which
     -- is still unsolved: the script could not refer to it in a sensible way
     noUnsolved : RawImp -> (what : String) -> Term vars -> Core ()
@@ -184,6 +197,24 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
                            " completely: it contains the unsolved " ++
                            showSep ", " (map (("?" ++) . show) ms) ++
                            ". Give more type information, for example with `the`.")
+
+    -- Run an action, then undo its effects on the unification state, the
+    -- context and the metadata, also when it fails
+    speculative : Core a -> Core a
+    speculative act
+        = do ust <- get UST
+             md <- get MD
+             defs <- branch
+             res <- catch act (\err => do restore ust md defs; throw err)
+             restore ust md defs
+             pure res
+      where
+        restore : UState -> Metadata -> Defs -> Core ()
+        restore ust md defs
+            = do put UST ust
+                 put MD md
+                 defs' <- get Ctxt
+                 put Ctxt ({ timings := timings defs' } defs)
 
     elabCon : Defs -> String -> List (Closure vars) -> Core (NF vars)
     elabCon defs "Pure" [_,val]
@@ -444,6 +475,18 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
              defs <- get Ctxt
              ntm <- quote defs env tm'
              scriptRet $ map rawName !(unelabUniqueBinders env ntm)
+    elabCon defs "Convert" [x, y]
+        = do rx <- reify defs !(evalClosure defs x)
+             ry <- reify defs !(evalClosure defs y)
+             -- Checking the terms may solve metavariables and add
+             -- definitions: all of that is undone, only the answer is kept
+             res <- speculative $
+                      do (tx, ty) <- inferTerm rx
+                         ty' <- checkTermAt ry ty
+                         defs <- get Ctxt
+                         ty' <- normaliseHoles defs env ty'
+                         convert defs env tx ty'
+             scriptRet res
     elabCon defs n args = failWith defs $ "unexpected Elab constructor " ++ n ++
                                           ", or incorrect count of arguments: " ++ show (length args)
 elabScript rig fc nest env script exp
