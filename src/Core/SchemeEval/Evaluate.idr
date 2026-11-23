@@ -151,7 +151,7 @@ mutual
       = quoteOrInvalid fname_in $ \ fname => do
            let argList = getArgList args_in
            args <- traverse (quote' svs) argList
-           pure (apply emptyFC (Ref emptyFC Func fname) args)
+           pure (apply emptyFC (Ref emptyFC (Func []) fname) args)
   quoteVector svs (-10) [_, fn_arity, args_in] -- Blocked meta app
       = quoteOrInvalid {x = (Name, Integer)} fn_arity $ \ (fname, arity_in) => do
            let arity : Nat = cast arity_in
@@ -360,12 +360,12 @@ mutual
         else invalid
     where
       findName : forall vars . SchVars vars -> String -> Term vars
-      findName [] n = Ref emptyFC Func (UN (Basic n))
+      findName [] n = Ref emptyFC (Func []) (UN (Basic n))
       findName (x :: xs) n
           = if getName x == n
                then Local emptyFC Nothing _ First
                else let Local fc loc _ p = findName xs n
-                           | _ => Ref emptyFC Func (UN (Basic n)) in
+                           | _ => Ref emptyFC (Func []) (UN (Basic n)) in
                         Local fc loc _ (Later p)
 
       readVector : Integer -> Integer -> ForeignObj -> List ForeignObj
@@ -392,7 +392,7 @@ mutual
   snfVector svs (-2) [_, fname_in, args_in] -- Blocked application
       = quoteOrInvalidS fname_in $ \ fname => do
            let args = map (snf' svs) (getArgList args_in)
-           pure (SApp emptyFC (SRef Func fname) args)
+           pure (SApp emptyFC (SRef (Func []) fname) args)
   snfVector svs (-10) [_, fn_arity, args_in] -- Block meta app
       = quoteOrInvalidS {x = (Name, Integer)} fn_arity $ \ (fname, arity_in) => do
            let arity : Nat = cast arity_in
@@ -578,12 +578,12 @@ mutual
            else invalidS
     where
       findName : forall vars . SchVars vars -> String -> SNF vars
-      findName [] n = SApp emptyFC (SRef Func (UN (Basic n))) []
+      findName [] n = SApp emptyFC (SRef (Func []) (UN (Basic n))) []
       findName (x :: xs) n
           = if getName x == n
                then SApp emptyFC (SLocal _ First) []
                else let SApp fc (SLocal _ p) args = findName xs n
-                           | _ => SApp emptyFC (SRef Func (UN (Basic n))) [] in
+                           | _ => SApp emptyFC (SRef (Func []) (UN (Basic n))) [] in
                         SApp fc (SLocal _ (Later p)) []
 
       readVector : Integer -> Integer -> ForeignObj -> List ForeignObj

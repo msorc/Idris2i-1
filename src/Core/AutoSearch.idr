@@ -561,14 +561,14 @@ searchLocalWith {vars} fc rigc defaults trying depth def top env heads (prf, ty)
                            exactlyOne fc env top target
                             [(do xtynf <- evalClosure defs xty
                                  findPos defs
-                                     (\arg => normalise defs env $ apply fc (Ref fc Func fname)
+                                     (\arg => normalise defs env $ apply fc (Ref fc (Func []) fname)
                                                         [xtytm,
                                                          ytytm,
                                                          !(f arg)])
                                      xtynf target),
                              (do ytynf <- evalClosure defs yty
                                  findPos defs
-                                     (\arg => normalise defs env $ apply fc (Ref fc Func sname)
+                                     (\arg => normalise defs env $ apply fc (Ref fc (Func []) sname)
                                                         [xtytm,
                                                          ytytm,
                                                          !(f arg)])

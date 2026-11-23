@@ -96,7 +96,7 @@ getImplDocs keep
                 | _ => pure []
               -- Only keep things that look like implementations.
               -- i.e. get rid of data constructors
-              let Just Func = defNameType (definition def)
+              let Just (Func _) = defNameType (definition def)
                 | _ => pure []
               -- Check that the type mentions the name of interest
               ty <- toFullNames !(normaliseHoles defs Env.empty (type def))

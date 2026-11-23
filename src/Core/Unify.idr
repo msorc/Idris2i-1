@@ -402,7 +402,7 @@ occursCheck fc env mode mname tm
     failOnStrongRigid bad err tm
         = case getFnArgs tm of
                (f, []) => pure ()
-               (Ref _ Func _, _) => pure () -- might reduce away, just block
+               (Ref _ (Func _) _, _) => pure () -- might reduce away, just block
                (Ref _ _ _, args) => traverse_ (failOnStrongRigid True err) args
                (f, args) => traverse_ (failOnStrongRigid bad err) args
 

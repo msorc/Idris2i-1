@@ -1227,7 +1227,7 @@ searchNotes errfc env g_in
       -- not reduce (when the definition is not visible here, for example)
       stuckFn : Term vars -> Maybe (Term vars, Name)
       stuckFn a = case getFnArgs a of
-                       (Ref _ Func fn, args) => if any hasVars args then Nothing else Just (a, fn)
+                       (Ref _ (Func _) fn, args) => if any hasVars args then Nothing else Just (a, fn)
                        _ => Nothing
 
       -- (a metavariable on its own is printed without the variables in

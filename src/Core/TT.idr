@@ -39,7 +39,7 @@ defaultKindedName nm = MkKindedName Nothing nm nm
 
 export
 funKindedName : Name -> KindedName
-funKindedName nm = MkKindedName (Just Func) nm nm
+funKindedName nm = MkKindedName (Just (Func [])) nm nm
 
 export
 Show KindedName where show = show . rawName

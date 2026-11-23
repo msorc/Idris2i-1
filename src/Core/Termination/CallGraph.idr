@@ -229,7 +229,7 @@ mutual
                     findSCcall tgt defs env Guarded pats fc cn args
              (Toplevel, Ref fc (DataCon {}) cn, args) =>
                     findSCcall tgt defs env Guarded pats fc cn args
-             (_, Ref fc Func fn, args) =>
+             (_, Ref fc (Func _) fn, args) =>
                  do logC "totality" 50 $
                        pure $ "Looking up type of " ++ show !(toFullNames fn)
                     findSCcall tgt defs env Unguarded pats fc fn args
@@ -246,18 +246,18 @@ mutual
         handleCase _ _ = pure Nothing
 
         isAssertTotal : Term vars -> Core Bool
-        isAssertTotal (Ref fc Func fn)
+        isAssertTotal (Ref fc (Func _) fn)
             = pure $ !(toFullNames fn) == NS builtinNS (UN $ Basic "assert_total")
         isAssertTotal tm = pure False
 
         conIfGuarded : Term vars -> Core (Term vars)
-        conIfGuarded (Ref fc Func n)
+        conIfGuarded (Ref fc (Func inst) n)
             = do defs <- get Ctxt
                  Just gdef <- lookupCtxtExact n (gamma defs)
-                      | Nothing => pure $ Ref fc Func n
+                      | Nothing => pure $ Ref fc (Func inst) n
                  if AllGuarded `elem` flags gdef
                     then pure $ Ref fc (DataCon 0 0) n
-                    else pure $ Ref fc Func n
+                    else pure $ Ref fc (Func inst) n
         conIfGuarded tm = pure tm
 
   knownOr : Core SizeChange -> Core SizeChange -> Core SizeChange

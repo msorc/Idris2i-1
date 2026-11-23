@@ -33,7 +33,7 @@ kindAnn (MkKindedName mcat fn nm) = do
     cat <- mcat
     pure $ case cat of
       Bound      => Bound
-      Func       => Fun fn
+      Func {}    => Fun fn
       DataCon {} => DCon (Just fn)
       TyCon {}   => TCon (Just fn)
 

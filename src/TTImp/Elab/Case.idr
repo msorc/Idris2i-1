@@ -229,7 +229,7 @@ caseBlock {vars} rigc elabinfo fc nest env opts scr scrtm scrty caseRig alts exp
            unwords [ "Setting totality requirement for", show casen
                    , "to", show tot]
          setFlag fc (Resolved cidx) (SetTotal tot)
-         let caseRef : Term vars = Ref fc Func (Resolved cidx)
+         let caseRef : Term vars = Ref fc (Func []) (Resolved cidx)
 
          let applyEnv = applyToFull fc caseRef env
          let appTm : Term vars

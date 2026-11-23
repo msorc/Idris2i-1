@@ -24,7 +24,7 @@ nameDecoration nm nt
 
   nameTypeDecoration : NameType -> Decoration
   nameTypeDecoration Bound        = Bound
-  nameTypeDecoration Func         = Function
+  nameTypeDecoration (Func {})   = Function
   nameTypeDecoration (DataCon {}) = Data
   nameTypeDecoration (TyCon {})   = Typ
 

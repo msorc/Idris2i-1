@@ -204,7 +204,7 @@ findLinear top bound rig tm
            _ => pure []
     where
       accessible : NameType -> RigCount -> RigCount
-      accessible Func r = if top then r else erased
+      accessible (Func _) r = if top then r else erased
       accessible _ r = r
 
       findLinArg : {vars : _} ->
@@ -804,7 +804,7 @@ mkRunTime fc n
 
     mkCrash : {vars : _} -> String -> Term vars
     mkCrash msg
-       = apply fc (Ref fc Func (UN $ Basic "prim__crash"))
+       = apply fc (Ref fc (Func []) (UN $ Basic "prim__crash"))
                [Erased fc Placeholder, PrimVal fc (Str msg)]
 
     matchAny : Term vars -> Term vars

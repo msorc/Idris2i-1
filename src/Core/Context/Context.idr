@@ -134,13 +134,13 @@ data Def : Type where
 export
 defNameType : Def -> Maybe NameType
 defNameType None = Nothing
-defNameType (PMDef {}) = Just Func
-defNameType (ExternDef {}) = Just Func
-defNameType (ForeignDef {}) = Just Func
-defNameType (Builtin {}) = Just Func
+defNameType (PMDef {}) = Just (Func [])
+defNameType (ExternDef {}) = Just (Func [])
+defNameType (ForeignDef {}) = Just (Func [])
+defNameType (Builtin {}) = Just (Func [])
 defNameType (DCon tag ar _) = Just (DataCon tag ar)
 defNameType (TCon ar _ _ _ _ _ _) = Just (TyCon ar [])
-defNameType (Hole {}) = Just Func
+defNameType (Hole {}) = Just (Func [])
 defNameType (BySearch {}) = Nothing
 defNameType (Guess {}) = Nothing
 defNameType ImpBind = Just Bound
@@ -390,7 +390,7 @@ record GlobalDef where
 
 export
 getDefNameType : GlobalDef -> NameType
-getDefNameType = fromMaybe Func . defNameType . definition
+getDefNameType = fromMaybe (Func []) . defNameType . definition
 
 export
 gDefKindedName : GlobalDef -> KindedName

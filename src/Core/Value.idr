@@ -213,10 +213,10 @@ Show (Closure free) where
 
 export
 HasNames (NHead free) where
-  full defs (NRef nt n) = NRef nt <$> full defs n
+  full defs (NRef nt n) = NRef <$> fullNameType defs nt <*> full defs n
   full defs hd = pure hd
 
-  resolved defs (NRef nt n) = NRef nt <$> resolved defs n
+  resolved defs (NRef nt n) = NRef <$> resolvedNameType defs nt <*> resolved defs n
   resolved defs hd = pure hd
 
 export

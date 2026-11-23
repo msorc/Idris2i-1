@@ -739,7 +739,7 @@ dumpHole s n hole
                   log s 4 $
                      "Solved: " ++ show hole ++ " : " ++
                      show !(normalise defs Env.empty ty) ++
-                     " = " ++ show !(normalise defs Env.empty (Ref emptyFC Func (Resolved hole)))
+                     " = " ++ show !(normalise defs Env.empty (Ref emptyFC (Func []) (Resolved hole)))
              (ImpBind, ty) =>
                   log s 4 $
                       "Bound: " ++ show hole ++ " : " ++

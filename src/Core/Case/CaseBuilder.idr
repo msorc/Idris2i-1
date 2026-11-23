@@ -999,7 +999,7 @@ mkPat : {auto c : Ref Ctxt Defs} ->
 mkPat _ [] orig (Ref fc Bound n) = pure $ PLoc fc n
 mkPat True args orig (Ref fc (DataCon t a) n) = pure $ PCon fc n t a args
 mkPat True args orig (Ref fc (TyCon a _) n) = pure $ PTyCon fc n a args
-mkPat True args orig (Ref fc Func n)
+mkPat True args orig (Ref fc (Func _) n)
   = do prims <- getPrimitiveNames
        mtm <- normalisePrims (const True) isPConst True prims n args orig Env.empty
        case mtm of
@@ -1116,7 +1116,7 @@ toPatClause : {auto c : Ref Ctxt Defs} ->
               Core (List Pat, ClosedTerm)
 toPatClause fc n (lhs, rhs)
     = case getFnArgs lhs of
-           (Ref ffc Func fn, args)
+           (Ref ffc (Func _) fn, args)
               => do defs <- get Ctxt
                     (np, _) <- getPosition n (gamma defs)
                     (fnp, _) <- getPosition fn (gamma defs)

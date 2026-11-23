@@ -66,7 +66,7 @@ insertImpLam {vars} env tm (Just ty) = bindLam tm ty
                                     (Just n') (Implicit fc False) sc')
     bindLamTm tm exp
         = case getFn exp of
-               Ref _ Func _ => pure Nothing -- might still be implicit
+               Ref _ (Func _) _ => pure Nothing -- might still be implicit
                TForce {} => pure Nothing
                Meta {} => pure Nothing -- might be solved
                Bind _ _ (Lam {}) _ => pure Nothing

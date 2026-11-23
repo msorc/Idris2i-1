@@ -72,7 +72,7 @@ mkClosure opts locs env tm@(Local _ _ idx prf)
 mkClosure opts locs env tm = MkClosure opts locs env tm
 
 updateLimit : NameType -> Name -> EvalOpts -> Core (Maybe EvalOpts)
-updateLimit Func n opts
+updateLimit (Func _) n opts
     = pure $ if isNil (reduceLimit opts)
          then Just opts
          else case lookup n (reduceLimit opts) of
@@ -297,7 +297,7 @@ parameters (defs : Defs) (topopts : EvalOpts)
         = let args' = if isNil stk then map (EmptyFC,) args
                          else map (EmptyFC,) args ++ stk
                         in
-              evalRef env True fc Func (Resolved i) args'
+              evalRef env True fc (Func []) (Resolved i) args'
                           (NApp fc (NMeta nm i args) stk)
 
     -- The commented out logging here might still be useful one day, but
@@ -321,7 +321,7 @@ parameters (defs : Defs) (topopts : EvalOpts)
         = do -- logC "eval.ref.bound" 50 $ do fn' <- toFullNames fn
              --                              pure $ "Found bound variable: " ++ show fn'
              pure def
-    evalRef env meta fc nt@Func n stk def
+    evalRef env meta fc nt@(Func _) n stk def
         = do -- logC "eval.ref" 50 $ do n' <- toFullNames n
              --                        pure $ "Found function: " ++ show n'
              Just res <- lookupCtxtExact n (gamma defs)

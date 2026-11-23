@@ -371,7 +371,7 @@ parameters {auto c : Ref Ctxt Defs} {auto m : Ref MTot MState}
     -- A solved metavariable is a function of the variables it is applied to
     -- (as the type given to `assert_total` often is)
     walkApp mode env d (Meta fc n _ margs, args)
-        = walkApp mode env d (Ref fc Func n, margs ++ args)
+        = walkApp mode env d (Ref fc (Func []) n, margs ++ args)
     walkApp mode env d (f, args)
         = pure $ joinD !(walk mode env All f) !(walkAll mode env All args)
 

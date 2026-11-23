@@ -345,7 +345,7 @@ getMissing fc n ty ctree
         unless (null pats) $
           logC "coverage.missing" 20 $ map unlines $
             for pats $ map show . traverse toFullNames
-        pure (map (apply fc (Ref fc Func n)) pats)
+        pure (map (apply fc (Ref fc (Func []) n)) pats)
   where
     trimArgs : Defs ->
                SnocList ClosedTerm -> ClosedNF ->

@@ -422,14 +422,18 @@ HasNames Name where
                     | Nothing => pure n
            pure (Resolved i)
 
--- The universe instance of a type constructor reference: universe names,
--- given full or resolved names as those of `Type`
+-- The universe instance of a reference (to a type constructor or a
+-- function): universe names, given full or resolved names as those of `Type`
+export
 fullNameType : Context -> NameType -> Core NameType
 fullNameType gam (TyCon a inst@(_ :: _)) = TyCon a <$> traverse (full gam) inst
+fullNameType gam (Func inst@(_ :: _)) = Func <$> traverse (full gam) inst
 fullNameType gam nt = pure nt
 
+export
 resolvedNameType : Context -> NameType -> Core NameType
 resolvedNameType gam (TyCon a inst@(_ :: _)) = TyCon a <$> traverse (resolved gam) inst
+resolvedNameType gam (Func inst@(_ :: _)) = Func <$> traverse (resolved gam) inst
 resolvedNameType gam nt = pure nt
 
 export

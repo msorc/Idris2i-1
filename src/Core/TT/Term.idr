@@ -23,7 +23,12 @@ import Libraries.Data.List.SizeOf
 public export
 data NameType : Type where
      Bound   : NameType
-     Func    : NameType
+     ||| A function (or any global which is not a constructor). 'inst' is
+     ||| the universe instance of this reference to it (with
+     ||| --check-universes, see Core.UniverseCheck): the names given to the
+     ||| universes of the definition's universe schema, in its order. Empty
+     ||| means the definition's own universes.
+     Func    : (inst : List Name) -> NameType
      DataCon : (tag : Int) -> (arity : Nat) -> NameType
      ||| A type constructor. 'inst' is the universe instance of this use
      ||| of it (with --check-universes, see Core.UniverseCheck): the names
@@ -38,7 +43,7 @@ export
 covering
 Show NameType where
   showPrec d Bound = "Bound"
-  showPrec d Func = "Func"
+  showPrec d (Func _) = "Func"
   showPrec d (DataCon tag ar) = showCon d "DataCon" $ showArg tag ++ showArg ar
   showPrec d (TyCon ar _) = showCon d "TyCon" $ showArg ar
 

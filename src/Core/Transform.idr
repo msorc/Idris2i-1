@@ -148,11 +148,11 @@ trans : {vars : _} ->
         {auto u : Ref Upd Bool} ->
         Env Term vars -> List (FC, Term vars) -> Term vars ->
         Core (Term vars)
-trans env stk (Ref fc Func fn)
+trans env stk (Ref fc (Func inst) fn)
     = do defs <- get Ctxt
          case lookup fn (transforms defs) of
-              Nothing => pure (unload stk (Ref fc Func fn))
-              Just ts => do let fullapp = unload stk (Ref fc Func fn)
+              Nothing => pure (unload stk (Ref fc (Func inst) fn))
+              Just ts => do let fullapp = unload stk (Ref fc (Func inst) fn)
                             (u, tm') <- applyHoles env ts fullapp
                             update Upd (|| u)
                             pure tm'

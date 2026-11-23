@@ -1110,7 +1110,7 @@ checkApp rig elabinfo nest env fc (IVar fc' n) expargs autoargs namedargs exp
         stuck : Term ws -> Bool
         stuck tm
             = case getFnArgs tm of
-                   (Ref _ Func _, _) => True
+                   (Ref _ (Func _) _, _) => True
                    (Ref _ (DataCon {}) _, args) => any stuck args
                    _ => False
 

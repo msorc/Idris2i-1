@@ -421,7 +421,7 @@ isProofType ty
              do n' <- toFullNames n
                 pure $ Just (n' == NS builtinNS (UN $ Basic "Equal")
                              || n' == NS builtinNS (UN $ Basic "Void"))
-           Ref _ Func _ => pure Nothing
+           Ref _ (Func _) _ => pure Nothing
            _ => pure (Just False)
 
 -- The same, on the normal form of a type, which is evaluated lazily, under
@@ -622,7 +622,7 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
                  = mapMaybe (\ (x, s) => case s of
                                               Dynamic => Nothing
                                               Static t => Just (x, t)) sargs
-           let peapp = applyStackWithFC (Ref fc Func pename) (dropSpec 0 staticargs stk)
+           let peapp = applyStackWithFC (Ref fc (Func []) pename) (dropSpec 0 staticargs stk)
            Nothing <- lookupCtxtExact pename (gamma defs)
                | Just _ => -- already specialised
                            do log "specialise" 5 $ "Already specialised " ++ show pename
@@ -653,7 +653,7 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
            -- itself with the same arguments forever (or was taken for the
            -- identity, Compiler.Inline).  No copy is made then.
            let PMDef _ _ _ _ fnpats = definition gdef
-               | _ => pure (applyStackWithFC (Ref fc Func fn) stk)
+               | _ => pure (applyStackWithFC (Ref fc (Func []) fn) stk)
            when (isNothing (specByVar staticargs fnpats)
                    && not (reducibleInAny (currentNS defs :: nestedNS defs)
                              (fullname gdef) (collapseDefault $ visibility gdef))) $
@@ -719,7 +719,7 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
            setFlag fc (Resolved peidx) (PartialEval (specLimits ++ reds))
 
            let PMDef pminfo pmargs ct tr pats = definition gdef
-               | _ => pure (applyStackWithFC (Ref fc Func fn) stk)
+               | _ => pure (applyStackWithFC (Ref fc (Func []) fn) stk)
            logC "specialise" 5 $
                    do inpats <- traverse unelabDef pats
                       pure $ "Attempting to specialise:\n" ++
@@ -727,7 +727,7 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
 
            Just newpats <- getSpecPats fc pename fn stk !(nf defs Env.empty (type gdef))
                                        sargs staticargs pats
-                | Nothing => pure (applyStackWithFC (Ref fc Func fn) stk)
+                | Nothing => pure (applyStackWithFC (Ref fc (Func []) fn) stk)
            log "specialise" 5 $ "New patterns for " ++ show pename ++ ":\n" ++
                     showSep "\n" (map showPat newpats)
            -- The copy is not in the source: what elaborating it records
@@ -780,7 +780,7 @@ mkSpecDef {vars} fc gdef isAuto pename (fnfull, statics) sargs fn stk
               defs <- get Ctxt
               whenJust !(lookupCtxtExact pename (gamma defs)) $ \ d =>
                 ignore $ addDef pename ({ flags $= filter (not . isSpecStatics) } d)
-              pure (applyStackWithFC (Ref fc Func fn) stk))
+              pure (applyStackWithFC (Ref fc (Func []) fn) stk))
   where
     -- A specialisation made because of --spec-interfaces only reduces the
     -- implementations that it is given (see specLimits) and the methods of
@@ -948,13 +948,13 @@ eraseInferred (Bind fc x b tm)
 eraseInferred tm
     = case getFnArgs tm of
            (f, []) => pure f
-           (Ref fc Func n, args) =>
+           (Ref fc (Func inst) n, args) =>
                 do defs <- get Ctxt
                    Just gdef <- lookupCtxtExact n (gamma defs)
                         | Nothing => pure tm
                    let argsE = NatSet.overwrite (Erased fc Placeholder) (inferrable gdef) args
                    argsE' <- traverse eraseInferred argsE
-                   pure (apply fc (Ref fc Func n) argsE')
+                   pure (apply fc (Ref fc (Func inst) n) argsE')
            -- (the arguments of another head, a constructor or a local
            -- variable, are left as they are, as they always were: they used
            -- to be traversed, and the result dropped.  Erasing in them too
@@ -1280,12 +1280,12 @@ findSpecs : {vars : _} ->
             {auto o : Ref ROpts REPLOpts} ->
             Env Term vars -> (er : Bool) -> List (FC, Term vars) -> Term vars ->
             Core (Term vars)
-findSpecs env er stk (Ref fc Func fn)
+findSpecs env er stk (Ref fc (Func inst) fn)
     = do defs <- get Ctxt
          Just gdef <- lookupCtxtExact fn (gamma defs)
-              | Nothing => pure (applyStackWithFC (Ref fc Func fn) stk)
+              | Nothing => pure (applyStackWithFC (Ref fc (Func inst) fn) stk)
          Just r <- specialise False er fc env gdef fn stk
-              | Nothing => pure (applyStackWithFC (Ref fc Func fn) stk)
+              | Nothing => pure (applyStackWithFC (Ref fc (Func inst) fn) stk)
          pure r
 findSpecs env er stk (Meta fc n i args)
     = do args' <- traverse (findSpecs env er []) args
@@ -1477,14 +1477,14 @@ mutual
   -- IMPORTANT CASE HERE
   -- If fn is to be specialised, quote the args directly (no further
   -- reduction) then call specialise. Otherwise, quote as normal
-  quoteGenNF q defs bound env (NApp fc (NRef Func fn) args)
+  quoteGenNF q defs bound env (NApp fc (NRef (Func inst) fn) args)
       = do Just gdef <- lookupCtxtExact fn (gamma defs)
                 | Nothing => do args' <- quoteArgsWithFC q defs bound env args
-                                pure $ applyStackWithFC (Ref fc Func fn) args'
+                                pure $ applyStackWithFC (Ref fc (Func inst) fn) args'
            args' <- quoteArgsWithFC q defs bound env args
            (specs, isAuto) <- specArgsOf True fc fn gdef
            let False = NatSet.isEmpty specs
-               | _ => pure $ applyStackWithFC (Ref fc Func fn) args'
+               | _ => pure $ applyStackWithFC (Ref fc (Func inst) fn) args'
            -- The implementations that --spec-interfaces specialises by are
            -- taken as they are given, not reduced (if they do not need to
            -- be reduced to be closed): they are not normalised either (see
@@ -1505,7 +1505,7 @@ mutual
                      -- unreduced
                      do empty <- clearDefs defs
                         args' <- quoteArgsWithFC q empty bound env args
-                        pure $ applyStackWithFC (Ref fc Func fn) args'
+                        pure $ applyStackWithFC (Ref fc (Func inst) fn) args'
            pure r
      where
        staticAsGiven : {bs : _} ->
