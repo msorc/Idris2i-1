@@ -22,7 +22,11 @@ hierarchy hold:
   elsewhere, when two types are compared, the universes in them have to be
   equal, and they also have to be equal on the left hand side of a clause;
 * each field of a constructor of a data type in ``Type u`` must be in a
-  universe no bigger than ``u`` (parameters are not fields).
+  universe no bigger than ``u`` (parameters are not fields). The indices of
+  a data type are not fields either: the index in the return type of a
+  constructor can be in a smaller universe than the argument of the data
+  type, so that ``Elab (Elab a)`` is a type although an ``Elab`` computation
+  can't return an ``Elab`` computation of its own universe.
 
 The check runs after the elaborator, on the elaborated definitions: it
 infers the type of every subterm again and records the constraints. They are

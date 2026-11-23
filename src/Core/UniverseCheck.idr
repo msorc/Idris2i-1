@@ -17,7 +17,9 @@
 |||  * `a <= u` for every field of a constructor of a data type in `Type u`,
 |||    where the field's type is in `Type a`. Parameters are not fields; the
 |||    universes of a parameter in the constructor's type are made equal to
-|||    those in the data type's type.
+|||    those in the data type's type. An index (an argument of the data type
+|||    in the return type of a constructor which is not a parameter) can be
+|||    in a smaller universe than the data type's argument: it is not stored.
 |||
 ||| The constraints are kept in a graph (Core.Context.Universe), which is
 ||| inconsistent when it has a cycle with a strict edge. The check runs after
@@ -826,22 +828,44 @@ checkDataUniverses fc tn tty cons
            complete tn family tn famls
            traverse_ (\ (cn, _) => complete tn family cn famls) cons
   where
+    -- The return type `T a1 ... an` of a constructor. The universes of a
+    -- parameter are those of the data type's type (they are made equal, so
+    -- that the data type and its constructors are renamed together). An
+    -- index can be in a universe below that of the data type's argument
+    -- (cumulativity, as anywhere else in a term): an index is not stored in
+    -- the value, so it does not count in the universe of the data type,
+    -- whose fields are bounded on their own (see 'fields').
+    retType : {vs : _} -> {auto s : Ref UCK UCState} ->
+              NatSet -> Env Term vs -> Term vs -> Core ()
+    retType ps env ret
+        = do let (f, args) = getFnArgs ret
+             fty <- infer env f
+             defs <- get Ctxt
+             go 0 !(nf defs env fty) args
+      where
+        go : Nat -> NF vs -> List (Term vs) -> Core ()
+        go i (NBind _ _ (Pi _ _ _ aty) sc) (a :: as)
+            = do defs <- get Ctxt
+                 let param = i `elem` ps
+                 aT <- if param then inferPat env a else infer env a
+                 subtypeU (not param) env !(nf defs env aT) !(evalClosure defs aty)
+                 go (S i) !(sc defs (toClosure defaultOpts env a)) as
+        go _ _ [] = pure ()
+        go _ _ _ = gap "the return type of a constructor is not an application of its data type"
+
     fields : {vs : _} -> {auto s : Ref UCK UCState} ->
-             Name -> List Nat -> Nat -> Env Term vs -> Term vs -> Core ()
-    fields u params i env (Bind _ x b@(Pi _ _ _ ty) sc)
+             NatSet -> Name -> List Nat -> Nat -> Env Term vs -> Term vs -> Core ()
+    fields ps u params i env (Bind _ x b@(Pi _ _ _ ty) sc)
         = do unless (i `elem` params) $
                whenJust !(sortOf env ty) $ \ a => addLE a u
-             fields u params (S i) (b :: env) sc
-    fields u params i env ret
-        = -- The return type: the universes of the arguments (in particular
-          -- of the parameters) are those of the data type's type
-          ignore $ inferPat env ret
+             fields ps u params (S i) (b :: env) sc
+    fields ps u params i env ret = retType ps env ret
 
     checkCon : {auto s : Ref UCK UCState} ->
                Name -> NatSet -> (Name, ClosedTerm) -> Core ()
     checkCon u ps (cn, cty)
         = do ignore $ sortOf Env.empty cty
-             fields u (paramBinders ps 0 cty) 0 Env.empty cty
+             fields ps u (paramBinders ps 0 cty) 0 Env.empty cty
 
 ||| At the end of a module: check the solutions of the metavariables which
 ||| were unsolved when a definition using them was checked, and warn about

@@ -1,0 +1,25 @@
+1/1: Building Nested (Nested.idr)
+1/1: Building NestedValue (NestedValue.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    the universe of `Type` at NestedValue:10:10--10:21 < an inferred universe (from NestedValue.Comp)
+    an inferred universe <= the universe of `Type` at NestedValue:10:10--10:21 (from NestedValue.nested)
+
+NestedValue:14:1--14:23
+ 10 |   Pure : a -> Comp a
+ 11 |   Bind : Comp a -> (a -> Comp b) -> Comp b
+ 12 |
+ 13 | nested : Comp (Comp Nat)
+ 14 | nested = Pure (Pure Z)
+      ^^^^^^^^^^^^^^^^^^^^^^
+
+1/1: Building Index (Index.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    the universe of `Type` at Index:6:5--6:9 < an inferred universe (from Index.U)
+    an inferred universe <= the universe of `Type` at Index:6:5--6:9 (from Index.T)
+
+Index:8:1--9:12
+ 8 | data T : U -> Type where
+     ^^^^^^^^^^^^^^^^^^^^^^^^
+ 9 |   MkT : T U
+       ^^^^^^^^^
+

@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+check --no-prelude --check-universes Nested.idr
+check --no-prelude --check-universes NestedValue.idr
+check --no-prelude --check-universes Index.idr
