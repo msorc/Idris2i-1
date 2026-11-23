@@ -1,0 +1,12 @@
+alice + 100
+bob + 50
+alice - 30
+bob - 80
+carol + 0
+this line is malformed
+dave + 12x
+erin + 700
+alice - -5
+bob - 50
+frank - 1
+erin - 250

@@ -1,0 +1,62 @@
+[
+  {
+    "query": "write a small HTTP server in Idris 2 with a GET /status route that returns JSON and a POST /echo route, listening on port 8080",
+    "should_trigger": true
+  },
+  {
+    "query": "how do I parse a JSON string into a record in Idris 2? I have `record User where name : String; age : Nat` and want decode/encode",
+    "should_trigger": true
+  },
+  {
+    "query": "I need a hash map from String to Int in Idris 2 for counting words in a 2 GB log, is there one and which package is it in",
+    "should_trigger": true
+  },
+  {
+    "query": "idris2: start 8 worker threads that each process a chunk and send results back through a channel, then collect them in main",
+    "should_trigger": true
+  },
+  {
+    "query": "my idris build fails with `Module Network.Socket.Async not found` even though I pass -p http, what else does it need",
+    "should_trigger": true
+  },
+  {
+    "query": "read a binary file into bytes in Idris 2, find the offset of a magic number and write the tail to another file",
+    "should_trigger": true
+  },
+  {
+    "query": "make an HTTPS GET request from Idris 2 to an API and print the body, the server uses a normal Let's Encrypt cert",
+    "should_trigger": true
+  },
+  {
+    "query": "parse command line options --verbose, --output FILE and positional args in my Idris 2 tool, is there a getopt",
+    "should_trigger": true
+  },
+  {
+    "query": "open a websocket from an Idris 2 client to ws://localhost:9000/feed and print every text message that arrives",
+    "should_trigger": true
+  },
+  {
+    "query": "what is the Idris 2 way to keep mutable state across IO callbacks, IORef or StateT, and how do I update it safely from several threads",
+    "should_trigger": true
+  },
+  {
+    "query": "write a small HTTP server in Go with a GET /status route that returns JSON and a POST /echo route on port 8080",
+    "should_trigger": false
+  },
+  {
+    "query": "how do I parse JSON into a record with aeson in Haskell, I have data User = User { name :: Text, age :: Int }",
+    "should_trigger": false
+  },
+  {
+    "query": "prove that map f (xs ++ ys) = map f xs ++ map f ys in Idris 2",
+    "should_trigger": false
+  },
+  {
+    "query": "bind the C function `int sqlite3_open(const char*, sqlite3**)` from Idris 2",
+    "should_trigger": false
+  },
+  {
+    "query": "in Idris 2, why is my `where` clause function rejected with No type declaration?",
+    "should_trigger": false
+  }
+]

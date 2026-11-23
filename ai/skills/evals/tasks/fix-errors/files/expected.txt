@@ -1,0 +1,14 @@
+Ada: 91.5 (A)
+Brook: 72.0 (C)
+Dee: 60.0 (C)
+Cy: 0.0 (F)
+--- curved by 10
+Ada: 99.0 (A)
+Brook: 82.0 (B)
+Dee: 70.0 (C)
+Cy: 0.0 (F)
+--- grades
+A: 1
+C: 2
+F: 1
+4

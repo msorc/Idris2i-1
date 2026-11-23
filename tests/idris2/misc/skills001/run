@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+# Every Idris example in the agent skills under ai/skills must still type-check
+# with this compiler, and fail where a skill says that it fails.
+../../../../ai/skills/check.sh -q -c "$1"

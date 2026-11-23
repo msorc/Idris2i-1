@@ -1,0 +1,14 @@
+[False, True, True]
+[]
+[True, True, True, True, True, True, True, True]
+[[1, 2], [3, 4], [5]]
+[]
+[['a', 'b', 'c', 'd']]
+6
+17
+9
+[0, 1, 2, 3, 3, 5, 7, 9]
+["apple", "fig", "pear"]
+Just 111
+Nothing
+Just 0

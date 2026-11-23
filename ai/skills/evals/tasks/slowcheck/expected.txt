@@ -1,0 +1,9 @@
+gear-000: 35 x 4859
+bolt-010: 2 x 2472
+gear-020: 2 x 2763
+seal-030: 25 x 373
+valve-040: 39 x 3168
+spring-050: 2 x 4015
+gear-060: 12 x 2690
+items 1410
+total 3613133

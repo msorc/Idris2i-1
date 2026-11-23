@@ -9,6 +9,21 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Documentation
 
+* `ai/skills` holds six agent skills that teach a coding agent (an LLM) to write
+  Idris 2 with this compiler: `idris2` (the language rules that differ from
+  Haskell and Idris 1, the check loop, the error codes, packages),
+  `idris2-proofs`, `idris2-libraries`, `idris2-ffi`, `idris2-performance` and
+  `idris2-compiler-dev`. `AGENTS.md` at the root lists them with their
+  triggers, `.claude/skills` points to them for Claude Code in this
+  repository, and `ai/install.sh` links them into `~/.claude/skills` for other
+  projects. The skill files are literate Markdown: `ai/skills/check.sh`
+  type-checks every Idris example in them, with the wrong forms in `failing`
+  blocks and the error codes in `cases/`, and the test `idris2/misc/skills001`
+  runs it, so a compiler or library change that makes a skill wrong fails the
+  suite. `ai/README.md` has the rules for writing a skill file, and
+  `ai/skills/evals` the tasks and graders that compare an agent with the
+  skills against one without.
+
 * A new page, "Proof Automation" (`docs/source/proofs/automation.rst`),
   describes the new elaborator reflection primitives, the `Eq`, `Ord` and
   `DecEq` derivers and the `Nat` solver.

@@ -1,0 +1,43 @@
+#!/bin/sh
+# Type-check Idris 2 files and list the holes that are left.
+#
+#   idr-check [idris2 options] FILE...
+#
+# A file with holes type-checks, so a clean check alone does not mean the work
+# is done; this prints the holes too. Uses the .ipkg of a parent directory when
+# there is one (source directory, dependencies, options).
+# Exit status: 1 when a file fails to check, 0 otherwise (holes do not fail).
+
+here=$(cd "$(dirname "$0")" && pwd)
+idris=$("$here/idr-find") || exit 1
+
+opts=
+while [ $# -gt 0 ]; do
+  case $1 in
+    -p|--package|--source-dir|--build-dir|--cg|--codegen|--directive|--log)
+      opts="$opts $1 $2"; shift 2 ;;
+    -*) opts="$opts $1"; shift ;;
+    *) break ;;
+  esac
+done
+if [ $# -eq 0 ]; then
+  echo "usage: idr-check [idris2 options] FILE..." >&2
+  exit 2
+fi
+
+status=0
+for file in "$@"; do
+  # $opts is split on purpose.
+  # shellcheck disable=SC2086
+  if "$idris" --find-ipkg --no-color --console-width 0 $opts --check "$file"; then
+    # shellcheck disable=SC2086
+    holes=$("$idris" --find-ipkg --no-color --console-width 0 $opts "$file" --client ':m')
+    case $holes in
+      "No holes"*|"") echo "$file: ok, no holes" ;;
+      *) echo "$file: ok, but not finished:"; printf '%s\n' "$holes" ;;
+    esac
+  else
+    status=1
+  fi
+done
+exit $status
