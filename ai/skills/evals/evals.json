@@ -111,6 +111,38 @@
       "about": "Write the exact steps from an edited error message to a commit-ready tree.",
       "prompt": "tasks/done-checklist/prompt.md",
       "grader": "tasks/done-checklist/grade.sh"
+    },
+    {
+      "id": 15,
+      "name": "leak",
+      "skill": "idris2-performance",
+      "about": "Find and break two reference cycles that make a RefC program's memory grow.",
+      "prompt": "tasks/leak/prompt.md",
+      "grader": "tasks/leak/grade.sh"
+    },
+    {
+      "id": 16,
+      "name": "meter",
+      "skill": "idris2-performance",
+      "about": "Cut instructions 8 times in a program whose costs are specific to this back end: IORef updates, a kept matched value, an unmemoised Lazy, strIndex on non-ASCII text.",
+      "prompt": "tasks/meter/prompt.md",
+      "grader": "tasks/meter/grade.sh"
+    },
+    {
+      "id": 17,
+      "name": "arith",
+      "skill": "idris2-proofs",
+      "about": "Prove six polynomial facts about Nat and write four Vect functions whose sizes need them.",
+      "prompt": "tasks/arith/prompt.md",
+      "grader": "tasks/arith/grade.sh"
+    },
+    {
+      "id": 18,
+      "name": "deceq",
+      "skill": "idris2-proofs",
+      "about": "Give total DecEq implementations for five types, one indexed, one nested, one with an erased proof.",
+      "prompt": "tasks/deceq/prompt.md",
+      "grader": "tasks/deceq/grade.sh"
     }
   ]
 }

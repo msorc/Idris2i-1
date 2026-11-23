@@ -1,0 +1,4 @@
+readings 6000000 total 299967533280 peak 99999 odd 3000000
+distinct 100000
+band 1060..80593 outside 408970
+stations 16000 checksum 932263

@@ -1,0 +1,2 @@
+rooms 2000000 joins 9000000 messages 999944625906249 checksum 540744043
+log lines 20

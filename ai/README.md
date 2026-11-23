@@ -99,6 +99,6 @@ confirms.
 
 ## Evals
 
-`ai/skills/evals/` holds 14 tasks that measure the skills against an agent without
+`ai/skills/evals/` holds 18 tasks that measure the skills against an agent without
 them, each with a grader that builds and runs the result, and the queries used to test
 whether a description triggers its skill (`triggers/`). See `ai/skills/evals/README.md`.

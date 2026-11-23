@@ -1,0 +1,4 @@
+package arith
+
+depends = base, contrib
+modules = Arith
