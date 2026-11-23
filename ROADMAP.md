@@ -126,42 +126,24 @@ unless they say otherwise.
   subnormal numbers and characters above U+FFFF; `Language.JSON.Encode` is
   correct.
 
-### Libraries
-
-* `http`, HTTP/1.1: `bodyTimeout` bounds each read, not the whole body;
-  `stopServer` can cut off a request that arrives in the instant it shuts
-  an idle connection down; the client has no cookies, proxies or
-  compression and does not wait for `100 Continue`.
-* `http`, HTTP/2: no response trailers, no server push, no WebSocket over
-  HTTP/2 (RFC 8441); `PRIORITY` is ignored; TLS handshakes in progress do
-  not count towards `maxConnections`.
-* `http`, WebSocket: no `permessage-deflate`; only one thread at a time may
-  receive; the idle timeout counts received messages only; `stopServer`
-  ends sessions by closing them, not with a 1001 close frame; `wss://` is
-  not covered by a test.
-* `http`, cost per request: a server written by hand for one route does the
-  HTTP/1.1 hello in about 3,100 instructions and the JSON echo in about
-  13,200, where this library takes about 13,200 and 45,000 (Go's `net/http`:
-  36,800 and 77,500). About 33 allocations per request remain, six of them
-  for each header field of the request.
-* `http`: the test `http/h2_validation` once gave a 200 where it expects a
-  stream reset (a body shorter than its `content-length`, with four
-  workers), and passed when run again: a race that has not been found.
-* `tls`: session resumption and the paths where a read has to write (key
-  update) are not covered by a test; there are no verification callbacks in
-  Idris.
-* JSON (contrib): numbers are `Double`s, so integers above 2^53 lose
-  precision. A derived decoder is fast only when the members come in the
-  order of the fields, once each and with nothing else; any other document
-  is decoded through a `JSON` value.
-* `network`: the linear API (`Control.Linear.Network`) has no non-blocking
-  counterpart; `Network.Socket.DNS.resolve` takes a numeric port only.
-* The comparison with Rust in the `bench-vs` branch uses servers written by
-  hand, because no asynchronous HTTP framework was available to build
-  offline; there is no Rust row for HTTPS, HTTP/2 or WebSocket.
-
 ### Language
 
+* Quantities: a function with linear arguments is eta-expanded where one
+  with unrestricted arguments is expected only if the expected type is
+  known to be a function type when the function is checked. `map f xs`
+  with the `Functor` method checks `f` before it knows the result type, so
+  `map lcons xs` fails unless the result type of the function is given
+  (`map {b = ...}`). Doing better needs either quantity variables or a
+  postponed coercion; unification stays strict.
+* Quantities: there are no quantity variables, so a higher-order function
+  over a type with linear fields needs one copy for linear function
+  arguments and one for unrestricted ones (`map`, `foldr`, ... in
+  `tests/idris2/linear/linear022`), and the mirror types of `libs/linear`
+  (`LList`, `LMaybe`, `LEither`, ...) stay.
+* A `case` whose scrutinee is an application of an overloaded name is not
+  retried at quantity 1 when it fails at the unrestricted quantity, so
+  matching the result of a linear function that shares a name with a
+  Prelude function fails with "Trying to use linear name".
 * `Nat`, `Fin`, `Vect` at run time: the functions of `Data.Nat`, `Data.Fin`
   and `Data.Vect` that recursed once per unit run on `Integer` through
   `%transform` rules (see `benchmark/benchmarks/natOps` and `vectFin`), but
@@ -213,3 +195,37 @@ unless they say otherwise.
   functions; the compiler could load those modules, or say what is missing.
 * `Join` hides its nested occurrence of `Elab` from the positivity checker
   with `assert_total`, since `Elab` is an index of `Elab`.
+
+### Libraries
+
+* `http`, HTTP/1.1: `bodyTimeout` bounds each read, not the whole body;
+  `stopServer` can cut off a request that arrives in the instant it shuts
+  an idle connection down; the client has no cookies, proxies or
+  compression and does not wait for `100 Continue`.
+* `http`, HTTP/2: no response trailers, no server push, no WebSocket over
+  HTTP/2 (RFC 8441); `PRIORITY` is ignored; TLS handshakes in progress do
+  not count towards `maxConnections`.
+* `http`, WebSocket: no `permessage-deflate`; only one thread at a time may
+  receive; the idle timeout counts received messages only; `stopServer`
+  ends sessions by closing them, not with a 1001 close frame; `wss://` is
+  not covered by a test.
+* `http`, cost per request: a server written by hand for one route does the
+  HTTP/1.1 hello in about 3,100 instructions and the JSON echo in about
+  13,200, where this library takes about 13,200 and 45,000 (Go's `net/http`:
+  36,800 and 77,500). About 33 allocations per request remain, six of them
+  for each header field of the request.
+* `http`: the test `http/h2_validation` once gave a 200 where it expects a
+  stream reset (a body shorter than its `content-length`, with four
+  workers), and passed when run again: a race that has not been found.
+* `tls`: session resumption and the paths where a read has to write (key
+  update) are not covered by a test; there are no verification callbacks in
+  Idris.
+* JSON (contrib): numbers are `Double`s, so integers above 2^53 lose
+  precision. A derived decoder is fast only when the members come in the
+  order of the fields, once each and with nothing else; any other document
+  is decoded through a `JSON` value.
+* `network`: the linear API (`Control.Linear.Network`) has no non-blocking
+  counterpart; `Network.Socket.DNS.resolve` takes a numeric port only.
+* The comparison with Rust in the `bench-vs` branch uses servers written by
+  hand, because no asynchronous HTTP framework was available to build
+  offline; there is no Rust row for HTTPS, HTTP/2 or WebSocket.
