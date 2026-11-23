@@ -422,12 +422,24 @@ HasNames Name where
                     | Nothing => pure n
            pure (Resolved i)
 
+-- The universe instance of a type constructor reference: universe names,
+-- given full or resolved names as those of `Type`
+fullNameType : Context -> NameType -> Core NameType
+fullNameType gam (TyCon a inst@(_ :: _)) = TyCon a <$> traverse (full gam) inst
+fullNameType gam nt = pure nt
+
+resolvedNameType : Context -> NameType -> Core NameType
+resolvedNameType gam (TyCon a inst@(_ :: _)) = TyCon a <$> traverse (resolved gam) inst
+resolvedNameType gam nt = pure nt
+
 export
 HasNames (Term vars) where
   full gam (Ref fc x (Resolved i))
-      = do Just gdef <- lookupCtxtExact (Resolved i) gam
+      = do x <- fullNameType gam x
+           Just gdef <- lookupCtxtExact (Resolved i) gam
                 | Nothing => pure (Ref fc x (Resolved i))
            pure (Ref fc x (fullname gdef))
+  full gam (Ref fc x n) = pure (Ref fc !(fullNameType gam x) n)
   full gam (Meta fc x i xs)
       = do xs <- traverse (full gam) xs
            pure $ case !(lookupCtxtExact (Resolved i) gam) of
@@ -454,7 +466,8 @@ HasNames (Term vars) where
   full gam tm = pure tm
 
   resolved gam (Ref fc x n)
-      = do let Just i = getNameID n gam
+      = do x <- resolvedNameType gam x
+           let Just i = getNameID n gam
                 | Nothing => pure (Ref fc x n)
            pure (Ref fc x (Resolved i))
   resolved gam (Meta fc x y xs)

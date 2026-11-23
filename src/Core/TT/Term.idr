@@ -27,8 +27,9 @@ data NameType : Type where
      DataCon : (tag : Int) -> (arity : Nat) -> NameType
      ||| A type constructor. 'inst' is the universe instance of this use
      ||| of it (with --check-universes, see Core.UniverseCheck): the names
-     ||| given to the universes of its family, in the order of the family's
-     ||| universe schema. Empty means the family's own universes.
+     ||| given to the universes in the fields of its family, in the order of
+     ||| 'instOnly' in the family's universe schema. Empty means the family's
+     ||| own universes.
      TyCon   : (arity : Nat) -> (inst : List Name) -> NameType
 
 %name NameType nt

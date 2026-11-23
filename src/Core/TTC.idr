@@ -1279,5 +1279,6 @@ TTC UEdge where
 
 export
 TTC USchema where
-  toBuf s = do toBuf s.poly; toBuf s.edges
-  fromBuf = do ps <- fromBuf; es <- fromBuf; pure (MkUSchema ps es (-1))
+  toBuf s = do toBuf s.poly; toBuf s.edges; toBuf s.instOnly
+  fromBuf = do ps <- fromBuf; es <- fromBuf; io <- fromBuf
+               pure (MkUSchema ps es io (-1))

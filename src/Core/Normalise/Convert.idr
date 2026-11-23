@@ -10,6 +10,7 @@ import Core.Value
 
 import Libraries.Data.NatSet
 import Libraries.Data.List.SizeOf
+import Libraries.Data.NameMap
 
 %default covering
 
@@ -80,6 +81,23 @@ tryUpdate ms (TForce fc r tm) = pure $ TForce fc r !(tryUpdate ms tm)
 tryUpdate ms (PrimVal fc c) = pure $ PrimVal fc c
 tryUpdate ms (Erased fc a) = Erased fc <$> traverse (tryUpdate ms) a
 tryUpdate ms (TType fc u) = pure $ TType fc u
+
+-- Conversion identifies the universe instances of two uses of a type
+-- constructor. Elaboration does not care, but the universe checker
+-- (Core.UniverseCheck) collects the pairs (see the case of NType). An empty
+-- instance stands for the family's own universes.
+collectInstances : {auto c : Ref Ctxt Defs} ->
+                   Defs -> Name -> List Name -> List Name -> Core ()
+collectInstances defs n [] [] = pure ()
+collectInstances defs n xs ys
+    = whenJust (ucollect defs) $ \ r =>
+        do fn <- getFullName n
+           let Just sch = lookup fn (schemas (universes defs))
+                | Nothing => pure ()
+           let xs' = if null xs then instOnly sch else xs
+           let ys' = if null ys then instOnly sch else ys
+           let pairs = zip xs' ys'
+           coreLift $ modifyIORef r (filter (\ (x, y) => x /= y) pairs ++)
 
 mutual
   allConvNF : {auto c : Ref Ctxt Defs} ->
@@ -389,9 +407,11 @@ mutual
         = if tag == tag'
              then allConv q i defs env (map snd args) (map snd args')
              else pure False
-    convGen q i defs env (NTCon _ nm _ _ args) (NTCon _ nm' _ _ args')
+    convGen q i defs env (NTCon _ nm _ inst args) (NTCon _ nm' _ inst' args')
         = if nm == nm'
-             then allConv q i defs env (map snd args) (map snd args')
+             then do ok <- allConv q i defs env (map snd args) (map snd args')
+                     when ok $ collectInstances defs nm inst inst'
+                     pure ok
              else pure False
     convGen q i defs env (NAs _ _ _ tm) (NAs _ _ _ tm')
         = convGen q i defs env tm tm'

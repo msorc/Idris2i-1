@@ -131,6 +131,7 @@ gap msg
 -- The universe names in a term, as they are written
 levelsOf : Term vars -> List Name -> List Name
 levelsOf (Local {}) acc = acc
+levelsOf (Ref _ (TyCon _ inst) _) acc = inst ++ acc
 levelsOf (Ref {}) acc = acc
 levelsOf (Meta _ _ _ args) acc = foldr levelsOf acc args
 levelsOf (Bind _ _ b sc) acc = foldr levelsOf (levelsOf sc acc) b
@@ -196,6 +197,28 @@ metaLevels tm = nub <$> evalLevelsFrom False tm
 renameLevels : {auto c : Ref Ctxt Defs} ->
                NameMap Name -> Term vars -> Core (Term vars)
 renameLevels ren tm@(Local {}) = pure tm
+renameLevels ren tm@(Ref fc (TyCon a inst) n)
+    = do inst <- if null inst then ownInstance else pure inst
+         if null inst
+            then pure tm
+            else pure (Ref fc (TyCon a !(traverse rn inst)) n)
+  where
+    rn : Name -> Core Name
+    rn u = do u <- canonical u
+              pure (fromMaybe u (lookup u ren))
+
+    -- A use without an instance stands for the family's own universes; when
+    -- the renaming renames some of them (the type of a constructor of the
+    -- family refers to the family), the use gets them as its instance, so
+    -- that it is renamed with them
+    ownInstance : Core (List Name)
+    ownInstance
+        = do defs <- get Ctxt
+             fn <- canonical n
+             let Just sch = lookup fn (schemas (universes defs))
+                  | Nothing => pure []
+             pure (if any (\ p => isJust (lookup p ren)) (instOnly sch)
+                      then instOnly sch else [])
 renameLevels ren tm@(Ref {}) = pure tm
 renameLevels ren (Meta fc n i args)
     = Meta fc n i <$> traverse (renameLevels ren) args
@@ -316,15 +339,32 @@ mutual
                         pure Nothing
 
   -- The type of a global, renaming its polymorphic universes
+  -- (A use of a type constructor with an instance renames the universes
+  -- of the fields to its instance, and the others to fresh ones; one without
+  -- renames only the others.)
   globalType : {auto c : Ref Ctxt Defs} ->
                {auto s : Ref UCK UCState} ->
-               Name -> ClosedTerm -> Core ClosedTerm
-  globalType n ty
+               NameType -> Name -> ClosedTerm -> Core ClosedTerm
+  globalType nt n ty
       = do defs <- get Ctxt
            fn <- canonical n
            let Just sch = lookup fn (schemas (universes defs))
                 | Nothing => pure ty
-           ren <- traverse (\ p => pure (p, !freshU)) (poly sch)
+           -- the solved metavariables of the type (the inferred type of a
+           -- parameter, say) are part of it, and renamed with it
+           ty <- normaliseHoles defs Env.empty ty
+           let others = filter (\ p => not (elem p (instOnly sch))) (poly sch)
+           ren <- case nt of
+                       TyCon _ inst@(_ :: _) =>
+                         if length inst == length (instOnly sch)
+                            then pure (!(traverse (\ (p, u) => pure (p, !(canonical u)))
+                                                  (zip (instOnly sch) inst))
+                                       ++ !(traverse (\ p => pure (p, !freshU)) others))
+                            else do gap ("the universe instance of " ++ show fn
+                                         ++ " does not fit its schema")
+                                    pure []
+                       TyCon _ [] => traverse (\ p => pure (p, !freshU)) others
+                       _ => traverse (\ p => pure (p, !freshU)) (poly sch)
            let renm = fromList ren
            let rn = \ x => fromMaybe x (lookup x renm)
            st <- get UCK
@@ -344,7 +384,7 @@ mutual
            Just ty <- lookupTyExact n (gamma defs)
                 | Nothing => do gap ("undefined name " ++ show n)
                                 pure (Erased fc Placeholder)
-           embed <$> globalType n ty
+           embed <$> globalType nt n ty
   infer env (Meta fc n i args)
       = do defs <- get Ctxt
            Just gdef <- lookupCtxtExact (Resolved i) (gamma defs)
@@ -726,7 +766,7 @@ complete cn owners n extra
                 ++ (if pending then " (but met an unsolved metavariable)" else "")
          unless (pending || null ps) $
            do let stamp = completions info
-              let sch = MkUSchema ps (filter (touches ps) es) stamp
+              let sch = MkUSchema ps (filter (touches ps) es) [] stamp
               update Ctxt { universes->completions := stamp + 1,
                             universes->schemas $= insert fn sch,
                             universes->savedSchemas $= ((fn, sch) ::) }

@@ -180,8 +180,14 @@ projectUEdges isLocal origin es
 public export
 record USchema where
   constructor MkUSchema
+  ||| For a type constructor, in this order, the universes which an instance
+  ||| of it names (see TyCon in Core.TT.Term)
   poly : List Name
   edges : List UEdge
+  ||| The universes of 'poly' which are renamed only through an instance:
+  ||| those in the fields of a data type. A use without an instance keeps
+  ||| them (and renames the others).
+  instOnly : List Name
   ||| When the definition was completed (see 'completions'); -1 for the
   ||| definitions of imported modules
   stamp : Int
