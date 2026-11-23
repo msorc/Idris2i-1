@@ -93,7 +93,7 @@ getNameType elabMode rigc env fc x
                        $ "getNameType is adding " ++ show decor ++ ": " ++ show def.fullname
                      addSemanticDecorations [(nfc, decor, Just def.fullname)]
 
-                 ty <- freshenLevels (type def)
+                 (nt, ty) <- freshenUse nt def.fullname (type def)
                  pure (Ref fc nt (Resolved i), gnf env (embed ty))
   where
     rigSafe : RigCount -> RigCount -> Core ()

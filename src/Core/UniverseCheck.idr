@@ -1000,28 +1000,59 @@ finishModuleUniverses fc
 ||| terms it builds (in the solutions of metavariables, for instance), and
 ||| copying the global's own universe names into another definition would
 ||| make the uses of the global share them, defeating universe polymorphism.
+-- A fresh name for a copy of a universe. These names are not added to the
+-- context: elaboration backtracks by restoring the context, and a copy could
+-- outlive its definition. The counter is in an IORef so that restoring the
+-- context does not reuse a name.
+freshCopy : {auto c : Ref Ctxt Defs} -> Name -> Core (Name, Name)
+freshCopy l
+    = do defs <- get Ctxt
+         i <- coreLift $ readIORef (ufresh defs)
+         coreLift $ writeIORef (ufresh defs) (i + 1)
+         n <- inModuleNS (MN "uf" i)
+         pure (l, n)
+
+-- Rename the universes in a term: with 'ren' for those it renames, to fresh
+-- names for the others
+freshenWith : {auto c : Ref Ctxt Defs} ->
+              NameMap Name -> Term vars -> Core (Term vars)
+freshenWith ren tm
+    = do ls <- canonicalLevels tm
+         let new = filter (\ l => isNothing (lookup l ren)) ls
+         if null new && null (NameMap.toList ren) then pure tm else
+           do fs <- traverse freshCopy new
+              renameLevels (insertFrom fs ren) tm
+
 export
 freshenLevels : {auto c : Ref Ctxt Defs} ->
                 Term vars -> Core (Term vars)
 freshenLevels tm
     = do sess <- getSession
-         if not (checkUniverses sess) then pure tm else
-           do ls <- canonicalLevels tm
-              if null ls then pure tm else
-                do ren <- traverse fresh ls
-                   renameLevels (fromList ren) tm
-  where
-    -- These names are not added to the context: elaboration backtracks by
-    -- restoring the context, and a copy could outlive its definition. The
-    -- counter is in an IORef so that restoring the context does not reuse
-    -- a name.
-    fresh : Name -> Core (Name, Name)
-    fresh l
-        = do defs <- get Ctxt
-             i <- coreLift $ readIORef (ufresh defs)
-             coreLift $ writeIORef (ufresh defs) (i + 1)
-             n <- inModuleNS (MN "uf" i)
-             pure (l, n)
+         if not (checkUniverses sess) then pure tm else freshenWith empty tm
+
+||| When checking universes, the elaborator's use of a global: a fresh
+||| universe instance for a type constructor (whose universe schema is
+||| known), and its type with these universes and fresh ones for the others
+||| (see 'freshenLevels'). Without the option, the use and the type as they
+||| are.
+export
+freshenUse : {auto c : Ref Ctxt Defs} ->
+             NameType -> Name -> ClosedTerm -> Core (NameType, ClosedTerm)
+freshenUse nt n ty
+    = do sess <- getSession
+         if not (checkUniverses sess) then pure (nt, ty) else
+           case nt of
+                TyCon a [] =>
+                  do defs <- get Ctxt
+                     fn <- canonical n
+                     case lookup fn (schemas (universes defs)) of
+                          Nothing => pure (nt, !(freshenWith empty ty))
+                          Just (MkUSchema _ _ [] _) => pure (nt, !(freshenWith empty ty))
+                          Just sch =>
+                            do inst <- traverse freshCopy (instOnly sch)
+                               ty' <- freshenWith (fromList inst) ty
+                               pure (TyCon a (map snd inst), ty')
+                _ => pure (nt, !(freshenWith empty ty))
 
 ||| The type of a global, with fresh universe names when checking universes
 ||| (see 'freshenLevels')
