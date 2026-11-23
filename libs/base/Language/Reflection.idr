@@ -122,6 +122,10 @@ data Elab : Type -> Type where
      ||| Elaborate two terms, the second at the type of the first, and test
      ||| whether they are convertible. Nothing the elaboration did is kept.
      Convert : TTImp -> TTImp -> Elab Bool
+     ||| Get the clauses of a definition, which must be visible: the clauses
+     ||| of a private or export definition are readable in its own module
+     ||| only.
+     GetClauses : Name -> Elab (List Clause)
 
 export
 Functor Elab where
@@ -269,6 +273,22 @@ interface Monad m => Elaboration m where
   ||| use `check`, inside `try` if it may fail.
   convertible : TTImp -> TTImp -> m Bool
 
+  ||| Get the clauses of a function defined by pattern matching.
+  |||
+  ||| The name need not be fully qualified, but it must resolve to a single
+  ||| definition.
+  ||| The clauses are those `:printdef` shows, before the compilation to a
+  ||| case tree: the left-hand sides bind the pattern variables as `IVar`s,
+  ||| and show all implicit arguments. A definition whose clauses are all
+  ||| `impossible` gives `[]`.
+  |||
+  ||| The definition must be visible as a body would be for type checking:
+  ||| the clauses of a private or export definition can only be read in the
+  ||| module which defines it (and its children). Data and type
+  ||| constructors, primitives, foreign functions, holes and other names
+  ||| which are not defined by pattern matching make it fail.
+  getClauses : Name -> m (List Clause)
+
 ||| Normalise a term: elaborate it as `infer` does, then quote the value with
 ||| `quoteNF`. Tactics hold syntax, so this is the form they usually need.
 export
@@ -326,6 +346,7 @@ Elaboration Elab where
   infer            = Infer
   quoteNF          = QuoteNF
   convertible      = Convert
+  getClauses       = GetClauses
 
 public export
 Elaboration m => MonadTrans t => Monad (t m) => Elaboration (t m) where
@@ -359,6 +380,7 @@ Elaboration m => MonadTrans t => Monad (t m) => Elaboration (t m) where
   infer               = lift . infer
   quoteNF u v         = lift $ quoteNF u v
   convertible         = lift .: convertible
+  getClauses          = lift . getClauses
 
 ||| Catch failures and use the `Maybe` monad instead
 export

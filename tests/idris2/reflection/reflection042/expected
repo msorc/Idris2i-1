@@ -1,0 +1,15 @@
+1/2: Building Lib (Lib.idr)
+2/2: Building GetClauses (GetClauses.idr)
+LOG 0: local: 2 clause(s)
+LOG 0:   Main.local {a = a} (Prelude.Basics.Nil {a = a}) = Prelude.Types.Z
+LOG 0:   Main.local {a = a} (Prelude.Basics.(::) {a = a} {_:1} xs) = Prelude.Types.S (Main.local {a = a} xs)
+LOG 0: hidden: 2 clause(s)
+LOG 0:   Main.hidden Prelude.Basics.True = Prelude.Basics.False
+LOG 0:   Main.hidden Prelude.Basics.False = Prelude.Basics.True
+LOG 0: plus: 2 clause(s)
+LOG 0:   Prelude.Types.plus Prelude.Types.Z y = y
+LOG 0:   Prelude.Types.plus (Prelude.Types.S k) y = Prelude.Types.S (Prelude.Types.plus k y)
+LOG 0: Lib.pub: 2 clause(s)
+LOG 0:   Lib.pub Prelude.Types.Z = Prelude.Types.S Prelude.Types.Z
+LOG 0:   Lib.pub (Prelude.Types.S k) = Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.Num implementation at Prelude.Types:1} (Lib.pub k) (Prelude.Types.S (Prelude.Types.S Prelude.Types.Z))
+LOG 0: void': 0 clause(s)

@@ -216,6 +216,15 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
                  defs' <- get Ctxt
                  put Ctxt ({ timings := timings defs' } defs)
 
+    -- A clause of a definition, as `:printdef` shows it, but unelaborated
+    -- to TTImp instead of resugared
+    unelabClause : FC -> (vs ** (Env Term vs, Term vs, Term vs)) -> Core ImpClause
+    unelabClause cfc (_ ** (cenv, lhs, rhs))
+        = do defs <- get Ctxt
+             lhs' <- unelabUniqueBinders cenv !(normaliseHoles defs cenv lhs)
+             rhs' <- unelabUniqueBinders cenv !(normaliseHoles defs cenv rhs)
+             pure (PatClause cfc (map rawName lhs') (map rawName rhs'))
+
     elabCon : Defs -> String -> List (Closure vars) -> Core (NF vars)
     elabCon defs "Pure" [_,val]
         = do empty <- clearDefs defs
@@ -487,6 +496,24 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
                          ty' <- normaliseHoles defs env ty'
                          convert defs env tx ty'
              scriptRet res
+    elabCon defs "GetClauses" [n]
+        = do n <- reify defs !(evalClosure defs n)
+             [(fn, _, gdef)] <- lookupCtxtName n (gamma defs)
+               | [] => throw (GenericMsg fc $ show n ++ " is not defined")
+               | ds => throw (GenericMsg fc $ show n ++ " is ambiguous: " ++
+                                showSep ", " (map (show . fst) ds))
+             here <- getNS
+             nested <- getNestedNS
+             let vis = collapseDefault (visibility gdef)
+             unless (reducibleInAny (here :: nested) fn vis) $
+               throw (GenericMsg fc $ "The clauses of " ++ show fn ++
+                        " are not visible here: it is " ++ show vis ++
+                        ", and only the clauses of a public export definition" ++
+                        " can be read from another module")
+             let PMDef _ _ _ _ pats = definition gdef
+               | _ => throw (GenericMsg fc $ show fn ++
+                               " is not a function defined by pattern matching")
+             scriptRet !(traverse (unelabClause (location gdef)) pats)
     elabCon defs n args = failWith defs $ "unexpected Elab constructor " ++ n ++
                                           ", or incorrect count of arguments: " ++ show (length args)
 elabScript rig fc nest env script exp
