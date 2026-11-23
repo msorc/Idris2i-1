@@ -1,0 +1,6 @@
+. ../../testutils.sh
+
+# Checking takes about 2.1e9 instructions (1.6e9 more than with the proof
+# replaced by believe_me), well under a second; a blow-up would take far longer
+TIMEOUT=300
+check -p contrib Cube.idr

@@ -68,6 +68,7 @@ modules = Control.ANSI,
           Data.Nat.Order.Strict,
           Data.Nat.Order.Relation,
           Data.Nat.Properties,
+          Data.Nat.Solver,
 
           Data.Order,
 
