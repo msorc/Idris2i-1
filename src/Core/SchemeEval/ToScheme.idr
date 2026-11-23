@@ -99,18 +99,18 @@ Scheme RigCount where
              ViewZero => IntegerVal 0
              ViewOne => IntegerVal 1
              ViewOmega => IntegerVal 2
-             ViewVars vs => StringVal (concatMap (\v => qvOwner v ++ "\0" ++ qvName v ++ "\0") vs)
+             ViewVars vs => Vector 3 (concatMap (\v => [toScheme (qvOwner v), StringVal (qvName v)]) vs)
 
   fromScheme (IntegerVal 0) = Just erased
   fromScheme (IntegerVal 1) = Just linear
-  fromScheme (StringVal s) = Just (rigVarsProduct (pairs (split (== '\0') s)))
+  fromScheme (Vector 3 xs) = map rigVarsProduct (pairs xs)
     where
-      pairs : List1 String -> List QuantityVar
-      pairs ss = go (forget ss)
-        where
-          go : List String -> List QuantityVar
-          go (o :: n :: rest) = MkQuantityVar o n :: go rest
-          go _ = []
+      pairs : List (SchemeObj Readback) -> Maybe (List QuantityVar)
+      pairs (o :: StringVal n :: rest)
+          = do o' <- fromScheme o
+               (MkQuantityVar o' n ::) <$> pairs rest
+      pairs [] = Just []
+      pairs _ = Nothing
   fromScheme _ = Just top
 
 export

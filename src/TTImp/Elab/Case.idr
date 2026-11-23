@@ -405,6 +405,12 @@ checkCase rig elabinfo nest env fc opts scr scrty_in alts exp
             $ \case
                 -- a variable bound at 1, or at a product of quantity
                 -- variables: the scrutinee is checked at that quantity
+                QuantitiesChosen _ _ _ e@(LinearMisuse _ _ r _)
+                  => if isCounted r
+                        then do c <- runDelays (const True) $ check r elabinfo nest env scr
+                                       (Just (gnf env scrtyv))
+                                pure (fst c, snd c, r)
+                        else throw e
                 e@(LinearMisuse _ _ r _)
                   => if isCounted r
                         then do c <- runDelays (const True) $ check r elabinfo nest env scr

@@ -395,12 +395,38 @@ mutual
       underscore : FC -> ArgType
       underscore fc = NamedArg (UN Underscore) (PImplicit fc)
 
+      -- (Experimental) `{%q = 1}`: the quantity of a quantity variable of
+      -- the function, given as a named argument whose value is a Pi type
+      -- with that quantity (see TTImp.Elab.App.instantiateQuantities)
+      quantityValue : Rule RigCount
+      quantityValue
+          = (do n <- decorate fname Keyword intLit
+                the (EmptyRule RigCount) $ case n of
+                     0 => pure erased
+                     1 => pure linear
+                     _ => fail "A quantity variable is 1 or unrestricted")
+            <|> (do v <- decorate fname Keyword quantityVariable
+                    pure (rigVar (MkQuantityVar unowned v)))
+            <|> (do decorate fname Keyword (exactIdent "omega" <|> exactIdent "ω")
+                    pure top)
+
+      writtenQuantity : Rule ArgType
+      writtenQuantity
+          = do v <- bounds (decorate fname Keyword quantityVariable)
+               decoratedSymbol fname "="
+               map (written (boundToFC fname v) v.val) quantityValue
+        where
+          written : FC -> String -> RigCount -> ArgType
+          written fc x r = NamedArg (UN (Basic ("%" ++ x)))
+                                    (PPi fc r Explicit Nothing (PType fc) (PType fc))
+
       braceArgs : OriginDesc -> IndentInfo -> Rule (List ArgType)
       braceArgs fname indents
         = do start <- bounds (decoratedSymbol fname "{")
              mustWork $ do
                list <- sepBy (decoratedSymbol fname ",")
-                        $ do x <- bounds (UN . Basic <$> decoratedSimpleNamedArg fname)
+                        $ writtenQuantity
+                      <|> do x <- bounds (UN . Basic <$> decoratedSimpleNamedArg fname)
                              let fc = boundToFC fname x
                              option (NamedArg x.val $ PRef fc x.val)
                               $ do tm <- decoratedSymbol fname "=" *> typeExpr pdef fname indents
@@ -841,7 +867,7 @@ mutual
           (Just 1) => pure linear
           Nothing => do Just v <- optional (decorate fname Keyword quantityVariable)
                           | Nothing => pure top
-                        pure (rigVar (MkQuantityVar "" v))
+                        pure (rigVar (MkQuantityVar unowned v))
           _ => fail "Invalid multiplicity (must be 0 or 1)"
 
   bindList : OriginDesc -> IndentInfo ->

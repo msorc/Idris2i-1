@@ -142,13 +142,14 @@ unless they say otherwise.
   writes `map` once with `%q`. The mirror types of `libs/linear` (`LList`,
   `LMaybe`, `LEither`, ...) and the linear copies of interface methods
   (`Functor`, `Bifunctor`, `HasIO`) stay.
-* Quantity variables (`%q`, experimental) are chosen only from the expected
-  type of an unapplied reference; an applied one is at omega, so a linear
-  caller of `map f xs` must write `(the (...) map) f xs`. No variables in
-  data types, records, interfaces (so no `Functor` over quantities),
-  local functions of their own, or reflection; the `Preorder` proofs for
-  products are postulated. Products of variables print as `%q*%r` and
-  can't be written.
+* Quantity variables (`%q`, experimental) are chosen without quantity
+  metavariables: as written, from the expected type, from the arguments
+  that tell without elaboration, else omega. Where nothing tells (a linear
+  value given as an application to a lambda without a quantity) the
+  quantity must be written (`map {%q = 1} ...`). No variables in data
+  types, records, interfaces (so no `Functor` over quantities) or
+  reflection; the `Preorder` proofs for products are postulated. Products
+  of variables print as `%q*%r` and can't be written.
 * The quantities of the fields of `List`, `Maybe`, `Pair`, ... are
   unrestricted, which is why `libs/linear` has `LList`, `LMaybe`, `LPair`,
   ...: with linear fields an unrestricted value behaves the same. Making

@@ -3,6 +3,8 @@ module Algebra.ZeroOneOmega
 import Algebra.Semiring
 import Algebra.Preorder
 
+import public Core.Name
+
 
 
 %default total
@@ -10,13 +12,18 @@ import Algebra.Preorder
 ||| A rigid quantity variable (experimental, see
 ||| docs/source/implementation/quantity-variables.rst).  It ranges over 1 and
 ||| omega, never 0.  It belongs to the definition whose type signature binds
-||| it (`owner`, its full name, or "" while it is only parsed), so that the
-||| variables of two definitions are never the same.
+||| it (`qvOwner`, its full name, or `unowned` while it is only parsed), so
+||| that the variables of two definitions are never the same.
 public export
 record QuantityVar where
   constructor MkQuantityVar
-  qvOwner : String
+  qvOwner : Name
   qvName : String
+
+||| The owner of a variable that is only parsed
+export
+unowned : Name
+unowned = UN (Basic "")
 
 export
 Eq QuantityVar where

@@ -161,7 +161,7 @@ processType {vars} eopts nest env fc rig vis opts ty_raw
 
          -- (Experimental) The quantity variables of the signature belong
          -- to this definition
-         let ty_val = ownQuantityVars (show n) (const True) ty_raw.val
+         let ty_val = ownQuantityVars n (const True) ty_raw.val
          u <- uniVar fc
          ty <-
              wrapErrorC eopts (InType fc n) $
@@ -203,7 +203,7 @@ processType {vars} eopts nest env fc rig vis opts ty_raw
 
          -- A reference to it from elsewhere chooses the quantities of its
          -- own quantity variables
-         let qvs = filter (\v => qvOwner v == show n) (termQuantityVars fullty)
+         let qvs = filter (\v => qvOwner v == n) (termQuantityVars fullty)
          unless (null qvs) $
            setFlag fc name (QuantityVars qvs)
 

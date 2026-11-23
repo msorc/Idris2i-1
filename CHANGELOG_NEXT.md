@@ -125,12 +125,16 @@ should target this file (`CHANGELOG_NEXT`).
   function stands for 1 or unrestricted (never 0), so one function serves
   linear and unrestricted callers:
   `map : ((%q _ : a) -> b) -> (%q xs : LList a) -> LList b`.  A reference
-  to the function takes the quantities of its expected type when that is a
-  known function type (`mapLin : ((1 _ : a) -> b) -> (1 _ : LList a) -> LList b`,
-  `mapLin = map`), and unrestricted otherwise (an applied `map f xs`).  A
-  `%q`-bound variable is used exactly once; it can't be given to a `1` or to
-  an unrestricted argument.  Not in data types, records, interfaces or
-  reflection (`Count` has no variables).  The rules, and why they accept no
+  to the function chooses the quantities: as written, `map {%q = 1} f xs`
+  (or `{%q = omega}`); else from the expected type, of the reference
+  (`mapLin = map` at `((1 _ : a) -> b) -> (1 _ : LList a) -> LList b`) or of
+  the application; else from the explicit arguments that tell without being
+  elaborated (a linear variable `ts` in `map value ts`, the type of `value`,
+  a lambda `\1 x => ...`); else unrestricted.  An error in the application
+  says what was chosen and why.  Local functions (`where`, `let`) can have
+  quantity variables too.  A `%q`-bound variable is used exactly once; it
+  can't be given to a `1` or to an unrestricted argument.  Not in data
+  types, records, interfaces or reflection (`Count` has no variables).  The rules, and why they accept no
   program that is ill-typed for some choice of the variables, are in
   `docs/source/implementation/quantity-variables.rst`.  TTC files change
   (version bumped); `isLinear` of `Algebra.Semiring` is now `isOne`, next

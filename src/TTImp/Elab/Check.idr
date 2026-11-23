@@ -601,6 +601,7 @@ successful allowCons ((tm, elab) :: elabs)
     abandon (InRHS _ _ err) = abandon err
     abandon (AllFailed _ errs) = any (abandon . snd) errs
     abandon (MaybeMisspelling err _) = abandon err
+    abandon (QuantitiesChosen _ _ _ err) = abandon err
     abandon _ = False
 
 -- The counters of --timing-summary for an ambiguous term: the sites, the

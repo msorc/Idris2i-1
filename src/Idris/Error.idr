@@ -147,6 +147,7 @@ Eq Error where
   InLHS fc1 n1 err1 == InLHS fc2 n2 err2 = fc1 == fc2 && n1 == n2 && err1 == err2
   InRHS fc1 n1 err1 == InRHS fc2 n2 err2 = fc1 == fc2 && n1 == n2 && err1 == err2
   MaybeMisspelling err1 xs1 == MaybeMisspelling err2 xs2 = err1 == err2 && xs1 == xs2
+  QuantitiesChosen fc1 n1 _ err1 == QuantitiesChosen fc2 n2 _ err2 = fc1 == fc2 && n1 == n2 && err1 == err2
   WarningAsError wrn1 == WarningAsError wrn2 = wrn1 == wrn2
   _ == _ = False
 
@@ -2155,6 +2156,35 @@ perrorRaw (InRHS fc n err)
                   , !(inDefinition n (perrorRaw err))
                   ]
 
+perrorRaw (QuantitiesChosen fc n chs err)
+    = pure $ !(perrorRaw err) <+> line
+        <+> reflow "The quantities of" <++> code (pretty0 !(prettyName n)) <++> reflow "were chosen as"
+        <++> concatWith (surround (comma <+> space)) !(traverse choice chs)
+        <+> dot <++> reflow "Write them at the reference to choose others, as in"
+        <++> code (pretty0 !(prettyName n) <++> braces (pretty0 (exampleVar chs) <++> equals <++> pretty0 (exampleRig chs))) <+> dot
+  where
+    exampleVar : List QuantityChoice -> String
+    exampleVar (ch :: _) = show (chVar ch)
+    exampleVar [] = "%q"
+
+    -- the other quantity than the one chosen
+    exampleRig : List QuantityChoice -> String
+    exampleRig (ch :: _) = if isOne (chRig ch) then "omega" else "1"
+    exampleRig [] = "1"
+
+    rigText : RigCount -> String
+    rigText r = elimSemi "0" "1" (\r => maybe "unrestricted" id (showVarsCount r)) r
+
+    choice : QuantityChoice -> Core (Doc IdrisAnn)
+    choice ch
+        = do why <- the (Core String) $ case chWhy ch of
+                         QWritten => pure "as written"
+                         QFromExpected => pure "from the expected type"
+                         QFromArgument i => pure ("from the type of argument " ++ show i)
+                         QFromBinder x => pure ("because " ++ show x ++ " is bound at that quantity")
+                         QByDefault => pure "by default"
+             pure (code (pretty0 (show (chVar ch) ++ " = " ++ rigText (chRig ch))) <++> parens (pretty0 why))
+
 perrorRaw (MaybeMisspelling err ns)
     = do -- the definitions the message is about are not what was meant
          defs <- defining <$> get MsgNames
@@ -2268,6 +2298,7 @@ diagnosticInfo err_in
     unwrap (MaybeMisspelling e ns)
         = do (c, sg, e') <- unwrap e
              pure (c, sg ++ map Left (forget ns), e')
+    unwrap (QuantitiesChosen _ _ _ e) = unwrap e
     unwrap e = pure ([], [], e)
 
     innermost : Error -> Error

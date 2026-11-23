@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+run Inst.idr
+check Reject.idr

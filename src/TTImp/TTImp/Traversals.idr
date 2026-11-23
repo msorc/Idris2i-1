@@ -128,11 +128,11 @@ parameters (f : RawImp' nm -> RawImp' nm)
 ||| Give the owner to the quantity variables that have none yet (they are
 ||| only parsed) and whose name `which` accepts: those of a type signature,
 ||| or the ones of a definition's signature that its clauses use.
-ownQuantityVarsStep : String -> (String -> Bool) -> RawImp' nm -> RawImp' nm
+ownQuantityVarsStep : Name -> (String -> Bool) -> RawImp' nm -> RawImp' nm
 ownQuantityVarsStep o which = own
   where
     fix : QuantityVar -> QuantityVar
-    fix v = if qvOwner v == "" && which (qvName v) then { qvOwner := o } v else v
+    fix v = if qvOwner v == unowned && which (qvName v) then { qvOwner := o } v else v
 
     ownRig : RigCount -> RigCount
     ownRig r = if isRigVar r then rigVarsProduct (map fix (rigVars r)) else r
@@ -144,12 +144,12 @@ ownQuantityVarsStep o which = own
     own t = t
 
 export
-ownQuantityVars : String -> (String -> Bool) -> RawImp' nm -> RawImp' nm
+ownQuantityVars : Name -> (String -> Bool) -> RawImp' nm -> RawImp' nm
 ownQuantityVars o which = mapTTImp (ownQuantityVarsStep o which)
 
 ||| The same, in a clause
 export
-ownQuantityVarsClause : String -> (String -> Bool) -> ImpClause' nm -> ImpClause' nm
+ownQuantityVarsClause : Name -> (String -> Bool) -> ImpClause' nm -> ImpClause' nm
 ownQuantityVarsClause o which = mapImpClause (ownQuantityVarsStep o which)
 
 ||| The quantity variables in the binders of a term (sorted, each once)

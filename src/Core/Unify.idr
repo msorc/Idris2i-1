@@ -1499,6 +1499,7 @@ recoverable (InLHS _ _ err) = recoverable err
 recoverable (InRHS _ _ err) = recoverable err
 recoverable (WhenUnifying _ _ _ _ _ _ _ err) = recoverable err
 recoverable (MaybeMisspelling err _) = recoverable err
+recoverable (QuantitiesChosen _ _ _ err) = recoverable err
 recoverable _ = True
 
 -- A solution that search finds for a hole is made under the binders of the

@@ -27,7 +27,7 @@ showVarsCountOwned r
            (v :: vs) => Just (foldl (\acc, w => acc ++ "*" ++ owned w) (owned v) vs)
   where
     owned : QuantityVar -> String
-    owned v = show v ++ " (of " ++ qvOwner v ++ ")"
+    owned v = show v ++ " (of " ++ show (qvOwner v) ++ ")"
 
 ||| Do the two quantities have different variables of the same name?
 export

@@ -112,7 +112,7 @@ insertImpLam env tm _ = pure tm
 -- function, for the signature and the function's clauses only
 noUnboundQuantity : FC -> RigCount -> Core ()
 noUnboundQuantity fc r
-    = case filter (\v => qvOwner v == "") (rigVars r) of
+    = case filter (\v => qvOwner v == unowned) (rigVars r) of
            [] => pure ()
            (v :: _) => throw (GenericMsg fc ("The quantity variable " ++ show v
                          ++ " is not bound here: quantity variables can only be"

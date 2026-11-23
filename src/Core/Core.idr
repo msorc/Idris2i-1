@@ -80,6 +80,24 @@ Eq UnifyOrder where
 public export
 data Error : Type
 
+||| (Experimental) Why a quantity variable got its quantity at a reference
+||| (see TTImp.Elab.App.instantiateQuantities)
+public export
+data QuantityReason
+    = QWritten               -- `f {%q = 1}`
+    | QFromExpected          -- the expected type
+    | QFromArgument Nat      -- the type of the explicit argument (from 1)
+    | QFromBinder Name       -- the quantity a local variable given is bound at
+    | QByDefault             -- nothing said otherwise: omega
+
+||| (Experimental) The quantity chosen for a quantity variable at a reference
+public export
+record QuantityChoice where
+  constructor MkQuantityChoice
+  chVar : QuantityVar
+  chRig : RigCount
+  chWhy : QuantityReason
+
 public export
 data Warning : Type where
      ParserWarning : FC -> String -> Warning
@@ -266,6 +284,9 @@ data Error : Type where
      InRHS : FC -> Name -> Error -> Error
 
      MaybeMisspelling : Error -> List1 String -> Error
+     ||| (Experimental) An error in an application of a function whose
+     ||| quantity variables were given these quantities
+     QuantitiesChosen : FC -> Name -> List QuantityChoice -> Error -> Error
      WarningAsError : Warning -> Error
 
 %name Error err
@@ -486,6 +507,7 @@ Show Error where
        = show err ++ "\nDid you mean" ++ case ns of
            (n ::: []) => ": " ++ n ++ "?"
            _ => " any of: " ++ showSep ", " (map show (forget ns)) ++ "?"
+  show (QuantitiesChosen _ n _ err) = show err ++ "\n(quantities of " ++ show n ++ " chosen)"
   show (WarningAsError w) = show w
   show (OperatorBindingMismatch fc (DeclaredFixity expected) actual opName rhs _)
        = show fc ++ ": Operator " ++ show opName ++ " is " ++ show expected
@@ -593,6 +615,7 @@ getErrorLoc (FailingWrongError loc _ _) = Just loc
 getErrorLoc (InLHS _ _ err) = getErrorLoc err
 getErrorLoc (InRHS _ _ err) = getErrorLoc err
 getErrorLoc (MaybeMisspelling err _) = getErrorLoc err
+getErrorLoc (QuantitiesChosen _ _ _ err) = getErrorLoc err
 getErrorLoc (WarningAsError warn) = Just (getWarningLoc warn)
 getErrorLoc (OperatorBindingMismatch loc _ _ _ _ _) = Just loc
 
@@ -690,6 +713,7 @@ killErrorLoc (InCon x err) = InCon (NoFC x.val) (killErrorLoc err)
 killErrorLoc (InLHS fc x err) = InLHS emptyFC x (killErrorLoc err)
 killErrorLoc (InRHS fc x err) = InRHS emptyFC x (killErrorLoc err)
 killErrorLoc (MaybeMisspelling err xs) = MaybeMisspelling (killErrorLoc err) xs
+killErrorLoc (QuantitiesChosen fc n chs err) = QuantitiesChosen emptyFC n chs (killErrorLoc err)
 killErrorLoc (WarningAsError wrn) = WarningAsError (killWarningLoc wrn)
 killErrorLoc (OperatorBindingMismatch {print} fc expected actual opName rhs candidates)
              = OperatorBindingMismatch {print} emptyFC expected actual opName rhs candidates

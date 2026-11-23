@@ -35,7 +35,7 @@ import public Libraries.Utils.Binary
 ||| version number if you're changing the version more than once in the same day.
 export
 ttcVersion : Int
-ttcVersion = 2026_11_23_00
+ttcVersion = 2026_11_23_01
 
 ||| The version of the compiler that writes a TTC file, including the commit
 ||| it was built from. A module whose TTC was written by another compiler is

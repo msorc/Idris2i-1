@@ -45,7 +45,8 @@ interface, a lambda in another function) a variable is an error ("The
 quantity variable %q is not bound here"). Each variable belongs to the
 definition that binds it (its *owner*, the full name), so variables of two
 definitions are never equal, even if they have the same name; the messages
-name the owners when two of the same name meet. A definition with variables
+name the owners when two of the same name meet. Owners are compared as
+names, not as printed text. A definition with variables
 has the flag ``QuantityVars`` (``Core.Context.Context.DefFlag``).
 
 The algebra
@@ -127,21 +128,65 @@ relies on.
 Instantiation
 =============
 
-At a reference to a definition with variables, outside the definition (and
-what is defined inside it), each variable gets a quantity:
+At a reference to a definition with variables, outside the definition
+(``TTImp.Elab.App.instantiateQuantities``), on a right hand side or in a
+type (not in a pattern), each variable gets the first quantity that applies
+of:
 
-* if the reference is not applied and its expected type is known, the
-  quantities of the expected type at the same positions of the two types,
-  as far as they have the same shape (Pi binders, after the implicit
-  arguments that will be inserted; their domains; applications), except
-  ``0``, which is never taken;
-* ω for the others (in particular for every applied reference).
+1. the one written at the reference: ``pmap {%q = 1} f xs`` (also
+   ``{%q = omega}``, ``{%q = ω}``, or a variable of the enclosing
+   definition, ``{%q = %r}``; ``0`` is an error);
+2. the expected type. For a reference that is not applied, the quantities
+   of the expected type at the same positions of the two types, as far as
+   they have the same shape (Pi binders, after the implicit arguments that
+   will be inserted; their domains; applications). For an application, the
+   same with what is left of the function's type after the explicit
+   arguments given, against the expected type of the application;
+3. the explicit arguments, from left to right, as far as they tell without
+   being elaborated:
+
+   * a local variable given for an argument whose quantity is the variable
+     (``(%q xs : LList a)``) gives the quantity it is bound at, if that is
+     ``1`` or a product of variables (an unrestricted variable fits any
+     quantity, so it says nothing);
+   * a local variable, or a global without quantity variables, given for
+     an argument of function type gives the quantities of its own type at
+     the same positions (``pmap value ts`` with
+     ``value : (1 _ : Token) -> Nat``);
+   * a lambda whose binder has a written quantity (``\1 x => ...``) gives
+     it to an argument of function type;
+
+4. ω.
+
+``0`` is never taken. The first quantity found for a variable wins, and
+nothing checks that it fits the rest: a wrong choice is found by the checks
+that follow, which can only reject. When an error happens in the
+application, the message says what was chosen and why ("The quantities of
+pmap were chosen as %q = 1 (because ts is bound at that quantity)"),
+and how to write another choice. The error keeps the code of the error
+inside it.
+
+Programs that get ω and must write the quantity are those where nothing
+of 1.-3. tells and a linear value is passed, for example a linear list
+given as an application and a lambda without a quantity::
+
+    noInfo : (1 ts : LList Token) -> LList Nat
+    noInfo ts = pmap (\t => value t) (lreverse [] ts)   -- rejected
+    ok     ts = pmap {%q = 1} (\t => value t) (lreverse [] ts)
 
 There are no quantity metavariables and unification is unchanged. The
-reference is elaborated as ``let f' : T' = f in f'``, where ``T'`` is the
-type of ``f`` with the chosen quantities, so that ``LinearCheck`` checks
-the uses of ``f'`` against ``T'``, as elaboration did. Inside its own
-definition the variables are rigid: a recursive call uses them as they are.
+reference is elaborated as ``let qinst : T' = f in qinst``, where ``T'`` is
+the type of ``f`` with the chosen quantities, so that ``LinearCheck``
+checks the uses of ``qinst`` against ``T'``, as elaboration did; it is
+printed as ``f``. Inside its own definition the variables are rigid: a
+recursive call uses them as they are, and writing quantities there is an
+error. "Inside" means: the definition is in the stack of definitions being
+elaborated (``defsStack``), or a variable of the environment of the
+reference is bound at one of its variables (which can only happen in what
+the definition's own clauses bind).
+
+A local function (in a ``where`` block or a ``let``) can have quantity
+variables of its own; references to it are instantiated by the same rule.
 
 Why this cannot accept an ill-typed program
 ===========================================
@@ -183,7 +228,9 @@ here).
   code, not what it computes.
 * Unification: two quantities are equal only if they are equal under every
   σ, so no conversion holds symbolically that fails under some σ.
-* Instantiation: the type ``T'`` given to ``f'`` is ``T`` with the chosen
+* Instantiation: whatever rule chooses them (written, from the expected
+  type, from the arguments, by default), the type ``T'`` given to
+  ``qinst`` is ``T`` with the chosen
   quantities, which are ``1``, ω or products of the caller's variables. The
   definition of ``f`` was accepted with its variables rigid, so (by this
   claim, for ``f``) it is well typed for every choice of ``1`` or ω for
@@ -204,25 +251,19 @@ What is not covered
   (every use of ``isLinear``, now ``isOne`` or ``isCounted``, of
   ``elimSemi``, ``branchOne``, ``branchVal``, ``<``, ``glb`` and ``lub`` on
   quantities). A test of a quantity that was missed would be a hole.
-* Owners are compared by the printed full name of the definition. Two
-  different definitions that print the same would share variables.
-  Definitions with machine-generated names (in ``where`` blocks, case
-  blocks) are not known to collide, but this was not proved.
 * "Inside the definition" is decided by the stack of definitions being
-  elaborated (``defsStack``). Something elaborated for the definition later,
-  outside that stack, would instantiate the definition's own variables (at
-  ω); that can only reject.
+  elaborated and by the environment. Something elaborated for the
+  definition later, outside that stack and without its variables in its
+  environment, would instantiate the definition's own variables; that can
+  only reject.
 * Holes: the types of holes are updated with counted variables as they are
   with linear ones; a program with holes does not run.
 * The Scheme evaluator (``Core.SchemeEval``) carries products as strings
   and was not tested with them.
 * Interface methods, data types and records with variables are not
-  supported (they are rejected). A local function (in a ``where`` block)
-  with variables of its own is accepted, but references to it are never
-  instantiated: its variables stay rigid where it is used, which can only
-  reject. References that do not go through the elaboration of a name
-  (a solution found by ``%search``, for one) are not instantiated either,
-  with the same effect.
+  supported (they are rejected). References that do not go through the
+  elaboration of a name (a solution found by ``%search``, for one) are not
+  instantiated: the variables stay rigid there, which can only reject.
 * Reflection: ``Count`` has no variables; reflecting a quantity variable is
   an error ("Can't reflect the quantity %q"), so ``Elab`` scripts cannot
   observe or make one.

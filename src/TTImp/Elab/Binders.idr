@@ -292,4 +292,5 @@ checkLet rigc_in elabinfo nest env fc lhsFC rigl n nTy nVal scope expty {vars}
     linearErr (InCon _ e) = linearErr e
     linearErr (InLHS _ _ e) = linearErr e
     linearErr (InRHS _ _ e) = linearErr e
+    linearErr (QuantitiesChosen _ _ _ e) = linearErr e
     linearErr _ = Nothing

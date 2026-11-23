@@ -136,6 +136,7 @@ errorCode (InCon _ err) = errorCode err
 errorCode (InLHS _ _ err) = errorCode err
 errorCode (InRHS _ _ err) = errorCode err
 errorCode (MaybeMisspelling err _) = errorCode err
+errorCode (QuantitiesChosen _ _ _ err) = errorCode err
 errorCode (WarningAsError wrn) = warningCode wrn
 
 -- (a warning that reports an error has the code of the error)

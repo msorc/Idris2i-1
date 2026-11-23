@@ -217,6 +217,7 @@ recoverable (WhenUnifying _ _ _ _ _ _ _ err) = recoverable err
 -- retrying it (at every level of nested delayed elaborators, as in a long
 -- `do` block) only repeats the failure
 recoverable (MaybeMisspelling err _) = recoverable err
+recoverable (QuantitiesChosen _ _ _ err) = recoverable err
 recoverable _ = pure True
 
 data RetryError

@@ -165,88 +165,203 @@ isHole _ = False
 
 -- (Experimental) Quantity variables.  A reference to a definition whose
 -- type has quantity variables (flag QuantityVars) chooses a quantity for
--- each, from the expected type if the reference is not applied and the
--- expected type is known: the quantities at the same positions of the two
--- types, as far as they have the same shape.  The others are omega.  A
--- variable is never chosen to be 0 (a 0 in the expected type is not
--- taken), so the arguments that are erased stay the same.  In the
--- definition itself, and in what is defined inside it (its case blocks,
--- its where blocks), the variables are rigid: no choice is made.
+-- each, the first that applies of:
+--   1. written at the reference, `f {%q = 1}`;
+--   2. the expected type: for an unapplied reference, the quantities of the
+--      expected type at the same positions of the two types (as far as they
+--      have the same shape); for an application, the same with the type of
+--      the result, after the explicit arguments given;
+--   3. the explicit arguments, from left to right, where they are
+--      determinate without elaborating them: a local variable given for an
+--      argument whose quantity is the variable gives the quantity it is
+--      bound at (if 1 or a product of variables); a local variable or a
+--      global without quantity variables, of known type, gives the
+--      quantities of its type at the positions of the argument's type; a
+--      lambda whose binder has a written quantity (1 or a variable) gives
+--      it to an argument of function type;
+--   4. omega.
+-- A variable is never chosen to be 0 (a 0 is not taken), so the arguments
+-- that are erased stay the same.  In the definition itself, and in what is
+-- defined inside it (its case blocks, its where blocks: those in the stack
+-- of definitions being elaborated, or whose environment mentions the
+-- variables), the variables are rigid: no choice is made.
 --
--- The reference becomes `let f' : T' = f in f'`, where T' is the type of
--- `f` with the chosen quantities, so that the checks after elaboration
+-- The reference becomes `let qinst : T' = f in qinst`, where T' is the type
+-- of `f` with the chosen quantities, so that the checks after elaboration
 -- (LinearCheck) see the same type as elaboration does.
 --
 -- A wrong choice can only reject a program: every check after it is made
--- on the type with the chosen quantities.
+-- on the type with the chosen quantities.  The choices are returned, to
+-- explain an error.
 instantiateQuantities : {vars : _} ->
                         {auto c : Ref Ctxt Defs} ->
                         {auto u : Ref UST UState} ->
                         ElabInfo -> Env Term vars -> FC ->
-                        (applied : Bool) -> Maybe (Glued vars) ->
-                        Term vars -> Glued vars -> Core (Term vars, Glued vars)
-instantiateQuantities elabinfo env fc applied exp tm@(Ref _ _ n) gty
+                        (expargs : List RawImp) ->
+                        (written : List (String, RigCount)) ->
+                        Maybe (Glued vars) ->
+                        Term vars -> Glued vars ->
+                        Core (Term vars, Glued vars, Maybe (Name, List QuantityChoice))
+instantiateQuantities elabinfo env fc expargs written exp tm gty
     = do defs <- get Ctxt
+         let (Ref _ _ n, _) = getFnArgs tm
+             | _ => noneWritten
          Just gdef <- lookupCtxtExact n (gamma defs)
-              | Nothing => pure (tm, gty)
+              | Nothing => noneWritten
          case quantityVarsOf (flags gdef) of
-              (v :: vs) =>
-                 if inOwnDefinition (qvOwner v) (defsStack defs) || not (isExpr (elabMode elabinfo))
-                    then pure (tm, gty)
-                    else do let qvs = v :: vs
-                            ty <- getTerm gty
-                            choice <- the (Core (List (QuantityVar, RigCount))) $
-                                        case (applied, exp) of
-                                             (False, Just e) => chooseFrom defs qvs ty !(getTerm e)
-                                             _ => pure []
+              qvs@(v :: _) =>
+                 if inOwnDefinition (qvOwner v) (defsStack defs)
+                       || mentioned qvs || not (inScope (elabMode elabinfo))
+                    then do unless (null written) $
+                              throw (GenericMsg fc ("The quantities of " ++ show (fullname gdef)
+                                 ++ " can't be written here: its quantity variables are rigid in its own definition"))
+                            pure (tm, gty, Nothing)
+                    else do ty <- getTerm gty
+                            wr <- traverse (checkWritten (fullname gdef) qvs) written
+                            fromExp <- maybe (pure []) (\e => fromExpected defs qvs ty !(getTerm e)) exp
+                            fromArgs <- fromArguments defs qvs !(nf defs env ty) expargs 1
+                            let choices = foldl addChoice [] (wr ++ fromExp ++ fromArgs)
+                            let choices' = map (\q => fromMaybe (MkQuantityChoice q top QByDefault)
+                                                         (find (\ch => chVar ch == q) choices)) qvs
                             let pick : QuantityVar -> Maybe RigCount
-                                = \q => Just (fromMaybe top (lookup q choice))
+                                = \q => Just (fromMaybe top (chRig <$> find (\ch => chVar ch == q) choices'))
                             let ty' = substQuantities pick ty
                             logTerm "elab.quantity" 5 "Quantities chosen" ty'
-                            pn <- genVarName "inst"
-                            pure (Bind fc pn (Let fc top tm ty') (Local fc (Just True) _ First),
-                                  gnf env ty')
-              _ => pure (tm, gty)
+                            pure (Bind fc (MN "qinst" 0) (Let fc top tm ty') (Local fc (Just True) _ First),
+                                  gnf env ty', Just (fullname gdef, choices'))
+              _ => noneWritten
   where
-    isExpr : ElabMode -> Bool
-    isExpr InExpr = True
-    isExpr _ = False
+    noneWritten : Core (Term vars, Glued vars, Maybe (Name, List QuantityChoice))
+    noneWritten
+        = do unless (null written) $
+               throw (GenericMsg fc "Only a function with quantity variables can be given quantities")
+             pure (tm, gty, Nothing)
 
-    inOwnDefinition : String -> SnocList Name -> Bool
-    inOwnDefinition o ns = any (\d => show d == o) (ns <>> [])
+    -- On the right hand side and in types (where any choice is fine: types
+    -- are erased), not in patterns or transformation rules
+    inScope : ElabMode -> Bool
+    inScope InExpr = True
+    inScope InType = True
+    inScope _ = False
 
-    -- The quantities of the expected type at the positions of the
-    -- variables of `f`'s type
+    inOwnDefinition : Name -> SnocList Name -> Bool
+    inOwnDefinition o ns = any (== o) (ns <>> [])
+
+    -- a variable of the environment is bound at one of them (only the
+    -- definition's own clauses bind variables there; the quantities of the
+    -- binders only, to be cheap: the stack of definitions covers the rest)
+    mentioned : List QuantityVar -> Bool
+    mentioned qvs = go env
+      where
+        go : forall vs . Env Term vs -> Bool
+        go [] = False
+        go (b :: bs)
+            = any (\q => elem q qvs) (rigVars (multiplicity b)) || go bs
+
+    addChoice : List QuantityChoice -> QuantityChoice -> List QuantityChoice
+    addChoice acc ch = if any (\c => chVar c == chVar ch) acc then acc else acc ++ [ch]
+
+    checkWritten : Name -> List QuantityVar -> (String, RigCount) -> Core QuantityChoice
+    checkWritten fn qvs (x, r)
+        = do let Just q = find (\v => qvName v == x) qvs
+                 | Nothing => throw (GenericMsg fc (show fn ++ " has no quantity variable %" ++ x))
+             when (isErased r) $
+               throw (GenericMsg fc "A quantity variable can't be 0")
+             case filter (\v => qvOwner v == unowned) (rigVars r) of
+                  [] => pure ()
+                  (v :: _) => throw (GenericMsg fc ("The quantity variable " ++ show v ++ " is not bound here"))
+             pure (MkQuantityChoice q r QWritten)
+
     explicit : PiInfo t -> Bool
     explicit Explicit = True
     explicit _ = False
 
-    match : List QuantityVar -> Term vs -> Term vs -> List (QuantityVar, RigCount) -> List (QuantityVar, RigCount)
-    matchPi : List QuantityVar -> Term vs -> Term vs -> List (QuantityVar, RigCount) -> List (QuantityVar, RigCount)
+    -- The quantities of the second type at the positions of the variables
+    -- in the first
+    match : QuantityReason -> List QuantityVar -> Term vs -> Term vs -> List QuantityChoice -> List QuantityChoice
+    matchPi : QuantityReason -> List QuantityVar -> Term vs -> Term vs -> List QuantityChoice -> List QuantityChoice
     -- the implicit arguments that the elaborator will insert
-    match qvs g@(Bind _ _ (Pi _ _ pg _) scg) e acc
+    match why qvs g@(Bind _ _ (Pi _ _ pg _) scg) e acc
         = if not (explicit pg) && (case e of
                                         Bind _ _ (Pi _ _ pe _) _ => explicit pe
                                         _ => True)
-             then match qvs scg (weaken e) acc
-             else matchPi qvs g e acc
-    match qvs g e acc = matchPi qvs g e acc
+             then match why qvs scg (weaken e) acc
+             else matchPi why qvs g e acc
+    match why qvs g e acc = matchPi why qvs g e acc
 
-    matchPi qvs (Bind _ _ (Pi _ cg _ tyg) scg) (Bind _ _ (Pi _ ce _ tye) sce) acc
+    matchPi why qvs (Bind _ _ (Pi _ cg _ tyg) scg) (Bind _ _ (Pi _ ce _ tye) sce) acc
         = let acc' = case rigVars cg of
-                          [q] => if elem q qvs && not (isErased ce) && isNothing (lookup q acc)
-                                    then (q, ce) :: acc else acc
+                          [q] => if elem q qvs && not (isErased ce)
+                                    then acc ++ [MkQuantityChoice q ce why] else acc
                           _ => acc in
-              match qvs scg (compat sce) (match qvs tyg tye acc')
-    matchPi qvs (App _ fg ag) (App _ fe ae) acc = match qvs fg fe (match qvs ag ae acc)
-    matchPi qvs _ _ acc = acc
+              match why qvs scg (compat sce) (match why qvs tyg tye acc')
+    matchPi why qvs (App _ fg ag) (App _ fe ae) acc = match why qvs fg fe (match why qvs ag ae acc)
+    matchPi why qvs _ _ acc = acc
 
-    chooseFrom : Defs -> List QuantityVar -> Term vars -> Term vars -> Core (List (QuantityVar, RigCount))
-    chooseFrom defs qvs ty e
-        = do ty' <- normalisePis defs env ty
-             e' <- normalisePis defs env e
-             pure (match qvs ty' e' [])
-instantiateQuantities elabinfo env fc applied exp tm gty = pure (tm, gty)
+    -- Drop the binders of the explicit arguments given (and the implicit
+    -- ones before them), then match the rest with the expected type
+    fromExpected : Defs -> List QuantityVar -> Term vars -> Term vars -> Core (List QuantityChoice)
+    fromExpected defs qvs ty e
+        = do e' <- normalisePis defs env e
+             case e' of
+                  Meta {} => pure []
+                  _ => do rest <- dropArgs (length expargs) !(nf defs env ty)
+                          rest' <- normalisePis defs env rest
+                          pure (match QFromExpected qvs rest' e' [])
+      where
+        dropArgs : Nat -> NF vars -> Core (Term vars)
+        dropArgs Z t = quoteWithPi defs env t
+        dropArgs (S k) (NBind bfc x (Pi _ _ p _) sc)
+            = do sc' <- sc defs (toClosure defaultOpts env (Erased bfc Placeholder))
+                 dropArgs (if explicit p then k else S k) sc'
+        dropArgs _ t = quoteWithPi defs env t
+
+    localVar : Name -> Maybe (RigCount, Term vars)
+    localVar n = do MkIsDefined r lv <- defined n env
+                    pure (r, binderType (getBinder lv env))
+
+    fromArgument : Defs -> List QuantityVar -> RigCount -> Term vars -> RawImp -> Nat ->
+                   Core (List QuantityChoice)
+    fromArgument defs qvs c aty (IVar _ n) i
+        = case localVar n of
+               Just (r, lty) =>
+                  do let atRig = case rigVars c of
+                                      [q] => if elem q qvs && (isOne r || isRigVar r)
+                                                then [MkQuantityChoice q r (QFromBinder n)]
+                                                else []
+                                      _ => []
+                     lty' <- normalisePis defs env lty
+                     pure (atRig ++ match (QFromArgument i) qvs aty lty' [])
+               Nothing =>
+                  do [(_, _, gdef)] <- lookupCtxtName n (gamma defs)
+                         | _ => pure []
+                     let [] = quantityVarsOf (flags gdef)
+                         | _ => pure []
+                     gty' <- normalisePis defs env (embed (type gdef))
+                     pure (match (QFromArgument i) qvs aty gty' [])
+    fromArgument defs qvs c (Bind _ _ (Pi _ cp _ _) _) (ILam _ r _ _ _ _) i
+        = pure $ case rigVars cp of
+                      [q] => if elem q qvs && (isOne r || isRigVar r)
+                                then [MkQuantityChoice q r (QFromArgument i)]
+                                else []
+                      _ => []
+    fromArgument defs qvs c aty arg i = pure []
+
+    -- What the explicit arguments tell, without elaborating them
+    fromArguments : Defs -> List QuantityVar -> NF vars -> List RawImp -> Nat ->
+                    Core (List QuantityChoice)
+    fromArguments defs qvs (NBind bfc x (Pi _ c p aty) sc) args@(arg :: rest) i
+        = if not (explicit p)
+             then fromArguments defs qvs !(next bfc sc) args i
+             else do aty' <- normalisePis defs env !(quote defs env aty)
+                     here <- fromArgument defs qvs c aty' arg i
+                     there <- fromArguments defs qvs !(next bfc sc) rest (S i)
+                     pure (here ++ there)
+      where
+        next : FC -> (Defs -> Closure vars -> Core (NF vars)) -> Core (NF vars)
+        next bfc sc = sc defs (toClosure defaultOpts env (Erased bfc Placeholder))
+    fromArguments defs qvs _ _ i = pure []
+
 
 mutual
   makeImplicit : {vars : _} ->
@@ -906,8 +1021,8 @@ checkApp rig elabinfo nest env fc (INamedApp fc' fn nm arg) expargs autoargs nam
    = checkApp rig elabinfo nest env fc' fn expargs autoargs ((nm, arg) :: namedargs) exp
 checkApp rig elabinfo nest env fc (IVar fc' n) expargs autoargs namedargs exp
    = do (ntm, arglen, nty_in) <- getVarType elabinfo.elabMode rig nest env fc' n
-        (ntm, nty_in) <- instantiateQuantities elabinfo env fc' (not (null expargs && null autoargs && null namedargs))
-                                               exp ntm nty_in
+        let (written, namedargs) = partitionWritten namedargs
+        (ntm, nty_in, chosen) <- instantiateQuantities elabinfo env fc' expargs written exp ntm nty_in
         nty <- getNF nty_in
         prims <- getPrimitiveNames
         elabinfo <- updateElabInfo prims elabinfo.elabMode n expargs elabinfo
@@ -929,8 +1044,43 @@ checkApp rig elabinfo nest env fc (IVar fc' n) expargs autoargs namedargs exp
                                 ++ show exptyt))
         let fn = mapNestedName nest n
         normalisePrims prims env
-           !(checkAppWith rig elabinfo nest env fc ntm nty (Just fn, arglen) expargs autoargs namedargs False exp)
+           !(explainChoice chosen $
+               checkAppWith rig elabinfo nest env fc ntm nty (Just fn, arglen) expargs autoargs namedargs False exp)
   where
+    -- `{%q = 1}`: the quantity of a quantity variable, written at a
+    -- reference (the parser gives it as a Pi type with that quantity)
+    partitionWritten : List (Name, RawImp) -> (List (String, RigCount), List (Name, RawImp))
+    partitionWritten [] = ([], [])
+    partitionWritten (arg :: as)
+        = let (ws, rest) = partitionWritten as in
+              case arg of
+                   (UN (Basic x), IPi _ r _ _ _ _) =>
+                       case unpack x of
+                            ('%' :: x') => ((pack x', r) :: ws, rest)
+                            _ => (ws, arg :: rest)
+                   _ => (ws, arg :: rest)
+
+    -- An error in an application of a function whose quantities were
+    -- chosen says how they were chosen
+    explainChoice : Maybe (Name, List QuantityChoice) -> Core a -> Core a
+    explainChoice Nothing act = act
+    explainChoice (Just (fn, chs)) act
+        = catch act (\err => throw (if aboutQuantities err
+                                         then QuantitiesChosen fc fn chs err
+                                         else err))
+      where
+        -- a use of a variable at the wrong quantity, or a mismatch between
+        -- function types (which may differ in their quantities)
+        aboutQuantities : Error -> Bool
+        aboutQuantities (LinearMisuse {}) = True
+        aboutQuantities (LinearUsed {}) = True
+        aboutQuantities (CantConvert _ _ _ (Bind _ _ (Pi {}) _) (Bind _ _ (Pi {}) _)) = True
+        aboutQuantities (WhenUnifying _ _ _ _ _ _ _ err) = aboutQuantities err
+        aboutQuantities (InType _ _ err) = aboutQuantities err
+        aboutQuantities (InRHS _ _ err) = aboutQuantities err
+        aboutQuantities (AllFailed _ errs) = any (aboutQuantities . snd) errs
+        aboutQuantities _ = False
+
 
     -- If the term is an application of a primitive conversion (fromInteger etc)
     -- and it's applied to a constant, fully normalise the term.

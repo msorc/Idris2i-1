@@ -851,6 +851,7 @@ HasNames Error where
   full gam (InLHS fc n err) = InLHS fc <$> full gam n <*> full gam err
   full gam (InRHS fc n err) = InRHS fc <$> full gam n <*> full gam err
   full gam (MaybeMisspelling err xs) = MaybeMisspelling <$> full gam err <*> pure xs
+  full gam (QuantitiesChosen fc n chs err) = QuantitiesChosen fc <$> full gam n <*> pure chs <*> full gam err
   full gam (WarningAsError wrn) = WarningAsError <$> full gam wrn
   full gam (OperatorBindingMismatch {print} fc expected actual (Left opName) rhs candidates)
       = OperatorBindingMismatch {print} fc expected actual
@@ -958,6 +959,7 @@ HasNames Error where
   resolved gam (InLHS fc n err) = InLHS fc <$> resolved gam n <*> resolved gam err
   resolved gam (InRHS fc n err) = InRHS fc <$> resolved gam n <*> resolved gam err
   resolved gam (MaybeMisspelling err xs) = MaybeMisspelling <$> resolved gam err <*> pure xs
+  resolved gam (QuantitiesChosen fc n chs err) = QuantitiesChosen fc <$> resolved gam n <*> pure chs <*> resolved gam err
   resolved gam (WarningAsError wrn) = WarningAsError <$> resolved gam wrn
   resolved gam (OperatorBindingMismatch {print} fc expected actual (Left opName) rhs candidates)
       = OperatorBindingMismatch {print} fc expected actual

@@ -46,10 +46,10 @@ failing "Mismatch between: ?a -> ?a and (0 _ : Nat) -> Nat"
   atZero : (0 _ : Nat) -> Nat
   atZero = pid
 
--- Applied, a reference is at omega, so its linear argument can't be given
+-- Written unrestricted, a linear argument can't be given
 failing "Trying to use linear name x in non-linear context"
   applied : (1 x : a) -> a
-  applied x = pid x
+  applied x = pid {%q = omega} x
 
 -- The variables of a definition, when it is unfolded in a type, stay its
 -- own: rigid, and not those of the definition that uses it
