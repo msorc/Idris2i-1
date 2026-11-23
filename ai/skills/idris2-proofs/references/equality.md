@@ -185,7 +185,11 @@ The result is total (`:total treeDecEq` says so) with no assertions. Write the
 implementation as a `%hint` named function, as above: a type that contains itself
 under another type (`data Rose = R (List Rose)`) is compared through the
 implementation being defined, and without `%hint` the search for `Eq (List Rose)`
-fails. What the `DecEq` deriver rejects, with the message it gives:
+fails. An implementation is private to its module like any other definition: write
+`export %hint` before the signature (and `export` before a hand-written `DecEq T
+where`) when other modules compare values of the type; without it they fail with
+E0401 and the note "The implementation ... matches, but is not visible here". What
+the `DecEq` deriver rejects, with the message it gives:
 
 ```idris
 data Pos : Type where

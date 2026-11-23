@@ -205,22 +205,27 @@ sumBuffer buf n i acc =
   a newtype of one) is stored as a C number in its constructor's cell, so a record of
   four `Double`s is one allocation instead of five (RefC documentation, `refc-no-raw-fields`).
   Prefer these types for numeric fields over `Integer`, `Nat` or `Int32`.
-- **An as-pattern on a constructor rebuilds it.** `insert x t@(Node l y r) = ...` is
-  compiled as `let t = Node l y r` at the top of the clause, a new cell on every visit
-  whether or not the branch taken uses `t` (seen in `--dumpcases`). *Measured* on a
-  binary-tree insert of 300,000 `Int`s: about 5× the instructions and 2× the time of
-  the same function written with `case`:
+- **Keeping the value you matched stops its cell from being reused.** A function that
+  takes a constructor apart and builds the same constructor again (`Node (insert x l) y
+  r`) rewrites the cell in place when nothing else holds it (the model above). That is
+  lost when the clause keeps the whole value as well. An as-pattern `insert x t@(Node l
+  y r)` is compiled as `let t = Node l y r` at the top of the clause, a new cell on
+  every visit (seen in `--dumpcases`). Matching with `case t of` and returning `t` in
+  one branch costs the same: `t` is still referenced during the recursive call, so
+  every level allocates and counts references. *Measured* on a binary-tree insert of
+  300,000 `Int`s into a tree with one owner: both forms took 5.6× the instructions and
+  2.3× the time of the function below, which never names the whole node and rebuilds
+  it in the branch that changes nothing:
 
 ```idris
 data Tree a = Leaf | Node (Tree a) a (Tree a)
 
 insertInt : Int -> Tree Int -> Tree Int
-insertInt x t = case t of
-  Leaf => Node Leaf x Leaf
-  Node l y r => case compare x y of
-    LT => Node (insertInt x l) y r
-    GT => Node l y (insertInt x r)
-    EQ => t
+insertInt x Leaf = Node Leaf x Leaf
+insertInt x (Node l y r) = case compare x y of
+  LT => Node (insertInt x l) y r
+  GT => Node l y (insertInt x r)
+  EQ => Node l y r
 ```
 
 ## Recursion and the stack
