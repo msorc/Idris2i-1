@@ -159,7 +159,7 @@ Monad Elab where
 -----------------------------
 
 public export
-interface Monad m => Elaboration m where
+interface Monad m => Elaboration (0 m : Type -> Type) where
 
   ||| Report an error in elaboration at some location
   failAt : FC -> String -> m a

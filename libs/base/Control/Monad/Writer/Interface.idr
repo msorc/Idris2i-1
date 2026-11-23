@@ -21,7 +21,7 @@ import Control.Monad.Writer.CPS
 ||| pass lets you provide a writer transformer which changes internals of
 ||| the written object.
 public export
-interface (Monoid w, Monad m) => MonadWriter w m | m where
+interface (Monoid w, Monad m) => MonadWriter (0 w : Type) (0 m : Type -> Type) | m where
   ||| `writer (a,w)` embeds a simple writer action.
   writer : (a,w) -> m a
   writer (a, w) = tell w $> a

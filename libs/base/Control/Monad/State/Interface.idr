@@ -12,7 +12,7 @@ import Control.Monad.Writer.CPS
 
 ||| A monadic computation that has access to state.
 public export
-interface Monad m => MonadState stateType m | m where
+interface Monad m => MonadState (0 stateType : Type) (0 m : Type -> Type) | m where
     ||| Get the context
     get : m stateType
     ||| Write a new context/output

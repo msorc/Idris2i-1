@@ -12,7 +12,7 @@ import Control.Monad.Writer.CPS
 
 ||| A computation which runs in a static context and produces an output
 public export
-interface Monad m => MonadReader stateType m | m where
+interface Monad m => MonadReader (0 stateType : Type) (0 m : Type -> Type) | m where
   ||| Get the context
   ask : m stateType
 

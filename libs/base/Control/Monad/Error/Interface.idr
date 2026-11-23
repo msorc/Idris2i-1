@@ -21,7 +21,7 @@ import Control.Monad.Writer.CPS
 ||| In that case and many other common cases the resulting monad is already defined
 ||| as an instance of the 'MonadError' class.
 public export
-interface Monad m => MonadError e m | m where
+interface Monad m => MonadError (0 e : Type) (0 m : Type -> Type) | m where
   ||| Is used within a monadic computation to begin exception processing.
   throwError : e -> m a
 
