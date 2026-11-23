@@ -167,13 +167,16 @@ mutual
                pure (Local fc x idx prf, gnf env ty, used rig)
     where
       rigSafe : RigCount -> RigCount -> Core ()
-      rigSafe l r = when (l < r)
+      -- The order is partial (quantity variables): what the context needs
+      -- must be below what the binder gives
+      rigSafe l r = unless (r <= l)
                          (throw (LinearMisuse fc (nameAt prf) l r))
 
-      -- count the usage if we're in a linear context. If not, the usage doesn't
-      -- matter
+      -- count the usage if we're in a linear context (or one whose quantity
+      -- is a product of variables, which may be 1). If not, the usage
+      -- doesn't matter
       used : RigCount -> Usage vars
-      used r = if isLinear r then [MkVar prf] else []
+      used r = if isCounted r then [MkVar prf] else []
 
   lcheck rig erase env (Ref fc nt fn)
       = do logC "quantity" 15 $ do pure "lcheck Ref \{show (nt)} \{show !(toFullNames fn)}"
@@ -232,16 +235,22 @@ mutual
                                                 (setMultiplicity b linear)
                                           _ => throw err)
            -- Anything linear can't be used in the scope of a lambda, if we're
-           -- checking in general context
+           -- checking in general context.  In a context whose quantity is a
+           -- product of variables, the lambda may be used that many times,
+           -- so only what is bound at least at that quantity can be used
            let env' = if rig_in == top
                          then case b of
                               Lam {} => eraseLinear env
+                              _ => env
+                         else if isRigVar rig_in
+                         then case b of
+                              Lam {} => eraseNotAbove rig_in env
                               _ => env
                          else env
            (sc', sct, usedsc) <- lcheck rig erase (b' :: env') sc
 
            let used_in = count 0 usedsc
-           holeFound <- if not erase && isLinear (multiplicity b)
+           holeFound <- if not erase && isCounted (multiplicity b)
                            then updateHoleUsage (used_in == 0)
                                          first
                                          (map weaken (getErased env'))
@@ -250,7 +259,7 @@ mutual
 
            -- if there's a hole, assume it will contain the missing usage
            -- if there is none already
-           let used = if isLinear ((multiplicity b) |*| rig) &&
+           let used = if isCounted ((multiplicity b) |*| rig) &&
                          holeFound && used_in == 0
                          then 1
                          else used_in
@@ -272,7 +281,7 @@ mutual
                          else linear
 
       checkUsageOK : Nat -> RigCount -> Core ()
-      checkUsageOK used r = when (isLinear r && used /= 1)
+      checkUsageOK used r = when (isCounted r && used /= 1)
                                  (throw (LinearUsed fc used nm))
 
   lcheck rig erase env (App fc f a)
@@ -447,7 +456,7 @@ mutual
       getCaseUsage ty env (As _ _ _ p :: args) used rhs
           = getCaseUsage ty env (p :: args) used rhs
       getCaseUsage (Bind _ n (Pi _ rig _ ty) sc) env (arg :: args) used rhs
-          = if isLinear rig
+          = if isCounted rig
                then case arg of
                          (Local _ _ idx p) =>
                            do rest <- getCaseUsage sc env args used rhs
@@ -472,7 +481,7 @@ mutual
 
       checkUsageOK : FC -> Nat -> Name -> Bool -> RigCount -> Core ()
       checkUsageOK fc used nm isloc rig
-          = when (isLinear rig && ((isloc && used > 1) || (not isloc && used /= 1)))
+          = when (isCounted rig && ((isloc && used > 1) || (not isloc && used /= 1)))
                  (throw (LinearUsed fc used nm))
 
       -- Is the variable one of the lhs arguments; i.e. do we treat it as
@@ -499,10 +508,10 @@ mutual
           = do let pos = mkVarChiply s
                let used_in = count (varIdx pos) usage
 
-               holeFound <- if isLinear (multiplicity b)
+               holeFound <- if isCounted (multiplicity b)
                                then updateHoleUsage (used_in == 0) pos [] tm
                                else pure False
-               let used = if isLinear ((multiplicity b) |*| rig) &&
+               let used = if isCounted ((multiplicity b) |*| rig) &&
                              holeFound && used_in == 0
                              then 1
                              else used_in
@@ -602,7 +611,7 @@ mutual
       updateUsage _ ty = ty
 
       rigSafe : RigCount -> RigCount -> Core ()
-      rigSafe a b = when (a < b)
+      rigSafe a b = unless (b <= a)
                          (throw (LinearMisuse fc !(getFullName n) a b))
 
   expandMeta : {vars : _} ->
@@ -672,10 +681,10 @@ checkEnvUsage fc s rig {vars = nm :: xs} (b :: env) usage tm
     = do let pos = mkVarChiply s
          let used_in = count (varIdx pos) usage
 
-         holeFound <- if isLinear (multiplicity b)
+         holeFound <- if isCounted (multiplicity b)
                          then updateHoleUsage (used_in == 0) pos [] tm
                          else pure False
-         let used = if isLinear ((multiplicity b) |*| rig) &&
+         let used = if isCounted ((multiplicity b) |*| rig) &&
                        holeFound && used_in == 0
                        then 1
                        else used_in
@@ -683,7 +692,7 @@ checkEnvUsage fc s rig {vars = nm :: xs} (b :: env) usage tm
          checkEnvUsage fc (s :< nm) rig env usage tm
   where
     checkUsageOK : Nat -> RigCount -> Core ()
-    checkUsageOK used r = when (isLinear r && used /= 1)
+    checkUsageOK used r = when (isCounted r && used /= 1)
                                (throw (LinearUsed fc used nm))
 
 -- Linearity check an elaborated term. If 'erase' is set, erase anything that's in

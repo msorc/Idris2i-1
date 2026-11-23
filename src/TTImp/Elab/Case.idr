@@ -281,7 +281,7 @@ caseBlock {vars} rigc elabinfo fc nest env opts scr scrtm scrty caseRig alts exp
     mkLocalEnv : Env Term vs -> Env Term vs
     mkLocalEnv [] = Env.empty
     mkLocalEnv (b :: bs)
-        = let b' = if isLinear (multiplicity b)
+        = let b' = if isCounted (multiplicity b)
                       then setMultiplicity b erased
                       else b in
               b' :: mkLocalEnv bs
@@ -403,13 +403,14 @@ checkCase rig elabinfo nest env fc opts scr scrty_in alts exp
               (do c <- runDelays (const True) $ check chrig elabinfo nest env scr (Just (gnf env scrtyv))
                   pure (fst c, snd c, chrig))
             $ \case
+                -- a variable bound at 1, or at a product of quantity
+                -- variables: the scrutinee is checked at that quantity
                 e@(LinearMisuse _ _ r _)
-                  => branchOne
-                     (do c <- runDelays (const True) $ check linear elabinfo nest env scr
-                              (Just (gnf env scrtyv))
-                         pure (fst c, snd c, linear))
-                     (throw e)
-                     r
+                  => if isCounted r
+                        then do c <- runDelays (const True) $ check r elabinfo nest env scr
+                                       (Just (gnf env scrtyv))
+                                pure (fst c, snd c, r)
+                        else throw e
                 e => throw e
 
            scrty <- getTerm gscrty

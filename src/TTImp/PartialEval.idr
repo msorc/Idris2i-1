@@ -107,7 +107,11 @@ namespace SpecKey
   constKind WorldVal = 14
 
   keyRig : Int -> RigCount -> Int
-  keyRig h = elimSemi (mixKey h 0) (mixKey h 1) (const $ mixKey h 2)
+  keyRig h r = case rigView r of
+                    ViewZero => mixKey h 0
+                    ViewOne => mixKey h 1
+                    ViewOmega => mixKey h 2
+                    ViewVars vs => mixKey h (3 + cast (length vs))
 
   mutual
     keyPi : Int -> PiInfo (Term vs) -> Int

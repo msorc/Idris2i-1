@@ -912,7 +912,7 @@ convertUnordered = convertWithLazy False Unordered
 -- uses the eta-expanded term.
 relaxLinearPis : Term vs -> Term vs -> Maybe (Nat, Term vs)
 relaxLinearPis (Bind fc x (Pi pfc cg pig tyg) scg) (Bind _ _ (Pi _ ce _ _) sce)
-    = let relaxHere = isLinear cg && ce == top
+    = let relaxHere = isOne cg && ce == top
           cg' = if relaxHere then ce else cg in
           case relaxLinearPis scg (compat sce) of
                Just (k, scg') => Just (S k, Bind fc x (Pi pfc cg' pig tyg) scg')

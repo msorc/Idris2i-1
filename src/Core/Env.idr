@@ -55,13 +55,25 @@ namesNoLet [] = []
 namesNoLet (Let _ _ _ _ :: xs) = namesNoLet xs
 namesNoLet {xs = x :: _} (_ :: env) = x :: namesNoLet env
 
+||| Make what must be used exactly once (bound at 1, or at a product of
+||| quantity variables) unusable
 export
 eraseLinear : Env tm vs -> Env tm vs
 eraseLinear [] = Env.empty
 eraseLinear (b :: bs)
-    = if isLinear (multiplicity b)
+    = if isCounted (multiplicity b)
          then setMultiplicity b erased :: eraseLinear bs
          else b :: eraseLinear bs
+
+||| Make what is not bound at least at the given quantity unusable (for the
+||| scope of a lambda that may be used that many times)
+export
+eraseNotAbove : RigCount -> Env tm vs -> Env tm vs
+eraseNotAbove r [] = Env.empty
+eraseNotAbove r (b :: bs)
+    = if r <= multiplicity b
+         then b :: eraseNotAbove r bs
+         else setMultiplicity b erased :: eraseNotAbove r bs
 
 export
 getErased : {0 vs : _} -> Env tm vs -> List (Var vs)

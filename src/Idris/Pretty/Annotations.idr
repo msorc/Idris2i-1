@@ -105,4 +105,5 @@ export
 prettyRig : RigCount -> Doc IdrisSyntax
 prettyRig = elimSemi (keyword (pretty0 '0') <+> space)
                      (keyword (pretty0 '1') <+> space)
-                     (const emptyDoc)
+                     (\r => maybe emptyDoc (\s => keyword (pretty0 s) <+> space)
+                                  (showVarsCount r))

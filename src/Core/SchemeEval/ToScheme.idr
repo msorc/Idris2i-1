@@ -3,6 +3,9 @@ module Core.SchemeEval.ToScheme
 import Core.TT
 import Libraries.Utils.Scheme
 
+import Data.List1
+import Data.String
+
 export
 Scheme Namespace where
   toScheme x = toScheme (unsafeUnfoldNamespace x)
@@ -92,12 +95,22 @@ Scheme LazyReason where
 export
 Scheme RigCount where
   toScheme x
-      = if isErased x then IntegerVal 0
-        else if isLinear x then IntegerVal 1
-        else IntegerVal 2
+      = case rigView x of
+             ViewZero => IntegerVal 0
+             ViewOne => IntegerVal 1
+             ViewOmega => IntegerVal 2
+             ViewVars vs => StringVal (concatMap (\v => qvOwner v ++ "\0" ++ qvName v ++ "\0") vs)
 
   fromScheme (IntegerVal 0) = Just erased
   fromScheme (IntegerVal 1) = Just linear
+  fromScheme (StringVal s) = Just (rigVarsProduct (pairs (split (== '\0') s)))
+    where
+      pairs : List1 String -> List QuantityVar
+      pairs ss = go (forget ss)
+        where
+          go : List String -> List QuantityVar
+          go (o :: n :: rest) = MkQuantityVar o n :: go rest
+          go _ = []
   fromScheme _ = Just top
 
 export

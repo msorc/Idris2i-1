@@ -314,6 +314,32 @@ pragma n =
       Pragma s => guard (s == n)
       _ => Nothing
 
+-- The pragmas of the language, which are not quantity variables
+reservedPragmas : List String
+reservedPragmas
+    = ["allow_overloads", "ambiguity_depth", "auto_implicit_depth", "auto_lazy",
+       "builtin", "charLit", "chaser", "declsLit", "default", "defaulthint",
+       "deprecate", "doubleLit", "export", "extern", "foreign", "foreign_impl",
+       "globalhint", "hide", "hide_export", "hint", "inline", "integerLit",
+       "language", "logging", "macro", "name", "nameLit", "nf_metavar_threshold",
+       "noinline", "nomangle", "pair", "prefix_record_projections", "rewrite",
+       "runElab", "search", "search_timeout", "spec", "start", "stringLit",
+       "syntactic", "tcinline", "totality_depth", "transform", "unbound_implicits",
+       "unhide", "unsafe", "delay", "force", "lam"]
+
+||| (Experimental) A quantity variable, `%q`: a pragma token whose name
+||| starts with a lower case letter and is not one of the language's pragmas
+export
+quantityVariable : Rule String
+quantityVariable =
+  terminal "Expected a quantity variable" $
+    \case
+      Pragma s => case strM s of
+                       StrCons c _ => if isLower c && not (s `elem` reservedPragmas)
+                                         then Just s else Nothing
+                       StrNil => Nothing
+      _ => Nothing
+
 export
 cgDirective : Rule String
 cgDirective =

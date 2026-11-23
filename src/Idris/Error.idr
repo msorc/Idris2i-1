@@ -1586,15 +1586,19 @@ perrorRaw (LinearMisuse fc n exp ctx)
                 <++> code (pretty0 (sugarName n)) <++> "in" <++> prettyRel ctx <++> "context.")
                 <+> line <+> !(ploc fc)
   where
+    -- quantity variables with their owners if two of the same name meet
+    vars : RigCount -> Maybe String
+    vars r = if clashingVars exp ctx then showVarsCountOwned r else showVarsCount r
+
     prettyRig : RigCount -> Doc ann
     prettyRig = elimSemi "irrelevant"
                          "linear"
-                         (const "unrestricted")
+                         (\r => maybe "unrestricted" pretty0 (vars r))
 
     prettyRel : RigCount -> Doc ann
     prettyRel = elimSemi "irrelevant"
                          "relevant"
-                         (const "non-linear")
+                         (\r => maybe "non-linear" pretty0 (vars r))
 perrorRaw (BorrowPartial fc env tm arg)
     = pure $ errorDesc (code !(pshow env tm) <++> reflow "borrows argument" <++> code !(pshow env arg)
         <++> reflow "so must be fully applied.")

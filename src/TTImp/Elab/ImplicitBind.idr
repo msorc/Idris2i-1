@@ -482,9 +482,10 @@ checkBindVar rig elabinfo nest env fc nm topexp
              else (bn, r) :: updateRig n c bs
 
     -- Two variables are incompatble if at least one of them appears in a linear position
-    -- and their sum is bigger than 1
+    -- (or one whose quantity is a product of variables) and their sum is
+    -- bigger than 1 (two uses that are not 0 add up to omega)
     isIncompatible : RigCount -> RigCount -> Bool
-    isIncompatible l r = (isLinear l || isLinear r) && linear < l |+| r
+    isIncompatible l r = (isCounted l || isCounted r) && l |+| r == top
 
     combine : Name -> RigCount -> RigCount -> Core ()
     combine n l r = when (isIncompatible l r)

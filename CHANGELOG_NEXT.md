@@ -121,6 +121,21 @@ should target this file (`CHANGELOG_NEXT`).
   ambiguous.  See "Linear functions where unrestricted ones are expected" in
   `docs/source/tutorial/multiplicities.rst`.
 
+* (Experimental) Quantity variables: `%q` in the type signature of a
+  function stands for 1 or unrestricted (never 0), so one function serves
+  linear and unrestricted callers:
+  `map : ((%q _ : a) -> b) -> (%q xs : LList a) -> LList b`.  A reference
+  to the function takes the quantities of its expected type when that is a
+  known function type (`mapLin : ((1 _ : a) -> b) -> (1 _ : LList a) -> LList b`,
+  `mapLin = map`), and unrestricted otherwise (an applied `map f xs`).  A
+  `%q`-bound variable is used exactly once; it can't be given to a `1` or to
+  an unrestricted argument.  Not in data types, records, interfaces or
+  reflection (`Count` has no variables).  The rules, and why they accept no
+  program that is ill-typed for some choice of the variables, are in
+  `docs/source/implementation/quantity-variables.rst`.  TTC files change
+  (version bumped); `isLinear` of `Algebra.Semiring` is now `isOne`, next
+  to `isCounted`.
+
 * "Can't find an implementation for G." says why.  When an implementation
   matched but needs a constraint that fails, the message names it by its
   type and where it is defined, and gives the chain of constraints down to

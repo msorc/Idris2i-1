@@ -23,3 +23,4 @@ debugging and future contributions.
    overview
    ide-protocol
    error-messages
+   quantity-variables

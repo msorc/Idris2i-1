@@ -127,10 +127,13 @@ Hashable Name where
 
 export
 Hashable RigCount where
-  hashWithSalt h = elimSemi
-                     (hashWithSalt h 0)
-                     (hashWithSalt h 1)
-                     (const $ hashWithSalt h 2)
+  hashWithSalt h r
+      = case rigView r of
+             ViewZero => hashWithSalt h 0
+             ViewOne => hashWithSalt h 1
+             ViewOmega => hashWithSalt h 2
+             ViewVars vs => foldl (\h', v => h' `hashWithSalt` qvOwner v `hashWithSalt` qvName v)
+                                  (hashWithSalt h 3) vs
 
 export
 Hashable t => Hashable (PiInfo t) where

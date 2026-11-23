@@ -37,9 +37,11 @@ export
 isErased : (Semiring a, Eq a) => a -> Bool
 isErased = elimSemi True False (const False)
 
+||| Exactly 1.  A quantity variable is not 1 (see `isCounted` in
+||| Algebra.ZeroOneOmega for the variables that must be used once).
 export
-isLinear : (Semiring a, Eq a) => a -> Bool
-isLinear = elimSemi False True (const False)
+isOne : (Semiring a, Eq a) => a -> Bool
+isOne = elimSemi False True (const False)
 
 export
 isRigOther : (Semiring a, Eq a) => a -> Bool
@@ -51,7 +53,7 @@ branchZero yes no rig = if isErased rig then yes else no
 
 export
 branchOne : (Semiring a, Eq a) => Lazy b -> Lazy b -> a -> b
-branchOne yes no rig = if isLinear rig then yes else no
+branchOne yes no rig = if isOne rig then yes else no
 
 export
 branchVal : (Semiring a, Eq a) => Lazy b -> Lazy b -> a -> b

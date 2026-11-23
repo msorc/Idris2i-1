@@ -121,6 +121,7 @@ knownTopics = [
     ("elab.interface.default", Nothing),
     ("elab.linear", Just "Eta-expanding a function with linear arguments where unrestricted ones are expected."),
     ("elab.local", Nothing),
+    ("elab.quantity", Just "(Experimental) The quantities chosen for the quantity variables of a definition at a reference to it."),
     ("elab.prune", Nothing),
     ("elab.record", Nothing),
     ("elab.retry", Nothing),

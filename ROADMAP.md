@@ -135,11 +135,25 @@ unless they say otherwise.
   `map lcons xs` fails unless the result type of the function is given
   (`map {b = ...}`). Doing better needs either quantity variables or a
   postponed coercion; unification stays strict.
-* Quantities: there are no quantity variables, so a higher-order function
-  over a type with linear fields needs one copy for linear function
-  arguments and one for unrestricted ones (`map`, `foldr`, ... in
-  `tests/idris2/linear/linear022`), and the mirror types of `libs/linear`
-  (`LList`, `LMaybe`, `LEither`, ...) stay.
+* Quantities: without quantity variables (experimental, below) a
+  higher-order function over a type with linear fields needs one copy for
+  linear function arguments and one for unrestricted ones (`map`, `foldr`,
+  ... in `tests/idris2/linear/linear022`); `tests/idris2/linear/linear023`
+  writes `map` once with `%q`. The mirror types of `libs/linear` (`LList`,
+  `LMaybe`, `LEither`, ...) and the linear copies of interface methods
+  (`Functor`, `Bifunctor`, `HasIO`) stay.
+* Quantity variables (`%q`, experimental) are chosen only from the expected
+  type of an unapplied reference; an applied one is at omega, so a linear
+  caller of `map f xs` must write `(the (...) map) f xs`. No variables in
+  data types, records, interfaces (so no `Functor` over quantities),
+  local functions of their own, or reflection; the `Preorder` proofs for
+  products are postulated. Products of variables print as `%q*%r` and
+  can't be written.
+* The quantities of the fields of `List`, `Maybe`, `Pair`, ... are
+  unrestricted, which is why `libs/linear` has `LList`, `LMaybe`, `LPair`,
+  ...: with linear fields an unrestricted value behaves the same. Making
+  `List`'s fields linear needs 4 changes in `prelude` and `base` (two
+  `foldr (::) []`, an idiom bracket over `(::)`, `Biinjective (::)`).
 * A `case` whose scrutinee is an application of an overloaded name is not
   retried at quantity 1 when it fails at the unrestricted quantity, so
   matching the result of a linear function that shares a name with a

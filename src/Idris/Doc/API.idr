@@ -108,7 +108,7 @@ modifiers def
       ++ (if Context.Deprecate `elem` flags def then ["deprecated"] else [])
 
 showRig : RigCount -> String
-showRig = elimSemi "0 " "1 " (const "")
+showRig = showCount
 
 typeOf : {auto c : Ref Ctxt Defs} ->
          {auto s : Ref Syn SyntaxInfo} ->

@@ -353,13 +353,13 @@ Show Error where
        showRig = elimSemi
          "irrelevant"
          "linear"
-         (const "unrestricted")
+         (\r => maybe "unrestricted" id (showVarsCount r))
 
        showRel : RigCount -> String
        showRel = elimSemi
          "irrelevant"
          "relevant"
-         (const "non-linear")
+         (\r => maybe "non-linear" id (showVarsCount r))
   show (BorrowPartial fc env t arg)
       = show fc ++ ":" ++ show t ++ " borrows argument " ++ show arg ++
                    " so must be fully applied"

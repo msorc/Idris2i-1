@@ -831,12 +831,17 @@ mutual
        (withWarning "DEPRECATED: trailing lambda. Use a $ or parens"
           (lam fname indents))
 
+  -- 0, 1, nothing (omega), or (experimental) a quantity variable `%q`,
+  -- which the type signature of a function binds (see
+  -- TTImp.ProcessType.bindQuantityVars)
   multiplicity : OriginDesc -> EmptyRule RigCount
   multiplicity fname
       = case !(optional $ decorate fname Keyword intLit) of
           (Just 0) => pure erased
           (Just 1) => pure linear
-          Nothing => pure top
+          Nothing => do Just v <- optional (decorate fname Keyword quantityVariable)
+                          | Nothing => pure top
+                        pure (rigVar (MkQuantityVar "" v))
           _ => fail "Invalid multiplicity (must be 0 or 1)"
 
   bindList : OriginDesc -> IndentInfo ->

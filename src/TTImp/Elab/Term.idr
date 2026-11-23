@@ -108,6 +108,16 @@ insertImpLam {vars} env tm (Just ty) = bindLam tm ty
              pure tm'
 insertImpLam env tm _ = pure tm
 
+-- (Experimental) A quantity variable is bound by the type signature of a
+-- function, for the signature and the function's clauses only
+noUnboundQuantity : FC -> RigCount -> Core ()
+noUnboundQuantity fc r
+    = case filter (\v => qvOwner v == "") (rigVars r) of
+           [] => pure ()
+           (v :: _) => throw (GenericMsg fc ("The quantity variable " ++ show v
+                         ++ " is not bound here: quantity variables can only be"
+                         ++ " used in the type signature of a function and in its clauses"))
+
 -- Main driver for checking terms, after implicits have been added.
 -- Implements 'checkImp' in TTImp.Elab.Check
 checkTerm : {vars : _} ->
@@ -131,18 +141,23 @@ checkTerm rig elabinfo nest env (IPi fc r p Nothing argTy retTy) exp
                    Implicit => genVarName "impArg"
                    AutoImplicit => genVarName "conArg"
                    (DefImplicit _) => genVarName "defArg"
+         noUnboundQuantity fc r
          checkPi rig elabinfo nest env fc r p n argTy retTy exp
 checkTerm rig elabinfo nest env (IPi fc r p (Just (UN Underscore)) argTy retTy) exp
     = checkTerm rig elabinfo nest env (IPi fc r p Nothing argTy retTy) exp
 checkTerm rig elabinfo nest env (IPi fc r p (Just n) argTy retTy) exp
-    = checkPi rig elabinfo nest env fc r p n argTy retTy exp
+    = do noUnboundQuantity fc r
+         checkPi rig elabinfo nest env fc r p n argTy retTy exp
 checkTerm rig elabinfo nest env (ILam fc r p (Just n) argTy scope) exp
-    = checkLambda rig elabinfo nest env fc r p n argTy scope exp
+    = do noUnboundQuantity fc r
+         checkLambda rig elabinfo nest env fc r p n argTy scope exp
 checkTerm rig elabinfo nest env (ILam fc r p Nothing argTy scope) exp
-    = do n <- genVarName "_"
+    = do noUnboundQuantity fc r
+         n <- genVarName "_"
          checkLambda rig elabinfo nest env fc r p n argTy scope exp
 checkTerm rig elabinfo nest env (ILet fc lhsFC r n nTy nVal scope) exp
-    = checkLet rig elabinfo nest env fc lhsFC r n nTy nVal scope exp
+    = do noUnboundQuantity fc r
+         checkLet rig elabinfo nest env fc lhsFC r n nTy nVal scope exp
 checkTerm rig elabinfo nest env (ICase fc opts scr scrty alts) exp
     = checkCase rig elabinfo nest env fc opts scr scrty alts exp
 checkTerm rig elabinfo nest env (ILocal fc nested scope) exp

@@ -126,16 +126,22 @@ TTC Name where
 
 export
 TTC RigCount where
-  toBuf = elimSemi
-              (tag 0)
-              (tag 1)
-              (const $ tag 2)
+  toBuf r
+      = case rigView r of
+             ViewZero => tag 0
+             ViewOne => tag 1
+             ViewOmega => tag 2
+             -- a product of quantity variables
+             ViewVars vs => do tag 3
+                               toBuf (map (\v => (qvOwner v, qvName v)) vs)
 
   fromBuf
       = case !getTag of
              0 => pure erased
              1 => pure linear
              2 => pure top
+             3 => do vs <- fromBuf
+                     pure (rigVarsProduct (map (uncurry MkQuantityVar) vs))
              _ => corrupt "RigCount"
 
 export
@@ -1104,6 +1110,7 @@ TTC DefFlag where
   toBuf (PartialMethods ns) = do tag 17; toBuf ns
   toBuf (ConFields fs) = do tag 18; toBuf fs
   toBuf NoIntrinsic = tag 19
+  toBuf (QuantityVars vs) = do tag 20; toBuf (map (\v => (qvOwner v, qvName v)) vs)
 
   fromBuf
       = case !getTag of
@@ -1125,6 +1132,7 @@ TTC DefFlag where
              17 => do ns <- fromBuf; pure (PartialMethods ns)
              18 => do fs <- fromBuf; pure (ConFields fs)
              19 => pure NoIntrinsic
+             20 => do vs <- fromBuf; pure (QuantityVars (map (uncurry MkQuantityVar) vs))
              _ => corrupt "DefFlag"
 
 export

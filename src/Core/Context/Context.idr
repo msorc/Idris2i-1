@@ -256,6 +256,11 @@ data DefFlag
          -- values of each of its arguments, erased ones included (see
          -- Core.FieldRep).  Set once, where the data type is declared, so
          -- that every module compiles the constructor with the same table.
+    | QuantityVars (List QuantityVar)
+         -- (Experimental) The type of the definition has these rigid
+         -- quantity variables, bound by its signature.  A reference to it
+         -- from elsewhere chooses a quantity, 1 or omega, for each (see
+         -- TTImp.Elab.App.instantiateQuantities).
     | NoIntrinsic
          -- For a data constructor: the constructors of its type keep their
          -- names in CExp, and are not compiled to the intrinsic constructors
@@ -282,6 +287,7 @@ Eq DefFlag where
     (==) (PartialMethods xs) (PartialMethods ys) = xs == ys
     (==) (ConFields xs) (ConFields ys) = xs == ys
     (==) NoIntrinsic NoIntrinsic = True
+    (==) (QuantityVars xs) (QuantityVars ys) = xs == ys
     (==) (SpecStatics f xs) (SpecStatics g ys) = f == g && sameStatics xs ys
       where
         sameStatics : List ClosedTerm -> List ClosedTerm -> Bool
@@ -289,6 +295,13 @@ Eq DefFlag where
         sameStatics (x :: xs) (y :: ys) = eqTerm x y && sameStatics xs ys
         sameStatics _ _ = False
     (==) _ _ = False
+
+||| (Experimental) The quantity variables of a definition (QuantityVars)
+export
+quantityVarsOf : List DefFlag -> List QuantityVar
+quantityVarsOf [] = []
+quantityVarsOf (QuantityVars vs :: _) = vs
+quantityVarsOf (_ :: fs) = quantityVarsOf fs
 
 export
 Show DefFlag where
@@ -310,6 +323,7 @@ Show DefFlag where
   show (PartialMethods ns) = "partialmethods " ++ show ns
   show (ConFields fs) = "confields " ++ show fs
   show NoIntrinsic = "nointrinsic"
+  show (QuantityVars vs) = "quantityvars " ++ show vs
 
 public export
 record SCCall where

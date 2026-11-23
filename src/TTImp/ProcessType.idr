@@ -14,6 +14,7 @@ import TTImp.Elab.Utils
 import TTImp.Elab
 import TTImp.ProcessFnOpt
 import TTImp.TTImp
+import TTImp.TTImp.Traversals
 
 import Data.String
 import Libraries.Data.NameMap
@@ -158,11 +159,14 @@ processType {vars} eopts nest env fc rig vis opts ty_raw
          Nothing <- lookupCtxtExact (Resolved idx) (gamma defs)
               | Just gdef => throw (AlreadyDefined fc n)
 
+         -- (Experimental) The quantity variables of the signature belong
+         -- to this definition
+         let ty_val = ownQuantityVars (show n) (const True) ty_raw.val
          u <- uniVar fc
          ty <-
              wrapErrorC eopts (InType fc n) $
                    checkTerm idx InType (HolesOkay :: eopts) nest env
-                             (IBindHere fc (PI erased) ty_raw.val)
+                             (IBindHere fc (PI erased) ty_val)
                              (gType fc u)
          logTermNF "declare.type" 3 ("Type of " ++ show n) Env.empty (abstractFullEnvType tfc env ty)
 
@@ -196,6 +200,12 @@ processType {vars} eopts nest env fc rig vis opts ty_raw
          -- If no function-specific totality pragma has been used, attach the default totality
          unless (any isTotalityReq opts) $
            setFlag fc name (SetTotal !getDefaultTotalityOption)
+
+         -- A reference to it from elsewhere chooses the quantities of its
+         -- own quantity variables
+         let qvs = filter (\v => qvOwner v == show n) (termQuantityVars fullty)
+         unless (null qvs) $
+           setFlag fc name (QuantityVars qvs)
 
          -- Add to the interactive editing metadata
          addTyDecl fc (Resolved idx) env ty -- for definition generation

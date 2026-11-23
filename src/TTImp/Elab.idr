@@ -36,7 +36,7 @@ doPLetRenames ns drops (Bind fc n b@(PLet {}) sc)
 doPLetRenames ns drops (Bind fc n b sc)
     = case lookup n ns of
            Just (c, n') =>
-             Bind fc n' (setMultiplicity b (c `lub` (multiplicity b)))
+             Bind fc n' (setMultiplicity b (c `rigJoin` (multiplicity b)))
                      (doPLetRenames ns (n' :: drops) (compat sc))
            Nothing => Bind fc n b (doPLetRenames ns drops sc)
 doPLetRenames ns drops sc = sc

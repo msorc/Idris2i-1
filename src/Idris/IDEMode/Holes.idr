@@ -38,7 +38,9 @@ export
 prettyRigHole : RigCount -> Doc IdrisSyntax
 prettyRigHole = elimSemi (keyword (pretty0 '0') <+> space)
                          (keyword (pretty0 '1') <+> space)
-                         (const $ space <+> space)
+                         (\r => maybe (space <+> space)
+                                      (\s => keyword (pretty0 s) <+> space)
+                                      (showVarsCount r))
 
 export
 Pretty IdrisSyntax Holes.Premise where

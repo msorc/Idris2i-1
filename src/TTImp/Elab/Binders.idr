@@ -108,7 +108,7 @@ inferLambda : {vars : _} ->
               Core (Term vars, Glued vars)
 inferLambda rig elabinfo nest env fc rigl info n argTy scope expTy
     = do rigb_in <- findLamRig expTy
-         let rigb = rigb_in `glb` rigl
+         let rigb = rigb_in `rigMeet` rigl
          u <- uniVar fc
          (tyv, tyt) <- check erased elabinfo nest env argTy (Just (gType fc u))
          info' <- checkPiInfo rigl elabinfo nest env info (Just (gnf env tyv))
@@ -179,7 +179,7 @@ checkLambda rig_in elabinfo nest env fc rigl info n argTy scope (Just expty_in)
                                         argTy (Just (gType fc u))
                     info' <- checkPiInfo rigl elabinfo nest env info (Just (gnf env tyv))
                     let originalPiType = Bind fc bn (Pi fc' c info' pty) psc
-                    let rigb = rigl `glb` c
+                    let rigb = rigl `rigMeet` c
                     let env' : Env Term (n :: _) = Lam fc rigb info' tyv :: env
                     lambdaUnifyResult <- convert fc elabinfo env (gnf env tyv) (gnf env pty)
                     let nest' = weaken (dropName n nest)
@@ -252,16 +252,17 @@ checkLet rigc_in elabinfo nest env fc lhsFC rigl n nTy nVal scope expty {vars}
                              nest env nVal (Just (gnf env tyv))
                   pure (fst c, snd c, rigl |*| rigc))
               (\err => case linearErr err of
+                            -- bound at 1 or at a product of quantity variables:
+                            -- the value is checked, and bound, at that
                             Just r
-                              => do branchOne
-                                     (do c <- runDelays (==CaseBlock) $ check linear elabinfo
-                                                  nest env nVal (Just (gnf env tyv))
-                                         pure (fst c, snd c, linear))
-                                     (do c <- check (rigl |*| rigc)
-                                                  elabinfo -- without preciseInf
-                                                  nest env nVal (Just (gnf env tyv))
-                                         pure (fst c, snd c, rigMult rigl rigc))
-                                     r
+                              => if isCounted r
+                                    then do c <- runDelays (==CaseBlock) $ check r elabinfo
+                                                   nest env nVal (Just (gnf env tyv))
+                                            pure (fst c, snd c, r)
+                                    else do c <- check (rigl |*| rigc)
+                                                   elabinfo -- without preciseInf
+                                                   nest env nVal (Just (gnf env tyv))
+                                            pure (fst c, snd c, rigMult rigl rigc)
                             _ => do c <- check (rigl |*| rigc)
                                                elabinfo -- without preciseInf
                                                nest env nVal (Just (gnf env tyv))

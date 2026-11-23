@@ -29,6 +29,7 @@ import TTImp.Impossible
 import TTImp.PartialEval
 import TTImp.TTImp
 import TTImp.TTImp.Functor
+import TTImp.TTImp.Traversals
 import TTImp.ProcessType
 import TTImp.Unelab
 import TTImp.WithClause
@@ -209,7 +210,7 @@ findLinear top bound rig tm
                    RigCount -> ClosedNF -> List (Term vars) ->
                    Core (List (Name, RigCount))
       findLinArg rig ty@(NBind _ _ (Pi _ c _ _) _) (As fc u a p :: as)
-          = if isLinear c
+          = if isCounted c
                then case u of
                          UseLeft => findLinArg rig ty (p :: as)
                          UseRight => findLinArg rig ty (a :: as)
@@ -269,11 +270,11 @@ combineLinear loc ((n, count) :: cs)
 
     -- Those combine rules are obtuse enough that they are worth investigating
     combine : RigCount -> RigCount -> Core RigCount
-    combine l r = if l |+| r == top && not (isErased $ l `glb` r) && (l `glb` r) /= top
+    combine l r = if l |+| r == top && not (isErased $ l `rigMeet` r) && (l `rigMeet` r) /= top
                      then throw (LinearUsed loc 2 n)
                      -- if everything is fine, return the linearity that has the
                      -- highest bound
-                     else pure (l `lub` r)
+                     else pure (l `rigJoin` r)
 
     combineAll : RigCount -> List RigCount -> Core RigCount
     combineAll c [] = pure c
@@ -946,6 +947,13 @@ processDef opts nest env fc n_in cs_in
            | Nothing => noDeclaration fc n
          let None = definition gdef
               | _ => throw (AlreadyDefined fc n)
+         -- (Experimental) The quantity variables of the signature can be
+         -- used in the clauses
+         let cs_in = case quantityVarsOf (flags gdef) of
+                          (v :: vs) =>
+                              let names = map qvName (v :: vs) in
+                                  map (ownQuantityVarsClause (qvOwner v) (\x => x `elem` names)) cs_in
+                          _ => cs_in
          let ty = type gdef
          -- a module's interface hash (what determines when the module has changed)
          -- should include the definition (RHS) of anything that is public (available

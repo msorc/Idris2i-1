@@ -723,10 +723,14 @@ Reify RigCount where
 export
 Reflect RigCount where
   reflect fc defs lhs env r
-      = elimSemi (getCon fc defs (reflectiontt "M0"))
-                 (getCon fc defs (reflectiontt "M1"))
-                 (const (getCon fc defs (reflectiontt "MW")))
-                 r
+      = case rigView r of
+             ViewZero => getCon fc defs (reflectiontt "M0")
+             ViewOne => getCon fc defs (reflectiontt "M1")
+             ViewOmega => getCon fc defs (reflectiontt "MW")
+             -- `Count` has no quantity variables (experimental)
+             ViewVars _ => throw (GenericMsg fc
+                             ("Can't reflect the quantity " ++ maybe "" id (showVarsCount r)
+                              ++ " (a quantity variable) as a Count"))
 
 export
 Reify t => Reify (PiInfo t) where

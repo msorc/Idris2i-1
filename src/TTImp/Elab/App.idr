@@ -2,6 +2,7 @@ module TTImp.Elab.App
 
 import Core.Env
 import Core.Metadata
+import Core.Normalise
 import Core.Unify
 import Core.Value
 
@@ -11,6 +12,7 @@ import Idris.Syntax
 import TTImp.Elab.Check
 import TTImp.Elab.Dot
 import TTImp.TTImp
+import TTImp.TTImp.Traversals
 
 import Data.List
 import Data.Maybe
@@ -58,7 +60,7 @@ getNameType elabMode rigc env fc x
                  log "metadata.names" 7 $ "getNameType is adding ↓"
                  addNameType fc x env bty
 
-                 when (isLinear rigb) $ update EST { linearUsed $= VarSet.insert (MkVar lv) }
+                 when (isCounted rigb) $ update EST { linearUsed $= VarSet.insert (MkVar lv) }
                  log "ide-mode.highlight" 8
                      $ "getNameType is trying to add Bound: "
                       ++ show x ++ " (" ++ show fc ++ ")"
@@ -92,7 +94,9 @@ getNameType elabMode rigc env fc x
                  pure (Ref fc nt (Resolved i), gnf env (embed (type def)))
   where
     rigSafe : RigCount -> RigCount -> Core ()
-    rigSafe lhs rhs = when (lhs < rhs)
+    -- The order is partial (quantity variables): what the context needs
+    -- must be below what the binder gives
+    rigSafe lhs rhs = unless (rhs <= lhs)
                            (throw (LinearMisuse fc !(getFullName x) lhs rhs))
 
     checkDeprecation : FC -> GlobalDef -> Core ()
@@ -158,6 +162,91 @@ getVarType elabMode rigc nest env fc x
 isHole : NF vars -> Bool
 isHole (NApp _ (NMeta {}) _) = True
 isHole _ = False
+
+-- (Experimental) Quantity variables.  A reference to a definition whose
+-- type has quantity variables (flag QuantityVars) chooses a quantity for
+-- each, from the expected type if the reference is not applied and the
+-- expected type is known: the quantities at the same positions of the two
+-- types, as far as they have the same shape.  The others are omega.  A
+-- variable is never chosen to be 0 (a 0 in the expected type is not
+-- taken), so the arguments that are erased stay the same.  In the
+-- definition itself, and in what is defined inside it (its case blocks,
+-- its where blocks), the variables are rigid: no choice is made.
+--
+-- The reference becomes `let f' : T' = f in f'`, where T' is the type of
+-- `f` with the chosen quantities, so that the checks after elaboration
+-- (LinearCheck) see the same type as elaboration does.
+--
+-- A wrong choice can only reject a program: every check after it is made
+-- on the type with the chosen quantities.
+instantiateQuantities : {vars : _} ->
+                        {auto c : Ref Ctxt Defs} ->
+                        {auto u : Ref UST UState} ->
+                        ElabInfo -> Env Term vars -> FC ->
+                        (applied : Bool) -> Maybe (Glued vars) ->
+                        Term vars -> Glued vars -> Core (Term vars, Glued vars)
+instantiateQuantities elabinfo env fc applied exp tm@(Ref _ _ n) gty
+    = do defs <- get Ctxt
+         Just gdef <- lookupCtxtExact n (gamma defs)
+              | Nothing => pure (tm, gty)
+         case quantityVarsOf (flags gdef) of
+              (v :: vs) =>
+                 if inOwnDefinition (qvOwner v) (defsStack defs) || not (isExpr (elabMode elabinfo))
+                    then pure (tm, gty)
+                    else do let qvs = v :: vs
+                            ty <- getTerm gty
+                            choice <- the (Core (List (QuantityVar, RigCount))) $
+                                        case (applied, exp) of
+                                             (False, Just e) => chooseFrom defs qvs ty !(getTerm e)
+                                             _ => pure []
+                            let pick : QuantityVar -> Maybe RigCount
+                                = \q => Just (fromMaybe top (lookup q choice))
+                            let ty' = substQuantities pick ty
+                            logTerm "elab.quantity" 5 "Quantities chosen" ty'
+                            pn <- genVarName "inst"
+                            pure (Bind fc pn (Let fc top tm ty') (Local fc (Just True) _ First),
+                                  gnf env ty')
+              _ => pure (tm, gty)
+  where
+    isExpr : ElabMode -> Bool
+    isExpr InExpr = True
+    isExpr _ = False
+
+    inOwnDefinition : String -> SnocList Name -> Bool
+    inOwnDefinition o ns = any (\d => show d == o) (ns <>> [])
+
+    -- The quantities of the expected type at the positions of the
+    -- variables of `f`'s type
+    explicit : PiInfo t -> Bool
+    explicit Explicit = True
+    explicit _ = False
+
+    match : List QuantityVar -> Term vs -> Term vs -> List (QuantityVar, RigCount) -> List (QuantityVar, RigCount)
+    matchPi : List QuantityVar -> Term vs -> Term vs -> List (QuantityVar, RigCount) -> List (QuantityVar, RigCount)
+    -- the implicit arguments that the elaborator will insert
+    match qvs g@(Bind _ _ (Pi _ _ pg _) scg) e acc
+        = if not (explicit pg) && (case e of
+                                        Bind _ _ (Pi _ _ pe _) _ => explicit pe
+                                        _ => True)
+             then match qvs scg (weaken e) acc
+             else matchPi qvs g e acc
+    match qvs g e acc = matchPi qvs g e acc
+
+    matchPi qvs (Bind _ _ (Pi _ cg _ tyg) scg) (Bind _ _ (Pi _ ce _ tye) sce) acc
+        = let acc' = case rigVars cg of
+                          [q] => if elem q qvs && not (isErased ce) && isNothing (lookup q acc)
+                                    then (q, ce) :: acc else acc
+                          _ => acc in
+              match qvs scg (compat sce) (match qvs tyg tye acc')
+    matchPi qvs (App _ fg ag) (App _ fe ae) acc = match qvs fg fe (match qvs ag ae acc)
+    matchPi qvs _ _ acc = acc
+
+    chooseFrom : Defs -> List QuantityVar -> Term vars -> Term vars -> Core (List (QuantityVar, RigCount))
+    chooseFrom defs qvs ty e
+        = do ty' <- normalisePis defs env ty
+             e' <- normalisePis defs env e
+             pure (match qvs ty' e' [])
+instantiateQuantities elabinfo env fc applied exp tm gty = pure (tm, gty)
 
 mutual
   makeImplicit : {vars : _} ->
@@ -817,6 +906,8 @@ checkApp rig elabinfo nest env fc (INamedApp fc' fn nm arg) expargs autoargs nam
    = checkApp rig elabinfo nest env fc' fn expargs autoargs ((nm, arg) :: namedargs) exp
 checkApp rig elabinfo nest env fc (IVar fc' n) expargs autoargs namedargs exp
    = do (ntm, arglen, nty_in) <- getVarType elabinfo.elabMode rig nest env fc' n
+        (ntm, nty_in) <- instantiateQuantities elabinfo env fc' (not (null expargs && null autoargs && null namedargs))
+                                               exp ntm nty_in
         nty <- getNF nty_in
         prims <- getPrimitiveNames
         elabinfo <- updateElabInfo prims elabinfo.elabMode n expargs elabinfo

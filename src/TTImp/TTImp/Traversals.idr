@@ -120,3 +120,77 @@ parameters (f : RawImp' nm -> RawImp' nm)
   mapTTImp (IUnifyLog fc x t) = f $ IUnifyLog fc x (mapTTImp t)
   mapTTImp (Implicit fc bindIfUnsolved) = f $ Implicit fc bindIfUnsolved
   mapTTImp (IWithUnambigNames fc xs t) = f $ IWithUnambigNames fc xs (mapTTImp t)
+
+------------------------------------------------------------------------------
+-- Quantity variables (experimental, see
+-- docs/source/implementation/quantity-variables.rst)
+
+||| Give the owner to the quantity variables that have none yet (they are
+||| only parsed) and whose name `which` accepts: those of a type signature,
+||| or the ones of a definition's signature that its clauses use.
+ownQuantityVarsStep : String -> (String -> Bool) -> RawImp' nm -> RawImp' nm
+ownQuantityVarsStep o which = own
+  where
+    fix : QuantityVar -> QuantityVar
+    fix v = if qvOwner v == "" && which (qvName v) then { qvOwner := o } v else v
+
+    ownRig : RigCount -> RigCount
+    ownRig r = if isRigVar r then rigVarsProduct (map fix (rigVars r)) else r
+
+    own : RawImp' nm -> RawImp' nm
+    own (IPi fc r p n a b) = IPi fc (ownRig r) p n a b
+    own (ILam fc r p n a b) = ILam fc (ownRig r) p n a b
+    own (ILet fc l r n t v s) = ILet fc l (ownRig r) n t v s
+    own t = t
+
+export
+ownQuantityVars : String -> (String -> Bool) -> RawImp' nm -> RawImp' nm
+ownQuantityVars o which = mapTTImp (ownQuantityVarsStep o which)
+
+||| The same, in a clause
+export
+ownQuantityVarsClause : String -> (String -> Bool) -> ImpClause' nm -> ImpClause' nm
+ownQuantityVarsClause o which = mapImpClause (ownQuantityVarsStep o which)
+
+||| The quantity variables in the binders of a term (sorted, each once)
+export covering
+termQuantityVars : Term vs -> List QuantityVar
+termQuantityVars tm = rigVars (go tm linear)
+  where
+    -- the product of all the variables met so far
+    go : forall vs . Term vs -> RigCount -> RigCount
+    goPi : forall vs . PiInfo (Term vs) -> RigCount -> RigCount
+    goPi (DefImplicit t) acc = go t acc
+    goPi _ acc = acc
+
+    go (Bind _ _ b sc) acc
+        = let acc' = if isRigVar (multiplicity b)
+                        then acc |*| multiplicity b else acc
+              acc'' = case b of
+                           Pi _ _ p ty => goPi p (go ty acc')
+                           Lam _ _ p ty => goPi p (go ty acc')
+                           Let _ _ v ty => go v (go ty acc')
+                           _ => go (binderType b) acc' in
+              go sc acc''
+    go (App _ f a) acc = go f (go a acc)
+    go (As _ _ a p) acc = go a (go p acc)
+    go (TDelayed _ _ t) acc = go t acc
+    go (TDelay _ _ t v) acc = go t (go v acc)
+    go (TForce _ _ t) acc = go t acc
+    go (Meta _ _ _ args) acc = foldl (\a, t => go t a) acc args
+    go _ acc = acc
+
+||| Replace the quantity variables that the function knows, everywhere in
+||| the binders of a term
+export covering
+substQuantities : (QuantityVar -> Maybe RigCount) -> Term vs -> Term vs
+substQuantities f (Bind fc x b sc)
+    = Bind fc x (setMultiplicity (map (substQuantities f) b) (substRig f (multiplicity b)))
+                (substQuantities f sc)
+substQuantities f (App fc fn a) = App fc (substQuantities f fn) (substQuantities f a)
+substQuantities f (As fc s a p) = As fc s (substQuantities f a) (substQuantities f p)
+substQuantities f (TDelayed fc r t) = TDelayed fc r (substQuantities f t)
+substQuantities f (TDelay fc r t v) = TDelay fc r (substQuantities f t) (substQuantities f v)
+substQuantities f (TForce fc r t) = TForce fc r (substQuantities f t)
+substQuantities f (Meta fc n i args) = Meta fc n i (map (substQuantities f) args)
+substQuantities f tm = tm
