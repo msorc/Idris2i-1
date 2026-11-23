@@ -132,6 +132,38 @@ treeInsert k v t =
     Left t' => Left t'
     Right (a, b, c) => Right (Branch2 a b c)
 
+-- As treeInsert', with the value made from the one the key has (if any)
+treeUpsert' : Key -> (Maybe v -> v) -> Tree n v ->
+              Either (Tree n v) (Tree n v, Key, Tree n v)
+treeUpsert' k f (Leaf k' v') =
+  case compare k k' of
+    LT => Right (Leaf k (f Nothing), k, Leaf k' v')
+    EQ => Left (Leaf k (f (Just v')))
+    GT => Right (Leaf k' v', k', Leaf k (f Nothing))
+treeUpsert' k f (Branch2 t1 k' t2) =
+  if k <= k' then
+    case treeUpsert' k f t1 of
+      Left t1' => Left (Branch2 t1' k' t2)
+      Right (a, b, c) => Left (Branch3 a b c k' t2)
+  else
+    case treeUpsert' k f t2 of
+      Left t2' => Left (Branch2 t1 k' t2')
+      Right (a, b, c) => Left (Branch3 t1 k' a b c)
+treeUpsert' k f (Branch3 t1 k1 t2 k2 t3) =
+  if k <= k1 then
+    case treeUpsert' k f t1 of
+      Left t1' => Left (Branch3 t1' k1 t2 k2 t3)
+      Right (a, b, c) => Right (Branch2 a b c, k1, Branch2 t2 k2 t3)
+  else
+    if k <= k2 then
+      case treeUpsert' k f t2 of
+        Left t2' => Left (Branch3 t1 k1 t2' k2 t3)
+        Right (a, b, c) => Right (Branch2 t1 k1 a, b, Branch2 c k2 t3)
+    else
+      case treeUpsert' k f t3 of
+        Left t3' => Left (Branch3 t1 k1 t2 k2 t3')
+        Right (a, b, c) => Right (Branch2 t1 k1 t2, k2, Branch2 a b c)
+
 delType : Nat -> Type -> Type
 delType Z v = ()
 delType (S n) v = Tree n v
@@ -232,6 +264,17 @@ insert k v (M _ t) =
   case treeInsert k v t of
     Left t' => (M _ t')
     Right t' => (M _ t')
+
+||| Set the value of a key to one made from the value it has, if it has one:
+||| the same map as a `lookup` followed by an `insert`, in one walk down the
+||| tree.
+export
+upsert : UserName -> (Maybe v -> v) -> UserNameMap v -> UserNameMap v
+upsert k f Empty = M Z (Leaf k (f Nothing))
+upsert k f (M _ t) =
+  case treeUpsert' k f t of
+    Left t' => M _ t'
+    Right (a, b, c) => M _ (Branch2 a b c)
 
 export
 insertFrom : List (UserName, v) -> UserNameMap v -> UserNameMap v

@@ -1,5 +1,5 @@
 1/1: Building Erase (Erase.idr)
-Error: While processing left hand side of bad. Can't match on False (Erased argument).
+Error: While processing left hand side of bad. Can't match on False (Erased argument). [E0606]
 
 Erase:5:5--5:10
  1 | myReplace : forall p . (0 rule : x = y) -> (1 val : p y) -> p x
@@ -9,7 +9,7 @@ Erase:5:5--5:10
  5 | bad False = True
          ^^^^^
 
-Error: While processing left hand side of minusBad. Can't match on LeZ (Erased argument).
+Error: While processing left hand side of minusBad. Can't match on LeZ (Erased argument). [E0606]
 
 Erase:19:18--19:21
  15 | minus (S k) (S j) (LeS p) = minus k j p

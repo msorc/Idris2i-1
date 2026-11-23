@@ -1,0 +1,57 @@
+. ../../../testutils.sh
+
+# A module whose imports were written again, with the same interfaces, is
+# not built again, and the build does not even start to build it (with
+# --jobs, a process is not started for it): it was written before its
+# imports, and stays so. B imports A, C imports B, D imports A publicly (so
+# that the interface of A is part of that of D), E imports D. The "Skipping"
+# lines are those of a module that the build started to build, and found up
+# to date.
+
+run_builds() {
+  rm -rf work build
+  cp -r src work
+  printf 'package chain\nsourcedir = "work"\nmodules = A, B, C, D, E\n' > chain.ipkg
+
+  build() {
+    echo "--- $1"
+    shift
+    idris2_no_clean --build chain.ipkg --log module:10 "$@" 2>&1 \
+      | sed -E -n 's/.*(Building|Skipping) ([A-E]) .*/\1 \2/p' | sort
+  }
+
+  build "first build" "$@"
+  build "nothing changed" "$@"
+
+  sed -i.bak 's/-- a comment/-- another comment/' work/A.idr
+  build "a comment in A" "$@"
+  build "nothing changed" "$@"
+
+  sed -i.bak 's/helper = 2/helper = 5/' work/A.idr
+  build "a private definition of A" "$@"
+  build "nothing changed" "$@"
+
+  sed -i.bak 's/pa = 3/pa = 4/' work/A.idr
+  build "the body of a public definition of A" "$@"
+  build "nothing changed" "$@"
+
+  printf '\nexport\na2 : Nat\na2 = 2\n' >> work/A.idr
+  build "a definition exported by A" "$@"
+  build "nothing changed" "$@"
+
+  # (processMod does not compare the content of a source file written again)
+  touch work/B.idr
+  build "B written again, unchanged" "$@"
+  build "nothing changed" "$@"
+
+  sed -i.bak 's/c = b/c = b + 1/' work/C.idr
+  build "C" "$@"
+  build "nothing changed" "$@"
+}
+
+echo "=== one process"
+run_builds
+echo "=== two processes"
+run_builds --jobs 2
+
+rm -rf work build chain.ipkg

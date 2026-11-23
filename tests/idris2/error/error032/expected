@@ -1,2 +1,2 @@
-Error: Expected at most one input file but was given: repl, pkg.ipkg
+Error: Expected at most one input file but was given: repl, pkg.ipkg [E0000]
 Did you mean to type "--repl"?

@@ -1,0 +1,10 @@
+the thread waits for a value that never comes
+exit code 1
+RefC: deadlock detected: all the 2 remaining green thread(s) are blocked forever
+the thread waits for a value that never comes
+exit code 1
+RefC: deadlock detected: all the 2 remaining green thread(s) are blocked forever
+stdin: late
+the thread got its value
+stdin: late, one worker
+the thread got its value

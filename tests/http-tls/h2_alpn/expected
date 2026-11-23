@@ -1,0 +1,25 @@
+h2 client: 200 "hello over HTTP/2.0, secure True\n"
+POST: 200 "got 100000 bytes\n"
+1 MB: 1000000 bytes, hash 959824585, the same: True
+50 at once: 50 right
+connections: 1
+http/1.1 client: 200 "hello over HTTP/1.1, secure True\n"
+client without ALPN: 200 "hello over HTTP/1.1, secure True\n"
+h2 client, http/1.1 server: 200 "hello over HTTP/1.1, secure True\n"
+=== 4 workers
+h2 client: 200 "hello over HTTP/2.0, secure True\n"
+POST: 200 "got 100000 bytes\n"
+1 MB: 1000000 bytes, hash 959824585, the same: True
+50 at once: 50 right
+connections: 1
+http/1.1 client: 200 "hello over HTTP/1.1, secure True\n"
+client without ALPN: 200 "hello over HTTP/1.1, secure True\n"
+h2 client, http/1.1 server: 200 "hello over HTTP/1.1, secure True\n"
+=== curl
+HTTP/2 200 
+hello over HTTP/2.0, secure True
+2
+got 5 bytes
+1.1
+hello over HTTP/1.1, secure True
+bye

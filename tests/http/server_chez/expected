@@ -1,0 +1,3 @@
+4 clients, 11 requests each: all right: True, one connection each: True
+accepted: 4
+connect after the shutdown: refused

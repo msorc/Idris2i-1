@@ -1,5 +1,5 @@
 1/1: Building Error1 (Error1.idr)
-Error: Invalid fixity, typebind operator must be infixr 0.
+Error: Invalid fixity, typebind operator must be infixr 0. [E0000]
 
 Error1:3:10--3:21
  1 | module Error1
@@ -11,7 +11,7 @@ Possible solutions:
  - Make it `infixr 0`: `typebind infixr 0 =@`
  - Remove the binding keyword: `infixl 0 =@`
 1/1: Building Error2 (Error2.idr)
-Error: Invalid fixity, typebind operator must be infixr 0.
+Error: Invalid fixity, typebind operator must be infixr 0. [E0000]
 
 Error2:3:10--3:21
  1 | module Error2
@@ -23,7 +23,7 @@ Possible solutions:
  - Make it `infixr 0`: `typebind infixr 0 =@`
  - Remove the binding keyword: `infixr 3 =@`
 1/1: Building Error3 (Error3.idr)
-Error: Invalid fixity, typebind operator must be infixr 0.
+Error: Invalid fixity, typebind operator must be infixr 0. [E0000]
 
 Error3:3:10--3:21
  1 | module Error3

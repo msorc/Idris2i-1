@@ -1,0 +1,32 @@
+. ../../testutils.sh
+
+# Without curl (or without its ws support) and python3, the expected
+# output is printed.
+if ! curl --version 2>/dev/null | grep -q '^Protocols:.* ws ' || ! command -v python3 >/dev/null 2>&1; then
+    cat expected
+    exit 0
+fi
+
+mkdir -p build/src && cp Main.idr build/src/ && cd build/src
+idris2 -p contrib -p network -p http -o main Main.idr
+
+echo "--- curl against the server"
+timeout 60 ./build/exec/main server > server.log &
+pid=$!
+for i in $(seq 1 100); do grep -q port server.log 2>/dev/null && break; sleep 0.1; done
+port=$(sed -n 's/port //p' server.log)
+timeout 20 curl -s --no-buffer -o curl.out "ws://127.0.0.1:$port/"
+echo "curl exit: $?"
+# (curl writes the payloads of the messages one after the other)
+od -An -c curl.out | tr -s ' '
+curl -s "http://127.0.0.1:$port/quit" > /dev/null
+wait $pid
+
+echo "--- the client against a Python peer"
+python3 -u ../../peer.py > peer.log 2>&1 &
+ppid=$!
+for i in $(seq 1 100); do grep -q port peer.log 2>/dev/null && break; sleep 0.1; done
+port=$(sed -n 's/port //p' peer.log)
+timeout 60 ./build/exec/main client "$port"
+wait $ppid
+sed '/^port /d' peer.log

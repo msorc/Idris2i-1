@@ -1,0 +1,4 @@
+package app
+depends = clib
+main = Main
+executable = app

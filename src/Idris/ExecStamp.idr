@@ -110,6 +110,9 @@ data Item : Type where
   ||| compiler moves it, to the second path, and puts a launcher in its
   ||| place: it is the binary, at either place, that must be as it was left.
   Binary : (file, moved : String) -> Item
+  ||| A module of pkg-config (a `refc-pkg-config` directive): what must not
+  ||| change is the flags that pkg-config gives for it
+  PkgConfig : (module_ : String) -> Item
 
 -- Does the name of a file look like the one of a library?
 isLibrary : String -> Bool
@@ -152,6 +155,10 @@ fingerprintItem (Binary file moved)
     = do script <- coreLift $ isScript file
          st <- coreLift $ statOf (if script then moved else file)
          pure (["bin \{showStat st}"], 0)
+fingerprintItem (PkgConfig m)
+    = do cflags <- coreLift $ pkgConfigOutput "--cflags" m
+         libs <- coreLift $ pkgConfigOutput "--libs" m
+         pure (["pkgconfig \{m} \{show cflags} \{show libs}"], 0)
 
 ||| What a stamp file records of an item.  The paths are separated by tabs.
 renderItem : Item -> Maybe String
@@ -168,6 +175,7 @@ renderItem item = case fields item of
     fields (LibDir dir) = ("libdir", [dir])
     fields (Output file) = ("out", [file])
     fields (Binary file moved) = ("bin", [file, moved])
+    fields (PkgConfig m) = ("pkgconfig", [m])
 
 splitOn : Char -> String -> List String
 splitOn c s
@@ -185,6 +193,7 @@ parseItem line
            ["libdir", dir] => Just (LibDir dir)
            ["out", file] => Just (Output file)
            ["bin", file, moved] => Just (Binary file moved)
+           ["pkgconfig", m] => Just (PkgConfig m)
            _ => Nothing
 
 ||| The state of all the items, and the time when the newest input was
@@ -325,8 +334,21 @@ inputs exec
                                    pure (libFlagDirs (words ldflags)
                                          ++ maybe [] (filter (/= "") . splitOn ':') path)
                         _ => pure []
+         -- what the directives of a RefC program link (see
+         -- Compiler.RefC.CC): the archives, and the flags of pkg-config,
+         -- with the directories where they look for libraries.  An error
+         -- (an archive that is not found) is told by the compilation.
+         directiveLinks <- case cg of
+              RefC => catch (do archives <- refcArchives
+                                mods <- refcPkgConfigs
+                                outs <- coreLift $ traverse (pkgConfigOutput "--libs") mods
+                                pure $ map (\o => (map Input archives ++ map PkgConfig mods,
+                                                   concatMap (libFlagDirs . words) o))
+                                           (sequence outs))
+                            (\_ => pure Nothing)
+              _ => pure (Just ([], []))
          let libs = lib_dirs d ++ map (</> "lib") (package_dirs d ++ extra_dirs d)
-                      ++ ccLibs
+                      ++ ccLibs ++ maybe [] snd directiveLinks
          let libItems = map LibDir libs
          let supportDirs = case cg of
                                 RefC => ["refc", "c"]
@@ -348,9 +370,10 @@ inputs exec
          let supportItems : List Item = map InDir (catMaybes supports)
          pure $ if null selfExe && null selfArg || any isNothing supports
                    then Nothing
-                   else map (\hs => selfExe ++ selfArg ++ supportItems
-                                      ++ libItems ++ toolItems ++ extraItems ++ hs)
-                            headers
+                   else do hs <- headers
+                           links <- directiveLinks
+                           pure (selfExe ++ selfArg ++ supportItems ++ libItems
+                                   ++ toolItems ++ extraItems ++ fst links ++ hs)
   where
     -- Nothing when the files are not known
     headerItems : String -> IO (Maybe (List Item))

@@ -11,7 +11,7 @@
 T 131
 7
 3/3: Building Fail (Fail.idr)
-Error: While processing right hand side of bad. Undefined name Y.f. 
+Error: While processing right hand side of bad. Undefined name Y.f. [E0201]
 
 Fail:7:7--7:10
  3 | -- F imports A privately: A's names are not visible here

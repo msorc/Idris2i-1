@@ -83,7 +83,8 @@ processDecl (MkWithData _ $ PMutual ps)
       processDecls (tys ++ defs)
 
 processDecl decl
-    = catch (do impdecls <- desugarDecl [] decl
+    = profileDecl (show decl.fc ++ concatMap ((" " ++) . show) (take 1 (definedIn [decl.val]))) $
+      catch (do impdecls <- desugarDecl [] decl
                 traverse_ (Check.processDecl [] (MkNested []) Env.empty) impdecls
                 pure [])
             (\err => do giveUpConstraints -- or we'll keep trying...
@@ -336,6 +337,29 @@ unchangedHash hashFn ttcFileName sourceFileName
              | _ => pure False
        pure $ sourceCodeHash == storedSourceHash
 
+||| Whether the module of a TTC file is up to date, so that it is not built
+||| again: its source file is unchanged (as the caller found out), the file
+||| was written by this compiler, the interface hashes of its imports, with
+||| the namespaces they are imported as, are those that the file records,
+||| and the file has the data of the incremental code generators in use.
+||| `processMod` skips a module by this, and the build driver
+||| (`Idris.ModTree.needsBuilding`) does not even start building a module
+||| whose imports were written again with the same interface.
+export
+unchangedModule : {auto c : Ref Ctxt Defs} ->
+                  (ttcFile : String) -> (sourceUnchanged : Bool) ->
+                  (importHashes : List (Namespace, Int)) -> Core Bool
+unchangedModule ttcFile False importHashes = pure False
+unchangedModule ttcFile True importHashes
+    = do True <- builtByThisCompiler ttcFile
+           | False => pure False
+         stored <- readImportHashes ttcFile
+         log "module.hash" 5 $ "Stored interface hashes of " ++ ttcFile ++ ":\n" ++
+           show (sort stored)
+         if sort importHashes /= sort stored
+            then pure False
+            else not <$> missingIncremental ttcFile
+
 export
 getCG : {auto o : Ref ROpts REPLOpts} ->
         CG -> Core (Maybe Codegen)
@@ -397,20 +421,14 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
         log "module.hash" 5 $ "Interface hash of " ++ show ns ++ ": " ++ show (ifaceHash defs)
         log "module.hash" 5 $ "Import Interface hashes of " ++ show ns ++ " hashes:\n" ++
           show (sort importInterfaceHashes)
-        storedImportInterfaceHashes <- readImportHashes ttcFileName
-        log "module.hash" 5 $ "Stored interface hashes of " ++ ttcFileName ++ ":\n" ++
-          show (sort storedImportInterfaceHashes)
 
         let isUnchanged = if session.checkHashesInsteadOfModTime
                              then unchangedHash (defs.options.hashFn)
                              else (\ttc,src => not <$> (isTTCOutdated ttc [src]))
         sourceUnchanged <- isUnchanged ttcFileName sourceFileName
 
-        incrementalOK <- not <$> missingIncremental ttcFileName
-        sameCompiler <- builtByThisCompiler ttcFileName
-
         -- If neither the source nor the interface hashes of imports have changed then no rebuilding is needed
-        if (sourceUnchanged && sameCompiler && sort importInterfaceHashes == sort storedImportInterfaceHashes && incrementalOK)
+        if !(unchangedModule ttcFileName sourceUnchanged importInterfaceHashes)
            then -- Hashes the same, source up to date, just set the ns
                 -- for the REPL
                 do setModuleNS (miAsNamespace ns)
@@ -418,7 +436,7 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
            else -- needs rebuilding
              do when announce $ iputStrLn msg
                 Right (ws, MkState decor hnames, mod) <-
-                    logTime 2 ("Parsing " ++ sourceFileName) $
+                    logTime 2 ("Parsing " ++ sourceFileName) $ profile "parse" $
                       pure $ runParser (PhysicalIdrSrc origin)
                                        (isLitFile sourceFileName)
                                        sourcecode
@@ -454,7 +472,7 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
                 -- a phase before this which builds the dependency graph
                 -- (also that we only build child dependencies if rebuilding
                 -- changes the interface - will need to store a hash in .ttc!)
-                logTime 2 "Reading imports" $
+                logTime 2 "Reading imports" $ profile "import" $
                    traverse_ (readImport False) allImports
 
                 -- Before we process the source, make sure the "hide_everywhere"
@@ -472,7 +490,7 @@ processMod {announce} sourceFileName ttcFileName msg sourcecode origin
                 when (isNil errs) $
                    logTime 3 "Record positive parameters" $ recordPositiveParams
                 when (isNil errs) $
-                   logTime 2 "Compile defs" $ compileAndInlineAll
+                   logTime 2 "Compile defs" $ profile "compile" compileAndInlineAll
 
                 -- Save the import hashes for the imports we just read.
                 -- If they haven't changed next time, and the source
@@ -496,7 +514,8 @@ process : {auto c : Ref Ctxt Defs} ->
           (moduleIdent : ModuleIdent) ->
           Core (List Error)
 process {announce} msgPrefix buildMsg sourceFileName ident
-    = do Right res <- coreLift (readFile sourceFileName)
+    = profileModule sourceFileName $
+      do Right res <- coreLift (readFile sourceFileName)
                | Left err => pure [FileErr sourceFileName err]
          catch (do ttcFileName <- getTTCFileName sourceFileName "ttc"
                    Just errs <- logTime 1 ("Elaborating " ++ sourceFileName) $
@@ -519,9 +538,9 @@ process {announce} msgPrefix buildMsg sourceFileName ident
                                      setIncData cg res)
                               (incrementalCGs !getSession)
 
-                           writeToTTC !(get Syn) sourceFileName ttcFileName
+                           profile "ttc.write" $ writeToTTC !(get Syn) sourceFileName ttcFileName
                            ttmFileName <- getTTCFileName sourceFileName "ttm"
-                           writeToTTM ttmFileName
+                           profile "ttc.write" $ writeToTTM ttmFileName
                            pure []
                       else do pure errs)
                (\err => pure [err])

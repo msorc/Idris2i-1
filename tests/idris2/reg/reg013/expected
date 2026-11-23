@@ -1,5 +1,5 @@
 1/1: Building UnboundImplicits (UnboundImplicits.idr)
-Error: While processing constructor Foo. Undefined name n. 
+Error: While processing constructor Foo. Undefined name n. [E0201]
 
 UnboundImplicits:6:22--6:23
  2 | import Data.Vect
@@ -9,7 +9,7 @@ UnboundImplicits:6:22--6:23
  6 | record Foo (x : Vect n Nat) where
                           ^
 
-Error: Undefined name n. 
+Error: Undefined name n. [E0201]
 
 UnboundImplicits:9:24--9:25
  5 |
@@ -19,7 +19,7 @@ UnboundImplicits:9:24--9:25
  9 | parameters (Foo : Vect n Nat)
                             ^
 
-Error: While processing constructor Foo. Undefined name n. 
+Error: While processing constructor Foo. Undefined name n. [E0201]
 
 UnboundImplicits:14:25--14:26
  10 |   bar : Nat
@@ -29,7 +29,7 @@ UnboundImplicits:14:25--14:26
  14 | interface Foo (a : Vect n Nat) where
                               ^
 
-Error: While processing type of Functor implementation at UnboundImplicits:1. Undefined name n. 
+Error: While processing type of Functor implementation at UnboundImplicits:1. Undefined name n. [E0201]
 
 UnboundImplicits:17:30--17:31
  13 |

@@ -891,6 +891,7 @@ jobs:
           make -C libs/linear/ install docs IDRIS2=idris2
           make -C libs/test/ install docs IDRIS2=idris2
           make -C libs/papers/ install docs IDRIS2=idris2
+          make -C libs/http/ install docs IDRIS2=idris2
 
           cd .github/scripts
           ./katla.sh

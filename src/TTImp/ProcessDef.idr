@@ -137,14 +137,14 @@ impossibleErrOK defs (CantConvert fc gam env l r)
     = do let defs = { gamma := gam } defs
          impossibleOK defs !(nf defs env l)
                            !(nf defs env r)
-impossibleErrOK defs (CantSolveEq fc gam env l r)
+impossibleErrOK defs (CantSolveEq fc gam env l r _)
     = do let defs = { gamma := gam } defs
          impossibleOK defs !(nf defs env l)
                            !(nf defs env r)
 impossibleErrOK defs (CyclicMeta {}) = pure True
-impossibleErrOK defs (AllFailed errs)
+impossibleErrOK defs (AllFailed _ errs)
     = allM (impossibleErrOK defs) (map snd errs)
-impossibleErrOK defs (WhenUnifying _ _ _ _ _ err)
+impossibleErrOK defs (WhenUnifying _ _ _ _ _ _ _ err)
     = impossibleErrOK defs err
 impossibleErrOK defs ImpossibleCase = pure True
 impossibleErrOK defs _ = pure False
@@ -968,7 +968,7 @@ processDef opts nest env fc n_in cs_in
          let pats = map toPats (rights cs)
 
          (cargs ** (tree_ct, unreachable)) <-
-             logTime 3 ("Building compile time case tree for " ++ show n) $
+             logTime 3 ("Building compile time case tree for " ++ show n) $ profile "casetree" $
                 getPMDef fc (CompileTime mult) n ty (rights cs)
 
          traverse_ warnUnreachable unreachable
@@ -1007,7 +1007,7 @@ processDef opts nest env fc n_in cs_in
          update Ctxt { toCompileCase $= (n ::) }
 
          atotal <- toResolvedNames (NS builtinNS (UN $ Basic "assert_total"))
-         logTime 3 ("Building size change graphs " ++ show n) $
+         logTime 3 ("Building size change graphs " ++ show n) $ profile "totality" $
            when (not (InCase `elem` opts)) $
              do calcRefs False atotal (Resolved nidx)
                 sc <- calculateSizeChange fc n
@@ -1016,7 +1016,7 @@ processDef opts nest env fc n_in cs_in
 
          md <- get MD -- don't need the metadata collected on the coverage check
 
-         cov <- logTime 3 ("Checking Coverage " ++ show n) $ checkCoverage treq nidx ty mult cs
+         cov <- logTime 3 ("Checking Coverage " ++ show n) $ profile "coverage" $ checkCoverage treq nidx ty mult cs
          setCovering fc n cov
          put MD md
 
@@ -1096,7 +1096,7 @@ processDef opts nest env fc n_in cs_in
                     log "declare.def.impossible" 3 $ "Generated impossible LHS: " ++ show lhsp
                     pure $ Just $ MkClause Env.empty lhsp (Erased (getFC rawlhs) Impossible))
                 (\e => do log "declare.def" 5 $ "Error in getClause " ++ show e
-                          recordWarning $ GenericWarn (fromMaybe (getFC rawlhs) $ getErrorLoc e) (show e)
+                          recordWarning $ ErrorWarning e
                           pure Nothing)
     getClause (Right c) = pure (Just c)
 

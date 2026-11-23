@@ -1,0 +1,6 @@
+main: mutual recursion
+printer: woke up
+main: done
+main: deep recursion
+printer: woke up
+main: done

@@ -41,6 +41,12 @@
 // while some threads are waiting, and it wakes up for the deadlines of the
 // sleeping threads.
 //
+// A thread that waits for a file descriptor parks too: the reactor (see
+// reactor.c) wakes it up.  While threads wait for descriptors, the watcher
+// waits in the poller of the reactor instead of its condition variable, the
+// busy workers poll without blocking now and then, and the monitor makes a
+// thread yield when nobody polled for a while (see monitor_main).
+//
 // A thread that blocks holds the spin lock of the object it waits for until
 // it is switched out: the scheduler releases it.  So a thread can only be
 // woken up (and run by another worker) once it is off its stack.  The
@@ -63,7 +69,9 @@
 
 #include "threads.h"
 #include "backtrace.h"
+#include "crash.h"
 #include "memoryManagement.h"
+#include "reactor.h"
 #include "runtime.h"
 #include "worker.h"
 
@@ -285,6 +293,8 @@ struct Idris2_Thread {
   Idris2_ThreadID *handle;
   // Thread local data, as set by `setThreadData`.
   Idris2_Value *thread_data;
+  // The crash boundaries of the thread (see crash.c).
+  Idris2_CrashState crash;
   // Link in a run queue.
   Idris2_Thread *run_next;
   // The queue this thread is waiting in (if any), the lock that guards it,
@@ -292,7 +302,7 @@ struct Idris2_Thread {
   Idris2_WaitQueue *wait_queue;
   Idris2_SpinLock *wait_lock;
   Idris2_Thread *wait_next;
-  // The deadline of a timed wait (if any), and the link in the timer list.
+  // The deadline of a timed wait (if any), and the place in the timer heap.
   int has_deadline;
   int in_timers;
   int timed_out;
@@ -300,6 +310,9 @@ struct Idris2_Thread {
   // deadline (see idris2_threadWakeOne and expire_timers).
   int claimed;
   int64_t deadline_ns;
+  uint64_t timer_seq; // the order of the insertions, for equal deadlines
+  size_t timer_index; // in `timers`, while in_timers
+  // The link in the list of the expired threads (see expire_timers).
   Idris2_Thread *timer_next;
 #if IDRIS2_GREEN_THREADS
   Context ctx;
@@ -356,6 +369,9 @@ typedef struct Sched {
   int spinning; // looking for work in the other run queues
   int watching; // the watcher whose wait is over (see park)
   int stopped;  // for good, see idris2_threadStopOthers (under idle_lock)
+  int polling;  // parked in idris2_reactorPoll (under idle_lock)
+  // Polls for threads that it runs itself (see sched_poll).
+  int local_wake;
   uint32_t random;
 #endif
 } Sched;
@@ -389,11 +405,22 @@ static int64_t next_thread_id = 1;
 // The number of threads that have not finished yet, the main one included.
 static int64_t live_threads = 1;
 
-// The threads with a deadline, sorted by deadline, and the earliest
-// deadline (INT64_MAX if there is none).
+// The threads with a deadline, in a 4-ary min-heap ordered by deadline (and
+// then by order of insertion, so that threads with the same deadline wake
+// up in FIFO order), and the earliest deadline (INT64_MAX if there is
+// none).  Guarded by timer_lock.
 static Idris2_SpinLock timer_lock = 0;
-static Idris2_Thread *timers = NULL;
+static Idris2_Thread **timers = NULL;
+static size_t n_timers = 0, timers_capacity = 0;
+static uint64_t timer_seq = 0;
 static int64_t next_deadline = INT64_MAX;
+
+// Do threads wait for file descriptors (see reactor.h)?  One load, so that
+// a program that never waits for one pays nothing.
+static inline int io_pending(void) {
+  return __builtin_expect(
+      __atomic_load_n(&idris2_ioPending, __ATOMIC_RELAXED) != 0, 0);
+}
 
 static void fatal(const char *message) {
   fprintf(stderr, "RefC: %s\n", message);
@@ -525,32 +552,89 @@ Idris2_Thread *idris2_threadTakeWaiter(Idris2_WaitQueue *queue) {
   return thread;
 }
 
-// The timer list is guarded by timer_lock.  Returns 1 when the deadline is
-// the earliest one.
-static int timer_insert(Idris2_Thread *thread) {
-  // Keep the list sorted; threads with the same deadline stay in FIFO order.
-  Idris2_Thread **link = &timers;
-  while (*link && (*link)->deadline_ns <= thread->deadline_ns) {
-    link = &(*link)->timer_next;
+// The timer heap is guarded by timer_lock.
+
+static inline int timer_before(Idris2_Thread *a, Idris2_Thread *b) {
+  return a->deadline_ns < b->deadline_ns ||
+         (a->deadline_ns == b->deadline_ns && a->timer_seq < b->timer_seq);
+}
+
+static inline void timer_place(Idris2_Thread *thread, size_t i) {
+  timers[i] = thread;
+  thread->timer_index = i;
+}
+
+static void timer_sift_up(Idris2_Thread *thread, size_t i) {
+  while (i > 0) {
+    size_t parent = (i - 1) / 4;
+    if (!timer_before(thread, timers[parent])) {
+      break;
+    }
+    timer_place(timers[parent], i);
+    i = parent;
   }
-  thread->timer_next = *link;
-  *link = thread;
+  timer_place(thread, i);
+}
+
+static void timer_sift_down(Idris2_Thread *thread, size_t i) {
+  for (;;) {
+    size_t first = 4 * i + 1;
+    if (first >= n_timers) {
+      break;
+    }
+    size_t last = first + 4 < n_timers ? first + 4 : n_timers;
+    size_t best = first;
+    for (size_t c = first + 1; c < last; c++) {
+      if (timer_before(timers[c], timers[best])) {
+        best = c;
+      }
+    }
+    if (!timer_before(timers[best], thread)) {
+      break;
+    }
+    timer_place(timers[best], i);
+    i = best;
+  }
+  timer_place(thread, i);
+}
+
+static void timer_publish(void) {
+  __atomic_store_n(&next_deadline,
+                   n_timers ? timers[0]->deadline_ns : INT64_MAX,
+                   __ATOMIC_RELEASE);
+}
+
+// Returns 1 when the deadline is the earliest one.
+static int timer_insert(Idris2_Thread *thread) {
+  if (n_timers == timers_capacity) {
+    size_t capacity = timers_capacity ? timers_capacity * 2 : 64;
+    Idris2_Thread **bigger = realloc(timers, capacity * sizeof(*timers));
+    if (!bigger) {
+      fatal("could not allocate the timers");
+    }
+    timers = bigger;
+    timers_capacity = capacity;
+  }
+  thread->timer_seq = timer_seq++;
   thread->in_timers = 1;
-  __atomic_store_n(&next_deadline, timers->deadline_ns, __ATOMIC_RELEASE);
-  return timers == thread;
+  timer_sift_up(thread, n_timers++);
+  timer_publish();
+  return timers[0] == thread;
 }
 
 static void timer_remove(Idris2_Thread *thread) {
-  for (Idris2_Thread **link = &timers; *link; link = &(*link)->timer_next) {
-    if (*link == thread) {
-      *link = thread->timer_next;
-      break;
+  size_t i = thread->timer_index;
+  Idris2_Thread *last = timers[--n_timers];
+  if (last != thread) {
+    // `last` takes the place of `thread`, and moves up or down from there.
+    if (i > 0 && timer_before(last, timers[(i - 1) / 4])) {
+      timer_sift_up(last, i);
+    } else {
+      timer_sift_down(last, i);
     }
   }
   thread->in_timers = 0;
-  thread->timer_next = NULL;
-  __atomic_store_n(&next_deadline, timers ? timers->deadline_ns : INT64_MAX,
-                   __ATOMIC_RELEASE);
+  timer_publish();
 }
 
 // ---------------------------------------------------------------------------
@@ -568,6 +652,11 @@ static int n_spinning = 0; // atomic
 // The parked worker that wakes up for the deadlines and to look at the run
 // queues, if any (guarded by idle_lock).
 static Sched *watcher = NULL;
+// The parked worker that blocks in the poller of the reactor, if any
+// (guarded by idle_lock).  There is one at most, so that the wakeups of the
+// reactor (see wakep) go to it: it may not be the watcher any more, as wakep
+// may take it out of the idle list while it polls.
+static Sched *in_poller = NULL;
 // What the watcher saw as the next thread of every worker (see runq_steal).
 static Idris2_Thread **seen_runnext = NULL;
 static uint64_t *seen_runnext_gen = NULL;
@@ -763,6 +852,9 @@ static void wakep(void) {
       watcher = NULL;
     }
     pthread_cond_signal(&w->cond);
+    if (w->polling) {
+      idris2_reactorWakeup();
+    }
   } else {
     __atomic_fetch_sub(&n_spinning, 1, __ATOMIC_SEQ_CST);
   }
@@ -781,13 +873,23 @@ static void timer_kick(void) {
     return;
   }
   pthread_mutex_lock(&idle_lock);
-  if (watcher) {
-    pthread_cond_signal(&watcher->cond);
-  } else if (idle_list) {
-    pthread_cond_signal(&idle_list->cond);
+  Sched *w = watcher ? watcher : idle_list;
+  if (w) {
+    pthread_cond_signal(&w->cond);
+    if (w->polling) {
+      idris2_reactorWakeup();
+    }
   }
   pthread_mutex_unlock(&idle_lock);
 }
+
+// The first thread starts to wait for a file descriptor (see reactor.c), or
+// a blocking call starts: a parked worker must watch the descriptors.  Like
+// timer_kick: the worker that parks increments n_parked and then reads
+// idris2_ioPending under idle_lock, the caller incremented idris2_ioPending
+// and then reads n_parked, so either that worker sees the threads waiting,
+// or this signals a parked worker, which looks again.
+void idris2_threadKickWatcher(void) { timer_kick(); }
 
 static void timed_wait(Sched *s, int64_t deadline_ns) {
 #if defined(__APPLE__)
@@ -823,6 +925,10 @@ static void init_cond(pthread_cond_t *cond) {
 // thread, or at the next safepoint of the one that they run.
 static int stopping = 0;
 
+int idris2_threadStopping(void) {
+  return __atomic_load_n(&stopping, __ATOMIC_ACQUIRE);
+}
+
 // Stop the worker for good: the thread that it runs, if any, is never
 // resumed.
 static void stop_worker(Sched *s) {
@@ -835,6 +941,8 @@ static void stop_worker(Sched *s) {
 #else
 static void wakep(void) {}
 static void timer_kick(void) {}
+void idris2_threadKickWatcher(void) {}
+int idris2_threadStopping(void) { return 0; }
 #endif
 
 static void deadlock(void) {
@@ -843,6 +951,30 @@ static void deadlock(void) {
           "thread(s) are blocked forever\n",
           (long long)__atomic_load_n(&live_threads, __ATOMIC_RELAXED));
   exit(1);
+}
+
+// Poll the reactor for the scheduler of `s`, which then runs the threads
+// that the poll woke up: the first one becomes its next thread, without
+// waking up another worker for it (runq_put wakes one up for the second).
+static int sched_poll(Sched *s, int64_t timeout_ns) {
+#if IDRIS2_MULTICORE
+  s->local_wake = 1;
+  int woken = idris2_reactorPoll(timeout_ns);
+  s->local_wake = 0;
+  return woken;
+#else
+  (void)s;
+  return idris2_reactorPoll(timeout_ns);
+#endif
+}
+
+// Is a worker blocked in the poller (then the events go to it anyway)?
+static inline int someone_polls(void) {
+#if IDRIS2_MULTICORE
+  return __atomic_load_n(&in_poller, __ATOMIC_RELAXED) != NULL;
+#else
+  return 0;
+#endif
 }
 
 // Wait until there may be something to do: a thread to run, or a deadline.
@@ -876,11 +1008,22 @@ static void park(Sched *s) {
   while (s->parked) {
     int64_t deadline = __atomic_load_n(&next_deadline, __ATOMIC_ACQUIRE);
     int64_t waiting = total_queued();
-    if (n_parked == n_workers && waiting == 0 && deadline == INT64_MAX) {
+    int io = io_pending();
+    if (n_parked == n_workers && waiting == 0 && deadline == INT64_MAX &&
+        !io) {
       // Nobody runs, and nothing can happen.
       deadlock();
     }
-    if (!watcher && (waiting > 0 || deadline != INT64_MAX)) {
+    int watch = waiting > 0 || deadline != INT64_MAX || io;
+    if (watcher == s && !watch) {
+      // Nothing to watch: give the part up, rather than keep it while
+      // waiting without a timeout, as nothing would wake this worker up when
+      // there is something to watch again (threads start to wait for
+      // descriptors, say: idris2_threadKickWatcher signals the idle workers
+      // that are not watching then).
+      watcher = NULL;
+    }
+    if (!watcher && watch) {
       watcher = s;
     }
     if (watcher != s) {
@@ -892,8 +1035,47 @@ static void park(Sched *s) {
     if (waiting > 0 && now + WATCH_INTERVAL_NS < until) {
       until = now + WATCH_INTERVAL_NS;
     }
-    if (until > now) {
+    if (io && !in_poller &&
+        (idris2_reactorFineTimeout || until == INT64_MAX ||
+         until - now >= 1000000)) {
+      // Threads wait for file descriptors: wait in the poller instead, which
+      // wakep and timer_kick interrupt (see idris2_reactorWakeup).  The
+      // threads that it wakes up go to the run queue of this worker, which
+      // stays parked meanwhile, so it may be woken up while it polls.
+      s->polling = 1;
+      __atomic_store_n(&in_poller, s, __ATOMIC_RELAXED);
+      pthread_mutex_unlock(&idle_lock);
+      int woken =
+          sched_poll(s, until == INT64_MAX ? -1
+                        : until > now      ? until - now
+                                           : 0);
+      pthread_mutex_lock(&idle_lock);
+      s->polling = 0;
+      __atomic_store_n(&in_poller, NULL, __ATOMIC_RELAXED);
+      if (watcher && watcher != s) {
+        // (it may wait on its condition variable as this one polled)
+        pthread_cond_signal(&watcher->cond);
+      }
+      if (stopping) {
+        pthread_mutex_unlock(&idle_lock);
+        stop_worker(s);
+      }
+      if (woken == 0 && s->parked &&
+          idris2_monotonicNanoseconds() < until) {
+        continue; // woken up early, by idris2_reactorWakeup
+      }
+    } else if (until > now) {
       timed_wait(s, until);
+      if (io && s->parked) {
+        // (a timeout shorter than the poller can wait, or another worker
+        // is in the poller: look on every wake)
+        pthread_mutex_unlock(&idle_lock);
+        int woken = sched_poll(s, 0);
+        pthread_mutex_lock(&idle_lock);
+        if (woken > 0) {
+          until = now; // run them
+        }
+      }
       if (s->parked && idris2_monotonicNanoseconds() < until) {
         continue; // woken up early (by timer_kick, say)
       }
@@ -918,6 +1100,16 @@ static void park(Sched *s) {
 #else
   (void)s;
   int64_t deadline = __atomic_load_n(&next_deadline, __ATOMIC_ACQUIRE);
+  if (io_pending()) {
+    // The only worker waits in the poller, for the descriptors and the
+    // earliest deadline.  (A deadline that the poller cannot wait for
+    // exactly is waited for up to a millisecond late.)
+    int64_t now = idris2_monotonicNanoseconds();
+    idris2_reactorPoll(deadline == INT64_MAX ? -1
+                       : deadline > now      ? deadline - now
+                                             : 0);
+    return;
+  }
   if (deadline == INT64_MAX) {
     deadlock();
   }
@@ -936,11 +1128,17 @@ static void make_runnable(Idris2_Thread *thread) {
   thread->state = THREAD_RUNNABLE;
 #if IDRIS2_GREEN_THREADS
   Sched *s = self();
-  // Woken up by a running thread: it runs next on the same worker.  (A
-  // single worker keeps the plain FIFO order, as there is nothing to gain.)
+  // Woken up by a running thread: it runs next on the same worker.  So does
+  // a thread that the scheduler woke up as it polled for itself (see
+  // sched_poll): no other worker needs waking up for it.  (A single worker
+  // keeps the plain FIFO order, as there is nothing to gain.)
+#if IDRIS2_MULTICORE
+  int local = s->current != NULL || s->local_wake;
+#else
+  int local = s->current != NULL;
+#endif
   runq_put(s, thread,
-           s->current != NULL &&
-               __atomic_load_n(&n_workers, __ATOMIC_RELAXED) > 1);
+           local && __atomic_load_n(&n_workers, __ATOMIC_RELAXED) > 1);
 #endif
 }
 
@@ -996,8 +1194,8 @@ static void expire_timers(int preempted) {
   // time, so it must not be touched after timer_lock is released.
   Idris2_Thread *expired = NULL;
   idris2_spinLock(&timer_lock);
-  while (timers && timers->deadline_ns <= now) {
-    Idris2_Thread *thread = timers;
+  while (n_timers && timers[0]->deadline_ns <= now) {
+    Idris2_Thread *thread = timers[0];
     timer_remove(thread);
     int zero = 0;
     if (__atomic_compare_exchange_n(&thread->claimed, &zero, 1, 0,
@@ -1028,6 +1226,11 @@ static void expire_timers(int preempted) {
 #endif
 
 Idris2_Thread *idris2_currentThread(void) { return self()->current; }
+
+Idris2_CrashState *idris2_crashState(void) {
+  Idris2_Thread *thread = self()->current;
+  return thread ? &thread->crash : NULL;
+}
 
 int64_t idris2_threadId(Idris2_Thread *thread) {
   return thread ? thread->id : 0;
@@ -1094,6 +1297,10 @@ int idris2_threadBlockOnUntil(Idris2_WaitQueue *queue, Idris2_SpinLock *lock,
 #if IDRIS2_GREEN_THREADS
 static void yield_current(int preempted) {
   expire_timers(preempted);
+  // (not on every yield: fork yields)
+  if (preempted && io_pending()) {
+    idris2_reactorPoll(0);
+  }
   Sched *s = self();
   if (!queued(s)) {
     return; // nobody else wants to run here
@@ -1293,11 +1500,19 @@ static void thread_entry(void) {
 // Find a thread to run, and wait for one if need be.
 static Idris2_Thread *find_work(Sched *s) {
   Idris2_Thread *thread;
+  // A busy worker looks at the file descriptors now and then too, as the
+  // idle ones may not (see park).
+  if (io_pending() && (s->switches & 63) == 0 && !someone_polls()) {
+    sched_poll(s, 0);
+  }
   for (;;) {
     expire_timers(0);
     thread = runq_get(s);
     if (thread) {
       break;
+    }
+    if (io_pending() && !someone_polls() && sched_poll(s, 0) > 0) {
+      continue;
     }
 #if IDRIS2_MULTICORE
     if (__atomic_load_n(&n_workers, __ATOMIC_RELAXED) > 1) {
@@ -1435,6 +1650,10 @@ static void *worker_main(void *arg) {
 // run while others wait for its worker.
 #define PREEMPT_INTERVAL_NS ((int64_t)10000000)
 
+// How long threads that wait for file descriptors may go without a poll
+// while every worker is busy (see monitor_main).
+#define IO_CHECK_NS ((int64_t)1000000)
+
 // Is every worker running a thread?  Then nobody looks at the deadlines:
 // a worker does in its scheduler, and a parked one waits for the earliest
 // deadline (see park), but a thread that computes may not switch out for
@@ -1486,6 +1705,9 @@ static void *monitor_main(void *arg) {
   Sched *victim = NULL;
   int64_t victim_asked = 0;
   int next_victim = 0;
+  // The poll count of the reactor, and since when it has not changed.
+  uint64_t io_polls_seen = 0;
+  int64_t io_polls_when = 0;
   for (;;) {
     int64_t now = idris2_monotonicNanoseconds();
     int64_t until = next_look;
@@ -1499,6 +1721,13 @@ static void *monitor_main(void *arg) {
     // idris2_preemptPending) once it has.
     if (asked && now + WATCH_INTERVAL_NS < until) {
       until = now + WATCH_INTERVAL_NS;
+    }
+    // Threads wait for file descriptors while every worker runs a thread:
+    // look whether somebody polls (see below).
+    if (io_pending() && now + IO_CHECK_NS < until &&
+        (all_workers_busy(n) ||
+         __atomic_load_n(&in_poller, __ATOMIC_RELAXED) == NULL)) {
+      until = now + IO_CHECK_NS;
     }
     if (until > now) {
       struct timespec delay;
@@ -1531,6 +1760,42 @@ static void *monitor_main(void *arg) {
       next_victim = (next_victim + 1) % n;
       victim_asked = now;
       asked |= ask_to_yield(victim);
+    }
+    // Nobody polled for IO_CHECK_NS while threads wait for file descriptors
+    // and every worker runs a thread: ask one to yield, as for a deadline
+    // (yield_current polls).
+    // When some workers are parked but none of them polls (the one that
+    // polled left to run the threads that it woke up, say, and runs one that
+    // computes), wake one of them up: it becomes the watcher.
+    uint64_t polls = __atomic_load_n(&idris2_reactorPolls, __ATOMIC_RELAXED);
+    int busy = all_workers_busy(n);
+    if (io_pending() && !busy &&
+        __atomic_load_n(&in_poller, __ATOMIC_RELAXED) == NULL) {
+      if (polls != io_polls_seen) {
+        io_polls_seen = polls;
+        io_polls_when = now;
+      } else if (now - io_polls_when >= IO_CHECK_NS) {
+        io_polls_when = now;
+        timer_kick();
+      }
+    } else if (io_pending() && busy) {
+      if (polls != io_polls_seen) {
+        io_polls_seen = polls;
+        io_polls_when = now;
+      } else if (now - io_polls_when >= IO_CHECK_NS &&
+                 !(victim &&
+                   __atomic_load_n(&victim->worker->preempt,
+                                   __ATOMIC_RELAXED) &&
+                   now - victim_asked < PREEMPT_INTERVAL_NS)) {
+        victim = workers[next_victim];
+        next_victim = (next_victim + 1) % n;
+        victim_asked = now;
+        io_polls_when = now;
+        asked |= ask_to_yield(victim);
+      }
+    } else {
+      io_polls_seen = polls;
+      io_polls_when = now;
     }
     int pending = 0;
     for (int i = 0; i < n; i++) {

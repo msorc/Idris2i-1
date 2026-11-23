@@ -1,0 +1,96 @@
+--- codes at the end of the first line of each message
+1/1: Building Codes (Codes.idr)
+Warning: Unreachable clause: h False [W0002]
+
+Codes:12:1--12:8
+ 08 |
+ 09 | h : Bool -> Bool
+ 10 | h True = False
+ 11 | h x = x
+ 12 | h False = True
+      ^^^^^^^
+
+Error: While processing right hand side of f. Can't find an implementation for FromString Nat. [E0401]
+
+Codes:4:5--4:12
+ 1 | module Codes
+ 2 |
+ 3 | f : Nat
+ 4 | f = "hello"
+         ^^^^^^^
+
+There is no implementation of FromString for Nat in scope.
+
+Error: While processing right hand side of g. Undefined name y. [E0201]
+
+Codes:7:7--7:8
+ 3 | f : Nat
+ 4 | f = "hello"
+ 5 |
+ 6 | g : Nat -> Nat
+ 7 | g x = y
+           ^
+
+--- without codes
+1/1: Building Codes (Codes.idr)
+Warning: Unreachable clause: h False
+
+Codes:12:1--12:8
+ 08 |
+ 09 | h : Bool -> Bool
+ 10 | h True = False
+ 11 | h x = x
+ 12 | h False = True
+      ^^^^^^^
+
+Error: While processing right hand side of f. Can't find an implementation for FromString Nat.
+
+Codes:4:5--4:12
+ 1 | module Codes
+ 2 |
+ 3 | f : Nat
+ 4 | f = "hello"
+         ^^^^^^^
+
+There is no implementation of FromString for Nat in scope.
+
+Error: While processing right hand side of g. Undefined name y.
+
+Codes:7:7--7:8
+ 3 | f : Nat
+ 4 | f = "hello"
+ 5 |
+ 6 | g : Nat -> Nat
+ 7 | g x = y
+           ^
+
+--- explain a code
+E0101: Type mismatch
+
+An expression has a type other than the one its context expects, or two types that must be the same are different. The message says which two types were compared, labelled `Expected:` (what the context needs) and `Got:` (what the expression has) when that is known, and then the part of them that differs (`Mismatch between: A and B.`).
+
+When the two types only differ in a part that was inferred, the message says what was inferred and where (`This was postponed, and failed after inferring ...`).
+
+Example:
+
+    length : List a -> Nat
+
+    f : List Int -> Int
+    f xs = length xs        -- length gives a Nat, f must return an Int
+
+Usual fixes:
+
+  - Convert the value: `cast (length xs)` here.
+  - Fix the type of the definition, if it is the type that is wrong.
+  - Check the arguments: a missing or an extra argument makes the type of an application differ.
+--- a code in lower case, an error that has a short entry, an unknown one
+E0303: The maximum depth of nested ambiguous names was exceeded
+
+There is no longer explanation of this error yet.
+Unknown error code: E9999. The codes are listed in the reference page of error codes (idris2 --list-error-codes).
+--- at the REPL
+E0201: Undefined name
+
+A name is used that is not defined, or not defined in any module that is imported. The message suggests names that are spelt alike, and the modules in the build directory or in the packages in use that export a definition of that name.
+--- the reference page is printed from the registry
+docs/source/reference/error-codes.rst is up to date

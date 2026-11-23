@@ -1,5 +1,5 @@
 1/1: Building BadElabScript (BadElabScript.idr)
-Error: While processing right hand side of y. Bad elaborator script ?someHole [no locals in scope] (script is not a data value).
+Error: While processing right hand side of y. Bad elaborator script ?someHole [no locals in scope] (script is not a data value). [E1003]
 
 BadElabScript:14:5--14:15
  10 |   ?someHole

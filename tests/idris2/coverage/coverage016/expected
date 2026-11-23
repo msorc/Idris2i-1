@@ -1,5 +1,5 @@
 1/1: Building Issue633 (Issue633.idr)
-Error: While processing left hand side of test. Can't match on \x => True (Not a constructor application or primitive).
+Error: While processing left hand side of test. Can't match on \x => True (Not a constructor application or primitive). [E0606]
 
 Issue633:4:1--4:18
  1 | %default total

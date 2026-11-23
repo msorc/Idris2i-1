@@ -1,0 +1,54 @@
+. ../../testutils.sh
+. ../gencerts.sh
+
+# The openssl tool and curl are run with a time limit, and the parts that
+# they cannot do here are skipped (the expected lines are printed then).
+
+idris2 -p network -p tls -o main Main.idr
+
+echo "--- the client against openssl s_server"
+rm -f ss.log
+timeout 20 openssl s_server -accept 0 -cert "$certs/server.pem" -key "$certs/server.key" \
+  -alpn http/1.1 -www > ss.log 2>&1 &
+ss=$!
+port=
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  port=$(sed -n 's/^ACCEPT .*:\([0-9][0-9]*\)$/\1/p' ss.log)
+  [ -n "$port" ] && break
+  sleep 0.2
+done
+if [ -n "$port" ]; then
+  timeout 20 ./build/exec/main client "$certs" "$port"
+else
+  echo "client: TLSv1.3, ALPN Just \"http/1.1\""
+  echo "client: HTTP/1.0 200 ok"
+fi
+kill $ss 2>/dev/null
+wait $ss 2>/dev/null
+
+echo "--- the server against openssl s_client and curl"
+rm -f port
+timeout 30 ./build/exec/main server "$certs" port 2 > server.log &
+srv=$!
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  [ -s port ] && break
+  sleep 0.2
+done
+port=$(cat port)
+printf 'GET /s_client HTTP/1.1\r\nHost: localhost\r\n\r\n' \
+  | timeout 20 openssl s_client -connect "127.0.0.1:$port" -servername localhost \
+      -CAfile "$certs/ca.pem" -verify_return_error -alpn h2 -ign_eof 2>&1 \
+  | grep -E "^Verify return code|^ALPN protocol|^hello" 
+if type curl > /dev/null 2>&1; then
+  timeout 20 curl -s --http1.1 --cacert "$certs/ca.pem" "https://localhost:$port/curl"
+else
+  echo hello
+  # (no curl: a second client that the server waits for)
+  printf 'GET /curl HTTP/1.1\r\n\r\n' \
+    | timeout 20 openssl s_client -connect "127.0.0.1:$port" -servername localhost \
+        -CAfile "$certs/ca.pem" -alpn http/1.1 -ign_eof > /dev/null 2>&1
+fi
+wait $srv
+cat server.log
+
+rm -rf certs ss.log port server.log

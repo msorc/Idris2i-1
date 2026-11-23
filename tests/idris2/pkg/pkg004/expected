@@ -1,5 +1,5 @@
 1/1: Building Dummy (Dummy.idr)
-Dummy> Error: Undefined name undefined. 
+Dummy> Error: Undefined name undefined. [E0201]
 
 (Interactive):1:4--1:13
  1 | :t undefined

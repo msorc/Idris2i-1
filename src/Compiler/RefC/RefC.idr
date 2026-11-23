@@ -21,7 +21,9 @@ import Idris.Env
 import Idris.Syntax
 
 import Libraries.Data.DList
+import Libraries.Data.Graph
 import Libraries.Data.NatSet
+import Data.List1
 import Data.SortedSet
 import Data.SortedMap
 import Data.Bits
@@ -715,28 +717,38 @@ Eq Worker where
 workerName : String -> String
 workerName cn = "idris2_raw_" ++ cn
 
-||| A foreign function that takes or gives a `Double` has a worker too (see
-||| `createCFunctions`), which takes and gives C doubles: its calls by name
-||| pass the C doubles of the arguments, and get the C double of the result,
-||| with no value made on either side.  Its other parameters take values,
-||| which it borrows (as `borrowName` does).  The foreign functions of C (`C:`
-||| and `RefC:`) only: the others are stubs.  `doubles` is false with
-||| `--directive refc-no-unbox-double`.
+||| A foreign function that takes or gives a fixed width integer (`Int`,
+||| `Bits8`, ...) or a `Double` has a worker too (see `createCFunctions`),
+||| which takes and gives the C numbers: its calls by name pass the C numbers
+||| of the arguments, and get the C number of the result, with no value made
+||| on either side (a `Bits64`, or an `Int` beyond 32 bits, would be
+||| allocated).  Its other parameters take values, which it borrows (as
+||| `borrowName` does).  The foreign functions of C (`C:` and `RefC:`) only:
+||| the others are stubs.  `doubles` is false with `--directive
+||| refc-no-unbox-double`: then the doubles are values, as before.
 foreignWorker : (doubles : Bool) -> (standard : Bool) -> List CFType -> CFType -> Maybe Worker
 foreignWorker doubles std fargs ret
-    = do guard (doubles && std)
+    = do guard std
          let ps = map param fargs
          let r = result ret
          if any isJust ps || isJust r then Just (MkWorker ps r) else Nothing
   where
     param : CFType -> Maybe PrimType
-    param CFDouble = Just DoubleType
+    param CFDouble = if doubles then Just DoubleType else Nothing
+    param CFInt = Just IntType
+    param CFInt64 = Just IntType
+    param CFInt8 = Just Int8Type
+    param CFInt16 = Just Int16Type
+    param CFInt32 = Just Int32Type
+    param CFUnsigned8 = Just Bits8Type
+    param CFUnsigned16 = Just Bits16Type
+    param CFUnsigned32 = Just Bits32Type
+    param CFUnsigned64 = Just Bits64Type
     param _ = Nothing
 
     result : CFType -> Maybe PrimType
-    result CFDouble = Just DoubleType
-    result (CFIORes CFDouble) = Just DoubleType
-    result _ = Nothing
+    result (CFIORes t) = param t
+    result t = param t
 
 ||| Environment for precise reference counting.
 ||| If variable borrowed (that is, it is not in the owned set) when used, call a function idris2_newReference.
@@ -1301,7 +1313,7 @@ workerCall fc env n w args = do
          pure r
 
 ||| A call of the worker `w` of the foreign function `n` (see
-||| `foreignWorker`): the C expression of its result, a C double if it gives
+||| `foreignWorker`): the C expression of its result, a C number if it gives
 ||| one, or a value.  It borrows the values that it takes: those that we own
 ||| are released after the call.
 foreignWorkerCall : {auto a : Ref ArgCounter Nat}
@@ -2101,7 +2113,7 @@ mutual
         let cn = cName n
         if lookup cn env.foreigns == Just nargs
            then case lookup cn env.foreignWorkers of
-                  -- (a foreign function that gives the C double)
+                  -- (a foreign function that gives the C number)
                   Just w => if w.rawResult == Just t && length w.params == nargs
                                then foreignWorkerCall fc env n w args
                                else fromValue t anf
@@ -3174,6 +3186,9 @@ record RefCOptions where
   optFlatArrays : Bool
   ||| `--directive refc-no-flat-arrays`: never (see `flatMode`)
   optNoFlatArrays : Bool
+  ||| The functions that start with a safepoint (see `cycleFunctions`), by
+  ||| C name: set for the program, empty until then.
+  optCycleFns : SortedSet String
 
 ||| The options of the directives (read once per program).
 refcOptions : {auto c : Ref Ctxt Defs} -> Core RefCOptions
@@ -3190,6 +3205,7 @@ refcOptions = do
                          ("refc-check-layout" `elem` ds)
                          ("refc-flat-arrays" `elem` ds)
                          ("refc-no-flat-arrays" `elem` ds)
+                         empty
 
 ||| Are the flat arrays on in a program?  They are when it uses the slot
 ||| primitives (`prim__newSlots`, `prim__slotGet`, `prim__slotSet`), which
@@ -3239,7 +3255,7 @@ record Program where
   anyWorkers : Bool
   ||| may variables be C doubles? (see `doubles` in Compiler.RefC.Unbox)
   doubles : Bool
-  ||| the variants of the foreign functions that take or give C doubles
+  ||| the variants of the foreign functions that take or give C numbers
   ||| (see `foreignWorker`)
   foreignWorkers : SortedMap String Worker
   ||| the types of the raw fields of the constructors that have some (see
@@ -3535,6 +3551,10 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
       emit EmptyFC "\{cIntType t} \{intVarName p} = \{unboxC t "var_\{show p}"};"
       unless (p `elem` borrowedParams) $
         emit EmptyFC "idris2_removeReference(var_\{show p});"
+    -- (a function in a cycle of calls that are not loops: see
+    -- `cycleFunctions`)
+    when (nargs > 0 && contains cn opts.optCycleFns) $
+      emit EmptyFC "IDRIS2_SAFEPOINT();"
     when loops $ emit EmptyFC "idris2_self_entry: ;"
     removeVars (varName <$> Prelude.toList (shouldDrop `difference` fromList (ALocal <$> unboxedParams)))
     _ <- newRef EnvTracker (MkEnv ((bodyFreeVars `difference` fromList (ALocal <$> unboxedParams))
@@ -3679,33 +3699,50 @@ createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
           emit EmptyFC "}"
 
           -- The worker (see `foreignWorker`), which takes and gives the
-          -- doubles as C doubles, and borrows the other arguments
+          -- integers and doubles as C numbers, and borrows the other arguments
           whenJust (foreignWorker opts.optDoubles isStandardFFI fargs ret) $ \w => do
             let ps = zipWith (\(_, vn, _), mt => case mt of
                                  Just t => "\{cIntType t} \{vn}"
                                  Nothing => "Idris2_Value *\{vn}") typeVarNameArgList w.params
             let wdef = "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}"
                        ++ "\{workerName (cName canonN)}(\{showSep ", " ps})"
-            addProtos (cName canonN) [wdef ++ ";\n"]
-            emit EmptyFC wdef
-            emit EmptyFC "{"
-            increaseIndentation
             let cargs = zipWith (\(_, vn, vt), mt => if isJust mt then vn else extractValue cLang vt vn)
                                 typeVarNameArgList w.params
             let (cargs, ret') = case ret of
                                      CFIORes r => (discardLastArgument cargs, r)
                                      r => (cargs, r)
             let call = "\{cName fctName}(\{showSep ", " cargs})"
-            case ret' of
-              CFUnit => do emit EmptyFC "\{call};"
-                           emit EmptyFC "return NULL;"
-              _ => do
-                emit EmptyFC "\{cResultType cLang ret'} retVal = \{call};"
-                emit EmptyFC $ if isJust w.rawResult
-                                  then "return retVal;"
-                                  else "return (Idris2_Value*)" ++ packFFIResult cLang ret' "retVal" ++ ";"
-            decreaseIndentation
-            emit EmptyFC "}"
+            let body : List String
+                = case ret' of
+                    CFUnit => ["\{call};", "return NULL;"]
+                    _ => ["\{cResultType cLang ret'} retVal = \{call};"]
+                         -- (a C number is returned as it is: the call would be
+                         -- a jump, and the frame of the worker would not be in
+                         -- a backtrace)
+                         ++ (if opts.optBacktrace && isJust w.rawResult
+                                then ["IDRIS2_BT_KEEP_FRAME();"] else [])
+                         ++ [if isJust w.rawResult
+                                then "return retVal;"
+                                else "return (Idris2_Value*)" ++ packFFIResult cLang ret' "retVal" ++ ";"]
+            -- The worker of a function of the runtime (`RefC:`) or of a C
+            -- library with a header is `static inline` in every part of the
+            -- program that calls it, so that the C compiler sees the call of
+            -- the foreign function (a `static inline` getter of a buffer, say)
+            -- where the worker is called: the runtime's headers and those of
+            -- the libraries are included in every part.  With `--directive
+            -- refc-backtrace`, the frame of the call is kept, so the worker is
+            -- a function of its own (see `backtraceTable`).
+            if not opts.optBacktrace && (lang == "RefC" || length extLibOpts == 2)
+               then addProtos (cName canonN)
+                      ["static inline " ++ wdef ++ "\n{\n" ++ concatMap (\l => "    " ++ l ++ "\n") body ++ "}\n"]
+               else do
+                 addProtos (cName canonN) [wdef ++ ";\n"]
+                 emit EmptyFC $ (if opts.optBacktrace then "IDRIS2_BT_NOINLINE " else "") ++ wdef
+                 emit EmptyFC "{"
+                 increaseIndentation
+                 traverse_ (emit EmptyFC) body
+                 decreaseIndentation
+                 emit EmptyFC "}"
       _ => throw $ InternalError "[refc] FFI not found for \{cName canonN}"
           -- not really total but this way this internal error does not contaminate everything else
   where
@@ -3801,7 +3838,8 @@ backtraceTable : {auto c : Ref Ctxt Defs}
               -> SortedMap String Worker -> List (String, Name, ANFDef) -> Core (List String)
 backtraceTable workers named
     = do entries0 <- traverse entry (filter isFunction named)
-         -- (a worker has the name of its function, see `Worker`)
+         -- (a worker has the name of its function, see `Worker` and
+         -- `foreignWorker`)
          let entries = entries0 ++ mapMaybe (\(cn, n, loc) =>
                                       map (const (workerName cn, n, loc)) (lookup cn workers))
                                     entries0
@@ -4186,6 +4224,47 @@ refcBorrowing = pure $ not ("refc-no-borrow" `elem` !(getDirectives RefC))
 ||| also written in units (see above), whose files are made ready to compile:
 ||| returns what `compileUnits` needs (in Compiler.RefC.CC), the units that
 ||| need the C compiler and their sizes.  Nothing otherwise.
+||| The functions (by C name) whose body starts with a safepoint, so that a
+||| thread that computes in any cycle of calls can be preempted (see
+||| IDRIS2_SAFEPOINT): those of a cycle of direct calls with other functions
+||| (mutual recursion, in tail position or not), and those that call
+||| themselves other than in tail position (deep recursion).  A call of a
+||| function to itself in tail position is a loop, which has a safepoint of
+||| its own (see `selfTailCall`).  A call of a closure in tail position has
+||| one in the runtime (IDRIS2_JUMP_TO_CLOSURE, the trampoline); a cycle made
+||| only of calls of closures not in tail position (a recursion through the
+||| methods of an interface, say) has none: a safepoint in every such call
+||| (idris2_call_closure) costs 0.6% more instructions to the compiler.
+cycleFunctions : List (String, Name, ANFDef) -> SortedSet String
+cycleFunctions named
+    = let fns = mapMaybe (\(cn, _, d) => case d of
+                            MkAFun args anf => if null args then Nothing
+                                                  else Just (cn, calls True anf [])
+                            _ => Nothing) named
+          defined = SortedSet.fromList (map fst fns)
+          graph = SortedMap.fromList $
+                    map (\(cn, cs) => (cn, SortedSet.fromList
+                                             (filter (\g => contains g defined && g /= cn)
+                                                     (map fst cs)))) fns
+          mutuals = concatMap (\scc => let l = forget scc in
+                                        if length l > 1 then l else [])
+                              (tarjan graph)
+          deep = mapMaybe (\(cn, cs) => if any (\(g, t) => g == cn && not t) cs
+                                           then Just cn else Nothing) fns in
+          SortedSet.fromList (mutuals ++ deep)
+  where
+    -- The functions called directly, and whether in tail position.
+    calls : Bool -> ANF -> List (String, Bool) -> List (String, Bool)
+    calls t (AAppName _ _ n _) acc = (cName n, t) :: acc
+    calls t (ALet _ _ v b) acc = calls False v (calls t b acc)
+    calls t (AConCase _ _ alts def) acc
+        = foldl (\a, (MkAConAlt _ _ _ _ b) => calls t b a)
+                (maybe acc (\d => calls t d acc) def) alts
+    calls t (AConstCase _ _ alts def) acc
+        = foldl (\a, (MkAConstAlt _ b) => calls t b a)
+                (maybe acc (\d => calls t d acc) def) alts
+    calls _ _ acc = acc
+
 export
 generateCSourceFileParts : {auto c : Ref Ctxt Defs}
                         -> {default [] additionalFFILangs : List String}
@@ -4293,7 +4372,7 @@ generateCSourceFileParts defs0 outn =
      let funs = mapMaybe (\(cn, n, d) => case d of
                              MkAFun args anf => Just (cn, n, args, anf, contains cn trmcFns)
                              _ => Nothing) named
-     -- (the foreign functions that take or give C doubles, see
+     -- (the foreign functions that take or give C numbers, see
      -- `foreignWorker`)
      let foreignWorkers : SortedMap String Worker
            = fromList $ mapMaybe (\(cn, _, d) => case d of
@@ -4338,6 +4417,13 @@ generateCSourceFileParts defs0 outn =
      -- is a static function and the function that calls it).  The local
      -- variables are numbered in each definition, so that the code of a
      -- definition does not change with the definitions before it.
+     -- (the functions that start with a safepoint)
+     -- (`--directive refc-no-cycle-safepoints`: none, to measure what they
+     -- cost)
+     noCycleSafepoints <- pure $ "refc-no-cycle-safepoints" `elem` !(getDirectives RefC)
+     let opts = { optCycleFns := if noCycleSafepoints then empty
+                                   else cycleFunctions named } opts
+     log "compiler.refc" 5 $ "Functions in cycles of calls: " ++ show (length (SortedSet.toList opts.optCycleFns))
      bodies <- traverse (\((cn, n, d), canonN) =>
                  do put OutfileText DList.Nil
                     put ArgCounter 0
@@ -4352,7 +4438,7 @@ generateCSourceFileParts defs0 outn =
                                    (moduleOf canonN) cn (Prelude.toList refs)
                                    (Prelude.toList tbl.constUses))) (zip named canons)
      put OutfileText DList.Nil
-     footer !(if opts.optBacktrace then Just <$> backtraceTable workers named else pure Nothing)
+     footer !(if opts.optBacktrace then Just <$> backtraceTable (mergeLeft workers foreignWorkers) named else pure Nothing)
      footerLines <- reify <$> get OutfileText
      protos <- get FunctionDefinitions
      consts <- constantTexts <$> get ConstDef
@@ -4459,6 +4545,8 @@ compileExpr ANF c s _ outputDir tm outfile =
      let outobj = outputDir </> outfile ++ ".o"
      let outexec = outputDir </> outfile
 
+     -- (before the work, so that a mistake in them is told at once)
+     checkRefCDirectives
      coreLift_ $ mkdirAll outputDir
      cdata <- getCompileData False ANF tm
      let defs = anf cdata

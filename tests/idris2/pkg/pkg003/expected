@@ -22,4 +22,4 @@ Overridable options are:
     --spec-interfaces
 
 Packages must have an '.ipkg' extension: "malformed-package-name".
-Error: File error in non-existent-package.ipkg : File Not Found
+Error: File error in non-existent-package.ipkg : File Not Found [E1205]

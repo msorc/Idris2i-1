@@ -1,0 +1,51 @@
+Char
+List BoolBool
+3
+second
+Type
+Int -> Int
+Int String
+True
+fun
+IntStringBoolList Int
+1/1: Building Errors (Errors.idr)
+Error: While processing right hand side of noImpl. Can't find an implementation for Describe Bool. [E0401]
+
+Errors:20:12--20:22
+ 16 |   describe xs = "List " ++ concatMap describe xs
+ 17 |
+ 18 | -- No implementation: every candidate is rejected
+ 19 | noImpl : Bool -> String
+ 20 | noImpl b = describe b
+                 ^^^^^^^^^^
+
+There is no implementation of Describe for Bool in scope.
+
+Error: While processing right hand side of subGoal. Can't find an implementation for Describe (List Bool). [E0401]
+
+Errors:24:14--24:25
+ 20 | noImpl b = describe b
+ 21 |
+ 22 | -- An implementation that matches, whose sub-goal fails
+ 23 | subGoal : List Bool -> String
+ 24 | subGoal xs = describe xs
+                   ^^^^^^^^^^^
+
+The implementation Describe a => Describe (List a) (at Errors:15:1--16:49) matches, but needs Describe Bool.
+    There is no implementation of Describe for Bool in scope.
+
+Error: While processing right hand side of ambiguous. Multiple solutions found in search of: [E0403]
+    Describe Int
+
+Errors:35:15--35:25
+ 31 | otherInt : Describe Int
+ 32 | otherInt = other
+ 33 |
+ 34 | ambiguous : Int -> String
+ 35 | ambiguous i = describe i
+                    ^^^^^^^^^^
+
+Possible correct results:
+    otherInt : Describe Int (at Errors:30:1--31:24)
+    Describe Int (implementation at Errors:1)
+Suggestion: choose one with @{otherInt}.

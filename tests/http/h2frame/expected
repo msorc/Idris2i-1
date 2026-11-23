@@ -1,0 +1,115 @@
+-- header
+header encode: ok
+header decode: ok
+reserved bit ignored: ok
+header needs 9 bytes: ok
+-- round trips
+DATA encode: ok
+DATA decode: ok
+DATA prefixes need more: ok
+DATA padded encode: ok
+DATA padded decode: ok
+DATA padded prefixes need more: ok
+DATA empty pad encode: ok
+DATA empty pad decode: ok
+DATA empty pad prefixes need more: ok
+HEADERS encode: ok
+HEADERS decode: ok
+HEADERS prefixes need more: ok
+HEADERS priority padded encode: ok
+HEADERS priority padded decode: ok
+HEADERS priority padded prefixes need more: ok
+PRIORITY encode: ok
+PRIORITY decode: ok
+PRIORITY prefixes need more: ok
+RST_STREAM encode: ok
+RST_STREAM decode: ok
+RST_STREAM prefixes need more: ok
+RST_STREAM unknown code encode: ok
+RST_STREAM unknown code decode: ok
+RST_STREAM unknown code prefixes need more: ok
+SETTINGS encode: ok
+SETTINGS decode: ok
+SETTINGS prefixes need more: ok
+SETTINGS ACK encode: ok
+SETTINGS ACK decode: ok
+SETTINGS ACK prefixes need more: ok
+PUSH_PROMISE encode: ok
+PUSH_PROMISE decode: ok
+PUSH_PROMISE prefixes need more: ok
+PUSH_PROMISE padded encode: ok
+PUSH_PROMISE padded decode: ok
+PUSH_PROMISE padded prefixes need more: ok
+PING encode: ok
+PING decode: ok
+PING prefixes need more: ok
+PING ACK encode: ok
+PING ACK decode: ok
+PING ACK prefixes need more: ok
+GOAWAY encode: ok
+GOAWAY decode: ok
+GOAWAY prefixes need more: ok
+WINDOW_UPDATE encode: ok
+WINDOW_UPDATE decode: ok
+WINDOW_UPDATE prefixes need more: ok
+WINDOW_UPDATE stream encode: ok
+WINDOW_UPDATE stream decode: ok
+WINDOW_UPDATE stream prefixes need more: ok
+CONTINUATION encode: ok
+CONTINUATION decode: ok
+CONTINUATION prefixes need more: ok
+unknown type encode: ok
+unknown type decode: ok
+unknown type prefixes need more: ok
+-- flags that do not belong to the type are ignored
+DATA with ACK-like and unknown flags: ok
+-- validity of single frames
+DATA on stream 0: ok
+DATA padding as long as the payload: ok
+DATA padding of all but the pad length: ok
+DATA padded without pad length: ok
+HEADERS on stream 0: ok
+HEADERS priority too short: ok
+HEADERS padding covering the priority: ok
+HEADERS depending on itself: ok
+PRIORITY on stream 0: ok
+PRIORITY length 4: ok
+PRIORITY depending on itself: ok
+RST_STREAM on stream 0: ok
+RST_STREAM length 5: ok
+SETTINGS on a stream: ok
+SETTINGS ACK with payload: ok
+SETTINGS length 5: ok
+SETTINGS_ENABLE_PUSH 2: ok
+SETTINGS_INITIAL_WINDOW_SIZE 2^31: ok
+SETTINGS_INITIAL_WINDOW_SIZE 2^31-1: ok
+SETTINGS_MAX_FRAME_SIZE 16383: ok
+SETTINGS_MAX_FRAME_SIZE 2^24: ok
+PUSH_PROMISE on stream 0: ok
+PUSH_PROMISE too short: ok
+PING on a stream: ok
+PING length 7: ok
+GOAWAY on a stream: ok
+GOAWAY length 7: ok
+WINDOW_UPDATE length 3: ok
+WINDOW_UPDATE of 0 on the connection: ok
+WINDOW_UPDATE of 0 on a stream: ok
+CONTINUATION on stream 0: ok
+frame above the maximum size: ok
+frame of exactly the maximum size: ok
+a larger limit: ok
+-- several frames in one buffer
+first: SETTINGS True []
+second: frame PING False 0000000000000001 rest 
+-- settings
+defaults: 4096 True Nothing 65535 16384 Nothing
+applied: 0 False Just 10 2 32768 Just 99
+error codes: ok
+setting ids: ok
+-- preface
+preface bytes: ok
+empty: need 24
+prefix: need 12
+whole and more: ok, rest 000000040100000000
+HTTP/1.1: bad
+wrong prefix: bad

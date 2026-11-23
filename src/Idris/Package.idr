@@ -474,7 +474,9 @@ compileMain mainn mfilename exec
     = do modIdent <- ctxtPathToNS mfilename
          m <- newRef MD (initMetadata (PhysicalIdrSrc modIdent))
          u <- newRef UST initUState
-         ignore $ loadMainFile mfilename
+         -- not after errors: see `postOptions`
+         False <- isFailure <$> loadMainFile mfilename
+           | True => pure False
          result <- compileExp (PRef replFC mainn) exec
          pure $ case result of
                      Compiled _ => True
@@ -764,6 +766,9 @@ install pkg opts installSrc -- not used but might be in the future
          log "package.depends" 25 $ "  package file:\n\{pkgStr}"
          coreLift_ $ writeFile pkgFile pkgStr
 
+         -- The postinstall script can put files of its own (C libraries and
+         -- headers, in `lib`) where the package was installed.
+         _ <- coreLift $ setEnv "IDRIS2_PACKAGE_INSTALL_DIR" libTargetDir True
          runScript (postinstall pkg)
   where
     savePkgMetadata : PkgDesc -> PkgDesc
@@ -1071,6 +1076,7 @@ processPackage opts (cmd, mfile)
                       setupCompilation pkg opts
                       [] <- buildOneModule f
                         | _ => coreLift (exitWith (ExitFailure 1))
+                      showTimeRecord
                       coreLift (exitWith ExitSuccess)
                Nothing => runCommand jobsFrom pkg
   where
@@ -1128,6 +1134,7 @@ partitionOpts opts = foldr pOptUpdate (MkPFR [] [] False) opts
     optType Quiet                  = POpt
     optType Verbose                = POpt
     optType (Timing l)             = POpt
+    optType TimingSummary          = POpt
     optType (Logging l)            = POpt
     optType CaseTreeHeuristics     = POpt
     optType (DumpANF f)            = POpt
@@ -1154,6 +1161,7 @@ partitionOpts opts = foldr pOptUpdate (MkPFR [] [] False) opts
     optType NoBanner               = PIgnore
     -- already set by preOptions, before the package is processed
     optType (SetErrorFormat f)     = PIgnore
+    optType (ErrorCodes b)         = PIgnore
     optType x                      = PErr
 
     pOptUpdate : CLOpt -> (PackageOpts -> PackageOpts)

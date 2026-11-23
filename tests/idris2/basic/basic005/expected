@@ -1,5 +1,5 @@
 1/1: Building NoInfer (NoInfer.idr)
-Error: Unsolved holes:
+Error: Unsolved holes: [E0501]
 Main.{_:1} introduced at: 
 NoInfer:1:7--1:8
  1 | foo : ? -> Int

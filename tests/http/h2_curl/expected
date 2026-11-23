@@ -1,0 +1,32 @@
+--- GET
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+content-length: 29
+
+hello from idris over HTTP/2
+--- HEAD
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+content-length: 29
+
+--- POST
+got 24 bytes: name=idris&kind=language
+--- upload
+got 108894 bytes: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
+--- 5 MB download
+1b3ab6cadcf2d5418ca81a6dca0bf24f
+1b3ab6cadcf2d5418ca81a6dca0bf24f
+--- three URLs, connections made for each
+1 2
+0 2
+0 2
+--- several at once
+200 2
+200 2
+200 2
+200 2
+--- not found and wrong method
+404
+405
+bye
+server exit: 0

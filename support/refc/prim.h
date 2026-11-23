@@ -35,16 +35,23 @@ extern Idris2_ShortString const idris2_predefined_codegenstring;
 // not return, which also keeps the C compiler from making its call a jump,
 // so that the frame of the caller is in the backtrace.)
 #if defined(__GNUC__) || defined(__clang__)
-__attribute__((noreturn, cold))
+__attribute__((__noreturn__, __cold__))
 #endif
 Idris2_Value *idris2_crash(Idris2_Value *msg);
 // A crash of the compiled code itself (a case without a clause for the value,
 // a hole): print the message and stop, like the Scheme backends.  It has a
 // result type to be used as an expression, but it does not return.
 #if defined(__GNUC__) || defined(__clang__)
-__attribute__((noreturn, cold))
+__attribute__((__noreturn__, __cold__))
 #endif
 Idris2_Value *idris2_crashMsg(const char *msg);
+// A check of the runtime that failed (an invalid length, a division by
+// zero): like idris2_crashMsg, but a crash boundary sees it as a failed
+// check.
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((__noreturn__, __cold__))
+#endif
+void idris2_crashCheck(const char *msg);
 
 // Array
 

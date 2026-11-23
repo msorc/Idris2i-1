@@ -1,36 +1,36 @@
 --- Undefined
-{"severity":"error","file":"Undefined.idr","start":{"line":4,"col":8},"end":{"line":4,"col":14},"message":"While processing right hand side of g. Undefined name lenght.\nDid you mean: length?"}
+{"severity":"error","file":"Undefined.idr","start":{"line":4,"col":8},"end":{"line":4,"col":14},"message":"While processing right hand side of g. Undefined name lenght.\nDid you mean: length?","code":"E0201","headline":"Undefined name lenght.","context":["While processing right hand side of g"],"candidates":[],"related":[],"suggestions":[{"name":"length"}],"notes":[]}
 exit code: 1
 --- Mismatch
-{"severity":"error","file":"Mismatch.idr","start":{"line":4,"col":5},"end":{"line":4,"col":31},"message":"While processing right hand side of f. When unifying:\n    String\nand:\n    Nat\nMismatch between: String and Nat."}
+{"severity":"error","file":"Mismatch.idr","start":{"line":4,"col":5},"end":{"line":4,"col":31},"message":"While processing right hand side of f. Mismatch between: String and Nat.\nWhen unifying:\n    Expected: Nat\n    Got:      String","code":"E0101","headline":"Mismatch between: String and Nat.","context":["While processing right hand side of f"],"expected":"Nat","got":"String","candidates":[],"related":[],"suggestions":[],"notes":["When unifying:","Expected: Nat","Got:      String"]}
 exit code: 1
 --- Warning
-{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version."}
+{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version.","code":"W0006","headline":"Deprecation warning: Warning.old is deprecated and will be removed in a future version.","context":[],"candidates":[],"related":[{"file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"label":"the deprecated definition"}],"suggestions":[],"notes":[]}
 exit code: 0
 --- Ok
 exit code: 0
 --- progress lines are on stderr
 1/1: Building Ok (Ok.idr)
 --- warnings as errors
-{"severity":"error","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version."}
+{"severity":"error","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version.","code":"W0006","headline":"Deprecation warning: Warning.old is deprecated and will be removed in a future version.","context":[],"candidates":[],"related":[],"suggestions":[],"notes":[]}
 exit code: 1
 --- build a package
-{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version."}
-{"severity":"error","file":"Broken.idr","start":{"line":6,"col":5},"end":{"line":6,"col":8},"message":"While processing right hand side of h. Name Warning.new is private.\n\nSuggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks."}
+{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version.","code":"W0006","headline":"Deprecation warning: Warning.old is deprecated and will be removed in a future version.","context":[],"candidates":[],"related":[{"file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"label":"the deprecated definition"}],"suggestions":[],"notes":[]}
+{"severity":"error","file":"Broken.idr","start":{"line":6,"col":5},"end":{"line":6,"col":8},"message":"While processing right hand side of h. Name Warning.new is private.\n\nSuggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks.","code":"E0202","headline":"Name Warning.new is private.","context":["While processing right hand side of h"],"candidates":[],"related":[],"suggestions":[],"notes":["Suggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks."]}
 exit code: 1
 --- typecheck a package
-{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version."}
-{"severity":"error","file":"Broken.idr","start":{"line":6,"col":5},"end":{"line":6,"col":8},"message":"While processing right hand side of h. Name Warning.new is private.\n\nSuggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks."}
+{"severity":"warning","file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"message":"Deprecation warning: Warning.old is deprecated and will be removed in a future version.","code":"W0006","headline":"Deprecation warning: Warning.old is deprecated and will be removed in a future version.","context":[],"candidates":[],"related":[{"file":"Warning.idr","start":{"line":8,"col":7},"end":{"line":8,"col":10},"label":"the deprecated definition"}],"suggestions":[],"notes":[]}
+{"severity":"error","file":"Broken.idr","start":{"line":6,"col":5},"end":{"line":6,"col":8},"message":"While processing right hand side of h. Name Warning.new is private.\n\nSuggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks.","code":"E0202","headline":"Name Warning.new is private.","context":["While processing right hand side of h"],"candidates":[],"related":[],"suggestions":[],"notes":["Suggestion: add an explicit export or public export modifier. By default, all names are private in namespace blocks."]}
 exit code: 1
 --- REPL command
-{"severity":"error","file":null,"start":{"line":1,"col":1},"end":{"line":1,"col":5},"message":"Undefined name oops."}
+{"severity":"error","file":null,"start":{"line":1,"col":1},"end":{"line":1,"col":5},"message":"Undefined name oops.","code":"E0201","headline":"Undefined name oops.","context":[],"candidates":[],"related":[],"suggestions":[],"notes":[]}
 exit code: 1
 --- missing file
-{"severity":"error","file":null,"message":"Error loading file \"Missing.idr\": File Not Found"}
+{"severity":"error","file":null,"message":"Error loading file \"Missing.idr\": File Not Found","code":"E0000","headline":"Error loading file \"Missing.idr\": File Not Found","context":[],"candidates":[],"related":[],"suggestions":[],"notes":[]}
 exit code: 1
 --- human is the default
 1/1: Building Undefined (Undefined.idr)
-Error: While processing right hand side of g. Undefined name lenght. 
+Error: While processing right hand side of g. Undefined name lenght. [E0201]
 
 Undefined:4:8--4:14
  1 | module Undefined

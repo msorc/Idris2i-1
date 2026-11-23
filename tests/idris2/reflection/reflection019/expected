@@ -1,5 +1,5 @@
 1/1: Building ElabScriptWarning (ElabScriptWarning.idr)
-Warning: The first argument worth a warning
+Warning: The first argument worth a warning [W0000]
 
 ElabScriptWarning:19:27--19:39
  15 |

@@ -14,6 +14,24 @@ import Data.String
 
 %default covering
 
+||| A call as the size change graph sees it: the environment of the clause
+||| it is in, the patterns of the clause, the arguments of the call, and the
+||| size of each argument compared to each pattern.
+public export
+data CallArgs : Type where
+     MkCallArgs : {vars : _} ->
+                  Env Term vars -> (pats : List (Term vars)) ->
+                  (args : List (Term vars)) ->
+                  (changes : List (List SizeChange)) -> CallArgs
+
+data FoundCall : Type where
+
+-- The call to look for while building a size change graph (see
+-- `callArgsAt`): the location of the name of the function called, the
+-- function, and where to put the call once found
+Target : Type
+Target = Maybe (FC, Name, Ref FoundCall (Maybe CallArgs))
+
 data Guardedness = Toplevel | Unguarded | Guarded | InDelay
 
 Show Guardedness where
@@ -161,33 +179,33 @@ normaliseSC defs env tm
 mutual
   findSC : {vars : _} ->
            {auto c : Ref Ctxt Defs} ->
-           Defs -> Env Term vars -> Guardedness ->
+           Target -> Defs -> Env Term vars -> Guardedness ->
            List (Term vars) -> -- LHS args
            Term vars -> -- RHS
            Core (List SCCall)
-  findSC {vars} defs env g pats (Bind fc n b sc)
-       = [| findSCbinder b ++ findSC defs (b :: env) g (map weaken pats) sc |]
+  findSC {vars} tgt defs env g pats (Bind fc n b sc)
+       = [| findSCbinder b ++ findSC tgt defs (b :: env) g (map weaken pats) sc |]
     where
       findSCPiInfo : PiInfo (Term vars) -> Core (List SCCall)
-      findSCPiInfo (DefImplicit def) = findSC defs env g pats def
+      findSCPiInfo (DefImplicit def) = findSC tgt defs env g pats def
       findSCPiInfo _ = pure []
 
       findSCbinder : Binder (Term vars) -> Core (List SCCall)
       -- Only from `normaliseSC` keeping the lets. The value may be used
       -- anywhere in the scope, so it is not guarded by its context. The
       -- type is ignored, as it is when the value is substituted
-      findSCbinder (Let _ _ val ty) = findSC defs env Unguarded pats val
-      findSCbinder (Pi _ _ p ty) = [| findSCPiInfo p ++ findSC defs env g pats ty |]
-      findSCbinder (Lam _ _ p ty) = [| findSCPiInfo p ++ findSC defs env g pats ty |]
+      findSCbinder (Let _ _ val ty) = findSC tgt defs env Unguarded pats val
+      findSCbinder (Pi _ _ p ty) = [| findSCPiInfo p ++ findSC tgt defs env g pats ty |]
+      findSCbinder (Lam _ _ p ty) = [| findSCPiInfo p ++ findSC tgt defs env g pats ty |]
       findSCbinder b = pure [] -- other binders shouldn't appear in the RHS of a definition
   -- If we're Guarded and find a Delay, continue with the argument as InDelay
-  findSC defs env Guarded pats (TDelay _ _ _ tm)
-      = findSC defs env InDelay pats tm
-  findSC defs env g pats (TDelay _ _ _ tm)
-      = findSC defs env g pats tm
-  findSC defs env g pats (TForce _ _ tm)
-      = findSC defs env Unguarded pats tm
-  findSC defs env g pats tm
+  findSC tgt defs env Guarded pats (TDelay _ _ _ tm)
+      = findSC tgt defs env InDelay pats tm
+  findSC tgt defs env g pats (TDelay _ _ _ tm)
+      = findSC tgt defs env g pats tm
+  findSC tgt defs env g pats (TForce _ _ tm)
+      = findSC tgt defs env Unguarded pats tm
+  findSC tgt defs env g pats tm
       = do let (fn, args) = getFnArgs tm
            False <- isAssertTotal fn
                | True => pure []
@@ -200,30 +218,30 @@ mutual
     -- If we're InDelay and find a constructor (or a function call which is
     -- guaranteed to return a constructor; AllGuarded set), continue as InDelay
              (InDelay, Ref fc (DataCon {}) cn, args) =>
-                 do scs <- traverse (findSC defs env InDelay pats) args
+                 do scs <- traverse (findSC tgt defs env InDelay pats) args
                     pure (concat scs)
              -- If we're InDelay otherwise, just check the arguments, the
              -- function call is okay
              (InDelay, _, args) =>
-                 do scs <- traverse (findSC defs env Unguarded pats) args
+                 do scs <- traverse (findSC tgt defs env Unguarded pats) args
                     pure (concat scs)
              (Guarded, Ref fc (DataCon {}) cn, args) =>
-                    findSCcall defs env Guarded pats fc cn args
+                    findSCcall tgt defs env Guarded pats fc cn args
              (Toplevel, Ref fc (DataCon {}) cn, args) =>
-                    findSCcall defs env Guarded pats fc cn args
+                    findSCcall tgt defs env Guarded pats fc cn args
              (_, Ref fc Func fn, args) =>
                  do logC "totality" 50 $
                        pure $ "Looking up type of " ++ show !(toFullNames fn)
-                    findSCcall defs env Unguarded pats fc fn args
+                    findSCcall tgt defs env Unguarded pats fc fn args
              (_, f, args) =>
-                 do scs <- traverse (findSC defs env Unguarded pats) args
+                 do scs <- traverse (findSC tgt defs env Unguarded pats) args
                     pure (concat scs)
       where
         handleCase : Term vars -> List (Term vars) -> Core (Maybe (List SCCall))
         handleCase (Ref fc nt n) args
             = do n' <- toFullNames n
                  if caseFn n'
-                    then Just <$> findSCcall defs env g pats fc n args
+                    then Just <$> findSCcall tgt defs env g pats fc n args
                     else pure Nothing
         handleCase _ _ = pure Nothing
 
@@ -459,11 +477,11 @@ mutual
 
   findSCcall : {vars : _} ->
                {auto c : Ref Ctxt Defs} ->
-               Defs -> Env Term vars -> Guardedness ->
+               Target -> Defs -> Env Term vars -> Guardedness ->
                List (Term vars) ->
                FC -> Name -> List (Term vars) ->
                Core (List SCCall)
-  findSCcall defs env g pats fc fn_in args
+  findSCcall tgt defs env g pats fc fn_in args
         -- Under 'assert_total' we assume that all calls are fine, so leave
         -- the size change list empty
       = do fn <- getFullName fn_in
@@ -471,43 +489,50 @@ mutual
            logC "totality.termination.sizechange" 10 $ do pure $ "Looking under " ++ show !(toFullNames fn)
            aSmaller <- resolved (gamma defs) (NS builtinNS (UN $ Basic "assert_smaller"))
            if caseFn fn
-              then do scs1 <- traverse (findSC defs env g pats) args
+              then do scs1 <- traverse (findSC tgt defs env g pats) args
                       mps  <- getCasePats defs fn pats args'
-                      scs2 <- traverse (findInCase defs g) $ fromMaybe [] mps
+                      scs2 <- traverse (findInCase tgt defs g) $ fromMaybe [] mps
                       pure (concat (scs1 ++ scs2))
-              else do scs <- traverse (findSC defs env g pats) args
-                      pure $ [MkSCCall fn
-                               (fromListList
-                                    !(traverse (mkChange defs aSmaller pats) args'))
-                               fc]
+              else do scs <- traverse (findSC tgt defs env g pats) args
+                      changes <- traverse (mkChange defs aSmaller pats) args'
+                      noteCall tgt fn args' changes
+                      pure $ [MkSCCall fn (fromListList changes) fc]
                                ++ concat scs
+    where
+      noteCall : Target -> Name -> List (Term vars) -> List (List SizeChange) -> Core ()
+      noteCall Nothing _ _ _ = pure ()
+      noteCall (Just (tfc, tfn, found)) fn args changes
+          = when (tfc == fc && tfn == fn) $
+              do Nothing <- get FoundCall
+                   | Just _ => pure ()
+                 put FoundCall (Just (MkCallArgs env pats args changes))
 
   findInCase : {auto c : Ref Ctxt Defs} ->
-               Defs -> Guardedness ->
+               Target -> Defs -> Guardedness ->
                (vs ** (Env Term vs, List (Term vs), Term vs)) ->
                Core (List SCCall)
-  findInCase defs g (_ ** (env, pats, tm))
+  findInCase tgt defs g (_ ** (env, pats, tm))
      = do logC "totality" 10 $
                    do ps <- traverse toFullNames pats
                       pure ("Looking in case args " ++ show ps)
           logTermNF "totality" 10 "        =" env tm
           rhs <- normaliseSC defs env tm
-          findSC defs env g pats (delazy defs rhs)
+          findSC tgt defs env g pats (delazy defs rhs)
 
 findCalls : {auto c : Ref Ctxt Defs} ->
-            Defs -> (vars ** (Env Term vars, Term vars, Term vars)) ->
+            Target -> Defs -> (vars ** (Env Term vars, Term vars, Term vars)) ->
             Core (List SCCall)
-findCalls defs (_ ** (env, lhs, rhs_in))
+findCalls tgt defs (_ ** (env, lhs, rhs_in))
    = do let pargs = getArgs (delazy defs lhs)
         rhs <- normaliseSC defs env rhs_in
-        findSC defs env Toplevel pargs (delazy defs rhs)
+        findSC tgt defs env Toplevel pargs (delazy defs rhs)
 
 getSC : {auto c : Ref Ctxt Defs} ->
-        Defs -> Def -> Core (List SCCall)
-getSC defs (PMDef _ args _ _ pats)
-   = do sc <- traverse (findCalls defs) pats
+        Target -> Defs -> Def -> Core (List SCCall)
+getSC tgt defs (PMDef _ args _ _ pats)
+   = do sc <- traverse (findCalls tgt defs) pats
         pure $ nub (concat sc)
-getSC defs _ = pure []
+getSC tgt defs _ = pure []
 
 export
 calculateSizeChange : {auto c : Ref Ctxt Defs} ->
@@ -517,4 +542,19 @@ calculateSizeChange loc n
          defs <- get Ctxt
          Just def <- lookupCtxtExact n (gamma defs)
               | Nothing => undefinedName loc n
-         getSC defs (definition def)
+         getSC Nothing defs (definition def)
+
+||| Find a call in the definition of `n` again, as the size change graph was
+||| built: the call of `fn` whose name is at `callfc`. For explaining why the
+||| call is not known to terminate.
+export
+callArgsAt : {auto c : Ref Ctxt Defs} ->
+             (n : Name) -> (callfc : FC) -> (fn : Name) -> Core (Maybe CallArgs)
+callArgsAt n callfc fn
+    = do defs <- get Ctxt
+         Just def <- lookupCtxtExact n (gamma defs)
+              | Nothing => pure Nothing
+         fn <- getFullName fn
+         found <- newRef FoundCall Nothing
+         ignore $ getSC (Just (callfc, fn, found)) defs (definition def)
+         get FoundCall

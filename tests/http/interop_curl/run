@@ -1,0 +1,37 @@
+. ../../testutils.sh
+
+# curl against the server.  Without curl, the expected output is printed.
+if ! command -v curl >/dev/null 2>&1; then
+    cat expected
+    exit 0
+fi
+
+mkdir -p build/src && cp Main.idr build/src/ && cd build/src
+idris2 -p contrib -p network -p http -o main Main.idr
+rm -f port
+./build/exec/main &
+pid=$!
+for i in $(seq 1 100); do [ -s port ] && break; sleep 0.1; done
+base="http://127.0.0.1:$(cat port)"
+
+show() { tr -d '\r' | grep -v '^Date: '; }
+
+echo "--- GET"
+curl -sS -i --max-time 10 "$base/hello" 2>&1 | show
+echo "--- HEAD"
+curl -s -I --max-time 10 "$base/hello" | show
+echo "--- POST"
+curl -s -i --max-time 10 -d 'name=idris&kind=language' "$base/echo" | show
+echo "--- chunked upload"
+seq -s, 1 2000 > upload.txt
+curl -s --max-time 10 -H 'Transfer-Encoding: chunked' --data-binary @upload.txt "$base/echo" | show
+echo "--- 100-continue"
+curl -s --max-time 10 -H 'Expect: 100-continue' --data-binary @upload.txt "$base/echo" | show
+echo "--- keep-alive: two URLs, connections made for each"
+curl -s --max-time 10 -w '%{num_connects}\n' "$base/hello" "$base/second" | show
+echo "--- not found and wrong method"
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 10 "$base/nothing"
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 10 -X DELETE "$base/hello"
+curl -s --max-time 10 "$base/quit"
+wait $pid
+echo "server exit: $?"

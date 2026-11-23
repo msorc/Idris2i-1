@@ -106,3 +106,7 @@ int idris2_threadStopOthers(void);
 // thread holds is worth spinning on for a while, as it runs at the same
 // time.)
 int idris2_threadRunsElsewhere(int worker, int64_t thread);
+
+// For the reactor (see reactor.c): threads start to wait for file
+// descriptors, so a parked worker must poll.
+void idris2_threadKickWatcher(void);

@@ -1,0 +1,50 @@
+accept with nobody connecting: timed out
+recv from a silent peer: timed out
+recv with a past deadline: timed out
+connect to a full queue: timed out
+recvExactly 10 from a peer that sent 3 and closed: 3
+recv after that: 0
+send to a closed peer: peer gone
+recv of a socket that another thread closed: socket closed
+blocking send to a closed peer: failed
+NoDelay 1: 1
+NoDelay 0: 0
+KeepAlive 1: 1
+ReuseAddr 1: 1
+ReusePort 1: 1
+Linger 5: 5
+Linger -1: -1
+RecvBuffer 65536: at least 65536: True
+IPv6 loopback: ok
+datagram: hello, from the sender: True
+recvFrom with nothing sent: timed out
+localhost: True
+127.0.0.1: [127.0.0.1:8080]
+no-such-host.invalid: failed, with a message: True
+connectHost to it: ResolveError
+done
+accept with nobody connecting: timed out
+recv from a silent peer: timed out
+recv with a past deadline: timed out
+connect to a full queue: timed out
+recvExactly 10 from a peer that sent 3 and closed: 3
+recv after that: 0
+send to a closed peer: peer gone
+recv of a socket that another thread closed: socket closed
+blocking send to a closed peer: failed
+NoDelay 1: 1
+NoDelay 0: 0
+KeepAlive 1: 1
+ReuseAddr 1: 1
+ReusePort 1: 1
+Linger 5: 5
+Linger -1: -1
+RecvBuffer 65536: at least 65536: True
+IPv6 loopback: ok
+datagram: hello, from the sender: True
+recvFrom with nothing sent: timed out
+localhost: True
+127.0.0.1: [127.0.0.1:8080]
+no-such-host.invalid: failed, with a message: True
+connectHost to it: ResolveError
+done

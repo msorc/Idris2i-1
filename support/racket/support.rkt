@@ -211,8 +211,52 @@
   (lambda (x)
     (vector 1 x)))
 
+;; Crash boundaries (System.Crash): inside one, blodwen-error-quit raises a
+;; blodwen-crash, which blodwen-crash-catch catches, as it does the
+;; exn:fail exceptions that Racket raises (exn:break, a break, is not).
+;; `blodwen-crash-thread` is the thread that runs in a boundary (a thread
+;; created in one inherits the parameter, and has no boundary).
+(define blodwen-crash-thread (make-parameter #f))
+(struct blodwen-crash (kind message))
+(define blodwen-crash-count 0)
+(define blodwen-crash-count-sema (make-semaphore 1))
+
+;; The result of the action, or #f if it crashed: then blodwen-crash-last
+;; is the record of the crash, #(kind message backtrace) (until it is read).
+(define blodwen-crash-last (make-parameter #f))
+
+(define (blodwen-crash-catch ty act)
+  (with-handlers ([(lambda (e) (or (blodwen-crash? e) (exn:fail? e)))
+                   (lambda (e)
+                     (call-with-semaphore blodwen-crash-count-sema
+                       (lambda () (set! blodwen-crash-count (+ 1 blodwen-crash-count))))
+                     (blodwen-crash-last
+                       (if (blodwen-crash? e)
+                           (vector (blodwen-crash-kind e) (blodwen-crash-message e) #f)
+                           (vector 2 (exn-message e) #f)))
+                     #f)])
+    (parameterize ([blodwen-crash-thread (current-thread)])
+      (act (vector 0)))))
+
+(define (blodwen-crash-caught) (if (blodwen-crash-last) 1 0))
+
+(define (blodwen-crashes-caught)
+  (call-with-semaphore blodwen-crash-count-sema (lambda () blodwen-crash-count)))
+
+(define (blodwen-crash-boundaries) 1)
+
 (define blodwen-error-quit
   (lambda (msg)
+    (when (eq? (blodwen-crash-thread) (current-thread))
+      (let* ([n (string-length msg)]
+             [call? (and (>= n 7) (string=? (substring msg 0 7) "ERROR: "))]
+             [text (if call? (substring msg 7 n) msg)]
+             ;; (the clause added to a function that does not cover every
+             ;; input crashes with this message)
+             [missing? (or (not call?)
+                           (and (>= (string-length text) 20)
+                                (string=? (substring text 0 20) "Unhandled input for ")))])
+        (raise (blodwen-crash (if missing? 1 0) text))))
     (display msg)
     (newline)
     (exit 1)))
@@ -361,15 +405,42 @@
     ))
 
 ;; Channels
+;; A channel of `makeChannel` holds one value, like the ones of Chez.
 
 (define (blodwen-make-channel ty)
   (make-async-channel 1))
+
+(define (blodwen-make-buffered-channel ty capacity)
+  (make-async-channel (max capacity 1)))
+
+(define (blodwen-make-unbounded-channel ty)
+  (make-async-channel #f))
 
 (define (blodwen-channel-get ty chan)
   (async-channel-get chan))
 
 (define (blodwen-channel-put ty chan val)
   (async-channel-put chan val))
+
+; A `Maybe`: Nothing is '(), Just x is (box x).  (`sync/timeout` gives #f
+; when the time is up, which a boxed value is not.)
+(define (blodwen-channel-get-non-blocking ty chan)
+  (or (sync/timeout 0 (wrap-evt chan box)) '()))
+
+; The timeout is in milliseconds.
+(define (blodwen-channel-get-with-timeout ty chan timeout)
+  (or (sync/timeout (/ (max timeout 0) 1000.0) (wrap-evt chan box)) '()))
+
+;; Compare-and-swap on IORefs (see Data.IORef): 1 if `new` was written into
+;; the box, which held `old` (by `eq?`), and 0 if it held something else.
+;; `box-cas!` may fail spuriously, so it is tried again while the box holds
+;; `old`.
+
+(define (blodwen-box-cas ty b old new)
+  (let loop ()
+    (cond [(box-cas! b old new) 1]
+          [(eq? (unbox b) old) (loop)]
+          [else 0])))
 
 ;; Mutex
 

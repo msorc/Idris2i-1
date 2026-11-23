@@ -1,16 +1,19 @@
 1/1: Building Good (Good.idr)
 1/1: Building Fun (Fun.idr)
-Error: loop is not total, possibly not terminating due to call to Main.app
+Error: loop is not total, possibly not terminating due to call to Main.app [E0703]
 
-Fun:8:1--9:12
- 8 | total
- 9 | loop : Type
+Fun:10:8--10:11
+ 06 | app _       = \a => a
+ 07 |
+ 08 | total
+ 09 | loop : Type
+ 10 | loop = app (Fun (\a => app a a)) (Fun (\a => app a a))
+             ^^^
 
-Calls leading to the non-terminating function:
-    Main.app called at Fun:10:8--10:11
+Main.app is not total, since matching on a type gives it f, which can hold a function over types.
 
 1/1: Building Cantor (Cantor.idr)
-Error: J is not total, since matching on a type gives it f, which can hold a function over types
+Error: J is not total, since matching on a type gives it f, which can hold a function over types [E0705]
 
 Cantor:6:1--6:27
  2 | %default total
@@ -20,34 +23,35 @@ Cantor:6:1--6:27
  6 | J : Type -> (Type -> Bool)
      ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Error: bad is not total, possibly not terminating due to function Main.J being reachable via Main.fix -> Main.J
+Error: bad is not total, possibly not terminating due to function Main.J being reachable via Main.fix -> Main.J [E0703]
 
-Cantor:26:1--26:11
- 22 | notfix : (b : Bool) -> b = not b -> Void
+Cantor:27:15--27:18
  23 | notfix True _ impossible
  24 | notfix False _ impossible
  25 |
  26 | bad : Void
-      ^^^^^^^^^^
+ 27 | bad = notfix (fix not) (fixes not)
+                    ^^^
 
 Calls leading to the non-terminating function:
     Main.fix called at Cantor:27:15--27:18
     Main.J called at Cantor:17:9--17:10
 
-Error: fix is not total, possibly not terminating due to call to Main.J
+Main.J is not total, since matching on a type gives it f, which can hold a function over types.
 
-Cantor:16:1--16:29
- 12 |
+Error: fix is not total, possibly not terminating due to call to Main.J [E0703]
+
+Cantor:17:9--17:10
  13 | q : (Bool -> Bool) -> (Type -> Bool)
  14 | q f x = f (J x x)
  15 |
  16 | fix : (Bool -> Bool) -> Bool
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 17 | fix f = J (I (q f)) (I (q f))
+              ^
 
-Calls leading to the non-terminating function:
-    Main.J called at Cantor:17:9--17:10
+Main.J is not total, since matching on a type gives it f, which can hold a function over types.
 
-Error: fixes is not total, possibly not terminating due to call to Main.J
+Error: fixes is not total, possibly not terminating due to call to Main.J [E0702]
 
 Cantor:19:1--19:48
  15 |
@@ -57,34 +61,43 @@ Cantor:19:1--19:48
  19 | fixes : (f : Bool -> Bool) -> fix f = f (fix f)
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Error: q is not total, possibly not terminating due to call to Main.J
+Main.J is not total, since matching on a type gives it f, which can hold a function over types.
 
-Cantor:13:1--13:37
- 09 |
+Error: q is not total, possibly not terminating due to call to Main.J [E0702]
+
+Cantor:14:12--14:13
  10 | JI : (f : Type -> Bool) -> J (I f) = f
  11 | JI f = Refl
  12 |
  13 | q : (Bool -> Bool) -> (Type -> Bool)
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 14 | q f x = f (J x x)
+                 ^
+
+Main.J is not total, since matching on a type gives it f, which can hold a function over types.
 
 1/1: Building Arrow (Arrow.idr)
-Error: cod is not total, since matching on a type gives it p, which can hold a function over types
+Error: cod is not total, since matching on a type gives it p, which can hold a function over types [E0705]
 
 Arrow:11:1--12:25
  11 | total
+      ^^^^^
  12 | cod : (t : Type) -> Type
+      ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Error: loop is not total, possibly not terminating due to call to Main.app
+Error: loop is not total, possibly not terminating due to call to Main.app [E0703]
 
-Arrow:6:1--7:12
+Arrow:8:8--8:11
+ 4 | app _ = \a => a
+ 5 |
  6 | total
  7 | loop : Type
+ 8 | loop = app ((x : Type) -> app x x) ((x : Type) -> app x x)
+            ^^^
 
-Calls leading to the non-terminating function:
-    Main.app called at Arrow:8:8--8:11
+Main.app is not total, since matching on a type gives it p, which can hold a function over types.
 
 1/1: Building Hidden (Hidden.idr)
-Error: J is not total, since matching on a type gives it p, which can hold a function over types
+Error: J is not total, since matching on a type gives it p, which can hold a function over types [E0705]
 
 Hidden:10:1--10:25
  06 |   holds : Type -> Bool
@@ -94,7 +107,7 @@ Hidden:10:1--10:25
  10 | J : Type -> Type -> Bool
       ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Error: K is not total, since matching on a type gives it x, which can hold a function over types
+Error: K is not total, since matching on a type gives it x, which can hold a function over types [E0705]
 
 Hidden:21:1--21:25
  17 | use : (a : Type) -> a -> Type -> Bool
@@ -104,7 +117,7 @@ Hidden:21:1--21:25
  21 | K : Type -> Type -> Bool
       ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Error: L is not total, since matching on a type gives it p, which can hold a function over types
+Error: L is not total, since matching on a type gives it p, which can hold a function over types [E0705]
 
 Hidden:26:1--26:25
  22 | K (Tag a x) = use a x
@@ -114,13 +127,15 @@ Hidden:26:1--26:25
  26 | L : Type -> Type -> Bool
       ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Error: viaJ is not total, possibly not terminating due to call to Main.J
+Error: viaJ is not total, possibly not terminating due to call to Main.J [E0702]
 
-Hidden:32:1--32:12
- 28 |            I p => holds p
+Hidden:33:8--33:9
  29 |            _ => \_ => True
  30 |
  31 | -- A caller is not total either.
  32 | viaJ : Bool
-      ^^^^^^^^^^^
+ 33 | viaJ = J Nat Nat
+             ^
+
+Main.J is not total, since matching on a type gives it p, which can hold a function over types.
 

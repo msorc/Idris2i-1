@@ -97,9 +97,9 @@ mutual
                               [] autos named'
             Nothing => -- Expected an explicit argument, but only implicits left
                        do let False = con
-                            | True => throw $ GenericMsg (getLoc fn) $
-                                                "Cannot match on a partially applied constructor: "
-                                                ++ show !(toFullNames fn)
+                            | True => throw $ GenericMsgTerm (getLoc fn) Env.empty
+                                                "Cannot match on a partially applied constructor:"
+                                                (getFn fn) ""
                           let True = null autos && null named
                             | False => badClause fn [] autos named -- unexpected arguments
                           pure fn
@@ -143,6 +143,16 @@ mutual
   processArgs _ fn _ exps autos named
      = badClause fn exps autos named
 
+  -- The expected type, to say in a message
+  expectedType : {auto c : Ref Ctxt Defs} ->
+                 {auto s : Ref Syn SyntaxInfo} ->
+                 Maybe ClosedClosure -> Core String
+  expectedType Nothing = pure "the expected type"
+  expectedType (Just ty)
+      = do defs <- get Ctxt
+           tm <- quote defs Env.empty !(evalClosure defs ty)
+           pure "the expected type \{show !(resugar Env.empty tm)}"
+
   buildApp : {auto c : Ref Ctxt Defs} ->
              {auto s : Ref Syn SyntaxInfo} ->
              {auto q : Ref QVar Int} ->
@@ -162,7 +172,8 @@ mutual
            [(n', i, gdef)] <- dropNoMatch mty' gdefs
               | [] => if length gdefs == 0
                         then undefinedName fc n
-                        else throw $ GenericMsg fc "\{show n} does not match expected type"
+                        else do exp <- expectedType mty
+                                throw $ GenericMsg fc "\{show n} does not match \{exp}"
               | ts => throw $ AmbiguousName fc (map fst ts)
            tynf <- nf defs Env.empty (type gdef)
            -- #899 we need to make sure that type & data constructors are marked
@@ -205,7 +216,8 @@ mutual
       go (IPrimVal fc c) _ _ _
           = do let tm = PrimVal fc c
                True <- isValidPrimType
-                 | _ => throw $ GenericMsg fc "\{show tm} does not match expected type"
+                 | _ => do exp <- expectedType mty
+                           throw $ GenericMsg fc "\{show tm} does not match \{exp}"
                pure tm
         where
           isValidPrimType : Core Bool
@@ -220,7 +232,8 @@ mutual
       go (IType fc) _ _ _
           = do defs <- get Ctxt
                Just (NType {}) <- traverseOpt (evalClosure defs) mty
-                 | _ => throw $ GenericMsg fc "Type does not match expected type"
+                 | _ => do exp <- expectedType mty
+                           throw $ GenericMsg fc "Type does not match \{exp}"
                pure (TType fc $ MN "top" 0)
       -- We're taking UniqueDefault here, _and_ we're falling through to error otherwise, which is sketchy.
       -- One option is to try each and emit an AmbiguousElab? We maybe should respect `UniqueDefault` if there

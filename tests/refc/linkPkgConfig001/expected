@@ -1,0 +1,4 @@
+42
+--- an unknown module
+Error: The RefC directive "refc-pkg-config=no-such-module" cannot be used: `pkg-config --libs no-such-module` fails (is pkg-config installed, and does it know "no-such-module"? PKG_CONFIG_PATH tells it where to look) [E0000]
+

@@ -1,0 +1,15 @@
+1/1: Building Grouped (Grouped.idr)
+Error: While processing right hand side of total'. Sorry, I can't find any elaboration which works. All errors: [E0302]
+All 3 candidates for size fail on the same expression, of type Bool:
+    If Main.C.size: Mismatch between: Bool and Maybe ?a.
+    If Main.A.size: Mismatch between: Bool and List ?a.
+    If Main.B.size: Mismatch between: Bool and String.
+
+Grouped:18:17--18:18
+ 14 |   size : Maybe a -> Nat
+ 15 |   size _ = 1
+ 16 |
+ 17 | total' : Bool -> Nat
+ 18 | total' b = size b
+                      ^
+

@@ -1,5 +1,5 @@
 1/1: Building Outdent (Outdent.idr)
-Error: Not the end of a block entry, check indentation.
+Error: Not the end of a block entry, check indentation. [E1101]
 
 Outdent:4:22--4:28
  1 | countdown : (secs: Nat) -> IO ()

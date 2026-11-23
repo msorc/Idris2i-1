@@ -1,0 +1,33 @@
+sample: complete, every split into three: True
+sample without its last byte: True
+Boundaries:
+  U+007F: complete, fails at Nothing, splits agree True
+  U+0080: complete, fails at Nothing, splits agree True
+  U+07FF: complete, fails at Nothing, splits agree True
+  U+0800: complete, fails at Nothing, splits agree True
+  U+D7FF: complete, fails at Nothing, splits agree True
+  U+E000: complete, fails at Nothing, splits agree True
+  U+FFFF: complete, fails at Nothing, splits agree True
+  U+10000: complete, fails at Nothing, splits agree True
+  U+10FFFF: complete, fails at Nothing, splits agree True
+Invalid:
+  overlong NUL (2): invalid, fails at Just 0, splits agree True
+  overlong / (2): invalid, fails at Just 0, splits agree True
+  overlong (3): invalid, fails at Just 1, splits agree True
+  overlong (4): invalid, fails at Just 1, splits agree True
+  surrogate U+D800: invalid, fails at Just 1, splits agree True
+  surrogate U+DFFF: invalid, fails at Just 1, splits agree True
+  U+110000: invalid, fails at Just 1, splits agree True
+  0xF5: invalid, fails at Just 0, splits agree True
+  0xFE: invalid, fails at Just 0, splits agree True
+  0xFF: invalid, fails at Just 0, splits agree True
+  stray continuation: invalid, fails at Just 1, splits agree True
+  missing continuation: invalid, fails at Just 1, splits agree True
+  truncated then ASCII: invalid, fails at Just 2, splits agree True
+  fail fast: invalid, fails at Just 12, splits agree True
+ASCII runs (word at a time) followed by:
+  a two-byte character: True
+  a stray continuation byte, found at its index: True
+  a stray byte, whole: True
+  a slice that starts inside a buffer: True
+  invalid is for good: invalid

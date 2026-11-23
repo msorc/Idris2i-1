@@ -1,0 +1,1 @@
+{"id": 12345, "name": "A reasonably long item name", "price": 1234.5, "quantity": 7, "tags": ["alpha", "beta", "gamma", "delta"], "active": true, "owner": "someone@example.com"}

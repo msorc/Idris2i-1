@@ -3,7 +3,7 @@
 3/3: Building Main0 (Main0.idr)
 3/3: Building Main1 (Main1.idr)
 3/3: Building MainFail (MainFail.idr)
-Warning: operator fixity is ambiguous, we are picking Lib2.infixl.(%%%) out of :
+Warning: operator fixity is ambiguous, we are picking Lib2.infixl.(%%%) out of : [W0000]
  - Lib2.infixl.(%%%), precedence level 5
  - Lib1.infixr.(%%%), precedence level 5
 
@@ -18,7 +18,7 @@ MainFail:7:20--7:23
  7 | main = printLn (10 %%% 10 %%% 1)
                         ^^^
 
-Warning: operator fixity is ambiguous, we are picking Lib2.infixl.(%%%) out of :
+Warning: operator fixity is ambiguous, we are picking Lib2.infixl.(%%%) out of : [W0000]
  - Lib2.infixl.(%%%), precedence level 5
  - Lib1.infixr.(%%%), precedence level 5
 
@@ -34,7 +34,7 @@ MainFail:7:27--7:30
                                ^^^
 
 2/2: Building Main3 (Main3.idr)
-Warning: operator fixity is ambiguous, we are picking Main3.prefix.(%%%) out of :
+Warning: operator fixity is ambiguous, we are picking Main3.prefix.(%%%) out of : [W0000]
  - Main3.prefix.(%%%), precedence level 4
  - Lib1.infixr.(%%%), precedence level 5
 
@@ -49,7 +49,7 @@ Main3:12:29--12:32
  12 | main = do printLn (the Nat (%%% 4))
                                   ^^^
 
-Warning: operator fixity is ambiguous, we are picking Prelude.Ops.infixl.(-) out of :
+Warning: operator fixity is ambiguous, we are picking Prelude.Ops.infixl.(-) out of : [W0000]
  - Prelude.Ops.infixl.(-), precedence level 8
  - Main3.infixr.(-), precedence level 8
 
@@ -64,7 +64,7 @@ Main3:13:22--13:23
  13 |           printLn (1 - 1 - 1)
                            ^
 
-Warning: operator fixity is ambiguous, we are picking Prelude.Ops.infixl.(-) out of :
+Warning: operator fixity is ambiguous, we are picking Prelude.Ops.infixl.(-) out of : [W0000]
  - Prelude.Ops.infixl.(-), precedence level 8
  - Main3.infixr.(-), precedence level 8
 

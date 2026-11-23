@@ -11,7 +11,7 @@ run channelGet
 Error: channelGet would wait forever: the channel is empty and no other thread can send to it (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
 exit code 1
 run channelPut
-Error: channelPut would wait forever: the channel is full and no other thread can take its value (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
+Error: channelPut would wait forever: the channel is full and no other thread can take its values (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
 exit code 1
 run semaphore
 Error: semaphoreWait would wait forever: the semaphore is at zero and no other thread can post it (the JavaScript back ends have a single thread, so nothing else can run in the meantime)

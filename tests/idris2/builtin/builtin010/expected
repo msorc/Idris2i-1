@@ -1,5 +1,5 @@
 1/1: Building Test (Test.idr)
-Error: No unrestricted arguments of type `Integer` found for natToMyNat.
+Error: No unrestricted arguments of type `Integer` found for natToMyNat. [E0000]
 
 Test:20:1--20:37
  16 | natToMyNat : Nat -> MyNat
@@ -9,7 +9,7 @@ Test:20:1--20:37
  20 | %builtin IntegerToNatural natToMyNat
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Error: Return type is not a 'Nat'-like type
+Error: Return type is not a 'Nat'-like type [E0000]
 
 Test:25:1--25:42
  21 |

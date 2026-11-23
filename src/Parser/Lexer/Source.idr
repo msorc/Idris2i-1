@@ -16,6 +16,7 @@ import Libraries.Utils.Octal
 import Libraries.Utils.String
 
 import Core.Name
+import Libraries.Data.StringMap
 
 %default total
 
@@ -236,8 +237,33 @@ groupClose "`{" = "}"
 groupClose "`[" = "]"
 groupClose _ = ""
 
+-- `isOpChar`, by cases (it is tested on each character of each symbol, and
+-- `isOpChar` looks for the character in a list made from a string)
+isOpSymbolChar : Char -> Bool
+isOpSymbolChar ':' = True
+isOpSymbolChar '!' = True
+isOpSymbolChar '#' = True
+isOpSymbolChar '$' = True
+isOpSymbolChar '%' = True
+isOpSymbolChar '&' = True
+isOpSymbolChar '*' = True
+isOpSymbolChar '+' = True
+isOpSymbolChar '.' = True
+isOpSymbolChar '/' = True
+isOpSymbolChar '<' = True
+isOpSymbolChar '=' = True
+isOpSymbolChar '>' = True
+isOpSymbolChar '?' = True
+isOpSymbolChar '@' = True
+isOpSymbolChar '\\' = True
+isOpSymbolChar '^' = True
+isOpSymbolChar '|' = True
+isOpSymbolChar '-' = True
+isOpSymbolChar '~' = True
+isOpSymbolChar _ = False
+
 validSymbol : Lexer
-validSymbol = some (pred isOpChar)
+validSymbol = some (pred isOpSymbolChar)
 
 -- Valid symbols which have a special meaning so can't be operators
 public export
@@ -253,6 +279,25 @@ reservedSymbols
     = symbols
     ++ groupSymbols ++ (groupClose <$> groupSymbols)
     ++ reservedInfixSymbols
+
+-- The lists above as sets, for the tests of membership that are made for
+-- each identifier or symbol (`elem` compares with each string of a list in
+-- turn)
+keywordSet : StringMap ()
+keywordSet = fromList (map (, ()) keywords)
+
+reservedSymbolSet : StringMap ()
+reservedSymbolSet = fromList (map (, ()) reservedSymbols)
+
+||| Whether the string is in `keywords`
+export
+isKeyword : String -> Bool
+isKeyword x = isJust (lookup x keywordSet)
+
+||| Whether the string is in `reservedSymbols`
+export
+isReservedSymbol : String -> Bool
+isReservedSymbol x = isJust (lookup x reservedSymbolSet)
 
 fromBinLit : String -> Integer
 fromBinLit str
@@ -302,8 +347,11 @@ mutual
                     (const $ is '}')
                     (const InterpEnd)
 
+  -- (with a table of the alternatives to try for each first character:
+  -- see `dispatch`; the recursive uses of `rawTokens` are delayed, under
+  -- `compose`, but no longer guarded by a constructor)
   rawTokens : Tokenizer Token
-  rawTokens =
+  rawTokens = assert_total $ dispatch $
           match comment (const Comment)
       <|> match blockComment (const Comment)
       <|> match docComment (DocComment . removeOptionalLeadingSpace . drop 3)
@@ -339,12 +387,15 @@ mutual
       <|> match namespacedIdent parseNamespace
       <|> match identNormal parseIdent
       <|> match pragma (\x => Pragma (assert_total $ strTail x))
-      <|> match space (const Space)
+      -- (a run of white space is one token: the tokens of white space are
+      -- dropped, and no lexer that stops the lexing (`lexTo`) starts with
+      -- white space)
+      <|> match spaces (const Space)
       <|> match validSymbol Symbol
       <|> match symbol Unrecognised
     where
       parseIdent : String -> Token
-      parseIdent x = if x `elem` keywords then Keyword x
+      parseIdent x = if isKeyword x then Keyword x
                      else Ident x
 
       parseNamespace : String -> Token

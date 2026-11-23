@@ -1,0 +1,14 @@
+open connections before the shutdown: 2
+idle connection closed: True, at once: True
+/slow: 200 connection=Just "close" "slow done\n"
+stopped after the slow request, within the grace: True
+connect after the shutdown: refused
+stopped at the end of the grace: True
+/stuck: error connection closed
+open connections before the shutdown: 2
+idle connection closed: True, at once: True
+/slow: 200 connection=Just "close" "slow done\n"
+stopped after the slow request, within the grace: True
+connect after the shutdown: refused
+stopped at the end of the grace: True
+/stuck: error connection closed

@@ -1,6 +1,6 @@
 1/1: Building Issue762 (Issue762.idr)
 1/1: Building IsS (IsS.idr)
-Error: While processing left hand side of fail. Can't match on S (Under-applied constructor).
+Error: While processing left hand side of fail. Can't match on S (Under-applied constructor). [E0606]
 
 IsS:31:14--31:15
  27 | --              ^ forced by Refl

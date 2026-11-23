@@ -1,8 +1,7 @@
 1/1: Building WithClause (WithClause.idr)
-Error: While processing left hand side of with block in pred. When unifying:
-    IsS (S ?dotTm)
-and:
-    IsS ?n
+Error: While processing left hand side of with block in pred. When unifying: [E0103]
+    Expected: IsS ?n
+    Got:      IsS (S ?dotTm)
 Pattern variable n unifies with: S ?dotTm.
 
 WithClause:2:25--2:28

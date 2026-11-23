@@ -2,6 +2,7 @@ module Core.Context.Log
 
 import public Core.Context
 import Core.Options
+import Core.Profile
 
 import Data.String
 import Libraries.Data.StringMap
@@ -150,44 +151,14 @@ logTimeWhen p lvl str act
     addZeros [x,y] = "0" ++ cast x ++ cast y
     addZeros str = pack str
 
-logTimeRecord' : {auto c : Ref Ctxt Defs} ->
-                 String -> Core a -> Core a
-logTimeRecord' key act
-    = do clock <- coreLift (clockTime Process)
-         let t = seconds clock * nano + nanoseconds clock
-         res <- act
-         clock <- coreLift (clockTime Process)
-         let t' = seconds clock * nano + nanoseconds clock
-         let time = t' - t
-         defs <- get Ctxt
-         let tot = case lookup key (timings defs) of
-                        Nothing => 0
-                        Just (_, t) => t
-         put Ctxt ({ timings $= insert key (False, tot + time) } defs)
-         pure res
-
--- for ad-hoc profiling, record the time the action takes and add it
--- to the time for the given category
-export
-logTimeRecord : {auto c : Ref Ctxt Defs} ->
-                String -> Core a -> Core a
-logTimeRecord key act
-    = do defs <- get Ctxt
-         -- Only record if we're not currently recording that key
-         case lookup key (timings defs) of
-              Just (True, t) => act
-              Just (False, t)
-                => do put Ctxt ({ timings $= insert key (True, t) } defs)
-                      logTimeRecord' key act
-              Nothing
-                => logTimeRecord' key act
-
 export
 showTimeRecord : {auto c : Ref Ctxt Defs} ->
                  Core ()
 showTimeRecord
     = do defs <- get Ctxt
          traverse_ showTimeLog (toList (timings defs))
+         whenJust defs.gamma.profiler $ \ p =>
+           coreLift $ profSummaryLines p >>= traverse_ putStrLn
   where
     addZeros : List Char -> String
     addZeros [] = "000"
@@ -209,3 +180,83 @@ logTime : {auto c : Ref Ctxt Defs} ->
 logTime lvl str act
     = do opts <- getSession
          logTimeWhen (maybe False (lvl <=) (logTimings opts)) lvl str act
+
+-- The timers and counters of --timing-summary (see Core.Profile). When it is
+-- off, each of these costs a look at the context.
+
+||| Turn on the timers and counters of --timing-summary (once: the options
+||| are processed again when a package is built)
+export
+startProfiler : {auto c : Ref Ctxt Defs} -> Core ()
+startProfiler
+    = do Nothing <- profiler . gamma <$> get Ctxt
+           | Just _ => pure ()
+         p <- coreLift newProfiler
+         update Ctxt { gamma->profiler := Just p }
+
+export
+profileWith : Profiler -> String -> Core a -> Core a
+profileWith p key act
+    = do True <- coreLift (profEnter p key)
+           | False => act
+         res <- coreLift (coreRun act (pure . Left) (pure . Right))
+         coreLift (profLeave p)
+         either throw pure res
+
+||| Time an action under a key, when --timing-summary is on
+export
+profile : {auto c : Ref Ctxt Defs} -> String -> Core a -> Core a
+profile key act
+    = do defs <- get Ctxt
+         case defs.gamma.profiler of
+              Nothing => act
+              Just p => profileWith p key act
+
+||| Add to a counter, when --timing-summary is on
+export
+profileCount : {auto c : Ref Ctxt Defs} -> String -> Lazy Int -> Core ()
+profileCount key n
+    = do defs <- get Ctxt
+         case defs.gamma.profiler of
+              Nothing => pure ()
+              Just p => coreLift (profCount p key n)
+
+||| Add to several counters, when --timing-summary is on
+export
+profileCounts : {auto c : Ref Ctxt Defs} -> Lazy (List (String, Int)) -> Core ()
+profileCounts ns
+    = do defs <- get Ctxt
+         case defs.gamma.profiler of
+              Nothing => pure ()
+              Just p => coreLift (traverse_ (uncurry (profCount p)) (force ns))
+
+||| Time a top-level declaration (under "decl"), and keep what it spent its
+||| time on if it is one of the most expensive of its module
+export
+profileDecl : {auto c : Ref Ctxt Defs} -> Lazy String -> Core a -> Core a
+profileDecl label act
+    = do defs <- get Ctxt
+         case defs.gamma.profiler of
+              Nothing => act
+              Just p =>
+                if !(coreLift (profTiming p "decl"))
+                   then act
+                   else do before <- coreLift (profSnapshot p)
+                           res <- profileWith p "decl" act
+                           coreLift $ profUntimed p $ profNoteDecl p label before
+                           pure res
+
+||| Time the processing of a module (under "module"), and print what it spent
+||| its time on, and its most expensive declarations, if it was built
+export
+profileModule : {auto c : Ref Ctxt Defs} -> (file : String) -> Core a -> Core a
+profileModule file act
+    = do defs <- get Ctxt
+         case defs.gamma.profiler of
+              Nothing => act
+              Just p =>
+                do before <- coreLift (profSnapshot p)
+                   res <- profileWith p "module" act
+                   coreLift $ profUntimed p $
+                     profModuleLines p file before >>= traverse_ putStrLn
+                   pure res

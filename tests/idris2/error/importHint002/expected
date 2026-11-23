@@ -1,5 +1,5 @@
 Main> 1/1: Building Use (Use.idr)
-Error: While processing right hand side of six. Undefined name tripleIt. 
+Error: While processing right hand side of six. Undefined name tripleIt. [E0201]
 
 Use:4:7--4:15
  1 | module Use
@@ -12,7 +12,7 @@ Error(s) building file Use.idr
 Use> 1/1: Building Lib (Lib.idr)
 Loaded file Lib.idr
 Lib> 1/1: Building Use (Use.idr)
-Error: While processing right hand side of six. Undefined name tripleIt. 
+Error: While processing right hand side of six. Undefined name tripleIt. [E0201]
 
 Use:4:7--4:15
  1 | module Use

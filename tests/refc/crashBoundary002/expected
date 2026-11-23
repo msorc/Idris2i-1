@@ -1,0 +1,22 @@
+--- 1 workers
+100 threads, results right: True
+crashed: [37]
+crashed: with the lock
+the other thread got the mutex: False
+after the release: True
+first: not yet
+in another thread: 42
+crashes caught: 3
+exit code: 0
+--- 4 workers
+100 threads, results right: True
+crashed: [37]
+crashed: with the lock
+the other thread got the mutex: False
+after the release: True
+first: not yet
+in another thread: 42
+crashes caught: 3
+exit code: 0
+ERROR: thread 0 gave up
+exit code: 1

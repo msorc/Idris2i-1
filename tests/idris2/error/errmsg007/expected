@@ -1,0 +1,26 @@
+1/1: Building SameName (SameName.idr)
+Error: While processing right hand side of swap. When unifying: [E0101]
+    Expected: Either b{1} b
+    Got:      Either b b{1}
+Mismatch between: b{1} (implicitly bound at SameName:4:1--4:5) and b.
+
+SameName:4:18--4:19
+ 1 | -- Two different variables called b: the one the user named keeps its name,
+ 2 | -- the one bound by the compiler is numbered
+ 3 | swap : {a, b : Type} -> Either a b -> Either b a
+ 4 | swap {a = b} x = x
+                      ^
+
+Error: While processing right hand side of test. When unifying: [E0101]
+    Expected: p y
+    Got:      p x
+Mismatch between: x and y.
+
+SameName:8:15--8:17
+ 4 | swap {a = b} x = x
+ 5 |
+ 6 | -- Variables with different names print as before
+ 7 | test : {x : Nat} -> (p : Nat -> Type) -> p x -> (y : Nat) -> p y
+ 8 | test p px y = px
+                   ^^
+

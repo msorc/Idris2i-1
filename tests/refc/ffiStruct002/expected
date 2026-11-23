@@ -1,12 +1,12 @@
 1/1: Building BadField (BadField.idr)
-Error: The foreign struct "named" (in the type of Main.mkNamed) has the field "name" of the type String, which the RefC backend does not support in a struct
+Error: The foreign struct "named" (in the type of Main.mkNamed) has the field "name" of the type String, which the RefC backend does not support in a struct [E0000]
 
 1/1: Building TwoLayouts (TwoLayouts.idr)
-Error: The foreign struct "point" (in the type of Main.freePoint) is used with different fields in the foreign functions of the program
+Error: The foreign struct "point" (in the type of Main.freePoint) is used with different fields in the foreign functions of the program [E0000]
 
 1/1: Building NoForeign (NoForeign.idr)
-Error: setField: the fields of the struct "point" are unknown, as no %foreign function of the program has it in its type
+Error: setField: the fields of the struct "point" are unknown, as no %foreign function of the program has it in its type [E0000]
 
 1/1: Building AnyStruct (AnyStruct.idr)
-Error: getField: the name of the struct must be known at compile time (the RefC backend needs a concrete Struct type here)
+Error: getField: the name of the struct must be known at compile time (the RefC backend needs a concrete Struct type here) [E0000]
 

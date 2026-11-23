@@ -1,5 +1,5 @@
 1/1: Building Test (Test.idr)
-Error: foo x is not a valid impossible case.
+Error: foo x is not a valid impossible case. [E0603]
 
 Test:5:1--5:17
  1 | data Bar : Type
@@ -10,14 +10,16 @@ Test:5:1--5:17
      ^^^^^^^^^^^^^^^^
 
 1/1: Building Test2 (Test2.idr)
-Error: Main.Bar is already defined.
+Error: Main.Bar is already defined. [E0206]
 
 Test2:3:1--4:16
  3 | data Bar : Type where
+     ^^^^^^^^^^^^^^^^^^^^^
  4 |     MkBar : Bar
+         ^^^^^^^^^^^
 
 1/1: Building Issue3457 (Issue3457.idr)
-Error: fun is not covering.
+Error: fun is not covering. [E0601]
 
 Issue3457:6:1--6:20
  2 | data Bar : Type

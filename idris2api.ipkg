@@ -94,6 +94,7 @@ modules =
     Core.Options.Log,
     Core.Ord,
     Core.Primitives,
+    Core.Profile,
     Core.Reflect,
     Core.SchemeEval,
     Core.Termination.CallGraph,
@@ -139,6 +140,7 @@ modules =
     Idris.Doc.String,
     Idris.Driver,
     Idris.Error,
+    Idris.ErrorCode,
     Idris.ExecStamp,
     Idris.ModTree,
 

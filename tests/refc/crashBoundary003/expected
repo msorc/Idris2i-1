@@ -1,0 +1,8 @@
+without crashes: 0 caught, growth under 512 kB: True
+with crashes: 10000 caught, growth between 8 and 16 MB: True
+crashes caught: 11000
+exit code: 0
+without crashes: 0 caught, growth under 512 kB: True
+with crashes: 10000 caught, growth between 8 and 16 MB: True
+crashes caught: 11000
+exit code: 0

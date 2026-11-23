@@ -1,5 +1,5 @@
 1/1: Building inferror (inferror.idr)
-Error: While processing right hand side of g. Ambiguous elaboration. Possible results:
+Error: While processing right hand side of g. Ambiguous elaboration. Possible results: [E0301]
     Data.SortedMap.toList m
     Prelude.toList m
 

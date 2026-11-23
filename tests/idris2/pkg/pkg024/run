@@ -29,6 +29,7 @@ ttcs
 echo "--- nothing to build"
 build --jobs 4
 
+# (Top is not started again: the interface of Right is the same)
 echo "--- one module changed"
 sed -i.bak 's/thrice c = /thrice c = id $ /' work/Right.idr
 build --jobs 4

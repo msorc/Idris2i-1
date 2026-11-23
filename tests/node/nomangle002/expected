@@ -1,6 +1,6 @@
-Error: "continue" is not a valid name on node backend
+Error: "continue" is not a valid name on node backend [E0000]
 
-Error: No valid %export specifier for Main.break
+Error: No valid %export specifier for Main.break [E0000]
   Supported backends: node, javascript
   Given backends: refc
 

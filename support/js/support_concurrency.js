@@ -8,7 +8,7 @@
 //
 // With only one thread, the other primitives still have a meaning, and have
 // it here: a mutex is a recursive lock that nobody else wants, a semaphore a
-// counter, a channel a one-element queue, thread data a variable.  What
+// counter, a channel a queue, thread data a variable.  What
 // would have to wait for a second thread to act (a `semaphoreWait` on a
 // semaphore at zero, a `channelGet` on an empty channel, a `conditionWait`,
 // a `barrierWait` for more threads than one) can never finish, and stops the
@@ -141,42 +141,44 @@ function support_concurrency_barrierWait(barrier) {
       + barrier.size + ' threads and no other thread can arrive')
 }
 
-// Channels hold at most one value, and a put waits until it has been taken.
+// A channel is a queue of at most `capacity` values (Infinity for an
+// unbounded one); the one of `makeChannel` holds one value.  A put waits
+// while the channel is full, a get while it is empty.
 
 function support_concurrency_makeChannel(_ty) {
-  return { full: false, value: undefined }
+  return { capacity: 1, items: [] }
+}
+
+function support_concurrency_makeBufferedChannel(_ty, capacity) {
+  return { capacity: Math.max(Number(capacity), 1), items: [] }
+}
+
+function support_concurrency_makeUnboundedChannel(_ty) {
+  return { capacity: Infinity, items: [] }
 }
 
 function support_concurrency_channelPut(_ty, chan, value) {
-  if (chan.full)
-    support_concurrency_wouldBlock('channelPut', 'the channel is full and no other thread can take its value')
-  chan.value = value
-  chan.full = true
-}
-
-function support_concurrency_take(chan) {
-  const v = chan.value
-  chan.value = undefined
-  chan.full = false
-  return v
+  if (chan.items.length >= chan.capacity)
+    support_concurrency_wouldBlock('channelPut', 'the channel is full and no other thread can take its values')
+  chan.items.push(value)
 }
 
 function support_concurrency_channelGet(_ty, chan) {
-  if (!chan.full)
+  if (chan.items.length === 0)
     support_concurrency_wouldBlock('channelGet', 'the channel is empty and no other thread can send to it')
-  return support_concurrency_take(chan)
+  return chan.items.shift()
 }
 
 // A `Maybe`: Nothing is `{h: 0}`, Just x is `{a1: x}`.
 
 function support_concurrency_channelGetNonBlocking(_ty, chan) {
-  return chan.full ? { a1: support_concurrency_take(chan) } : { h: 0 }
+  return chan.items.length > 0 ? { a1: chan.items.shift() } : { h: 0 }
 }
 
 function support_concurrency_channelGetWithTimeout(_ty, chan, milliseconds) {
-  if (!chan.full) {
+  if (chan.items.length === 0) {
     support_concurrency_sleepMs(milliseconds)
     return { h: 0 }
   }
-  return { a1: support_concurrency_take(chan) }
+  return { a1: chan.items.shift() }
 }

@@ -1,0 +1,31 @@
+--- GET
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 17
+
+hello from idris
+--- HEAD
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 17
+
+--- POST
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 39
+
+got 24 bytes: name=idris&kind=language
+--- chunked upload
+got 8893 bytes: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
+--- 100-continue
+got 8893 bytes: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
+--- keep-alive: two URLs, connections made for each
+hello from idris
+1
+second
+0
+--- not found and wrong method
+404
+405
+bye
+server exit: 0

@@ -3,7 +3,7 @@
 3/6: Building Expr (Expr.idr)
 4/6: Building Fold (Fold.idr)
 5/6: Building Tree (Tree.idr)
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -11,7 +11,7 @@ Tree:1:18--1:23
  1 | data Tree elem = Empty
                       ^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -20,26 +20,30 @@ Tree:2:18--2:51
  2 |                | Node (Tree elem) elem (Tree elem)
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
 Tree:4:1--8:21
  4 | Eq elem => Eq (Tree elem) where
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
  5 |     (==) Empty Empty = True
  6 |     (==) (Node left e right) (Node left' e' right')
  7 |           = left == left' && e == e' && right == right'
  8 |     (==) _ _ = False
+         ^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
 Tree:4:1--8:21
  4 | Eq elem => Eq (Tree elem) where
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
  5 |     (==) Empty Empty = True
  6 |     (==) (Node left e right) (Node left' e' right')
  7 |           = left == left' && e == e' && right == right'
  8 |     (==) _ _ = False
+         ^^^^^^^^^^^^^^^^
 
 6/6: Building All (All.idr)

@@ -1,0 +1,16 @@
+. ../../testutils.sh
+
+ulimit -c 0
+idris2 --directive refc-backtrace -o crash Main.idr > /dev/null
+./build/exec/crash backtrace 2>&1
+echo "exit code: $?"
+IDRIS2_REFC_BACKTRACE=0 ./build/exec/crash backtrace 2>&1
+echo "exit code: $?"
+./build/exec/crash finaliser 2>&1
+echo "exit code: $?"
+# (the frames of a stack overflow are many: only the first line)
+IDRIS2_THREAD_STACK_SIZE=1000000 IDRIS2_MAIN_STACK_SIZE=1000000 ./build/exec/crash overflow 2>&1 | head -n 1
+IDRIS2_MAIN_STACK_SIZE=1000000 ./build/exec/crash overflow > /dev/null 2>&1
+echo "exit code: $?"
+./build/exec/crash mutex 2>&1
+echo "exit code: $?"

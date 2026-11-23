@@ -1,26 +1,26 @@
 1/1: Building Lib (Lib.idr)
 2/2: Building Use (Use.idr)
-Error: viaPickOnce is not covering.
+Error: viaPickOnce is not covering. [E0602]
 
-Use:13:1--13:21
- 09 |
+Use:14:15--14:23
  10 | viaKeepTwice : T -> T
  11 | viaKeepTwice = keepTwice
  12 |
  13 | viaPickOnce : T -> T
-      ^^^^^^^^^^^^^^^^^^^^
+ 14 | viaPickOnce = pickOnce
+                    ^^^^^^^^
 
 Calls non covering function Lib.Pick implementation at Lib:1
 Lib.Pick implementation at Lib:1 is not covering, because of Lib.pick
-Error: viaUsePick is not covering.
+Error: viaUsePick is not covering. [E0602]
 
-Use:19:1--19:20
- 15 |
+Use:20:14--20:21
  16 | viaUseKeep : T -> T
  17 | viaUseKeep = useKeep
  18 |
  19 | viaUsePick : T -> T
-      ^^^^^^^^^^^^^^^^^^^
+ 20 | viaUsePick = usePick
+                   ^^^^^^^
 
 Calls non covering function Lib.usePick
 Lib.usePick is not covering, because of Lib.Pick implementation at Lib:1

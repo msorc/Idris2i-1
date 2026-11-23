@@ -2,8 +2,10 @@
 
 #ifndef _WIN32
 #include <errno.h>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 #endif
 
@@ -57,3 +59,29 @@ int idris2_waitAnyChild(void) {
 }
 
 int idris2_lastChildExitStatus(void) { return idris2_lastChildStatus; }
+
+long long idris2_processCPUTimeNs(void) {
+#ifdef _WIN32
+  return 0;
+#else
+  struct timespec ts;
+  if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0)
+    return 0;
+  return (long long)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+#endif
+}
+
+long long idris2_peakRSSKiB(void) {
+#ifdef _WIN32
+  return 0;
+#else
+  struct rusage ru;
+  if (getrusage(RUSAGE_SELF, &ru) != 0)
+    return 0;
+#ifdef __APPLE__
+  return (long long)ru.ru_maxrss / 1024; // bytes on macOS
+#else
+  return (long long)ru.ru_maxrss;
+#endif
+#endif
+}

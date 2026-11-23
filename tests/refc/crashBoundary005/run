@@ -1,0 +1,23 @@
+. ../../testutils.sh
+
+# A caught crash leaks the values that the abandoned code held (see
+# System.Crash): Valgrind reports them as lost.  This checks that it reports
+# nothing else (no invalid read or write, no use of uninitialised memory),
+# and that each crash leaks the same, by running the program with 0, 1 and
+# 11 crashes.  Without Valgrind, only the program runs.
+idris2 -o crash Main.idr > /dev/null
+./build/exec/crash 3
+if type valgrind > /dev/null 2>&1; then
+  lost() {
+    valgrind --leak-check=full --errors-for-leak-kinds=none \
+      --suppressions=../../valgrind.supp --log-file=vg.log ./build/exec/crash $1 > /dev/null
+    errors=$(sed -n 's/^==[0-9]*== ERROR SUMMARY: \([0-9]*\) error.*/\1/p' vg.log | tail -n 1)
+    [ "$errors" = 0 ] || echo "valgrind: memory errors with $1 crashes (see vg.log)"
+    awk '/definitely lost:|indirectly lost:/ { gsub(",", "", $4); n += $4 } END { print n + 0 }' vg.log
+  }
+  l0=$(lost 0); l1=$(lost 1); l11=$(lost 11)
+  [ "$l0" = 0 ] || echo "a leak without crashes: $l0 bytes"
+  [ $((l11 - l1)) = $((10 * l1)) ] || echo "not the same leak for each crash: $l0, $l1, $l11"
+  [ "$l1" -gt 0 ] || echo "no leak for a crash"
+  rm -f vg.log
+fi

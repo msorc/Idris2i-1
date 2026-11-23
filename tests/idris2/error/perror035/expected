@@ -1,5 +1,5 @@
 1/1: Building ParseError (ParseError.idr)
-Error: Imports must go before any declarations or directives.
+Error: Imports must go before any declarations or directives. [E1101]
 
 ParseError:5:1--5:7
  1 | module ParseError

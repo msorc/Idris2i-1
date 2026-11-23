@@ -251,15 +251,27 @@ data Channel : Type -> Type where [external]
          "RefC:refc_makeChannel"
          "javascript:support:makeChannel,support_concurrency"
 prim__makeChannel : PrimIO (Channel a)
+%foreign "scheme,chez:blodwen-make-buffered-channel"
+         "scheme,racket:blodwen-make-buffered-channel"
+         "RefC:refc_makeBufferedChannel"
+         "javascript:support:makeBufferedChannel,support_concurrency"
+prim__makeBufferedChannel : Int -> PrimIO (Channel a)
+%foreign "scheme,chez:blodwen-make-unbounded-channel"
+         "scheme,racket:blodwen-make-unbounded-channel"
+         "RefC:refc_makeUnboundedChannel"
+         "javascript:support:makeUnboundedChannel,support_concurrency"
+prim__makeUnboundedChannel : PrimIO (Channel a)
 %foreign "scheme:blodwen-channel-get"
          "RefC:refc_channelGet"
          "javascript:support:channelGet,support_concurrency"
 prim__channelGet : Channel a -> PrimIO a
 %foreign "scheme,chez:blodwen-channel-get-non-blocking"
+         "scheme,racket:blodwen-channel-get-non-blocking"
          "RefC:refc_channelGetNonBlocking"
          "javascript:support:channelGetNonBlocking,support_concurrency"
 prim__channelGetNonBlocking : Channel a -> PrimIO (Maybe a)
 %foreign "scheme,chez:blodwen-channel-get-with-timeout"
+         "scheme,racket:blodwen-channel-get-with-timeout"
          "RefC:refc_channelGetWithTimeout"
          "javascript:support:channelGetWithTimeout,support_concurrency"
 prim__channelGetWithTimeout : Channel a -> Int -> PrimIO (Maybe a)
@@ -279,8 +291,34 @@ export
 makeChannel : {auto hio : HasIO io} -> io (Channel a)
 makeChannel = primIO prim__makeChannel
 
-||| Blocks until a sender is ready to provide a value through `chan`. The result
-||| is the sent value.
+||| Creates and returns a new `Channel` that holds up to `capacity` values
+||| (at least one: a capacity of 0 is taken as 1), in the order in which they
+||| were put.
+|||
+||| `channelPut` waits while the channel holds `capacity` values, and
+||| `channelGet` while it holds none.  The other functions on channels work
+||| as they do on the channels of `makeChannel`, which hold one value.
+|||
+||| @ capacity the number of values that the channel can hold
+%spec hio
+export
+makeBufferedChannel : {auto hio : HasIO io} -> (capacity : Nat) -> io (Channel a)
+makeBufferedChannel capacity
+    = primIO (prim__makeBufferedChannel (clamp capacity))
+  where
+    -- (a capacity beyond the range of `Int` is as good as unbounded)
+    clamp : Nat -> Int
+    clamp n = if n > 0x7fffffffffffffff then 0x7fffffffffffffff else cast n
+
+||| Creates and returns a new `Channel` without a limit on the number of
+||| values that it holds: `channelPut` never waits, and the values are got
+||| in the order in which they were put.
+%spec hio
+export
+makeUnboundedChannel : {auto hio : HasIO io} -> io (Channel a)
+makeUnboundedChannel = primIO prim__makeUnboundedChannel
+
+||| Blocks until `chan` holds a value, and takes the first one out of it.
 |||
 ||| @ chan the channel to receive on
 %spec hio
@@ -314,7 +352,9 @@ channelGetWithTimeout chan milliseconds =
     _         =>
       primIO (prim__channelGetWithTimeout chan (cast milliseconds))
 
-||| Puts a value on the given channel.
+||| Puts a value on the given channel, after waiting until the channel has
+||| room for it (until it is empty, for a channel of `makeChannel`).  It does
+||| not wait for a receiver to take it.
 |||
 ||| @ chan the `Channel` to send the value over
 ||| @ val  the value to send

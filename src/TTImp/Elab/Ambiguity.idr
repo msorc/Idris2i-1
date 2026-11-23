@@ -338,6 +338,17 @@ getName (INamedApp _ f _ _) = getName f
 getName (IAutoApp _ f _) = getName f
 getName _ = Nothing
 
+-- The name of a candidate, to say which one failed in an error: also the
+-- name inside a macro application or a coercion
+candidateName : RawImp -> Maybe Name
+candidateName (IRunElab _ _ t) = candidateName t
+candidateName (ICoerced _ t) = candidateName t
+candidateName (IMustUnify _ _ t) = candidateName t
+candidateName (IApp _ f _) = candidateName f
+candidateName (INamedApp _ f _ _) = candidateName f
+candidateName (IAutoApp _ f _) = candidateName f
+candidateName t = getName t
+
 export
 addAmbig : List alts -> Maybe Name -> ElabInfo -> ElabInfo
 addAmbig _ Nothing = id
@@ -392,7 +403,7 @@ checkAlternative rig elabinfo nest env fc (UniqueDefault def) alts mexpected
                      then try
                             (exactlyOne' False fc env
                                 (map (\t =>
-                                   (getName t,
+                                   (candidateName t,
                                     checkImp rig (addAmbig alts' (getName t) elabinfo)
                                              nest env t
                                              (Just exp'))) alts'))
@@ -401,12 +412,13 @@ checkAlternative rig elabinfo nest env fc (UniqueDefault def) alts mexpected
                                              nest env def (Just exp'))
                      else exactlyOne' True fc env
                            (map (\t =>
-                             (getName t,
+                             (candidateName t,
                               checkImp rig (addAmbig alts' (getName t) elabinfo)
                                        nest env t (Just exp')))
                               alts')
 checkAlternative rig elabinfo nest env fc uniq alts mexpected
     = do checkAmbigDepth fc elabinfo
+         profileCount "ambig.checkAlternative" 1
          alts' <- maybe (Core.pure [])
                         (\exp => pruneByType env !(getNF exp) alts) mexpected
          case alts' of
@@ -445,7 +457,7 @@ checkAlternative rig elabinfo nest env fc uniq alts mexpected
                                             FirstSuccess => anyOne fc
                                             _ => exactlyOne' (not delayed) fc env
                           tryall (map (\t =>
-                              (getName t,
+                              (candidateName t,
                                do res <- checkImp rig (addAmbig alts' (getName t) elabinfo)
                                                   nest env t (Just exp')
                                   -- Do it twice for interface resolution;

@@ -1,0 +1,11 @@
+. ../../testutils.sh
+
+cc -c -fPIC sleeper.c -o build-sleeper.o && ar rc libsleeper.a build-sleeper.o
+export CFLAGS="-I. ${CFLAGS}"
+export LDFLAGS="-L. ${LDFLAGS}"
+# (the runtime again after the library, which calls it)
+export LDLIBS="-lsleeper -lidris2_refc"
+idris2 -o main Main.idr
+IDRIS2_BLOCKING_THREADS=4 ./build/exec/main
+IDRIS2_BLOCKING_THREADS=4 IDRIS2_WORKERS=1 ./build/exec/main
+rm -f build-sleeper.o libsleeper.a

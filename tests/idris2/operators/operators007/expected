@@ -1,5 +1,5 @@
 1/1: Building Test (Test.idr)
-Error: Operator >>= is a regular operator, but is used as an automatically-binding (autobind) operator.
+Error: Operator >>= is a regular operator, but is used as an automatically-binding (autobind) operator. [E0308]
 
 Test:10:28--10:31
  06 | (>>) : Monad m => m a -> (a -> m b) -> m b
@@ -16,7 +16,7 @@ Possible solutions:
  - Hide or remove the fixity at Prelude.Ops:20:8--20:44 and import a module that exports a compatible fixity.
  - Did you mean '>>' ?
 1/1: Building Test2 (Test2.idr)
-Error: Operator >>= is a regular operator, but is used as an automatically-binding (autobind) operator.
+Error: Operator >>= is a regular operator, but is used as an automatically-binding (autobind) operator. [E0308]
 
 Test2:14:28--14:31
  10 | (>=) : Monad m => m a -> (a -> m b) -> m b

@@ -1,0 +1,4 @@
+126516
+prim__byteAt: inline in 2 parts, defined out of line in 0
+prim__setByte: inline in 2 parts, defined out of line in 0
+loop part has the inline worker: 1

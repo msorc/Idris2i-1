@@ -198,6 +198,34 @@ contribLibraryTests = testsInDir "contrib" "Contrib library" {requirements = [Ch
 linearLibraryTests : IO TestPool
 linearLibraryTests = testsInDir "linear" "Linear library" {requirements = [Chez, Node]}
 
+-- The http library (libs/http), with the default code generator.
+httpLibraryTests : IO TestPool
+httpLibraryTests = testsInDir "http" "HTTP library"
+
+-- The tls library (libs/tls) is optional: it is in the test environment
+-- (IDRIS2_PREFIX) only when it was built, with OpenSSL 3, and so is the
+-- http-tls library, which needs it.  Their tests make their certificates
+-- with the openssl command-line tool.
+optionalLibrary : (name : String) -> Requirement
+optionalLibrary name = MkReq "\{name} library" $ do
+    Just tool <- pathLookup ["openssl"]
+      | Nothing => pure Nothing
+    Just dir <- getEnv "IDRIS2_PREFIX"
+      | Nothing => pure Nothing
+    Right ds <- listDir dir
+      | Left _ => pure Nothing
+    found <- for (filter (isPrefixOf "idris2-") ds) $ \d => do
+               Right ps <- listDir (dir ++ "/" ++ d)
+                 | Left _ => pure False
+               pure (any (isPrefixOf (name ++ "-")) ps)
+    pure $ toMaybe (or (map delay found)) tool
+
+tlsLibraryTests : IO TestPool
+tlsLibraryTests = testsInDir "tls" "TLS library" {requirements = [optionalLibrary "tls"]}
+
+httpTLSLibraryTests : IO TestPool
+httpTLSLibraryTests = testsInDir "http-tls" "HTTPS (http-tls library)" {requirements = [optionalLibrary "http-tls"]}
+
 codegenTests : IO TestPool
 codegenTests = testsInDir "codegen" "Code generation"
 
@@ -248,6 +276,9 @@ main = do
       , baseLibraryTests
       , linearLibraryTests
       , contribLibraryTests
+      , httpLibraryTests
+      , tlsLibraryTests
+      , httpTLSLibraryTests
       , chezTests
       , chezSepTests
       , refcTests

@@ -8,7 +8,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "idris_net_async.h"
 #include "idris_util.h"
+
+// A write to a socket whose peer is gone fails with EPIPE instead of
+// raising SIGPIPE, which would end the program: MSG_NOSIGNAL on each call
+// where it exists, SO_NOSIGPIPE on each socket on macOS.
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
 
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -71,7 +79,14 @@ int idrnet_socket(int domain, int type, int protocol) {
     return -1;
   }
 #endif
-  return socket(domain, type, protocol);
+  int fd = socket(domain, type, protocol);
+#ifdef SO_NOSIGPIPE
+  if (fd >= 0) {
+    int one = 1;
+    (void)setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
+  }
+#endif
+  return fd;
 }
 
 int idrnet_close(int fd) {
@@ -192,10 +207,14 @@ int idrnet_connect(int sockfd, int family, int socket_type, char *host,
 
 int idrnet_listen(int socket, int backlog) { return listen(socket, backlog); }
 
+// The stream reads and writes in blocking mode, and closes the descriptor
+// itself: a socket of Network.Socket.Async is made blocking again and
+// forgotten by the reactor of RefC.
 FILE *idrnet_fdopen(int fd, const char *mode) {
 #ifdef _WIN32
   return _fdopen(fd, mode);
 #else
+  (void)idrnet_async_make_blocking(fd);
   return fdopen(fd, mode);
 #endif
 }
@@ -240,11 +259,11 @@ int idrnet_accept(int sockfd, void *sockaddr) {
 
 int idrnet_send(int sockfd, char *data) {
   int len = strlen(data); // For now.
-  return send(sockfd, (void *)data, len, 0);
+  return send(sockfd, (void *)data, len, MSG_NOSIGNAL);
 }
 
-int idrnet_send_bytes(int sockfd, void *data, int len) {
-  return send(sockfd, (void *)data, len, 0);
+int idrnet_send_bytes(int sockfd, void *data, int len, int flags) {
+  return send(sockfd, (void *)data, len, flags | MSG_NOSIGNAL);
 }
 
 int idrnet_send_buf(int sockfd, void *data, int len) {
@@ -252,7 +271,7 @@ int idrnet_send_buf(int sockfd, void *data, int len) {
   memset(buf_cpy, 0, len);
   memcpy(buf_cpy, data, len);
   buf_htonl(buf_cpy, len);
-  int res = send(sockfd, buf_cpy, len, 0);
+  int res = send(sockfd, buf_cpy, len, MSG_NOSIGNAL);
   free(buf_cpy);
   return res;
 }
@@ -311,7 +330,8 @@ int idrnet_sendto(int sockfd, char *data, char *host, int port, int family) {
     return -1;
   }
 
-  int send_res = sendto(sockfd, data, strlen(data), 0, remote_host->ai_addr,
+  int send_res = sendto(sockfd, data, strlen(data), MSG_NOSIGNAL,
+                        remote_host->ai_addr,
                         remote_host->ai_addrlen);
   freeaddrinfo(remote_host);
   return send_res;
@@ -330,7 +350,7 @@ int idrnet_sendto_buf(int sockfd, void *buf, int buf_len, char *host, int port,
 
   buf_htonl(buf, buf_len);
 
-  int send_res = sendto(sockfd, buf, buf_len, 0, remote_host->ai_addr,
+  int send_res = sendto(sockfd, buf, buf_len, MSG_NOSIGNAL, remote_host->ai_addr,
                         remote_host->ai_addrlen);
   if (send_res == -1) {
     perror("lib err: sendto \n");

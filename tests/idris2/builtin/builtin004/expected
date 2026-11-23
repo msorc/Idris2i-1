@@ -1,5 +1,5 @@
 1/1: Building Test (Test.idr)
-Error: Natural builtin does not support lazy types.
+Error: Natural builtin does not support lazy types. [E0000]
 
 Test:6:1--6:23
  2 | data MyNat

@@ -1,0 +1,7 @@
+GET: 200 "hello\n"
+POST: 200 300000 bytes
+POST streamed: 200 "abcdef"
+GET stream: 200 100009 bytes
+--- raw frames
+  RST_STREAM 1 PROTOCOL_ERROR
+  GOAWAY 1 PROTOCOL_ERROR (DATA on stream 0)

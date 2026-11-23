@@ -1,0 +1,16 @@
+pure: returned fine
+idris_crash: crash call: boom
+missing case: missing case: Unhandled input for Main.f at Main:16:1--16:8
+Integer division: failed check
+inner: missing case: Unhandled input for Main.f at Main:16:1--16:8
+outer: crash call: outer
+sortBy: missing case: Unhandled input for Main.f at Main:16:1--16:8
+traverse_: missing case: Unhandled input for Main.f at Main:16:1--16:8
+ref: 2
+crashes caught: 7
+boundaries: True
+exit code: 0
+exiting
+exit code: 3
+ERROR: Unhandled input for Main.f at Main:16:1--16:8
+exit code: 0

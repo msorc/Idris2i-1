@@ -1,0 +1,14 @@
+1/1: Building Postponed (Postponed.idr)
+Error: While processing right hand side of r. Mismatch between: String and Nat. [E0101]
+When unifying:
+    Expected: Nat
+    Got:      String
+
+Postponed:9:26--9:27
+ 5 |   ty : Pair Type Type
+ 6 |   fn : fst ty -> Bool
+ 7 |
+ 8 | r : R
+ 9 | r = MkR (Nat, String) (\ s : String => True)
+                              ^
+

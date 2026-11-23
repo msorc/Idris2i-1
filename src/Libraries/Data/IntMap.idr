@@ -211,6 +211,11 @@ empty : IntMap v
 empty = Empty
 
 export
+null : IntMap v -> Bool
+null Empty = True
+null _ = False
+
+export
 lookup : Int -> IntMap v -> Maybe v
 lookup _ Empty = Nothing
 lookup k (M _ t) = treeLookup k t

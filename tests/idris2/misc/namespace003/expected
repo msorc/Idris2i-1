@@ -1,5 +1,5 @@
 1/1: Building Test (Test.idr)
-Error: While processing right hand side of testFailing1. Ambiguous elaboration. Possible results:
+Error: While processing right hand side of testFailing1. Ambiguous elaboration. Possible results: [E0301]
     Main.B.pure Builtin.MkUnit
     Main.A.pure Builtin.MkUnit
 
@@ -11,7 +11,7 @@ Test:20:16--20:20
  20 | testFailing1 = pure ()
                      ^^^^
 
-Error: While processing right hand side of testFailing2. Ambiguous elaboration. Possible results:
+Error: While processing right hand side of testFailing2. Ambiguous elaboration. Possible results: [E0301]
     ?delayed Main.B.(<*>) a
     ?delayed Main.A.(<*>) a
 

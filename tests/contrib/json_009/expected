@@ -1,0 +1,8 @@
+12600 documents: 0 decoded differently, 0 written differently
+True
+{"plain":1,"say \"hi\"\\":2,"café":3}
+True
+True
+True
+Left at $.id: expected an integer (Int), got 1.5
+Left invalid JSON at byte 47: trailing comma

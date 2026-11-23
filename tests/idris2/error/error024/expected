@@ -1,9 +1,8 @@
 1/1: Building Error1 (Error1.idr)
-Error: While processing right hand side of main. When unifying:
-    Int
-and:
-    String
-Mismatch between: Int and String.
+Error: While processing right hand side of main. Mismatch between: Int and String. [E0101]
+When unifying:
+    Expected: String
+    Got:      Int
 
 Error1:5:17--5:26
  1 | foo : Int -> IO Int

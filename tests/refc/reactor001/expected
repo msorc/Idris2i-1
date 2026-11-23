@@ -1,0 +1,44 @@
+stdin: one
+an empty pipe would block: True
+wait with a deadline: TimedOut, after 30ms: True
+wait with a deadline in the past: TimedOut
+thread got: hello from main
+ten waiters got: abcdefghij
+the pipe is full: True
+the writer wrote: 100
+closed while waiting: 0 True
+thread got: after a reuse
+done
+stdin: two
+an empty pipe would block: True
+wait with a deadline: TimedOut, after 30ms: True
+wait with a deadline in the past: TimedOut
+thread got: hello from main
+ten waiters got: abcdefghij
+the pipe is full: True
+the writer wrote: 100
+closed while waiting: 0 True
+thread got: after a reuse
+done
+stdin: three
+an empty pipe would block: True
+wait with a deadline: TimedOut, after 30ms: True
+wait with a deadline in the past: TimedOut
+thread got: hello from main
+ten waiters got: abcdefghij
+the pipe is full: True
+the writer wrote: 100
+closed while waiting: 0 True
+thread got: after a reuse
+done
+stdin: four
+an empty pipe would block: True
+wait with a deadline: TimedOut, after 30ms: True
+wait with a deadline in the past: TimedOut
+thread got: hello from main
+ten waiters got: abcdefghij
+the pipe is full: True
+the writer wrote: 100
+closed while waiting: 0 True
+thread got: after a reuse
+done

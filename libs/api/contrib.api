@@ -280,14 +280,25 @@ module Data.ByteString.Builder
 
 module Data.ByteString.Internal
   import public Data.ByteString.Types
+  export total compareBytes : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Prelude.EqOrd.Ordering
   export total createIO : {0 e : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> (Data.Buffer.Buffer -> io (Prelude.Types.Either e Int)) -> io (Prelude.Types.Either e Data.ByteString.Types.ByteString)
+  export total findByteFrom : Bits8 -> Int -> Data.ByteString.Types.ByteString -> Int
   export total ioForList : {0 s : Type} -> {0 a : Type} -> Prelude.Basics.List a -> s -> (s -> a -> PrimIO.IO s) -> PrimIO.IO Builtin.Unit
   export total ioForRange : Int -> Int -> (Int -> PrimIO.IO Builtin.Unit) -> PrimIO.IO Builtin.Unit
   export total lengthInt : Data.ByteString.Types.ByteString -> Int
+  export total sameBytes : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
   export total unsafeBuffer : Data.ByteString.Types.ByteString -> Data.Buffer.Buffer
+  export total unsafeBufferByte : Data.Buffer.Buffer -> Int -> Bits8
+  export total unsafeBufferString : Data.Buffer.Buffer -> Int -> Int -> String
+  export total unsafeBufferWord32LE : Data.Buffer.Buffer -> Int -> Bits32
+  export total unsafeCompareRange : Data.Buffer.Buffer -> Int -> Data.Buffer.Buffer -> Int -> Int -> Int
   export total unsafeCopyTo : Data.ByteString.Types.ByteString -> Data.Buffer.Buffer -> Int -> PrimIO.IO Builtin.Unit
   export total unsafeCreate : Int -> (Data.Buffer.Buffer -> PrimIO.IO Builtin.Unit) -> Data.ByteString.Types.ByteString
+  export total unsafeFindByte : Bits8 -> Data.Buffer.Buffer -> Int -> Int -> Int
+  export total unsafeHashRange : Int -> Data.Buffer.Buffer -> Int -> Int -> Int
   export total unsafeIndex : Data.ByteString.Types.ByteString -> Int -> Bits8
+  export total unsafeIndexWord32LE : Data.ByteString.Types.ByteString -> Int -> Bits32
+  export total unsafeMatchesAt : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Int -> Prelude.Basics.Bool
   export total unsafeOffset : Data.ByteString.Types.ByteString -> Int
   export total unsafeSlice : Int -> Int -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
 
@@ -1336,8 +1347,11 @@ module Decidable.Order.Strict
 
 module Language.JSON
   import public Language.JSON.Data
+  import public Language.JSON.Parse
   import public Text.Bounded
   export total parse : String -> Prelude.Types.Maybe Language.JSON.Data.JSON
+  export total parseByteString : Data.ByteString.Types.ByteString -> Prelude.Types.Either Language.JSON.Parse.JSONError Language.JSON.Data.JSON
+  export total parseEither : String -> Prelude.Types.Either Language.JSON.Parse.JSONError Language.JSON.Data.JSON
 
 module Language.JSON.Data
   public export data JSON : Type
@@ -1361,9 +1375,111 @@ module Language.JSON.Data
   export implementation [Idris] : Prelude.Show.Show Language.JSON.Data.JSON
   public export implementation : {0 a : Type} -> Prelude.Cast.Cast a Language.JSON.Data.JSON => Prelude.Cast.Cast (Prelude.Basics.List a) Language.JSON.Data.JSON
 
+module Language.JSON.Derive
+  import public Language.JSON.Typed
+  import public Language.Reflection
+  public export record Options : Type
+    constructor MkOptions : (String -> String) -> (String -> String) -> String -> String -> Language.JSON.Derive.Options
+    field constructorTag : Language.JSON.Derive.Options -> String -> String
+    field contentsField : Language.JSON.Derive.Options -> String
+    field fieldName : Language.JSON.Derive.Options -> String -> String
+    field tagField : Language.JSON.Derive.Options -> String
+  export total arrayOfLength : String -> Prelude.Types.Nat -> Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError (Prelude.Basics.List Language.JSON.Data.JSON)
+  export total contentsWith : {0 a : Type} -> String -> (Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Prelude.Basics.List (String, Language.JSON.Data.JSON) -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total decodeEnum : {0 a : Type} -> String -> Prelude.Basics.List (String, a) -> Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total decodeTagged : {0 a : Type} -> String -> String -> Prelude.Basics.List (String, Prelude.Basics.List (String, Language.JSON.Data.JSON) -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  public export total defaultOptions : Language.JSON.Derive.Options
+  export total deriveFromJSON : {0 a : Type} -> Language.JSON.Derive.Options -> Language.Reflection.Elab (Language.JSON.Typed.FromJSON a)
+  export total deriveToJSON : {0 a : Type} -> Language.JSON.Derive.Options -> Language.Reflection.Elab (Language.JSON.Typed.ToJSON a)
+  export total elemWith : {0 a : Type} -> (Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Prelude.Basics.List Language.JSON.Data.JSON -> Prelude.Types.Nat -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total fieldWith : {0 a : Type} -> (Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Prelude.Basics.List (String, Language.JSON.Data.JSON) -> String -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total shareValue : {0 r : Type} -> {0 a : Type} -> a -> (a -> r) -> r
+  export total stepClose : {0 r : Type} -> Language.JSON.Parse.Input -> Int -> (Int -> Language.JSON.Parse.Step r) -> Language.JSON.Parse.Step r
+  export total stepComma : {0 r : Type} -> Language.JSON.Parse.Input -> Int -> (Int -> Language.JSON.Parse.Step r) -> Language.JSON.Parse.Step r
+  export total stepKey : {0 r : Type} -> Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Key -> (Int -> Language.JSON.Parse.Step r) -> Language.JSON.Parse.Step r
+  export total stepOpen : {0 r : Type} -> Language.JSON.Parse.Input -> Int -> (Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Step r) -> Language.JSON.Parse.Step r
+  export total stepVia : {0 a : Type} -> (Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Step a
+  export total stepWith : {0 r : Type} -> {0 a : Type} -> Language.JSON.Parse.Step a -> (a -> Int -> Language.JSON.Parse.Step r) -> Language.JSON.Parse.Step r
+  export total writeThen : Language.JSON.Encode.JSONWriter -> Language.JSON.Encode.JSONWriter -> Language.JSON.Encode.JSONWriter
+  export implementation [mkFromJSONWith] : {0 a : Type} -> (Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> (Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Step a) -> Language.JSON.Typed.FromJSON a
+  export implementation [mkFromJSON] : {0 a : Type} -> (Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Language.JSON.Typed.FromJSON a
+  export implementation [mkToJSONWith] : {0 a : Type} -> (a -> Language.JSON.Data.JSON) -> (a -> Language.JSON.Encode.JSONWriter) -> Language.JSON.Typed.ToJSON a
+  export implementation [mkToJSON] : {0 a : Type} -> (a -> Language.JSON.Data.JSON) -> Language.JSON.Typed.ToJSON a
+
+module Language.JSON.Encode
+  import public Language.JSON.Data
+  export data JSONOut : Type
+  public export total JSONWriter : Type
+  export total encode : Language.JSON.Data.JSON -> Data.ByteString.Types.ByteString
+  export total encodeBuilder : Language.JSON.Data.JSON -> Data.ByteString.Builder.Builder
+  export total encodeNumber : Double -> Data.ByteString.Types.ByteString
+  export total encodeString : String -> Data.ByteString.Types.ByteString
+  export total encodeText : Language.JSON.Data.JSON -> String
+  export total runWriter : Language.JSON.Encode.JSONWriter -> Data.ByteString.Types.ByteString
+  export total writeBool : Prelude.Basics.Bool -> Language.JSON.Encode.JSONWriter
+  export total writeByte : Bits8 -> Language.JSON.Encode.JSONWriter
+  export total writeInt : Int -> Language.JSON.Encode.JSONWriter
+  export total writeNumber : Double -> Language.JSON.Encode.JSONWriter
+  export total writeRaw : String -> Language.JSON.Encode.JSONWriter
+  export total writeString : String -> Language.JSON.Encode.JSONWriter
+  export total writeValue : Language.JSON.Data.JSON -> Language.JSON.Encode.JSONWriter
+
 module Language.JSON.Lexer
   import public Language.JSON.Tokens
   export total lexJSON : String -> Prelude.Types.Maybe (Prelude.Basics.List (Text.Bounded.WithBounds Language.JSON.Tokens.JSONToken))
+
+module Language.JSON.Parse
+  import public Language.JSON.Data
+  export data Input : Type
+  public export record JSONError : Type
+    constructor MkJSONError : Prelude.Types.Nat -> Language.JSON.Parse.JSONErrorReason -> Language.JSON.Parse.JSONError
+    field offset : Language.JSON.Parse.JSONError -> Prelude.Types.Nat
+    field reason : Language.JSON.Parse.JSONError -> Language.JSON.Parse.JSONErrorReason
+  public export data JSONErrorReason : Type
+    constructor UnexpectedEnd : String -> Language.JSON.Parse.JSONErrorReason
+    constructor UnexpectedByte : Bits8 -> String -> Language.JSON.Parse.JSONErrorReason
+    constructor LeadingZero : Language.JSON.Parse.JSONErrorReason
+    constructor InvalidNumber : Language.JSON.Parse.JSONErrorReason
+    constructor InvalidEscape : Language.JSON.Parse.JSONErrorReason
+    constructor InvalidUnicodeEscape : Language.JSON.Parse.JSONErrorReason
+    constructor LoneSurrogate : Language.JSON.Parse.JSONErrorReason
+    constructor ControlCharacter : Bits8 -> Language.JSON.Parse.JSONErrorReason
+    constructor InvalidUtf8 : Language.JSON.Parse.JSONErrorReason
+    constructor UnterminatedString : Language.JSON.Parse.JSONErrorReason
+    constructor TrailingComma : Language.JSON.Parse.JSONErrorReason
+    constructor TooDeep : Prelude.Types.Nat -> Language.JSON.Parse.JSONErrorReason
+    constructor TrailingGarbage : Language.JSON.Parse.JSONErrorReason
+  export data Key : Type
+  public export record ParseOptions : Type
+    constructor MkParseOptions : Prelude.Types.Nat -> Language.JSON.Parse.ParseOptions
+    field maxDepth : Language.JSON.Parse.ParseOptions -> Prelude.Types.Nat
+  public export data Step : Type -> Type
+    constructor StepOk : {0 a : Type} -> a -> Int -> Language.JSON.Parse.Step a
+    constructor StepFail : {0 a : Type} -> Language.JSON.Parse.Step a
+  export total atEnd : Language.JSON.Parse.Input -> Int -> Prelude.Basics.Bool
+  export total boolAt : Language.JSON.Parse.Input -> Int -> Int
+  export total byteAtOr0 : Language.JSON.Parse.Input -> Int -> Bits8
+  export total defaultParseOptions : Language.JSON.Parse.ParseOptions
+  export total enter : Language.JSON.Parse.Input -> Prelude.Types.Maybe Language.JSON.Parse.Input
+  export total errorLocation : Data.ByteString.Types.ByteString -> Language.JSON.Parse.JSONError -> (Prelude.Types.Nat, Prelude.Types.Nat)
+  export total inputOf : Int -> Data.ByteString.Types.ByteString -> (Language.JSON.Parse.Input, Int)
+  export total jsonKey : String -> Language.JSON.Parse.Key
+  export total keyAt : Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Key -> Int
+  export total location : Data.ByteString.Types.ByteString -> Prelude.Types.Nat -> (Prelude.Types.Nat, Prelude.Types.Nat)
+  export total nullAt : Language.JSON.Parse.Input -> Int -> Prelude.Basics.Bool
+  export total numberAt : {0 a : Type} -> Language.JSON.Parse.Input -> Int -> (Double -> Int -> Language.JSON.Parse.Step a) -> Language.JSON.Parse.Step a
+  export total parseBytes : Data.ByteString.Types.ByteString -> Prelude.Types.Either Language.JSON.Parse.JSONError Language.JSON.Data.JSON
+  export total parseBytesWith : Language.JSON.Parse.ParseOptions -> Data.ByteString.Types.ByteString -> Prelude.Types.Either Language.JSON.Parse.JSONError Language.JSON.Data.JSON
+  export total parseText : String -> Prelude.Types.Either Language.JSON.Parse.JSONError Language.JSON.Data.JSON
+  export total parseTextWith : Language.JSON.Parse.ParseOptions -> String -> Prelude.Types.Either Language.JSON.Parse.JSONError Language.JSON.Data.JSON
+  export total showErrorIn : Data.ByteString.Types.ByteString -> Language.JSON.Parse.JSONError -> String
+  export total skipWsAt : Language.JSON.Parse.Input -> Int -> Int
+  export total stringAt : Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Step String
+  export total valueAt : Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Step Language.JSON.Data.JSON
+  export implementation : Prelude.EqOrd.Eq Language.JSON.Parse.JSONError
+  export implementation : Prelude.EqOrd.Eq Language.JSON.Parse.JSONErrorReason
+  export implementation : Prelude.Show.Show Language.JSON.Parse.JSONError
+  export implementation : Prelude.Show.Show Language.JSON.Parse.JSONErrorReason
 
 module Language.JSON.Parser
   import public Language.JSON.Tokens
@@ -1415,6 +1531,103 @@ module Language.JSON.Tokens
   public export implementation : Prelude.EqOrd.Eq Language.JSON.Tokens.JSONTokenKind
   public export implementation : Prelude.EqOrd.Eq Language.JSON.Tokens.Punctuation
   public export implementation : Text.Token.TokenKind Language.JSON.Tokens.JSONTokenKind
+
+module Language.JSON.Typed
+  import public Data.ByteString.Builder
+  import public Language.JSON.Data
+  import public Language.JSON.Encode
+  import public Language.JSON.Parse
+  public export data DecodeError : Type
+    constructor Syntax : Language.JSON.Parse.JSONError -> Language.JSON.Typed.DecodeError
+    constructor Mismatch : Prelude.Basics.List Language.JSON.Typed.PathElem -> String -> Language.JSON.Typed.DecodeError
+  public export interface FromJSON : Type -> Type
+    parameters a
+    constructor MkFromJSON : {0 a : Type} -> (Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Prelude.Types.Maybe a -> (Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Step a) -> Language.JSON.Typed.FromJSON a
+    method fromJSON : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+    method fromMissing : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Prelude.Types.Maybe a
+    method fromJSONAt : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Language.JSON.Parse.Input -> Int -> Language.JSON.Parse.Step a
+  public export data PathElem : Type
+    constructor Key : String -> Language.JSON.Typed.PathElem
+    constructor Index : Prelude.Types.Nat -> Language.JSON.Typed.PathElem
+  public export interface ToJSON : Type -> Type
+    parameters a
+    constructor MkToJSON : {0 a : Type} -> (a -> Language.JSON.Data.JSON) -> (a -> Data.ByteString.Builder.Builder) -> (a -> Language.JSON.Encode.JSONWriter) -> Language.JSON.Typed.ToJSON a
+    method toJSON : {0 a : Type} -> Language.JSON.Typed.ToJSON a => a -> Language.JSON.Data.JSON
+    method toEncoding : {0 a : Type} -> Language.JSON.Typed.ToJSON a => a -> Data.ByteString.Builder.Builder
+    method toWriter : {0 a : Type} -> Language.JSON.Typed.ToJSON a => a -> Language.JSON.Encode.JSONWriter
+  export total decodeElements : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Prelude.Basics.List Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError (Prelude.Basics.List a)
+  export total describe : Language.JSON.Data.JSON -> String
+  export total failDecode : {0 a : Type} -> String -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total field : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Prelude.Basics.List (String, Language.JSON.Data.JSON) -> String -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total fromJSONBytes : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Data.ByteString.Types.ByteString -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total fromJSONBytesWith : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Language.JSON.Parse.ParseOptions -> Data.ByteString.Types.ByteString -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total fromJSONText : {0 a : Type} -> Language.JSON.Typed.FromJSON a => String -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total inIndex : {0 a : Type} -> Prelude.Types.Nat -> Prelude.Types.Either Language.JSON.Typed.DecodeError a -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total inKey : {0 a : Type} -> String -> Prelude.Types.Either Language.JSON.Typed.DecodeError a -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total optionalField : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Prelude.Basics.List (String, Language.JSON.Data.JSON) -> String -> Prelude.Types.Either Language.JSON.Typed.DecodeError (Prelude.Types.Maybe a)
+  export total showPath : Prelude.Basics.List Language.JSON.Typed.PathElem -> String
+  export total toJSONBytes : {0 a : Type} -> Language.JSON.Typed.ToJSON a => a -> Data.ByteString.Types.ByteString
+  export total toJSONText : {0 a : Type} -> Language.JSON.Typed.ToJSON a => a -> String
+  export total unexpected : {0 a : Type} -> String -> Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total withArray : {0 a : Type} -> String -> (Prelude.Basics.List Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total withNumber : {0 a : Type} -> String -> (Double -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total withObject : {0 a : Type} -> String -> (Prelude.Basics.List (String, Language.JSON.Data.JSON) -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export total withString : {0 a : Type} -> String -> (String -> Prelude.Types.Either Language.JSON.Typed.DecodeError a) -> Language.JSON.Data.JSON -> Prelude.Types.Either Language.JSON.Typed.DecodeError a
+  export implementation : Language.JSON.Typed.FromJSON Bits16
+  export implementation : Language.JSON.Typed.FromJSON Bits32
+  export implementation : Language.JSON.Typed.FromJSON Bits64
+  export implementation : Language.JSON.Typed.FromJSON Bits8
+  export implementation : Language.JSON.Typed.FromJSON Builtin.Unit
+  export implementation : Language.JSON.Typed.FromJSON Char
+  export implementation : Language.JSON.Typed.FromJSON Double
+  export implementation : Language.JSON.Typed.FromJSON Int
+  export implementation : Language.JSON.Typed.FromJSON Int16
+  export implementation : Language.JSON.Typed.FromJSON Int32
+  export implementation : Language.JSON.Typed.FromJSON Int64
+  export implementation : Language.JSON.Typed.FromJSON Int8
+  export implementation : Language.JSON.Typed.FromJSON Integer
+  export implementation : Language.JSON.Typed.FromJSON Language.JSON.Data.JSON
+  export implementation : Language.JSON.Typed.FromJSON Prelude.Basics.Bool
+  export implementation : Language.JSON.Typed.FromJSON Prelude.Types.Nat
+  export implementation : Language.JSON.Typed.FromJSON String
+  export implementation : Language.JSON.Typed.ToJSON Bits16
+  export implementation : Language.JSON.Typed.ToJSON Bits32
+  export implementation : Language.JSON.Typed.ToJSON Bits64
+  export implementation : Language.JSON.Typed.ToJSON Bits8
+  export implementation : Language.JSON.Typed.ToJSON Builtin.Unit
+  export implementation : Language.JSON.Typed.ToJSON Char
+  export implementation : Language.JSON.Typed.ToJSON Double
+  export implementation : Language.JSON.Typed.ToJSON Int
+  export implementation : Language.JSON.Typed.ToJSON Int16
+  export implementation : Language.JSON.Typed.ToJSON Int32
+  export implementation : Language.JSON.Typed.ToJSON Int64
+  export implementation : Language.JSON.Typed.ToJSON Int8
+  export implementation : Language.JSON.Typed.ToJSON Integer
+  export implementation : Language.JSON.Typed.ToJSON Language.JSON.Data.JSON
+  export implementation : Language.JSON.Typed.ToJSON Prelude.Basics.Bool
+  export implementation : Language.JSON.Typed.ToJSON Prelude.Types.Nat
+  export implementation : Language.JSON.Typed.ToJSON String
+  export implementation : Prelude.EqOrd.Eq Language.JSON.Typed.DecodeError
+  export implementation : Prelude.EqOrd.Eq Language.JSON.Typed.PathElem
+  export implementation : Prelude.Show.Show Language.JSON.Typed.DecodeError
+  export implementation : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Language.JSON.Typed.FromJSON (Data.List1.List1 a)
+  export implementation : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Language.JSON.Typed.FromJSON (Prelude.Basics.List a)
+  export implementation : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Language.JSON.Typed.FromJSON (Prelude.Basics.SnocList a)
+  export implementation : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Language.JSON.Typed.FromJSON (Prelude.Types.Maybe a)
+  export implementation : {0 a : Type} -> Language.JSON.Typed.ToJSON a => Language.JSON.Typed.ToJSON (Data.List1.List1 a)
+  export implementation : {0 a : Type} -> Language.JSON.Typed.ToJSON a => Language.JSON.Typed.ToJSON (Prelude.Basics.List a)
+  export implementation : {0 a : Type} -> Language.JSON.Typed.ToJSON a => Language.JSON.Typed.ToJSON (Prelude.Basics.SnocList a)
+  export implementation : {0 a : Type} -> Language.JSON.Typed.ToJSON a => Language.JSON.Typed.ToJSON (Prelude.Types.Maybe a)
+  export implementation : {0 a : Type} -> {n : Prelude.Types.Nat} -> Language.JSON.Typed.FromJSON a => Language.JSON.Typed.FromJSON (Data.Vect.Vect n a)
+  export implementation : {0 b : Type} -> {0 a : Type} -> (Language.JSON.Typed.FromJSON a, Language.JSON.Typed.FromJSON b) => Language.JSON.Typed.FromJSON (Prelude.Types.Either a b)
+  export implementation : {0 b : Type} -> {0 a : Type} -> (Language.JSON.Typed.FromJSON a, Language.JSON.Typed.FromJSON b) => Language.JSON.Typed.FromJSON (a, b)
+  export implementation : {0 b : Type} -> {0 a : Type} -> (Language.JSON.Typed.ToJSON a, Language.JSON.Typed.ToJSON b) => Language.JSON.Typed.ToJSON (Prelude.Types.Either a b)
+  export implementation : {0 b : Type} -> {0 a : Type} -> (Language.JSON.Typed.ToJSON a, Language.JSON.Typed.ToJSON b) => Language.JSON.Typed.ToJSON (a, b)
+  export implementation : {0 n : Prelude.Types.Nat} -> {0 a : Type} -> Language.JSON.Typed.ToJSON a => Language.JSON.Typed.ToJSON (Data.Vect.Vect n a)
+  export implementation : {0 v : Type} -> Language.JSON.Typed.FromJSON v => Language.JSON.Typed.FromJSON (Data.HashMap.HashMap String v)
+  export implementation : {0 v : Type} -> Language.JSON.Typed.FromJSON v => Language.JSON.Typed.FromJSON (Data.SortedMap.SortedMap String v)
+  export implementation : {0 v : Type} -> Language.JSON.Typed.ToJSON v => Language.JSON.Typed.ToJSON (Data.HashMap.HashMap String v)
+  export implementation : {0 v : Type} -> Language.JSON.Typed.ToJSON v => Language.JSON.Typed.ToJSON (Data.SortedMap.SortedMap String v)
 
 module System.Console.GetOpt
   public export data ArgDescr : Type -> Type

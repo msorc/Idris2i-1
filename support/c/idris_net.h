@@ -86,7 +86,7 @@ int idrnet_accept(int sockfd, void *sockaddr);
 // Send
 int idrnet_send(int sockfd, char *data);
 int idrnet_send_buf(int sockfd, void *data, int len);
-int idrnet_send_bytes(int sockfd, void *data, int len);
+int idrnet_send_bytes(int sockfd, void *data, int len, int flags);
 
 // Receive
 // Creates a result structure containing result and payload

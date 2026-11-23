@@ -1,0 +1,90 @@
+Handshake (RFC 6455 section 1.3):
+  "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+  valid keys: [True, False, True, False, True, False]
+  client key Just "AAECAwQFBgcICQoLDA0ODw==" Nothing
+RFC 6455 section 5.7:
+unmasked Hello: MkFrameHeader True False False False Text Nothing 5 used 2 payload "Hello"
+  prefixes True, re-encodes True
+masked Hello: MkFrameHeader True False False False Text (Just 939139389) 5 used 6 payload "Hello"
+  prefixes True, re-encodes True
+fragment Hel: MkFrameHeader False False False False Text Nothing 3 used 2 payload "Hel"
+  prefixes True, re-encodes True
+fragment lo: MkFrameHeader True False False False Continuation Nothing 2 used 2 payload "lo"
+  prefixes True, re-encodes True
+unmasked Ping: MkFrameHeader True False False False Ping Nothing 5 used 2 payload "Hello"
+  prefixes True, re-encodes True
+masked Pong: MkFrameHeader True False False False Pong (Just 939139389) 5 used 6 payload "Hello"
+  prefixes True, re-encodes True
+256 bytes: MkFrameHeader True False False False Binary Nothing 256 used 4 payload (256 bytes)
+  prefixes True, re-encodes True
+64 KiB: MkFrameHeader True False False False Binary Nothing 65536 used 10 payload (65536 bytes)
+  prefixes True, re-encodes True
+  64 KiB header 827f0000000000010000
+  masked 300 header 81fe012c37fa213d
+  masked Hello 818537fa213d7f9f4d5158
+Need more:
+  empty: NeedMore 2
+  one byte: NeedMore 2
+  16-bit length, masked, 3 bytes: NeedMore 8
+  64-bit length, unmasked, 9 bytes: NeedMore 10
+  key missing: NeedMore 6
+Invalid:
+  RSV1 without extension: Invalid ReservedBitSet
+  RSV2: Invalid ReservedBitSet
+  RSV3: Invalid ReservedBitSet
+  RSV1 with extension: Header (MkFrameHeader True True False False Text Nothing 0) 2
+  RSV2 with RSV1 extension: Invalid ReservedBitSet
+  opcode 3: Invalid (ReservedOpcode 3)
+  opcode 4: Invalid (ReservedOpcode 4)
+  opcode 5: Invalid (ReservedOpcode 5)
+  opcode 6: Invalid (ReservedOpcode 6)
+  opcode 7: Invalid (ReservedOpcode 7)
+  opcode 11: Invalid (ReservedOpcode 11)
+  opcode 12: Invalid (ReservedOpcode 12)
+  opcode 13: Invalid (ReservedOpcode 13)
+  opcode 14: Invalid (ReservedOpcode 14)
+  opcode 15: Invalid (ReservedOpcode 15)
+  fragmented ping: Invalid FragmentedControl
+  fragmented close: Invalid FragmentedControl
+  ping of 126 bytes: Invalid ControlTooLong
+  ping of 125 bytes (valid): Header (MkFrameHeader True False False False Ping Nothing 125) 2
+  unmasked frame to a server: Invalid MaskMissing
+  masked frame to a client: Invalid MaskUnexpected
+  16-bit length 125: Invalid NonMinimalLength
+  16-bit length 126 (valid): Header (MkFrameHeader True False False False Binary Nothing 126) 4
+  64-bit length 65535: Invalid NonMinimalLength
+  64-bit length with top bit: Invalid LengthOverflow
+  above maxPayload: Invalid PayloadTooLarge
+  at maxPayload (valid): Header (MkFrameHeader True False False False Binary Nothing 1000) 4
+  close codes for errors: [1002, 1002, 1009]
+Masking:
+  lengths 0..33 at offsets 0..3, piecewise: True
+  7f9f4d5158 9f4d5158
+Close frames:
+  0 False
+  999 False
+  1000 True
+  1001 True
+  1002 True
+  1003 True
+  1004 False
+  1005 False
+  1006 False
+  1007 True
+  1011 True
+  1012 True
+  1014 True
+  1015 False
+  1016 False
+  2999 False
+  3000 True
+  4999 True
+  5000 False
+  65535 False
+  payload 03e8627965 Right (Just (1000, "bye"))
+  empty Right Nothing
+  one byte Left CloseTruncated
+  code 1005 Left (InvalidCloseCode 1005)
+  bad reason Left InvalidReason
+  utf-8 reason Right (Just (4000, [206, 186]))
+  error codes [1002, 1002, 1007]

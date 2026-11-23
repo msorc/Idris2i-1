@@ -1,0 +1,54 @@
+=== 1 workers
+three redirects: 200 "end"
+final URL ends with /r/0: True
+eleven redirects: error too many redirects
+303 after POST: 200 "GET "
+307 after POST: 200 "POST data"
+relative location: 200 "relative ok"
+not followed: 302 location=Just "/r/0"
+server accepted (one connection for c, one for c0): 2
+after the server closed the pooled connection: 200 "hello"
+POST after that: 200 "POST x"
+server accepted: 3
+connections of a client with a short idle timeout: 2
+10 threads, 5 requests each: True
+response above the limit: error body too large
+request timeout: error timed out
+connect timeout: error timed out
+connection refused: error Connection refused (errno 111)
+https: error https needs a TLS transport: set tlsConnect of the ClientConfig (see the tls library)
+ftp: error scheme ftp is not supported (only http and https)
+not a URL: error bad URL: BadScheme
+upload chunked: 200 33554432 bytes, checksum ok: True
+upload with a length: 200 33554432 bytes, checksum ok: True
+download /download: 200 te=Nothing 33554432 bytes, checksum ok: True
+download /download-length: 200 te=Nothing 33554432 bytes, checksum ok: True
+connections: 1
+peak RSS below 48 MB: True
+=== 4 workers
+three redirects: 200 "end"
+final URL ends with /r/0: True
+eleven redirects: error too many redirects
+303 after POST: 200 "GET "
+307 after POST: 200 "POST data"
+relative location: 200 "relative ok"
+not followed: 302 location=Just "/r/0"
+server accepted (one connection for c, one for c0): 2
+after the server closed the pooled connection: 200 "hello"
+POST after that: 200 "POST x"
+server accepted: 3
+connections of a client with a short idle timeout: 2
+10 threads, 5 requests each: True
+response above the limit: error body too large
+request timeout: error timed out
+connect timeout: error timed out
+connection refused: error Connection refused (errno 111)
+https: error https needs a TLS transport: set tlsConnect of the ClientConfig (see the tls library)
+ftp: error scheme ftp is not supported (only http and https)
+not a URL: error bad URL: BadScheme
+upload chunked: 200 33554432 bytes, checksum ok: True
+upload with a length: 200 33554432 bytes, checksum ok: True
+download /download: 200 te=Nothing 33554432 bytes, checksum ok: True
+download /download-length: 200 te=Nothing 33554432 bytes, checksum ok: True
+connections: 1
+peak RSS below 48 MB: True

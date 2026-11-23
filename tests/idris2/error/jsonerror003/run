@@ -1,0 +1,8 @@
+. ../../../testutils.sh
+
+# The fields of JSON diagnostics after the message: one file of each kind
+for f in Mismatch Overload Total Names Search Bound; do
+  echo "--- $f"
+  idris2_no_clean --error-format json --check $f.idr 2>/dev/null
+  rm -rf build
+done

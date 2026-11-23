@@ -1,0 +1,19 @@
+a peer that does not answer pings
+  ping ""
+  [end]
+server: closed 1006 "no answer to a keep-alive ping", sent nothing, by this side; at least 3 pongs: False
+a peer that answers pings
+client: closed 1000, sent 1000, by this side
+server: closed 1000 "enough", sent 1000, by the peer; at least 3 pongs: True
+idle timeout
+client: closed 1001 "idle timeout", sent 1001, by the peer
+server: closed 1001, sent 1001, by this side
+keep-alive of the client against a server that does not answer
+client: closed 1006 "no answer to a keep-alive ping", sent nothing, by this side
+a peer that does not read
+server: the send failed with "send timed out" after less than 64 MiB: True
+a peer that does not read, but sends a ping and a message
+server: the receiver got "still here" while a sender is stuck
+server: closed 1006 "the close frame could not be sent", sent nothing, by this side; the stuck sender returned
+=== 4 workers
+same output

@@ -1,8 +1,7 @@
 1/1: Building refdecl (refdecl.idr)
-Error: While processing right hand side of bad. When unifying:
-    Elab ()
-and:
-    Elab a
+Error: While processing right hand side of bad. When unifying: [E0101]
+    Expected: Elab a
+    Got:      Elab ()
 Mismatch between: () and a.
 
 refdecl:13:16--13:29

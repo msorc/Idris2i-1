@@ -1,0 +1,46 @@
+echo 0: binary ok, text ok
+echo 1: binary ok, text ok
+echo 125: binary ok, text ok
+echo 126: binary ok, text ok
+echo 65535: binary ok, text ok
+echo 65536: binary ok, text ok
+echo 3145728: binary ok, text ok
+echo UTF-8 text: ok
+echo String: as a String
+after a ping: ok, pongs 1
+sendTextBytes of bad UTF-8: Left text message that is not UTF-8
+ping of 126 bytes: Left control frame payload longer than 125 bytes
+client: closed 1000, sent 1000, by this side
+server: echo session closed 1000 "done", sent 1000, by the peer
+send after the close: Left the WebSocket connection is closed
+receive after the close: closed 1000, sent 1000, by this side
+fragmented echo 999: binary ok, text ok
+fragmented echo 1000: binary ok, text ok
+fragmented echo 1001: binary ok, text ok
+fragmented echo 65536: binary ok, text ok
+fragmented echo 3145728: binary ok, text ok
+fragmented UTF-8 text (split inside code points): ok
+client: closed 1001, sent 1001, by this side
+server: echo session closed 1001 "going", sent 1001, by the peer
+/proto offering ["chat.v2", "chat.v1"]: client sees Just "chat.v1", server says subprotocol chat.v1
+/proto offering ["other"]: client sees Nothing, server says subprotocol none
+/proto-x offering ["chat.v1"]: client sees Nothing, server says subprotocol none
+/proto offering []: client sees Nothing, server says subprotocol none
+concurrent senders: 1600 whole messages, 0 broken
+server: echo session closed 1000, sent 1000, by the peer
+client got: bye
+client got: closed 4000 "server done", sent 4000, by the peer
+server: closed 4000, sent 4000, by this side
+client: closed 1000, sent 1000, by this side
+blocked receive returned: closed 1000, sent 1000, by this side
+server: silent session closed 1000 "from another thread", sent 1000, by the peer
+server: silent session closed 1006 "the connection ended without a close frame", sent nothing, by the peer
+client after the server dropped it: closed 1006 "the connection ended without a close frame", sent nothing, by the peer
+GET /: 200 "a page\n"
+GET /echo without upgrade: 426 upgrade=Just "websocket"
+connect to /nowhere: WebSocket handshake rejected: 404 Not Found
+wss without TLS: bad WebSocket URL: wss needs a TLS transport: set tlsConnect of the ConnectOptions (see the tls library)
+http URL: bad WebSocket URL: scheme http is not ws or wss
+stopped
+=== 4 workers
+same output

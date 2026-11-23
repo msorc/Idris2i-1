@@ -1,0 +1,87 @@
+1/1: Building Args (Args.idr)
+Error: Main.count is not total, possibly not terminating due to recursive path Main.count [E0704]
+
+Args:22:33--22:38
+ 18 | size (Node l x r) acc = size (Node r x l) (acc + x)
+ 19 |
+ 20 | -- No argument is matched against a constructor
+ 21 | count : Nat -> Nat
+ 22 | count n = if n == 0 then 0 else count (n `minus` 1)
+                                      ^^^^^
+
+No argument gets smaller: none is matched against a constructor.
+
+Error: Main.grow is not total, possibly not terminating due to recursive path Main.grow [E0704]
+
+Args:13:18--13:22
+ 09 |
+ 10 | -- The argument grows
+ 11 | grow : List Nat -> Nat
+ 12 | grow [] = 0
+ 13 | grow (x :: xs) = grow (x :: x :: xs)
+                       ^^^^
+
+Argument 1: passed x :: x :: xs, which is not known to be smaller than the pattern x :: xs.
+
+Error: isEven is not total, possibly not terminating due to call to Main.isOdd [E0703]
+
+Args:27:14--27:19
+ 23 |
+ 24 | -- A mutual recursion cycle
+ 25 | mutual
+ 26 |   isEven : Nat -> Bool
+ 27 |   isEven n = isOdd (S n)
+                   ^^^^^
+
+Main.isOdd is not total, possibly not terminating due to recursive path Main.isEven -> Main.isOdd.
+
+Error: Main.isOdd is not total, possibly not terminating due to recursive path Main.isEven -> Main.isOdd [E0704]
+
+Args:31:17--31:23
+ 27 |   isEven n = isOdd (S n)
+ 28 |
+ 29 |   isOdd : Nat -> Bool
+ 30 |   isOdd Z = False
+ 31 |   isOdd (S k) = isEven (S k)
+                      ^^^^^^
+
+Calls on the recursive path:
+    Main.isEven called at Args:31:17--31:23
+    Main.isOdd called at Args:27:14--27:19
+
+Error: Main.same is not total, possibly not terminating due to recursive path Main.same [E0704]
+
+Args:8:14--8:18
+ 4 |
+ 5 | -- The argument is matched but passed on unchanged
+ 6 | same : Nat -> Nat
+ 7 | same Z = Z
+ 8 | same (S k) = same (S k)
+                  ^^^^
+
+Argument 1: passed S k, which is not smaller than the pattern S k.
+
+Error: Main.size is not total, possibly not terminating due to recursive path Main.size [E0704]
+
+Args:18:25--18:29
+ 14 |
+ 15 | -- Two arguments, neither gets smaller; only the matched one is explained
+ 16 | size : Tree -> Nat -> Nat
+ 17 | size Leaf acc = acc
+ 18 | size (Node l x r) acc = size (Node r x l) (acc + x)
+                              ^^^^
+
+Argument 1: passed Node r x l, which is not known to be smaller than the pattern Node l x r.
+
+Error: useSpin is not total, possibly not terminating due to call to Main.spin [E0703]
+
+Args:39:13--39:17
+ 35 | spin : Nat -> Nat
+ 36 | spin n = spin n
+ 37 |
+ 38 | useSpin : Nat -> Nat
+ 39 | useSpin n = spin n + 1
+                  ^^^^
+
+Main.spin is not total, possibly not terminating due to recursive path Main.spin.
+

@@ -1,5 +1,5 @@
 1/1: Building erased (erased.idr)
-Error: While processing left hand side of nameOf. Can't match on Bool (Erased argument).
+Error: While processing left hand side of nameOf. Can't match on Bool (Erased argument). [E0606]
 
 erased:7:17--7:21
  3 |   MyJust : a -> MyMaybe a

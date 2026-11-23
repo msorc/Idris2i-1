@@ -1,7 +1,7 @@
 1/3: Building Lib2 (Lib2.idr)
 2/3: Building Lib1 (Lib1.idr)
 3/3: Building Main1 (Main1.idr)
-Warning: operator fixity is ambiguous, we are picking Lib2.infixl.(%%%) out of :
+Warning: operator fixity is ambiguous, we are picking Lib2.infixl.(%%%) out of : [W0000]
  - Lib2.infixl.(%%%), precedence level 5
  - Lib1.infixr.(%%%), precedence level 5
 
@@ -16,7 +16,7 @@ Main1:7:20--7:23
  7 | main = printLn (10 %%% 10 %%% 1)
                         ^^^
 
-Warning: operator fixity is ambiguous, we are picking Lib2.infixl.(%%%) out of :
+Warning: operator fixity is ambiguous, we are picking Lib2.infixl.(%%%) out of : [W0000]
  - Lib2.infixl.(%%%), precedence level 5
  - Lib1.infixr.(%%%), precedence level 5
 

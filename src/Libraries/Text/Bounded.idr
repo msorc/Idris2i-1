@@ -28,12 +28,16 @@ export
 endBounds : Bounds -> (Int, Int)
 endBounds b = (b.endLine, b.endCol)
 
+||| The smallest bounds that contain both (the minimum of the starts and the
+||| maximum of the ends, compared as (line, column) pairs, without building
+||| the pairs)
 export
 union : Bounds -> Bounds -> Bounds
-union b1 b2 =
-  let (ur, uc) = min (startBounds b1) (startBounds b2)
-      (lr, lc) = max (endBounds b1) (endBounds b2)
-   in MkBounds ur uc lr lc
+union (MkBounds sl1 sc1 el1 ec1) (MkBounds sl2 sc2 el2 ec2) =
+  let start1 = sl1 < sl2 || (sl1 == sl2 && sc1 <= sc2)
+      end1 = el1 > el2 || (el1 == el2 && ec1 >= ec2)
+   in MkBounds (if start1 then sl1 else sl2) (if start1 then sc1 else sc2)
+               (if end1 then el1 else el2) (if end1 then ec1 else ec2)
 
 export
 Eq Bounds where

@@ -1,5 +1,5 @@
 1/1: Building IfErr (IfErr.idr)
-Error: While processing right hand side of foo. Can't find an implementation for Eq a.
+Error: While processing right hand side of foo. Can't find an implementation for Eq a. [E0401]
 
 IfErr:4:11--4:17
  1 | data Wibble = Wobble
@@ -8,9 +8,13 @@ IfErr:4:11--4:17
  4 | foo x y = x == y
                ^^^^^^
 
-Possible cause: Can't find an implementation for Ord a, which is needed by a matching implementation.
+There is no implementation of Eq for a in scope.
+Suggestion: add the constraint Eq a to the type of the definition.
+Ord a would give it, as Eq is a parent of Ord.
+    There is no implementation of Ord for a in scope.
+    Suggestion: add the constraint Ord a to the type of the definition.
 
-Error: While processing right hand side of bar. Can't find an implementation for Eq Wibble.
+Error: While processing right hand side of bar. Can't find an implementation for Eq Wibble. [E0401]
 
 IfErr:7:11--7:17
  3 | foo : a -> a -> Bool
@@ -20,5 +24,7 @@ IfErr:7:11--7:17
  7 | bar x y = x == y
                ^^^^^^
 
-Possible cause: Can't find an implementation for Ord Wibble, which is needed by a matching implementation.
+There is no implementation of Eq for Wibble in scope.
+Ord Wibble would give it, as Eq is a parent of Ord.
+    There is no implementation of Ord for Wibble in scope.
 

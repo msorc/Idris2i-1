@@ -1,5 +1,5 @@
 1/1: Building SubGoal (SubGoal.idr)
-Error: While processing right hand side of direct. Can't find an implementation for Show (List Foo).
+Error: While processing right hand side of direct. Can't find an implementation for Show (List Foo). [E0401]
 
 SubGoal:13:10--13:22
  09 |   show (MkBox x) = show x
@@ -9,9 +9,10 @@ SubGoal:13:10--13:22
  13 | direct = show [MkFoo]
                ^^^^^^^^^^^^
 
-Possible cause: Can't find an implementation for Show Foo, which is needed by a matching implementation.
+The implementation Show a => Show (List a) (in Prelude.Show) matches, but needs Show Foo.
+    There is no implementation of Show for Foo in scope.
 
-Error: While processing right hand side of nested. Can't find an implementation for Show (List (Box Foo)).
+Error: While processing right hand side of nested. Can't find an implementation for Show (List (Box Foo)). [E0401]
 
 SubGoal:17:10--17:28
  13 | direct = show [MkFoo]
@@ -21,9 +22,11 @@ SubGoal:17:10--17:28
  17 | nested = show [MkBox MkFoo]
                ^^^^^^^^^^^^^^^^^^
 
-Possible cause: Can't find an implementation for Show Foo, which is needed by a matching implementation.
+The implementation Show a => Show (List a) (in Prelude.Show) matches, but needs Show (Box Foo).
+    The implementation Show a => Show (Box a) (at SubGoal:8:1--9:26) matches that, but needs Show Foo.
+        There is no implementation of Show for Foo in scope.
 
-Error: While processing right hand side of pair. Can't find an implementation for Show (Box Nat, Box Foo).
+Error: While processing right hand side of pair. Can't find an implementation for Show (Box Nat, Box Foo). [E0401]
 
 SubGoal:21:8--21:45
  17 | nested = show [MkBox MkFoo]
@@ -33,9 +36,11 @@ SubGoal:21:8--21:45
  21 | pair = show (MkBox (the Nat 1), MkBox MkFoo)
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Possible cause: Can't find an implementation for Show Foo, which is needed by a matching implementation.
+The implementation (Show a, Show b) => Show (a, b) (in Prelude.Show) matches, but needs Show (Box Foo).
+    The implementation Show a => Show (Box a) (at SubGoal:8:1--9:26) matches that, but needs Show Foo.
+        There is no implementation of Show for Foo in scope.
 
-Error: While processing right hand side of noMatch. Can't find an implementation for Show Foo.
+Error: While processing right hand side of noMatch. Can't find an implementation for Show Foo. [E0401]
 
 SubGoal:25:11--25:21
  21 | pair = show (MkBox (the Nat 1), MkBox MkFoo)
@@ -45,7 +50,9 @@ SubGoal:25:11--25:21
  25 | noMatch = show MkFoo
                 ^^^^^^^^^^
 
-Error: While processing right hand side of poly. Can't find an implementation for Show (Box a).
+There is no implementation of Show for Foo in scope.
+
+Error: While processing right hand side of poly. Can't find an implementation for Show (Box a). [E0401]
 
 SubGoal:29:10--29:24
  25 | noMatch = show MkFoo
@@ -55,5 +62,7 @@ SubGoal:29:10--29:24
  29 | poly x = show (MkBox x)
                ^^^^^^^^^^^^^^
 
-Possible cause: Can't find an implementation for Show a, which is needed by a matching implementation.
+The implementation Show a => Show (Box a) (at SubGoal:8:1--9:26) matches, but needs Show a.
+    There is no implementation of Show for a in scope.
+    Suggestion: add the constraint Show a to the type of the definition.
 

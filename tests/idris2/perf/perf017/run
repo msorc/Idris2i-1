@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+# Well under a second; more than three minutes (and 4 GB) when the
+# implementations found by search kept the lets of the rewrites in scope.
+TIMEOUT=30
+check Rewrites.idr

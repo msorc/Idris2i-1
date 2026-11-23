@@ -1,5 +1,5 @@
 1/1: Building unboundimps (unboundimps.idr)
-Error: While processing type of len'. Undefined name xs. 
+Error: While processing type of len'. Undefined name xs. [E0201]
 
 unboundimps:18:11--18:13
  14 | -- xs and its indices
@@ -9,7 +9,7 @@ unboundimps:18:11--18:13
  18 | len': Env xs -> Nat
                 ^^
 
-Error: While processing type of append'. Undefined name n. 
+Error: While processing type of append'. Undefined name n. [E0201]
 
 unboundimps:19:16--19:17
  15 | len : forall xs . Env xs -> Nat

@@ -281,7 +281,7 @@ mkCase {c} {u} fn orig lhs_raw
                do put Ctxt defs
                   put UST ust
                   case err of
-                       WhenUnifying _ gam env l r err
+                       WhenUnifying _ _ gam env l r _ err
                          => do let defs = { gamma := gam } defs
                                if !(impossibleOK defs !(nf defs env l)
                                                       !(nf defs env r))

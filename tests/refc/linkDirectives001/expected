@@ -1,0 +1,30 @@
+--- refc-lib=
+Error: The RefC directive "refc-lib=" gives no name [E0000]
+
+--- refc-lib=-lssl
+Error: The RefC directive "refc-lib=-lssl" gives "-lssl": the names of the libraries come without -l (refc-lib=ssl for -lssl) [E0000]
+
+--- refc-lib=ssl;rm
+Error: The RefC directive "refc-lib=ssl;rm" gives "ssl;rm", which is not the name of a library [E0000]
+
+--- refc-libs=ssl
+Error: The RefC directive "refc-libs=ssl" is not known [E0000]
+
+--- refc-archive
+Error: The RefC directive "refc-archive" needs a value (refc-archive=...) [E0000]
+
+--- refc-archive=libnothere.a
+Error: The RefC directive "refc-archive=libnothere.a" names a file that is not in any of the library directories: ...
+
+--- refc-backtrace=1
+Error: The RefC directive "refc-backtrace=1" takes no value [E0000]
+
+--- refc-split-size=big
+Error: The RefC directive "refc-split-size=big" needs a number [E0000]
+
+--- refc-no-such-thing
+Error: The RefC directive "refc-no-such-thing" is not known [E0000]
+
+--- several names, given twice, and directives of other backends
+"-lc" "-lm" 
+hello

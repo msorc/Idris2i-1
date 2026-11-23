@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+IDRIS2_WORKERS=2 $VALGRIND ./build/exec/main

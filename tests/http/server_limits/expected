@@ -1,0 +1,200 @@
+--- slow head (slowloris)
+HTTP/1.1 408 Request Timeout
+Content-Type: text/plain; charset=utf-8
+Content-Length: 20
+Connection: close
+
+408 Request Timeout
+[closed by the server]
+--- nothing sent
+[closed by the server]
+--- idle persistent connection
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 3
+
+ok
+[closed by the server]
+--- slow body
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 32
+Connection: close
+
+cannot read the body: timed out
+[closed by the server]
+--- Content-Length above the limit
+HTTP/1.1 413 Content Too Large
+Content-Type: text/plain; charset=utf-8
+Content-Length: 22
+Connection: close
+
+413 Content Too Large
+[closed by the server]
+--- chunked body above the limit
+HTTP/1.1 413 Content Too Large
+Content-Type: text/plain; charset=utf-8
+Content-Length: 22
+Connection: close
+
+413 Content Too Large
+[closed by the server]
+--- field line too long
+HTTP/1.1 431 Request Header Fields Too Large
+Content-Type: text/plain; charset=utf-8
+Content-Length: 36
+Connection: close
+
+431 Request Header Fields Too Large
+[closed by the server]
+--- head too large
+HTTP/1.1 431 Request Header Fields Too Large
+Content-Type: text/plain; charset=utf-8
+Content-Length: 36
+Connection: close
+
+431 Request Header Fields Too Large
+[closed by the server]
+--- request line too long
+HTTP/1.1 414 URI Too Long
+Content-Type: text/plain; charset=utf-8
+Content-Length: 17
+Connection: close
+
+414 URI Too Long
+[closed by the server]
+--- Content-Length and Transfer-Encoding (smuggling)
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- two different Content-Length
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- Transfer-Encoding not ending with chunked
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- Transfer-Encoding gzip, chunked
+HTTP/1.1 501 Not Implemented
+Content-Type: text/plain; charset=utf-8
+Content-Length: 20
+Connection: close
+
+501 Not Implemented
+[closed by the server]
+--- Transfer-Encoding in HTTP/1.0
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- space before the colon
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- obsolete line folding
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- bare LF
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- bare CR
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- no Host
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- two Host fields
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- HTTP/2.0 request line
+HTTP/1.1 505 HTTP Version Not Supported
+Content-Type: text/plain; charset=utf-8
+Content-Length: 31
+Connection: close
+
+505 HTTP Version Not Supported
+[closed by the server]
+--- target with a space
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- target with a byte that is not allowed
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+--- bad chunk size
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 53
+Connection: close
+
+cannot read the body: bad chunked body: BadChunkSize
+[closed by the server]
+--- a good request after a bad one on the same connection is not served
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 3
+
+ok
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]
+client, body above the limit: 413
+targets the handler saw: ["/idle", "/echo", "/echo", "/echo", "/first"]

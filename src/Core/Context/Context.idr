@@ -4,6 +4,7 @@ import        Core.Case.CaseTree
 import        Core.CompileExpr
 import        Core.Env
 import public Core.Name
+import        Core.Profile
 import public Core.Options.Log
 import public Core.TT
 import public Core.WithData
@@ -474,5 +475,8 @@ record Context where
     inlineOnly : Bool -- only return things with the 'alwaysReduce' flag
     hidden : NameMap () -- Never return these
     uconstraints : List UConstraint
+    -- The timers and counters of --timing-summary (shared by the copies
+    -- of the context that backtracking makes, see Core.Profile)
+    profiler : Maybe Profiler
 
 %name Context gam

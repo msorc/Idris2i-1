@@ -13,7 +13,7 @@ LOG 0: Type: (%pi RigW Explicit (Just x) String (%pi RigW Explicit (Just y) Stri
 LOG 0: Pretty Type: (x : String) -> (y : String) -> String
 LOG 0: Resolved name: Prelude.Types.Nat
 LOG 0: Constructors: [Prelude.Types.Z, Prelude.Types.S]
-Error: While processing right hand side of dummy1. Error during reflection: Not really trying
+Error: While processing right hand side of dummy1. Error during reflection: Not really trying [E0000]
 
 refprims:45:10--45:27
  41 |         ns <- inCurrentNS n
@@ -23,7 +23,7 @@ refprims:45:10--45:27
  45 | dummy1 = %runElab logPrims
                ^^^^^^^^^^^^^^^^^
 
-Error: While processing right hand side of dummy2. Error during reflection: Still not trying
+Error: While processing right hand side of dummy2. Error during reflection: Still not trying [E0000]
 
 refprims:48:10--48:30
  44 | dummy1 : a
@@ -33,7 +33,7 @@ refprims:48:10--48:30
  48 | dummy2 = %runElab logDataCons
                ^^^^^^^^^^^^^^^^^^^^
 
-Error: While processing right hand side of dummy3. Error during reflection: Undefined name
+Error: While processing right hand side of dummy3. Error during reflection: Undefined name [E0000]
 
 refprims:51:10--51:25
  47 | dummy2 : a
@@ -43,7 +43,7 @@ refprims:51:10--51:25
  51 | dummy3 = %runElab logBad
                ^^^^^^^^^^^^^^^
 
-Error: While processing right hand side of dummy4. Error during reflection: failed after generating Main.{plus:XXXX}
+Error: While processing right hand side of dummy4. Error during reflection: failed after generating Main.{plus:XXXX} [E0000]
 
 refprims:54:10--54:28
  50 | dummy3 : a

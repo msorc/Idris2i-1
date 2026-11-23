@@ -1,5 +1,5 @@
 1/1: Building ParseIf (ParseIf.idr)
-Error: Expected 'then'.
+Error: Expected 'then'. [E1101]
 
 ParseIf:3:26--3:30
  1 |
@@ -8,7 +8,7 @@ ParseIf:3:26--3:30
                               ^^^^
 
 1/1: Building ParseIf2 (ParseIf2.idr)
-Error: Expected 'then'.
+Error: Expected 'then'. [E1101]
 
 ParseIf2:4:33--4:37
  1 |
@@ -18,7 +18,7 @@ ParseIf2:4:33--4:37
                                      ^^^^
 
 1/1: Building ParseIf3 (ParseIf3.idr)
-Error: Expected 'then'.
+Error: Expected 'then'. [E1101]
 
 ParseIf3:3:26--3:30
  1 |
@@ -27,7 +27,7 @@ ParseIf3:3:26--3:30
                               ^^^^
 
 1/1: Building ParseIf4 (ParseIf4.idr)
-Error: Couldn't parse any alternatives:
+Error: Couldn't parse any alternatives: [E1101]
 1: Not the end of a block entry.
 
 ParseIf4:9:39--9:41

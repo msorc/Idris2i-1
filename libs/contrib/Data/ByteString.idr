@@ -39,10 +39,10 @@ import Data.String
 -- Helpers (not exported)
 --------------------------------------------------------------------------
 
--- The number of steps of a loop over `n` elements, so that loops are
--- structurally recursive on a `Nat`.
-fuel : Int -> Nat
-fuel n = cast n
+-- The loops over the bytes count with `Int` indices, which are C integers
+-- with RefC, and tell the totality checker that the index gets closer to the
+-- end with `assert_smaller` (counting down a `Nat` as well costs an
+-- arithmetic operation on a `Nat` for every byte).
 
 -- `n` as an `Int` no bigger than the length of `bs`.
 clampTo : Nat -> ByteString -> Int
@@ -58,22 +58,21 @@ sumOver f xs = go xs 0
 
 -- The first index at which the predicate holds.
 firstIndex : (Bits8 -> Bool) -> ByteString -> Maybe Int
-firstIndex p bs = go (fuel (lengthInt bs)) 0
+firstIndex p bs = go 0
   where
-    go : Nat -> Int -> Maybe Int
-    go Z _ = Nothing
-    go (S k) i = if p (unsafeIndex bs i) then Just i else go k (i + 1)
+    go : Int -> Maybe Int
+    go i = if i >= lengthInt bs then Nothing
+           else if p (unsafeIndex bs i) then Just i
+           else go (assert_smaller i (i + 1))
+
+-- The first index of a byte, if it occurs.
+byteIndex : Bits8 -> ByteString -> Maybe Int
+byteIndex w bs = let r = findByteFrom w 0 bs in if r < 0 then Nothing else Just r
 
 -- Do the `lengthInt pat` bytes of `pat` equal those of `bs` from `at`?
 -- Precondition: they are within `bs`.
 matchesAt : (pat : ByteString) -> (bs : ByteString) -> (at : Int) -> Bool
-matchesAt pat bs at = go (fuel (lengthInt pat)) 0
-  where
-    go : Nat -> Int -> Bool
-    go Z _ = True
-    go (S k) i = if unsafeIndex pat i == unsafeIndex bs (at + i)
-                    then go k (i + 1)
-                    else False
+matchesAt = unsafeMatchesAt
 
 --------------------------------------------------------------------------
 -- Construction and conversion to and from lists
@@ -101,11 +100,11 @@ pack xs = unsafeCreate (cast (List.length xs)) $ \b =>
 ||| space.
 export
 unpack : ByteString -> List Bits8
-unpack bs = go (fuel (lengthInt bs)) (lengthInt bs - 1) []
+unpack bs = go (lengthInt bs - 1) []
   where
-    go : Nat -> Int -> List Bits8 -> List Bits8
-    go Z _ acc = acc
-    go (S k) i acc = go k (i - 1) (unsafeIndex bs i :: acc)
+    go : Int -> List Bits8 -> List Bits8
+    go i acc = if i < 0 then acc
+               else go (assert_smaller i (i - 1)) (unsafeIndex bs i :: acc)
 
 ||| `replicate n w` has `n` bytes, all equal to `w`.
 export
@@ -242,7 +241,7 @@ break p = span (not . p)
 ||| (some of them possibly empty).  Linear; the pieces share storage.
 export
 splitWith : (Bits8 -> Bool) -> ByteString -> List1 ByteString
-splitWith p bs = go (fuel (lengthInt bs)) 0 0 []
+splitWith p bs = go 0 0 []
   where
     -- The pieces come in reverse order.
     finish : List ByteString -> List1 ByteString
@@ -251,18 +250,31 @@ splitWith p bs = go (fuel (lengthInt bs)) 0 0 []
                       (x :: xs) => x ::: xs
 
     -- `start` is where the current piece starts, `i` the next index to look at.
-    go : Nat -> (start : Int) -> (i : Int) -> List ByteString -> List1 ByteString
-    go Z start _ acc = finish (unsafeSlice start (lengthInt bs - start) bs :: acc)
-    go (S k) start i acc =
-      if p (unsafeIndex bs i)
-         then go k (i + 1) (i + 1) (unsafeSlice start (i - start) bs :: acc)
-         else go k start (i + 1) acc
+    go : (start : Int) -> (i : Int) -> List ByteString -> List1 ByteString
+    go start i acc =
+      if i >= lengthInt bs then finish (unsafeSlice start (lengthInt bs - start) bs :: acc)
+      else if p (unsafeIndex bs i)
+         then go (i + 1) (assert_smaller i (i + 1)) (unsafeSlice start (i - start) bs :: acc)
+         else go start (assert_smaller i (i + 1)) acc
 
 ||| Split at the occurrences of a byte, which are dropped:
-||| `split 44 "a,b,,c"` is `["a", "b", "", "c"]`.  See `splitWith`.
+||| `split 44 "a,b,,c"` is `["a", "b", "", "c"]`.  See `splitWith`, which
+||| this is with a search for the byte (`memchr` with RefC).
 export
 split : Bits8 -> ByteString -> List1 ByteString
-split w = splitWith (== w)
+split w bs = go 0 []
+  where
+    finish : List ByteString -> List1 ByteString
+    finish rev = case reverse rev of
+                      [] => empty ::: []
+                      (x :: xs) => x ::: xs
+
+    -- `start` is where the current piece starts.
+    go : (start : Int) -> List ByteString -> List1 ByteString
+    go start acc =
+      let i = findByteFrom w start bs in
+      if i < 0 then finish (unsafeSlice start (lengthInt bs - start) bs :: acc)
+      else go (assert_smaller start (i + 1)) (unsafeSlice start (i - start) bs :: acc)
 
 --------------------------------------------------------------------------
 -- Combining
@@ -326,22 +338,22 @@ map f bs = unsafeCreate (lengthInt bs) $ \b =>
 ||| not use stack space.
 export
 foldl : (acc -> Bits8 -> acc) -> acc -> ByteString -> acc
-foldl f z bs = go (fuel (lengthInt bs)) 0 z
+foldl f z bs = go 0 z
   where
-    go : Nat -> Int -> acc -> acc
-    go Z _ a = a
-    go (S k) i a = go k (i + 1) (f a (unsafeIndex bs i))
+    go : Int -> acc -> acc
+    go i a = if i >= lengthInt bs then a
+             else go (assert_smaller i (i + 1)) (f a (unsafeIndex bs i))
 
 ||| Fold from the right (the last byte is combined first).  Linear, and does
 ||| not use stack space: it visits the bytes from the end, so `f` cannot
 ||| be lazy in its second argument to cut the fold short.
 export
 foldr : (Bits8 -> acc -> acc) -> acc -> ByteString -> acc
-foldr f z bs = go (fuel (lengthInt bs)) (lengthInt bs - 1) z
+foldr f z bs = go (lengthInt bs - 1) z
   where
-    go : Nat -> Int -> acc -> acc
-    go Z _ a = a
-    go (S k) i a = go k (i - 1) (f (unsafeIndex bs i) a)
+    go : Int -> acc -> acc
+    go i a = if i < 0 then a
+             else go (assert_smaller i (i - 1)) (f (unsafeIndex bs i) a)
 
 ||| Does some byte satisfy the predicate?  Stops at the first.
 export
@@ -353,10 +365,10 @@ export
 all : (Bits8 -> Bool) -> ByteString -> Bool
 all p bs = not (any (not . p) bs)
 
-||| Does the byte occur?  Linear.
+||| Does the byte occur?  Linear (a `memchr` with RefC).
 export
 elem : Bits8 -> ByteString -> Bool
-elem w = any (== w)
+elem w bs = findByteFrom w 0 bs >= 0
 
 ||| Does the byte not occur?  Linear.
 export
@@ -368,10 +380,11 @@ export
 findIndex : (Bits8 -> Bool) -> ByteString -> Maybe Nat
 findIndex p bs = Prelude.map cast (firstIndex p bs)
 
-||| The index of the first occurrence of the byte.
+||| The index of the first occurrence of the byte.  Linear (a `memchr` with
+||| RefC).
 export
 elemIndex : Bits8 -> ByteString -> Maybe Nat
-elemIndex w = findIndex (== w)
+elemIndex w bs = Prelude.map cast (byteIndex w bs)
 
 ||| Does the second byte string start with the first?  Linear in the
 ||| length of the first.
@@ -393,11 +406,16 @@ isInfixOf : (needle : ByteString) -> (haystack : ByteString) -> Bool
 isInfixOf p bs =
   let m = lengthInt p
       n = lengthInt bs
-  in if m > n then False else go (fuel (n - m + 1)) 0
+  in if m > n then False else if m == 0 then True else go 0 (n - m)
   where
-    go : Nat -> Int -> Bool
-    go Z _ = False
-    go (S k) i = if matchesAt p bs i then True else go k (i + 1)
+    -- the candidates are the occurrences of the first byte of the needle at
+    -- or before `lastStart`
+    go : Int -> (lastStart : Int) -> Bool
+    go i lastStart =
+      let j = findByteFrom (unsafeIndex p 0) i bs in
+      if j < 0 || j > lastStart then False
+      else if matchesAt p bs j then True
+      else go (assert_smaller i (j + 1)) lastStart
 
 --------------------------------------------------------------------------
 -- Fixed-width integers
@@ -438,7 +456,7 @@ indexBits16BE i bs = if inRange i 2 bs then Just (cast (bigEndian bs (cast i) 2)
 ||| `Nothing` if they are not all within the byte string.
 export
 indexBits32LE : Nat -> ByteString -> Maybe Bits32
-indexBits32LE i bs = if inRange i 4 bs then Just (cast (littleEndian bs (cast i) 4)) else Nothing
+indexBits32LE i bs = if inRange i 4 bs then Just (unsafeIndexWord32LE bs (cast i)) else Nothing
 
 ||| The 32 bits at an index, the first byte the most significant.
 ||| `Nothing` if they are not all within the byte string.
@@ -462,35 +480,14 @@ indexBits64BE i bs = if inRange i 8 bs then Just (bigEndian bs (cast i) 8) else 
 -- Interfaces
 --------------------------------------------------------------------------
 
--- Equal lengths and bytes.
-sameBytes : ByteString -> ByteString -> Bool
-sameBytes x y = if lengthInt x == lengthInt y then go (fuel (lengthInt x)) 0 else False
-  where
-    go : Nat -> Int -> Bool
-    go Z _ = True
-    go (S k) i = if unsafeIndex x i == unsafeIndex y i then go k (i + 1) else False
-
--- Lexicographic, bytes unsigned, a proper prefix is smaller.
-compareBytes : ByteString -> ByteString -> Ordering
-compareBytes x y =
-  let nx = lengthInt x
-      ny = lengthInt y
-  in go (fuel (if nx < ny then nx else ny)) 0 (compare nx ny)
-  where
-    go : Nat -> Int -> Ordering -> Ordering
-    go Z _ lens = lens
-    go (S k) i lens =
-      let a = unsafeIndex x i
-          b = unsafeIndex y i
-      in if a == b then go k (i + 1) lens else compare a b
-
 ||| Equal if they have the same bytes (whatever buffers they are slices of).
-||| Linear.
+||| Linear (a `memcmp` with RefC).
 export
 Eq ByteString where
   (==) = sameBytes
 
-||| Lexicographic order on the bytes as unsigned numbers.
+||| Lexicographic order on the bytes as unsigned numbers (a `memcmp` with
+||| RefC).
 export
 Ord ByteString where
   compare = compareBytes
@@ -500,11 +497,9 @@ Ord ByteString where
 -- byte strings of zeros apart: a zero byte leaves the state 0 as it is, so
 -- without it all of them would hash alike when the state starts at 0.
 hashBytes : Int -> ByteString -> Int
-hashBytes h0 bs = fnvStep (go (fuel (lengthInt bs)) 0 h0) (prim__and_Int (lengthInt bs) 0x7fffffff)
-  where
-    go : Nat -> Int -> Int -> Int
-    go Z _ h = h
-    go (S k) i h = go k (i + 1) (fnvStep h (cast (unsafeIndex bs i)))
+hashBytes h0 bs =
+  fnvStep (unsafeHashRange h0 (unsafeBuffer bs) (unsafeOffset bs) (lengthInt bs))
+          (prim__and_Int (lengthInt bs) 0x7fffffff)
 
 ||| Hashed by its bytes only, with FNV-1a over the bytes and then the length,
 ||| and the finaliser of the other instances of `Data.Hashable`, in time
@@ -543,45 +538,22 @@ Monoid ByteString where
 -- primitive `getString` of `Data.Buffer` replaces them with U+FFFD, but a
 -- truncated three-byte sequence gives one replacement character with Chez and
 -- Node and two with RefC, and a surrogate gives one with Chez and three with
--- RefC and Node (measured).  So encoding and decoding are done here, with the
--- same strict rules everywhere: a code point is encoded in the shortest form;
--- decoding rejects truncated sequences, stray continuation bytes, overlong
--- forms, the surrogates U+D800..U+DFFF and anything above U+10FFFF.
-
--- The number of bytes of the UTF-8 form of a character.
-charWidth : Char -> Int
-charWidth c =
-  let n = ord c
-  in if n < 0x80 then 1 else if n < 0x800 then 2 else if n < 0x10000 then 3 else 4
-
--- Write the UTF-8 form of a character at an offset.
-putChar_ : Buffer -> Int -> Char -> IO ()
-putChar_ b at c =
-  let n = ord c
-      put : Int -> Int -> IO ()
-      put k v = setBits8 b (at + k) (cast v)
-  in if n < 0x80 then put 0 n
-     else if n < 0x800
-       then do put 0 (0xC0 .|. shiftR n 6)
-               put 1 (0x80 .|. (n .&. 0x3F))
-     else if n < 0x10000
-       then do put 0 (0xE0 .|. shiftR n 12)
-               put 1 (0x80 .|. (shiftR n 6 .&. 0x3F))
-               put 2 (0x80 .|. (n .&. 0x3F))
-     else do put 0 (0xF0 .|. shiftR n 18)
-             put 1 (0x80 .|. (shiftR n 12 .&. 0x3F))
-             put 2 (0x80 .|. (shiftR n 6 .&. 0x3F))
-             put 3 (0x80 .|. (n .&. 0x3F))
+-- RefC and Node (measured).  So the bytes are checked here, with the same
+-- strict rules everywhere: decoding rejects truncated sequences, stray
+-- continuation bytes, overlong forms, the surrogates U+D800..U+DFFF and
+-- anything above U+10FFFF; valid UTF-8 is then read by the backend, which
+-- all do alike.  Encoding is the backend's `setString`, which writes the
+-- shortest form of every character.  (A string that holds a surrogate,
+-- which only `chr` can make, need not be encoded alike by the backends.)
 
 ||| The UTF-8 encoding of a string.  Linear in the length of the string.
+|||
+||| (The bytes are copied from the string by `Data.Buffer.setString`, which
+||| writes the UTF-8 encoding with every backend: with RefC, a string is
+||| its UTF-8 bytes, and this is a copy.)
 export
 fromString : String -> ByteString
-fromString s =
-  let cs = fastUnpack s in
-  unsafeCreate (sumOver charWidth cs) $ \b =>
-    ioForList cs 0 $ \at, c =>
-      do putChar_ b at c
-         pure (at + charWidth c)
+fromString s = unsafeCreate (stringByteLength s) (\b => setString b 0 s)
 
 -- The character that starts at `i` and the number of bytes that it takes, or
 -- `Nothing` if the bytes there are not a valid UTF-8 sequence.
@@ -623,33 +595,44 @@ decodeAt bs i =
 -- invalid byte becomes `replacement` if there is one and stops the decoding
 -- otherwise.
 decode : (replacement : Maybe Char) -> ByteString -> Maybe (List Char)
-decode repl bs = go (fuel (lengthInt bs)) 0 []
+decode repl bs = go 0 []
   where
-    go : Nat -> Int -> List Char -> Maybe (List Char)
-    go Z _ acc = Just acc
-    go (S k) i acc =
+    go : Int -> List Char -> Maybe (List Char)
+    go i acc =
       if i >= lengthInt bs then Just acc
       else case decodeAt bs i of
-             Just (c, w) => go k (i + w) (c :: acc)
+             Just (c, w) => go (assert_smaller i (i + w)) (c :: acc)
              Nothing => case repl of
                              Nothing => Nothing
-                             Just r => go k (i + 1) (r :: acc)
+                             Just r => go (assert_smaller i (i + 1)) (r :: acc)
+
+-- Are the bytes from `i` valid UTF-8?  Without allocating: the width of
+-- each sequence is what `decodeAt` finds.
+validFrom : ByteString -> Int -> Bool
+validFrom bs i =
+  if i >= lengthInt bs then True
+  else if unsafeIndex bs i < 0x80 then validFrom bs (assert_smaller i (i + 1))
+  else case decodeAt bs i of
+         Just (_, w) => validFrom bs (assert_smaller i (i + w))
+         Nothing => False
 
 ||| Is the byte string valid UTF-8?  Linear.
 export
 isValidUtf8 : ByteString -> Bool
-isValidUtf8 bs = isJust (decode Nothing bs)
+isValidUtf8 bs = validFrom bs 0
 
 ||| Decode UTF-8, or `Nothing` if the byte string is not valid UTF-8
 ||| (overlong forms, surrogates, values above U+10FFFF and truncated
 ||| sequences are not valid).  The same on every backend.  Linear.
+|||
+||| (The bytes are checked here, and then copied into the string by the
+||| backend, which reads valid UTF-8 the same way with every backend.)
 export
 toString : ByteString -> Maybe String
-toString bs = map (fastPack . reverse) (decode Nothing bs)
-  where
-    map : (a -> b) -> Maybe a -> Maybe b
-    map f Nothing = Nothing
-    map f (Just x) = Just (f x)
+toString bs =
+  if isValidUtf8 bs
+     then Just (unsafeBufferString (unsafeBuffer bs) (unsafeOffset bs) (lengthInt bs))
+     else Nothing
 
 ||| Decode UTF-8, replacing each byte that does not start a valid sequence
 ||| with U+FFFD (one replacement character per such byte, and decoding

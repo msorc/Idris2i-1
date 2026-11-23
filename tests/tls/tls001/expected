@@ -1,0 +1,13 @@
+version: TLSv1.3
+cipher known: True
+ALPN: Nothing
+SNI sent by the client: Just "localhost"
+server subject: O=Idris tests,CN=localhost
+server issuer: CN=Idris TLS test CA
+server names: ["DNS:localhost", "IP:127.0.0.1"]
+valid from a date: True
+SNI seen by the server: Just "localhost"
+echo: hello
+recv after close: connection closed
+8 of 8 clients echoed
+8 of 8 clients echoed

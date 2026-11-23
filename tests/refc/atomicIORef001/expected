@@ -1,0 +1,36 @@
+IDRIS2_WORKERS=1
+ticket: [1, 2, 3]
+swap with a fresh ticket: True
+swap with a stale ticket: False
+swap after the same value was written back: True
+swap after an equal value was built again: False
+[6]
+atomicModifyIORef gave 1
+[8, 6]
+counter: 160000 (expected 160000)
+list: 160000 elements, sum 560000 (expected 560000)
+values seen: True
+IDRIS2_WORKERS=2
+ticket: [1, 2, 3]
+swap with a fresh ticket: True
+swap with a stale ticket: False
+swap after the same value was written back: True
+swap after an equal value was built again: False
+[6]
+atomicModifyIORef gave 1
+[8, 6]
+counter: 160000 (expected 160000)
+list: 160000 elements, sum 560000 (expected 560000)
+values seen: True
+IDRIS2_WORKERS=8
+ticket: [1, 2, 3]
+swap with a fresh ticket: True
+swap with a stale ticket: False
+swap after the same value was written back: True
+swap after an equal value was built again: False
+[6]
+atomicModifyIORef gave 1
+[8, 6]
+counter: 160000 (expected 160000)
+list: 160000 elements, sum 560000 (expected 560000)
+values seen: True

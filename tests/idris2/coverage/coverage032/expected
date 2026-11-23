@@ -1,0 +1,61 @@
+1/1: Building Missing (Missing.idr)
+Error: callsPart is not covering. [E0602]
+
+Missing:25:19--25:23
+ 21 | part Z = Z
+ 22 |
+ 23 | -- A call to a function that is not covering
+ 24 | callsPart : Nat -> Nat
+ 25 | callsPart n = 1 + part n
+                        ^^^^
+
+Calls non covering function Main.part
+Error: isRed is not covering. [E0601]
+
+Missing:5:1--5:23
+ 1 | data Colour = Red | Orange | Yellow | Green | Blue | Indigo | Violet
+ 2 |             | Black | White | Grey | Brown | Pink | Cyan
+ 3 |
+ 4 | -- Many missing cases: the list is cut short
+ 5 | isRed : Colour -> Bool
+     ^^^^^^^^^^^^^^^^^^^^^^
+
+Missing cases:
+    isRed Orange
+    isRed Yellow
+    isRed Green
+    isRed Blue
+    isRed Indigo
+    isRed Violet
+    isRed Black
+    isRed White
+    isRed Grey
+    isRed Brown
+    ... and 2 more
+
+Error: pairs is not covering. [E0601]
+
+Missing:16:1--16:31
+ 12 | same : (m, n : Nat) -> Same m n -> Bool
+ 13 | same Z Z (MkSame Z) = True
+ 14 |
+ 15 | -- Variables that occur once are printed as `_`
+ 16 | pairs : List (Nat, Nat) -> Nat
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Missing cases:
+    pairs (_ :: _)
+
+Error: same is not covering. [E0601]
+
+Missing:12:1--12:40
+ 08 | data Same : Nat -> Nat -> Type where
+ 09 |   MkSame : (n : Nat) -> Same n n
+ 10 |
+ 11 | -- A variable that occurs twice in a missing case keeps a name
+ 12 | same : (m, n : Nat) -> Same m n -> Bool
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Missing cases:
+    same (S _) _ _
+

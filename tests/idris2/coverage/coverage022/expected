@@ -1,5 +1,5 @@
 1/1: Building Issue3477 (Issue3477.idr)
-Error: test is not covering.
+Error: test is not covering. [E0601]
 
 Issue3477:1:1--1:55
  1 | test : (xs : List Int) ->  2 = length xs -> (Int, Int)

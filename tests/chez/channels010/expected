@@ -1,0 +1,14 @@
+[1, 2, 3, 4, 5]
+Nothing
+True
+Just []
+Just [1]
+[]
+Just Nothing
+puts done before a get: (True, 3)
+got 1, then all puts done: True
+[2, 3, 4]
+checksum: True
+Nothing
+Just 7
+Just 9

@@ -254,7 +254,7 @@ static inline Idris2_Constructor *idris2_newRawConstructor(int np, int nr,
 #define IDRIS2_CHECK_LAYOUT(c, np, name)                                       \
   do {                                                                         \
     if (((Idris2_Constructor *)(c))->total != (np))                            \
-      idris2_crashMsg("refc-check-layout: a value matched as " name            \
+      idris2_crashCheck("refc-check-layout: a value matched as " name            \
                       " is not laid out as one");                               \
   } while (0)
 

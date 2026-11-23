@@ -9,15 +9,15 @@ append (x :: xs) (y :: ys) = x :: append xs (y :: ys)
 Main> lappend [] ys = ys
 lappend (x :: xs) ys = lappend ys (x :: xs)
 Main> lappend [] ys = ys
-lappend (x :: xs) ys = lappend ys (x :: (x :: xs))
+lappend (x :: xs) ys = lappend ys (x :: x :: xs)
 Main> lappend [] ys = ys
-lappend (x :: xs) ys = lappend ys (x :: (x :: (x :: xs)))
+lappend (x :: xs) ys = lappend ys (x :: x :: x :: xs)
 Main> lappend1 [] ys = ys
 lappend1 (x :: xs) ys = x :: lappend1 xs ys
 Main> lappend1 [] ys = ys
 lappend1 (x :: xs) ys = x :: lappend1 xs (x :: ys)
 Main> lappend1 [] ys = ys
-lappend1 (x :: xs) ys = x :: lappend1 xs (x :: (x :: ys))
+lappend1 (x :: xs) ys = x :: lappend1 xs (x :: x :: ys)
 Main> lappend1 [] ys = ys
 lappend1 (x :: xs) ys = x :: lappend1 xs xs
 Main> lappend1 [] ys = ys
@@ -27,9 +27,9 @@ lappend1 (x :: xs) ys = x :: lappend1 xs (x :: xs)
 Main> lappend1 [] ys = ys
 lappend1 (x :: xs) ys = x :: lappend1 xs [x]
 Main> lappend1 [] ys = ys
-lappend1 (x :: xs) ys = x :: lappend1 xs (x :: (x :: xs))
+lappend1 (x :: xs) ys = x :: lappend1 xs (x :: x :: xs)
 Main> lappend1 [] ys = ys
-lappend1 (x :: xs) ys = x :: lappend1 xs (x :: (x :: xs))
+lappend1 (x :: xs) ys = x :: lappend1 xs (x :: x :: xs)
 Main> ys
 Main> []
 Main> lappend2 ys ys

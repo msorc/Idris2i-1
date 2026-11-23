@@ -1,0 +1,24 @@
+GET: 200 "hello\n"
+POST: 200 20000 bytes
+POST chunked: 200 "abcdef"
+GET stream: 200 10009 bytes
+--- pipelined
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+
+hello
+HTTP/1.1 404 Not Found
+Content-Type: text/plain; charset=utf-8
+Content-Length: 14
+
+404 Not Found
+[closed by the server]
+--- malformed
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 16
+Connection: close
+
+400 Bad Request
+[closed by the server]

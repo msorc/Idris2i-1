@@ -1,0 +1,6 @@
+GET: 200 "hello\n"
+POST: 200 20000 bytes
+POST chunked: 200 "abcdef"
+GET stream: 200 10009 bytes
+untrusted: TLS: certificate verify failed: unable to get local issuer certificate
+handshakes: 1 succeeded, 1 failed

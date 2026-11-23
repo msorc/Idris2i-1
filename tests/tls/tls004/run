@@ -1,0 +1,7 @@
+. ../../testutils.sh
+. ../gencerts.sh
+
+idris2 -p network -p tls -o main Main.idr
+./build/exec/main "$certs" | sed "s#$certs#CERTS#g"
+
+rm -rf certs

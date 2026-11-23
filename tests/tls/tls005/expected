@@ -1,0 +1,10 @@
+--- the client against openssl s_server
+client: TLSv1.3, ALPN Just "http/1.1"
+client: HTTP/1.0 200 ok
+--- the server against openssl s_client and curl
+ALPN protocol: h2
+Verify return code: 0 (ok)
+hello
+hello
+server: TLSv1.3, ALPN Just "h2", SNI Just "localhost", GET /s_client HTTP/1.1
+server: TLSv1.3, ALPN Just "http/1.1", SNI Just "localhost", GET /curl HTTP/1.1

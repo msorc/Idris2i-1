@@ -1,38 +1,38 @@
 1/1: Building Cov (Cov.idr)
 1/1: Building Cov (Cov.idr)
-Error: half is not covering.
+Error: half is not covering. [E0602]
 
-Cov:5:1--5:18
- 1 | -- With --method-totality, covering functions count the methods of the
+Cov:6:10--6:19
  2 | -- implementations they use too
  3 | %default covering
  4 |
  5 | half : Int -> Int
-     ^^^^^^^^^^^^^^^^^
+ 6 | half x = x `div` 2
+              ^^^^^^^^^
 
 Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
 Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
-Error: quarter is not covering.
+Error: quarter is not covering. [E0602]
 
-Cov:9:1--9:21
- 5 | half : Int -> Int
- 6 | half x = x `div` 2
- 7 |
- 8 | -- Through another function
- 9 | quarter : Int -> Int
-     ^^^^^^^^^^^^^^^^^^^^
+Cov:10:13--10:17
+ 06 | half x = x `div` 2
+ 07 |
+ 08 | -- Through another function
+ 09 | quarter : Int -> Int
+ 10 | quarter x = half (half x)
+                  ^^^^
 
 Calls non covering function Main.half
 Main.half is not covering, because of Prelude.Num.Integral implementation at Prelude.Num:1
-Error: seventh is not covering.
+Error: seventh is not covering. [E0602]
 
-Cov:13:1--13:29
- 09 | quarter : Int -> Int
+Cov:14:13--14:22
  10 | quarter x = half (half x)
  11 |
  12 | -- On Integer
  13 | seventh : Integer -> Integer
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 14 | seventh n = n `mod` 7
+                  ^^^^^^^^^
 
 Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:2
 Prelude.Num.Integral implementation at Prelude.Num:2 is not covering, because of Prelude.Num.div, Prelude.Num.mod

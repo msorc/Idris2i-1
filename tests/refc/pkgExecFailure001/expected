@@ -1,17 +1,17 @@
 --- --build
 exit code: 1
 Now compiling the executable: exe
-Error: Compiling the executable exe failed
+Error: Compiling the executable exe failed [E0000]
 
 --- --build
 exit code: 1
 Now compiling the executable: exe
-Error: Compiling the executable exe failed
+Error: Compiling the executable exe failed [E0000]
 
 --- --install
 exit code: 1
 Now compiling the executable: exe
-Error: Compiling the executable exe failed
+Error: Compiling the executable exe failed [E0000]
 
 --- with the header
 --- --build

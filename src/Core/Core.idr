@@ -65,6 +65,21 @@ Pretty ann DotReason where
   pretty UnknownDot = reflow "Unknown reason"
   pretty UnderAppliedCon = reflow "Under-applied constructor"
 
+||| Whether the two terms of a failed unification are known to be the type an
+||| expression has and the type its context expects, in that order, or whether
+||| the order says nothing (a postponed constraint, for example).
+public export
+data UnifyOrder = GotExpected | Unordered
+
+export
+Eq UnifyOrder where
+  GotExpected == GotExpected = True
+  Unordered == Unordered = True
+  _ == _ = False
+
+public export
+data Error : Type
+
 public export
 data Warning : Type where
      ParserWarning : FC -> String -> Warning
@@ -93,6 +108,8 @@ data Warning : Type where
      WhereRecompute : FC -> (local : Name) -> (outer : Name) ->
                       (deps : List1 Name) -> Warning
      GenericWarn : FC -> String -> Warning
+     ||| An error that is reported, but does not stop the elaboration
+     ErrorWarning : Error -> Warning
 
 %name Warning wrn
 
@@ -102,14 +119,26 @@ data Error : Type where
      Fatal : Error -> Error -- flag as unrecoverable (so don't postpone awaiting further info)
      CantConvert : {vars : _} ->
                    FC -> Context -> Env Term vars -> Term vars -> Term vars -> Error
+     ||| A constraint left unsolved, and the other constraints left unsolved
+     ||| with it (each a `CantSolveEq` with no others)
      CantSolveEq : {vars : _} ->
-                   FC -> Context -> Env Term vars -> Term vars -> Term vars -> Error
+                   FC -> Context -> Env Term vars -> Term vars -> Term vars ->
+                   (others : List Error) -> Error
      PatternVariableUnifies : {vars : _} ->
                               FC -> FC -> Env Term vars -> Name -> Term vars -> Error
      CyclicMeta : {vars : _} ->
                   FC -> Env Term vars -> Name -> Term vars -> Error
+     ||| The two terms that failed to unify, then the reason. When the
+     ||| order is `GotExpected`, the first term is the type an expression has
+     ||| and the second the type its context expects.
+     ||| For a constraint that was postponed and failed when retried, the
+     ||| metavariables in it solved since (each as it occurs in the
+     ||| constraint), with their solutions and where they were solved
+     ||| (`inferred`).
      WhenUnifying : {vars : _} ->
-                    FC -> Context -> Env Term vars -> Term vars -> Term vars -> Error -> Error
+                    FC -> UnifyOrder -> Context -> Env Term vars ->
+                    Term vars -> Term vars ->
+                    (inferred : List (Term vars, FC, Term vars)) -> Error -> Error
      ValidCase : {vars : _} ->
                  FC -> Env Term vars -> Either (Term vars) Error -> Error
 
@@ -135,7 +164,9 @@ data Error : Type where
      AmbiguousSearch : {vars : _} ->
                        FC -> Env Term vars -> Term vars -> List (Term vars) -> Error
      AmbiguityTooDeep : FC -> Name -> List Name -> Error
-     AllFailed : List (Maybe Name, Error) -> Error
+     ||| Every candidate of an ambiguous name failed: where the name is
+     ||| used, and the candidates with their errors, the most promising first
+     AllFailed : FC -> List (Maybe Name, Error) -> Error
      RecordTypeNeeded : {vars : _} ->
                         FC -> Env Term vars -> Error
      DuplicatedRecordUpdatePath : FC -> List (List String) -> Error
@@ -148,9 +179,21 @@ data Error : Type where
                         FC -> Env Term vars -> List (Name, Term vars) -> Error
      BadUnboundImplicit : {vars : _} ->
                           FC -> Env Term vars -> Name -> Term vars -> Error
+     ||| A search for an implementation of a goal failed; the cause, if more
+     ||| is known than that no candidate matched, is a `SearchNeeds`, or the
+     ||| error that a retried search failed with
      CantSolveGoal : {vars : _} ->
                      FC -> Context -> Env Term vars -> Term vars ->
                      Maybe Error -> Error
+     ||| The cause of a failed search: a candidate matched the goal, but the
+     ||| search for one of its arguments failed (for the reason `cause`, if
+     ||| more is known than that no candidate matched it)
+     ||| @ candidate the global hint (an implementation) that matched
+     ||| @ isLocal whether the candidate is a local variable instead
+     SearchNeeds : {vars : _} ->
+                   FC -> Context -> (candidate : Name) -> (isLocal : Bool) ->
+                   Env Term vars -> (subgoal : Term vars) ->
+                   (cause : Maybe Error) -> Error
      DeterminingArg : {vars : _} ->
                       FC -> Name -> Int -> Env Term vars -> Term vars -> Error
      UnsolvedHoles : List (FC, Name) -> Error
@@ -173,6 +216,12 @@ data Error : Type where
 
      MatchTooSpecific : {vars : _} ->
                         FC -> Env Term vars -> Term vars -> Error
+     ||| A literal pattern (of a type with `FromString`, `Num`, ...) whose
+     ||| conversion function, applied to the literal, does not reduce to a
+     ||| constructor form, so that there is nothing to match on
+     LiteralNotMatchable : {vars : _} ->
+                           FC -> Env Term vars -> (lit : Constant) ->
+                           (conversion : Name) -> (ty : Term vars) -> Error
      BadDotPattern : {vars : _} ->
                      FC -> Env Term vars -> DotReason -> Term vars -> Term vars -> Error
      BadImplicit : FC -> String -> Error
@@ -182,6 +231,11 @@ data Error : Type where
      GenericMsg : FC -> String -> Error
      GenericMsgSol : FC -> (message : String) ->
                            (solutionHeader : String) -> (solutions : List String) -> Error
+     ||| A message about a term: the text before it, the term (printed as
+     ||| the user would write it), and the text after it
+     GenericMsgTerm : {vars : _} ->
+                      FC -> Env Term vars -> (before : String) -> Term vars ->
+                      (after : String) -> Error
      OperatorBindingMismatch : {a : Type} -> {print : a -> Doc ()} ->
          FC -> (expectedFixity : FixityDeclarationInfo) -> (use_site : OperatorLHSInfo a) ->
          -- left: backticked, right: op symbolds
@@ -227,7 +281,11 @@ Show TTCErrorMsg where
 -- Simplest possible display - higher level languages should unelaborate names
 -- and display annotations appropriately
 
+covering
+showError : Error -> String
+
 export
+covering
 Show Warning where
     show (ParserWarning fc msg) = show fc ++ msg
     show (UnreachableClause fc _ _) = show fc ++ ":Unreachable clause"
@@ -237,6 +295,7 @@ Show Warning where
     show (Deprecated fc name _) = show fc ++ ":Deprecated " ++ name
     show (WhereRecompute fc n _ _) = show fc ++ ":Local definition recomputed at each use " ++ show n
     show (GenericWarn fc msg) = show fc ++ msg
+    show (ErrorWarning err) = showError err
 
 
 export
@@ -245,14 +304,14 @@ Show Error where
   show (Fatal err) = show err
   show (CantConvert fc _ env x y)
       = show fc ++ ":Type mismatch: " ++ show x ++ " and " ++ show y
-  show (CantSolveEq fc _ env x y)
+  show (CantSolveEq fc _ env x y _)
       = show fc ++ ":" ++ show x ++ " and " ++ show y ++ " are not equal"
   show (PatternVariableUnifies fc fct env n x)
       = show fc ++ ":Pattern variable " ++ show n ++ " unifies with " ++ show x
   show (CyclicMeta fc env n tm)
       = show fc ++ ":Cycle detected in metavariable solution " ++ show n
              ++ " = " ++ show tm
-  show (WhenUnifying fc _ _ x y err)
+  show (WhenUnifying fc _ _ _ x y _ err)
       = show fc ++ ":When unifying: " ++ show x ++ " and " ++ show y ++ "\n\t" ++ show err
   show (ValidCase fc _ prob)
       = show fc ++ ":" ++
@@ -312,7 +371,7 @@ Show Error where
   show (AmbiguousSearch fc env tgt ts) = show fc ++ ":Ambiguous search " ++ show ts
   show (AmbiguityTooDeep fc n ns)
       = show fc ++ ":Ambiguity too deep in " ++ show n ++ " " ++ show ns
-  show (AllFailed ts) = "No successful elaboration: " ++ assert_total (show ts)
+  show (AllFailed _ ts) = "No successful elaboration: " ++ assert_total (show ts)
   show (RecordTypeNeeded fc env)
       = show fc ++ ":Can't infer type of record to update"
   show (DuplicatedRecordUpdatePath fc ps)
@@ -336,6 +395,8 @@ Show Error where
                    " with type " ++ show ty
   show (CantSolveGoal fc gam env g cause)
       = show fc ++ ":Can't solve goal " ++ assert_total (show g)
+  show (SearchNeeds fc gam n _ env g cause)
+      = show fc ++ ":" ++ show n ++ " needs " ++ assert_total (show g)
   show (DeterminingArg fc n i env g)
       = show fc ++ ":Can't solve goal " ++ assert_total (show g) ++
                 " since argument " ++ show n ++ " can't be inferred"
@@ -367,6 +428,9 @@ Show Error where
                    " in " ++ show n
   show (CaseCompile fc n (NotFullyApplied c))
       = show fc ++ ":Constructor " ++ show c ++ " is not fully applied"
+  show (LiteralNotMatchable fc env lit conv ty)
+      = show fc ++ ":Can't match on the literal " ++ show lit ++ " of type "
+           ++ show ty ++ ": " ++ show conv ++ " does not reduce to a constructor form"
   show (MatchTooSpecific fc env tm)
       = show fc ++ ":Can't match on " ++ show tm ++ " as it is has a polymorphic type"
   show (BadDotPattern fc env reason x y)
@@ -378,6 +442,7 @@ Show Error where
   show (RunElabFail e) = "Error during reflection: " ++ show e
   show (GenericMsg fc str) = show fc ++ ":" ++ str
   show (GenericMsgSol fc msg solutionHeader sols) = show fc ++ ":" ++ msg ++ " \{solutionHeader}: " ++ show sols
+  show (GenericMsgTerm fc _ before tm after) = show fc ++ ":" ++ before ++ " " ++ show tm ++ after
   show (TTCError msg) = "Error in TTC file: " ++ show msg
   show (FileErr fname err) = "File error (" ++ fname ++ "): " ++ show err
   show (CantFindPackage fname) = "Can't find package " ++ fname
@@ -429,6 +494,11 @@ Show Error where
        = show fc ++ ": Operator " ++ show opName ++ " has no declared fixity"
        ++ " but used as a " ++ show actual ++ " operator"
 
+showError = show
+
+export
+getErrorLoc : Error -> Maybe FC
+
 export
 getWarningLoc : Warning -> FC
 getWarningLoc (ParserWarning fc _) = fc
@@ -439,15 +509,14 @@ getWarningLoc (ShadowingLocalBindings fc _) = fc
 getWarningLoc (Deprecated fc _ fcAndName) = fromMaybe fc (fst <$> fcAndName)
 getWarningLoc (WhereRecompute fc _ _ _) = fc
 getWarningLoc (GenericWarn fc _) = fc
+getWarningLoc (ErrorWarning err) = fromMaybe emptyFC (getErrorLoc err)
 
-export
-getErrorLoc : Error -> Maybe FC
 getErrorLoc (Fatal err) = getErrorLoc err
 getErrorLoc (CantConvert loc _ _ _ _) = Just loc
-getErrorLoc (CantSolveEq loc _ _ _ _) = Just loc
+getErrorLoc (CantSolveEq loc _ _ _ _ _) = Just loc
 getErrorLoc (PatternVariableUnifies loc _ _ _ _) = Just loc
 getErrorLoc (CyclicMeta loc _ _ _) = Just loc
-getErrorLoc (WhenUnifying loc _ _ _ _ _) = Just loc
+getErrorLoc (WhenUnifying loc _ _ _ _ _ _ _) = Just loc
 getErrorLoc (ValidCase loc _ _) = Just loc
 getErrorLoc (UndefinedName loc _) = Just loc
 getErrorLoc (InvisibleName loc _ _) = Just loc
@@ -464,8 +533,10 @@ getErrorLoc (AmbiguousName loc _) = Just loc
 getErrorLoc (AmbiguousElab loc _ _) = Just loc
 getErrorLoc (AmbiguousSearch loc _ _ _) = Just loc
 getErrorLoc (AmbiguityTooDeep loc _ _) = Just loc
-getErrorLoc (AllFailed ((_, x) :: _)) = getErrorLoc x
-getErrorLoc (AllFailed []) = Nothing
+getErrorLoc (AllFailed fc ((_, x) :: _))
+    = if isJust (isNonEmptyFC fc) then Just fc else getErrorLoc x
+getErrorLoc (AllFailed fc [])
+    = if isJust (isNonEmptyFC fc) then Just fc else Nothing
 getErrorLoc (RecordTypeNeeded loc _) = Just loc
 getErrorLoc (DuplicatedRecordUpdatePath loc _) = Just loc
 getErrorLoc (NotRecordField loc _ _) = Just loc
@@ -475,6 +546,7 @@ getErrorLoc (InvalidArgs loc _ _ _) = Just loc
 getErrorLoc (TryWithImplicits loc _ _) = Just loc
 getErrorLoc (BadUnboundImplicit loc _ _ _) = Just loc
 getErrorLoc (CantSolveGoal loc _ _ _ _) = Just loc
+getErrorLoc (SearchNeeds loc _ _ _ _ _ _) = Just loc
 getErrorLoc (DeterminingArg loc _ _ _ _) = Just loc
 getErrorLoc (UnsolvedHoles ((loc, _) :: _)) = Just loc
 getErrorLoc (UnsolvedHoles []) = Nothing
@@ -490,12 +562,14 @@ getErrorLoc (RewriteNoChange loc _ _ _) = Just loc
 getErrorLoc (NotRewriteRule loc _ _) = Just loc
 getErrorLoc (CaseCompile loc _ _) = Just loc
 getErrorLoc (MatchTooSpecific loc _ _) = Just loc
+getErrorLoc (LiteralNotMatchable loc _ _ _ _) = Just loc
 getErrorLoc (BadDotPattern loc _ _ _ _) = Just loc
 getErrorLoc (BadImplicit loc _) = Just loc
 getErrorLoc (BadRunElab loc _ _ _) = Just loc
 getErrorLoc (RunElabFail e) = getErrorLoc e
 getErrorLoc (GenericMsg loc _) = Just loc
 getErrorLoc (GenericMsgSol loc _ _ _) = Just loc
+getErrorLoc (GenericMsgTerm loc _ _ _ _) = Just loc
 getErrorLoc (TTCError _) = Nothing
 getErrorLoc (FileErr _ _) = Nothing
 getErrorLoc (CantFindPackage _) = Nothing
@@ -523,6 +597,9 @@ getErrorLoc (WarningAsError warn) = Just (getWarningLoc warn)
 getErrorLoc (OperatorBindingMismatch loc _ _ _ _ _) = Just loc
 
 export
+killErrorLoc : Error -> Error
+
+export
 killWarningLoc : Warning -> Warning
 killWarningLoc (ParserWarning fc x) = ParserWarning emptyFC x
 killWarningLoc (UnreachableClause fc x y) = UnreachableClause emptyFC x y
@@ -533,15 +610,14 @@ killWarningLoc (ShadowingLocalBindings fc xs) =
 killWarningLoc (Deprecated fc x y) = Deprecated emptyFC x (map ((emptyFC,) . snd) y)
 killWarningLoc (WhereRecompute fc x y z) = WhereRecompute emptyFC x y z
 killWarningLoc (GenericWarn fc x) = GenericWarn emptyFC x
+killWarningLoc (ErrorWarning err) = ErrorWarning (killErrorLoc err)
 
-export
-killErrorLoc : Error -> Error
 killErrorLoc (Fatal err) = Fatal (killErrorLoc err)
 killErrorLoc (CantConvert fc x y z w) = CantConvert emptyFC x y z w
-killErrorLoc (CantSolveEq fc x y z w) = CantSolveEq emptyFC x y z w
+killErrorLoc (CantSolveEq fc x y z w os) = CantSolveEq emptyFC x y z w (map killErrorLoc os)
 killErrorLoc (PatternVariableUnifies fc fct x y z) = PatternVariableUnifies emptyFC emptyFC x y z
 killErrorLoc (CyclicMeta fc x y z) = CyclicMeta emptyFC x y z
-killErrorLoc (WhenUnifying fc x y z w err) = WhenUnifying emptyFC x y z w (killErrorLoc err)
+killErrorLoc (WhenUnifying fc o x y z w i err) = WhenUnifying emptyFC o x y z w i (killErrorLoc err)
 killErrorLoc (ValidCase fc x y) = ValidCase emptyFC x y
 killErrorLoc (UndefinedName fc x) = UndefinedName emptyFC x
 killErrorLoc (InvisibleName fc x y) = InvisibleName emptyFC x y
@@ -558,7 +634,7 @@ killErrorLoc (AmbiguousName fc xs) = AmbiguousName emptyFC xs
 killErrorLoc (AmbiguousElab fc x xs) = AmbiguousElab emptyFC x xs
 killErrorLoc (AmbiguousSearch fc x y xs) = AmbiguousSearch emptyFC x y xs
 killErrorLoc (AmbiguityTooDeep fc x xs) = AmbiguityTooDeep emptyFC x xs
-killErrorLoc (AllFailed xs) = AllFailed (map (map killErrorLoc) xs)
+killErrorLoc (AllFailed fc xs) = AllFailed emptyFC (map (map killErrorLoc) xs)
 killErrorLoc (RecordTypeNeeded fc x) = RecordTypeNeeded emptyFC x
 killErrorLoc (DuplicatedRecordUpdatePath fc xs) = DuplicatedRecordUpdatePath emptyFC xs
 killErrorLoc (NotRecordField fc x y) = NotRecordField emptyFC x y
@@ -568,6 +644,7 @@ killErrorLoc (InvalidArgs fc x xs y) = InvalidArgs emptyFC x xs y
 killErrorLoc (TryWithImplicits fc x xs) = TryWithImplicits emptyFC x xs
 killErrorLoc (BadUnboundImplicit fc x y z) = BadUnboundImplicit emptyFC x y z
 killErrorLoc (CantSolveGoal fc x y z w) = CantSolveGoal emptyFC x y z w
+killErrorLoc (SearchNeeds fc g n l x y z) = SearchNeeds emptyFC g n l x y z
 killErrorLoc (DeterminingArg fc x y z w) = DeterminingArg emptyFC x y z w
 killErrorLoc (UnsolvedHoles xs) = UnsolvedHoles xs
 killErrorLoc (CantInferArgType fc x y z w) = CantInferArgType emptyFC x y z w
@@ -582,12 +659,14 @@ killErrorLoc (RewriteNoChange fc x y z) = RewriteNoChange emptyFC x y z
 killErrorLoc (NotRewriteRule fc x y) = NotRewriteRule emptyFC x y
 killErrorLoc (CaseCompile fc x y) = CaseCompile emptyFC x y
 killErrorLoc (MatchTooSpecific fc x y) = MatchTooSpecific emptyFC x y
+killErrorLoc (LiteralNotMatchable fc x l n y) = LiteralNotMatchable emptyFC x l n y
 killErrorLoc (BadDotPattern fc x y z w) = BadDotPattern emptyFC x y z w
 killErrorLoc (BadImplicit fc x) = BadImplicit emptyFC x
 killErrorLoc (BadRunElab fc x y description) = BadRunElab emptyFC x y description
 killErrorLoc (RunElabFail e) = RunElabFail $ killErrorLoc e
 killErrorLoc (GenericMsg fc x) = GenericMsg emptyFC x
 killErrorLoc (GenericMsgSol fc x y z) = GenericMsgSol emptyFC x y z
+killErrorLoc (GenericMsgTerm fc env x tm y) = GenericMsgTerm emptyFC env x tm y
 killErrorLoc (TTCError x) = TTCError x
 killErrorLoc (FileErr x y) = FileErr x y
 killErrorLoc (CantFindPackage x) = CantFindPackage x

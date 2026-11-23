@@ -1,0 +1,14 @@
+1/1: Building Labelled (Labelled.idr)
+Error: While processing right hand side of f. When unifying: [E0101]
+    Expected: Vect (S n) a
+    Got:      Vect n a
+Mismatch between: n and S n.
+
+Labelled:8:8--8:10
+ 4 |   Nil : Vect Z a
+ 5 |   (::) : a -> Vect k a -> Vect (S k) a
+ 6 |
+ 7 | f : Vect n a -> Vect (S n) a
+ 8 | f xs = xs
+            ^^
+

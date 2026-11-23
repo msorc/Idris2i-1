@@ -1,0 +1,4 @@
+package bad
+depends = contrib
+main = Main
+executable = bad

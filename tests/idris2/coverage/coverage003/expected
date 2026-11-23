@@ -1,5 +1,5 @@
 1/1: Building Cover (Cover.idr)
-Error: While processing left hand side of badBar. Can't match on 0 as it must have a polymorphic type.
+Error: While processing left hand side of badBar. Can't match on 0 as it must have a polymorphic type. [E0610]
 
 Cover:16:8--16:9
  12 | cty Nat (S _) = S Z

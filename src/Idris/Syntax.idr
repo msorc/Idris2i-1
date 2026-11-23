@@ -750,6 +750,7 @@ data REPLCmd : Type where
      Editing : EditCmd -> REPLCmd
      RunShellCommand : String -> REPLCmd
      ShowVersion : REPLCmd
+     ExplainCode : String -> REPLCmd
      Quit : REPLCmd
      NOP : REPLCmd
      ImportPackage : String -> REPLCmd

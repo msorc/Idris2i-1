@@ -1,0 +1,11 @@
+[1, 2, 3]
+Nothing
+Nothing
+True
+True
+False
+False
+(10, 20)
+the channel is full
+Error: channelPut would wait forever: the channel is full and no other thread can take its values (the JavaScript back ends have a single thread, so nothing else can run in the meantime)
+exit code 1

@@ -149,7 +149,7 @@ ambiguous (InType _ _ err) = ambiguous err
 ambiguous (InCon _ err) = ambiguous err
 ambiguous (InLHS _ _ err) = ambiguous err
 ambiguous (InRHS _ _ err) = ambiguous err
-ambiguous (WhenUnifying _ _ _ _ _ err) = ambiguous err
+ambiguous (WhenUnifying _ _ _ _ _ _ _ err) = ambiguous err
 ambiguous _ = False
 
 mutual
@@ -202,7 +202,7 @@ recoverable (CantConvert _ gam env l r)
    = do defs <- get Ctxt
         let defs = { gamma := gam } defs
         pure $ not !(contra defs !(nf defs env l) !(nf defs env r))
-recoverable (CantSolveEq _ gam env l r)
+recoverable (CantSolveEq _ gam env l r _)
    = do defs <- get Ctxt
         let defs = { gamma := gam } defs
         pure $ not !(contra defs !(nf defs env l) !(nf defs env r))
@@ -212,7 +212,11 @@ recoverable (InType _ _ err) = recoverable err
 recoverable (InCon _ err) = recoverable err
 recoverable (InLHS _ _ err) = recoverable err
 recoverable (InRHS _ _ err) = recoverable err
-recoverable (WhenUnifying _ _ _ _ _ err) = recoverable err
+recoverable (WhenUnifying _ _ _ _ _ _ _ err) = recoverable err
+-- an undefined name with suggestions of similar names is still undefined:
+-- retrying it (at every level of nested delayed elaborators, as in a long
+-- `do` block) only repeats the failure
+recoverable (MaybeMisspelling err _) = recoverable err
 recoverable _ = pure True
 
 data RetryError
@@ -248,7 +252,9 @@ retryDelayed' errmode p acc (d@(_, i, hints, elab) :: ds)
                update UST { delayedElab := [] }
                update Ctxt { localHints := hints }
 
-               tm <- elab
+               profileCount "delay.run" 1
+               tm <- profile "delay" elab
+               profileCount "delay.ok" 1
                ust <- get UST
                let ds' = reverse (delayedElab ust) ++ ds
 

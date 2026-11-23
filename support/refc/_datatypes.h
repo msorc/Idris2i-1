@@ -438,15 +438,25 @@ typedef struct {
   Idris2_WaitQueue waiters;
 } Idris2_Barrier;
 
-// A channel holds at most one value, like the channels of the Chez backend:
-// `channelPut` waits for the slot to be empty, `channelGet` waits for it to
-// be full.  `full` is needed because some values (such as the unit value)
-// are represented by NULL at runtime.
+// A channel is a queue of at most `capacity` values (INT64_MAX for an
+// unbounded one): `channelPut` waits while it is full, `channelGet` while it
+// is empty.  The channel of `makeChannel` holds one value, like the channels
+// of the Chez backend.  The values are the `count` slots of the ring
+// `slots` from `head` on; `slots` has `size` slots, and grows up to
+// `capacity` as needed.  A channel with one slot keeps it in `value`
+// (`slots` is then `&value`).  `count` is needed because some values (such
+// as the unit value) are represented by NULL at runtime.
 typedef struct {
   Idris2_header header;
   Idris2_SpinLock lock;
-  int full;
+  int64_t count;
+  int64_t capacity;
+  int64_t head;
+  int64_t size;
+  Idris2_Value **slots;
   Idris2_Value *value;
+  // The readers that wait with a deadline (see channelGetWithTimeout).
+  int64_t timed_readers;
   Idris2_WaitQueue readers;
   Idris2_WaitQueue writers;
 } Idris2_Channel;

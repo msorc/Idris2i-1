@@ -1,5 +1,5 @@
 1/1: Building DefaultCases (DefaultCases.idr)
-Warning: Unreachable clause: extraDefault _
+Warning: Unreachable clause: extraDefault _ [W0002]
 
 DefaultCases:12:1--12:15
  08 |
@@ -9,7 +9,7 @@ DefaultCases:12:1--12:15
  12 | extraDefault _ = 3
       ^^^^^^^^^^^^^^
 
-Warning: Unreachable clause: earlyDefault A
+Warning: Unreachable clause: earlyDefault A [W0002]
 
 DefaultCases:20:1--20:15
  16 | usefulDefault _ = 2
@@ -19,7 +19,7 @@ DefaultCases:20:1--20:15
  20 | earlyDefault A = 2
       ^^^^^^^^^^^^^^
 
-Warning: Unreachable clause: nestedExtraDefault _ _
+Warning: Unreachable clause: nestedExtraDefault _ _ [W0002]
 
 DefaultCases:36:1--36:23
  32 | nestedExtraDefault A A = 1
@@ -29,7 +29,7 @@ DefaultCases:36:1--36:23
  36 | nestedExtraDefault _ _ = 5
       ^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: Unreachable clause: nestedEarlyDefault B B
+Warning: Unreachable clause: nestedEarlyDefault B B [W0002]
 
 DefaultCases:49:1--49:23
  45 | nestedEarlyDefault A A = 1
@@ -40,7 +40,7 @@ DefaultCases:49:1--49:23
       ^^^^^^^^^^^^^^^^^^^^^^
 
 1/1: Building Issue1079 (Issue1079.idr)
-Warning: Unreachable clause: g3 _
+Warning: Unreachable clause: g3 _ [W0002]
 
 Issue1079:5:1--5:5
  1 | %default total
@@ -50,7 +50,7 @@ Issue1079:5:1--5:5
  5 | g3 _ = 6
      ^^^^
 
-Warning: Unreachable clause: case _ of
+Warning: Unreachable clause: case _ of [W0002]
   { (x, y) => pure x
   ; _ => pure 5
   }

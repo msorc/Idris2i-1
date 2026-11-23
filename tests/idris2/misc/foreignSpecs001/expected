@@ -1,10 +1,9 @@
 [1, 2, 3, 4, 5]
 1/1: Building Apply (Apply.idr)
-Error: When unifying:
-    String
-and:
-    String -> String
-Mismatch between: String and String -> String.
+Error: Mismatch between: String and String -> String. [E0101]
+When unifying:
+    Expected: String -> String
+    Got:      String
 
 Apply:5:11--5:21
  1 | libc : String -> String

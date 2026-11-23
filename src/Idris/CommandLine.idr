@@ -149,6 +149,8 @@ data CLOpt
   IgnoreMissingIPKG |
   FindIPKG |
   Timing (Maybe Nat) |
+   ||| Print the totals of the profiling timers and counters
+  TimingSummary |
    ||| Build the modules of a package with this many processes
   BuildJobs Nat |
    ||| Build one module (file) of a package (ipkg file), in a process started
@@ -158,12 +160,20 @@ data CLOpt
    ||| Make the keys of all the specialised copies of a function the same
   DebugSpecCollide |
   AltErrorCount Nat |
+  ||| Show the errors of at most this many failed candidates (0 for all)
+  CandidateErrorCount Nat |
    ||| Treat warnings as errors
   WarningsAsErrors |
    ||| Do not print shadowing warnings
   IgnoreShadowingWarnings |
    ||| How to report errors and warnings
   SetErrorFormat ErrorFormat |
+   ||| Whether to print the codes of errors and warnings
+  ErrorCodes Bool |
+   ||| Print the explanation of an error code
+  Explain String |
+   ||| Print the reference page of the error codes
+  ListErrorCodes |
    ||| Warn about local definitions without arguments which use the
    ||| enclosing definition's variables (they are recomputed at each use)
   WarnWhereRecompute |
@@ -365,6 +375,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               (Just "Run a REPL command then quit immediately"),
            MkOpt ["--timing"] [AutoNat "level"] (\ n => [Timing n])
               (Just "Display timing logs"),
+           MkOpt ["--timing-summary"] [] [TimingSummary]
+              (Just "Display where the time went, by phase and by module, at the end"),
 
            optSeparator,
            MkOpt ["--no-banner"] [] [NoBanner]
@@ -373,6 +385,14 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               (Just "Quiet mode; display fewer messages"),
            MkOpt ["--error-format"] [RequiredErrorFormat "human|json"] (\f => [SetErrorFormat f])
               (Just "Format for errors and warnings: human (default) or json (one JSON object per line on stdout)"),
+           MkOpt ["--no-error-codes"] [] [ErrorCodes False]
+              (Just "Do not print the code of an error or warning at the end of its first line"),
+           MkOpt ["--error-codes"] [] [ErrorCodes True]
+              (Just "Print the code of an error or warning at the end of its first line (default)"),
+           MkOpt ["--explain"] [Required "code"] (\c => [Explain c])
+              (Just "Explain an error code (such as E0101), with an example and the usual fixes"),
+           MkOpt ["--list-error-codes"] [] [ListErrorCodes]
+              (Just "Print the reference page of all the error codes (reStructuredText)"),
            MkOpt ["--console-width"] [AutoNat "console width"] (\l => [ConsoleWidth l])
               (Just "Width for console output (0 for unbounded) (auto by default)"),
           MkOpt ["--show-implicits"] [] [ShowImplicits]
@@ -417,6 +437,8 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               Nothing, -- give all the specialised copies of a function the same key, to test what happens when they collide
            MkOpt ["--alt-error-count"] [RequiredNat "alternative count"] (\c => [AltErrorCount c])
               (Just "Outputs errors for the given number of alternative parsing attempts."),
+           MkOpt ["--candidate-error-count"] [RequiredNat "candidate count"] (\c => [CandidateErrorCount c])
+              (Just "Outputs errors for at most the given number of failed candidates of an ambiguous name (default 5, 0 for all)."),
 
            optSeparator,
            -- bash completion

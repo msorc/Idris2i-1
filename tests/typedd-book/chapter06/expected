@@ -1,6 +1,6 @@
 1/8: Building Adder (Adder.idr)
 2/8: Building DataStore (DataStore.idr)
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -12,7 +12,7 @@ DataStore:26:5--26:89
  26 |     addToData : Vect oldsize (SchemaType schema) -> Vect (S oldsize) (SchemaType schema)
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -24,7 +24,7 @@ DataStore:36:6--36:42
  36 |      SetSchema : Schema -> Command schema
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -36,7 +36,7 @@ DataStore:37:6--37:47
  37 |      Add : SchemaType schema -> Command schema
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -48,7 +48,7 @@ DataStore:38:6--38:37
  38 |      Get : Integer -> Command schema
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -61,7 +61,7 @@ DataStore:39:6--39:27
            ^^^^^^^^^^^^^^^^^^^^^
 
 3/8: Building DataStoreHoles (DataStoreHoles.idr)
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -73,7 +73,7 @@ DataStoreHoles:25:5--25:89
  25 |     addToData : Vect oldsize (SchemaType schema) -> Vect (S oldsize) (SchemaType schema)
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -85,7 +85,7 @@ DataStoreHoles:30:6--30:47
  30 |      Add : SchemaType schema -> Command schema
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -97,7 +97,7 @@ DataStoreHoles:31:6--31:37
  31 |      Get : Integer -> Command schema
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 
@@ -109,7 +109,7 @@ DataStoreHoles:32:6--32:27
  32 |      Quit : Command schema
            ^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   schema is shadowing Main.DataStore.schema
 

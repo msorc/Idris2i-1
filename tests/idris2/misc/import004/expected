@@ -1,2 +1,2 @@
-Error: Module imports form a cycle: Cycle2 -> Cycle1 -> Cycle1
-Error: Module imports form a cycle: Loop -> Loop
+Error: Module imports form a cycle: Cycle2 -> Cycle1 -> Cycle1 [E1202]
+Error: Module imports form a cycle: Loop -> Loop [E1202]

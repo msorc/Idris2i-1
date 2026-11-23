@@ -1,0 +1,7 @@
+documents: 400, texts: 800
+old and new parsers disagree on 0
+parse (encode x) /= x for 0
+bytes encoded: 88738
+[0,-0,1,-1,0.1,0.5,1.5e-7,1e21,123456.789,9007199254740992,1e300,5e-324,0.0000025,0.000001,0.3,null,null]
+"quote \" backslash \\ slash / controls \u0000\u0001\b\t\n\f\r\u001f del  café 😀"
+{"":null,"k\"ey":[],"b":{}}

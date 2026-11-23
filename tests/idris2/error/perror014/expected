@@ -1,5 +1,5 @@
 1/1: Building ParseList (ParseList.idr)
-Error: Couldn't parse any alternatives:
+Error: Couldn't parse any alternatives: [E1101]
 1: Expected 'case', 'if', 'do', application or operator expression.
 
 ParseList:8:5--8:6

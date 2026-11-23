@@ -44,12 +44,21 @@ void refc_barrierWait(Idris2_Value *barrier);
 // Channels
 
 void *refc_makeChannel(Idris2_Value *erased);
+void *refc_makeBufferedChannel(Idris2_Value *erased, int64_t capacity);
+void *refc_makeUnboundedChannel(Idris2_Value *erased);
 void *refc_channelGet(Idris2_Value *erased, Idris2_Value *channel);
 void *refc_channelGetNonBlocking(Idris2_Value *erased, Idris2_Value *channel);
 void *refc_channelGetWithTimeout(Idris2_Value *erased, Idris2_Value *channel,
                                  int64_t timeout_ms);
 void refc_channelPut(Idris2_Value *erased, Idris2_Value *channel,
                      Idris2_Value *value);
+
+// Compare-and-swap on IORefs (Data.IORef).  A ticket is the value read.
+
+void *refc_readForCAS(Idris2_Value *erased, Idris2_Value *ioref);
+void *refc_peekTicket(Idris2_Value *erased, Idris2_Value *ticket);
+int64_t refc_casIORef(Idris2_Value *erased, Idris2_Value *ioref,
+                      Idris2_Value *ticket, Idris2_Value *value);
 
 // Futures (System.Future of contrib)
 

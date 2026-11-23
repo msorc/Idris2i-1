@@ -1,0 +1,13 @@
+1/1: Building Collapsed (Collapsed.idr)
+Error: While processing right hand side of g. Mismatch between: Nat and String. [E0101]
+When unifying:
+    Expected: String
+    Got:      Nat
+
+Collapsed:4:7--4:8
+ 1 | -- The expected and the actual type are the two types that do not match:
+ 2 | -- the mismatch comes first, then the labelled pair, once
+ 3 | g : Nat -> String
+ 4 | g x = x
+           ^
+

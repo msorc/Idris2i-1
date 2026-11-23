@@ -1,9 +1,8 @@
 1/1: Building quote (quote.idr)
-Error: While processing right hand side of bad. When unifying:
-    Int
-and:
-    TTImp
-Mismatch between: Int and TTImp.
+Error: While processing right hand side of bad. Mismatch between: Int and TTImp. [E0101]
+When unifying:
+    Expected: TTImp
+    Got:      Int
 
 quote:25:19--25:22
  21 | bad : Int -> TTImp
@@ -13,7 +12,7 @@ quote:25:19--25:22
  25 |             xfn ~(val))
                         ^^^
 
-Error: %language ElabReflection not enabled
+Error: %language ElabReflection not enabled [E0000]
 
 quote:33:1--33:21
  29 |
@@ -23,7 +22,7 @@ quote:33:1--33:21
  33 | %runElab noExtension
       ^^^^^^^^^^^^^^^^^^^^
 
-Error: Error during reflection: Should not print this message
+Error: Error during reflection: Should not print this message [E0000]
 
 quote:37:1--37:21
  33 | %runElab noExtension

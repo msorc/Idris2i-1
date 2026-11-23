@@ -1,0 +1,6 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+IDRIS2_WORKERS=1 ./build/exec/main 1
+IDRIS2_WORKERS=2 ./build/exec/main 2
+IDRIS2_WORKERS=4 ./build/exec/main 4

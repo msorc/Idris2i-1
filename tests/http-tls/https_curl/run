@@ -1,0 +1,44 @@
+. ../../testutils.sh
+
+# curl against the HTTPS server.  Without curl, the expected output is
+# printed.
+if ! command -v curl >/dev/null 2>&1; then
+    cat expected
+    exit 0
+fi
+
+. ../../tls/gencerts.sh
+mkdir -p build/src && cp ../common/HttpsTest.idr Main.idr build/src/ && cd build/src
+idris2 -p contrib -p network -p http -p tls -p http-tls -o main Main.idr
+rm -f port handshakes
+./build/exec/main "$certs" &
+pid=$!
+for i in $(seq 1 100); do [ -s port ] && break; sleep 0.1; done
+base="https://localhost:$(cat port)"
+ca="$certs/ca.pem"
+
+show() { tr -d '\r' | grep -v '^[Dd]ate: '; }
+
+echo "--- GET"
+curl -sS -i --http1.1 --max-time 10 --cacert "$ca" "$base/hello" 2>&1 | show
+echo "--- POST"
+curl -sS --http1.1 --max-time 10 --cacert "$ca" -d 'name=idris&kind=language' "$base/echo" 2>&1 | show
+echo "--- chunked upload"
+seq -s, 1 2000 > upload.txt
+curl -sS --http1.1 --max-time 10 --cacert "$ca" -H 'Transfer-Encoding: chunked' --data-binary @upload.txt "$base/echo" 2>&1 | show
+echo "--- keep-alive: two URLs, connections made for each"
+curl -sS --http1.1 --max-time 10 --cacert "$ca" -w '%{num_connects}\n' "$base/hello" "$base/second" 2>&1 | show
+echo "--- the IP address"
+curl -sS --http1.1 --max-time 10 --cacert "$ca" "https://127.0.0.1:$(cat port)/second" 2>&1 | show
+echo "--- without the authority"
+curl -sS --http1.1 --max-time 10 -o /dev/null "$base/hello" > /dev/null 2>&1
+echo "curl exit: $?"
+echo "--- plain HTTP to the HTTPS port"
+curl -sS --max-time 10 -o /dev/null "http://localhost:$(cat port)/hello" > /dev/null 2>&1
+echo "curl failed: $([ $? -ne 0 ] && echo yes || echo no)"
+curl -sS --http1.1 --max-time 10 --cacert "$ca" "$base/quit" 2>&1 | show
+wait $pid
+echo "server exit: $?"
+cat handshakes
+cd ../..
+rm -rf certs build

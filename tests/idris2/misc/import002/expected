@@ -1,7 +1,7 @@
 1/3: Building Nat (Nat.idr)
 2/3: Building Mult (Mult.idr)
 3/3: Building Test (Test.idr)
-Error: While processing type of thing. Undefined name Nat. 
+Error: While processing type of thing. Undefined name Nat. [E0201]
 
 Test:5:9--5:12
  1 | module Test
@@ -12,7 +12,7 @@ Test:5:9--5:12
              ^^^
 Suggestion: Nat is exported by Nat, Prelude.Types; import one of them.
 
-Error: While processing right hand side of thing. Undefined name plus. 
+Error: While processing right hand side of thing. Undefined name plus. [E0201]
 
 Test:6:19--6:23
  2 |

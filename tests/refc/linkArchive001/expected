@@ -1,0 +1,17 @@
+the archive is installed
+the header is installed
+--- first build
+42
+prefix/idris2-x.y.z/clib-0.1.0/lib/libanswer.a
+--- nothing changed
+The executable app is up to date, not compiling it again
+--- the archive changed
+LOG package.stamp:5: Compiling the executable: something it was made from changed
+Now compiling the executable: app
+LOG package.stamp:5: Wrote build/exec/app.stamp
+43
+--- a directive changed
+LOG package.stamp:5: Compiling the executable: something it was made from changed
+Now compiling the executable: app
+LOG package.stamp:5: Wrote build/exec/app.stamp
+43

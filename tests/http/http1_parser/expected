@@ -1,0 +1,203 @@
+== valid requests
+minimal: Done GET / HTTP/1.1 [Host: x] rest=""
+  same in 435 splits
+typical: Done GET /static/js/app.bundle.js?v=1234567 HTTP/1.1 [Host: www.example.com, Connection: keep-alive, sec-ch-ua: "Chromium";v="124", "Google Chrome";v="124", User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36, Accept: */*, Sec-Fetch-Site: same-origin, Referer: https://www.example.com/index.html, Accept-Encoding: gzip, deflate, br, Accept-Language: en-US,en;q=0.9] rest=""
+  same in 427 splits
+values: Done POST /submit?a=b HTTP/1.1 [Host: x, X-Empty: , X-Spaces: a  b, X-Obs-Text: café, X-Dup: 1, x-dup: 2] rest=""
+  same in 108 splits
+http/1.0 without host: Done GET /old HTTP/1.0 [Accept: *] rest=""
+  same in 595 splits
+other method: Done PROPFIND /dav HTTP/1.1 [Host: x] rest=""
+  same in 703 splits
+lower-case method is a token: Done get / HTTP/1.1 [Host: x] rest=""
+  same in 435 splits
+leading empty lines: Done GET / HTTP/1.1 [Host: x] rest=""
+  same in 561 splits
+minor version 9: Done GET / HTTP/1.9 [Host: x] rest=""
+  same in 435 splits
+absolute form: Done GET http://example.com/a?b HTTP/1.1 [Host: example.com] rest=""
+  same in 1830 splits
+incomplete: NeedMore after 25
+  same in 378 splits
+== malformed requests and smuggling shapes
+space before colon: Failed SpaceBeforeColon (400)
+  same in 465 splits
+tab before colon: Failed SpaceBeforeColon (400)
+  same in 1711 splits
+obs-fold: Failed ObsFold (400)
+  same in 861 splits
+whitespace before first field: Failed ObsFold (400)
+  same in 465 splits
+bare CR in value: Failed BareCR (400)
+  same in 780 splits
+bare CR ending the request line: Failed BareCR (400)
+  same in 406 splits
+bare LF ending a field: Failed BareLF (400)
+  same in 406 splits
+bare LF ending the request line: Failed BareLF (400)
+  same in 406 splits
+bare LF ending the head: Failed BareLF (400)
+  same in 406 splits
+NUL in value: Failed NulInHeader (400)
+  same in 780 splits
+control in value: Failed BadHeaderValue (400)
+  same in 780 splits
+DEL in value: Failed BadHeaderValue (400)
+  same in 780 splits
+non-token in name: Failed BadHeaderName (400)
+  same in 741 splits
+non-ASCII in name: Failed BadHeaderName (400)
+  same in 703 splits
+empty name: Failed BadHeaderName (400)
+  same in 595 splits
+no colon: Failed MissingColon (400)
+  same in 595 splits
+non-token method: Failed BadMethod (400)
+  same in 465 splits
+two spaces after method: Failed BadRequestLine (400)
+  same in 465 splits
+leading space: Failed BadRequestLine (400)
+  same in 465 splits
+HTTP/0.9 request line: Failed BadRequestLine (400)
+  same in 66 splits
+space in target: Failed BadVersion (400)
+  same in 528 splits
+non-ASCII target: Failed BadTarget (400)
+  same in 595 splits
+trailing space after version: Failed BadVersion (400)
+  same in 465 splits
+lower-case version: Failed BadVersion (400)
+  same in 435 splits
+short version: Failed BadVersion (400)
+  same in 378 splits
+version 2.0: Failed UnsupportedVersion (505)
+  same in 435 splits
+version 0.9: Failed UnsupportedVersion (505)
+  same in 435 splits
+missing host: Failed MissingHost (400)
+  same in 561 splits
+two hosts: Failed DuplicateHost (400)
+  same in 741 splits
+== framing of requests
+no body: NoBody
+content-length: ContentLength 42
+content-length 0: ContentLength 0
+leading zeros: ContentLength 7
+same list: ContentLength 5
+same fields: ContentLength 5
+different list: Failed ConflictingContentLength (400)
+different fields: Failed ConflictingContentLength (400)
+plus sign: Failed BadContentLength (400)
+negative: Failed BadContentLength (400)
+hexadecimal: Failed BadContentLength (400)
+empty: Failed BadContentLength (400)
+overflow: Failed BadContentLength (400)
+chunked: Chunked
+chunked in capitals: Chunked
+CL and TE: Failed ContentLengthAndTransferEncoding (400)
+TE and CL: Failed ContentLengthAndTransferEncoding (400)
+TE not chunked: Failed BadTransferEncoding (400)
+TE chunked not last: Failed BadTransferEncoding (400)
+TE chunked twice: Failed BadTransferEncoding (400)
+TE chunked in two fields: Failed BadTransferEncoding (400)
+TE gzip then chunked: Failed UnsupportedTransferCoding (501)
+TE gzip then chunked in two fields: Failed UnsupportedTransferCoding (501)
+TE empty element: Failed BadTransferEncoding (400)
+TE empty: Failed BadTransferEncoding (400)
+TE chunked with junk: Failed BadTransferEncoding (400)
+TE in HTTP/1.0: Failed TransferEncodingInHTTP10 (400)
+content too large: Failed ContentTooLarge (413)
+content at the limit: ContentLength 10
+== limits
+request line at the limit: Done GET /0123456789012345 HTTP/1.1 [Host: x] rest=""
+  same in 1035 splits
+request line too long: Failed StartLineTooLong (414)
+  same in 1081 splits
+request line too long, unfinished: Failed StartLineTooLong (414)
+  same in 1128 splits
+field line at the limit: Done GET / HTTP/1.1 [Host: x, X: 012345678901234567890123456] rest=""
+  same in 1891 splits
+field line too long: Failed HeaderLineTooLong (431)
+  same in 1953 splits
+field line too long, unfinished: Failed HeaderLineTooLong (431)
+  same in 2080 splits
+three fields: Done GET / HTTP/1.1 [Host: x, A: 1, B: 2] rest=""
+  same in 861 splits
+four fields: Failed TooManyHeaders (431)
+  same in 1128 splits
+head too large: Failed HeadTooLarge (431)
+  same in 134 splits
+head too large, unfinished: Failed HeadTooLarge (431)
+  same in 123 splits
+head too large by empty lines: Failed HeadTooLarge (431)
+  same in 125 splits
+== pipelining
+first: GET /1 HTTP/1.1 [Host: x] rest "GET /2 HTTP/1.1\r\nHost: y\r\n\r\n"
+second: Done GET /2 HTTP/1.1 [Host: y] rest=""
+body: "hello"
+next: Done GET /b HTTP/1.1 [Host: x] rest=""
+split pipelined: Done GET /1 HTTP/1.1 [Host: x] rest="GET /2"
+== responses
+ok: Done HTTP/1.1 200 OK [Content-Length: 5, Content-Type: text/plain] rest="hello"
+  same in 2556 splits
+not found: Done HTTP/1.1 404 Not Found [] rest=""
+  same in 406 splits
+no reason: Done HTTP/1.1 204  [Date: x] rest=""
+  same in 378 splits
+empty reason: Done HTTP/1.1 200  [] rest=""
+  same in 190 splits
+http/1.0: Done HTTP/1.0 302 Found [Location: /x] rest=""
+  same in 741 splits
+reason with obs-text: Done HTTP/1.1 200 ça va [] rest=""
+  same in 325 splits
+two-digit code: Failed BadStatusLine (400)
+  same in 210 splits
+four-digit code: Failed BadStatusLine (400)
+  same in 253 splits
+code starting with 0: Failed BadStatusLine (400)
+  same in 210 splits
+HTTP/2: Failed BadStatusLine (400)
+  same in 190 splits
+version 2.0: Failed UnsupportedVersion (505)
+  same in 231 splits
+bare LF: Failed BareLF (400)
+  same in 210 splits
+control in reason: Failed BadHeaderValue (400)
+  same in 253 splits
+== framing of responses
+content-length: ContentLength 12
+to HEAD: NoBody
+204: NoBody
+304: NoBody
+100: NoBody
+CONNECT 200: NoBody
+CONNECT 407: ContentLength 3
+chunked: Chunked
+TE not chunked: UntilClose
+CL and TE: Failed ContentLengthAndTransferEncoding
+until close: UntilClose
+bad CL: Failed BadContentLength
+== connection
+1.1: Just True
+1.1 close: Just False
+1.0: Just False
+1.0 keep-alive: Just True
+expect: Just True
+== headers
+lookup: Just "a" Nothing
+all: ["a", "b"]
+combined: Just "a, b"
+set: [Host: x, accept: c, X: y]
+remove: [Host: x, X: y]
+add: [Host: x, Accept: a, ACCEPT: b, X: y, Z: 1]
+valid value: [True, True, False, False, False, True]
+valid name: [True, False, False, False]
+== rendering
+"GET /x?y HTTP/1.1\r\nHost: example.com\r\nAccept: */*\r\n\r\n"
+round trip: Just True
+"PURGE / HTTP/1.0\r\n\r\n"
+"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+round trip: Done HTTP/1.1 404 Not Found [Content-Length: 0] rest=""
+"HTTP/1.0 299 \r\n\r\n"
+statuses: [100 Continue, 200 OK, 404 Not Found, 418 , 431 Request Header Fields Too Large, 505 HTTP Version Not Supported]
+methods: [GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE, PATCH, Get, BREW]

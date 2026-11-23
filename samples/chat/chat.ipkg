@@ -1,0 +1,7 @@
+package chat
+
+depends = contrib, network, http
+
+main = Main
+executable = chat
+opts = "--cg refc"

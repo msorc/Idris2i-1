@@ -10,3 +10,15 @@ have an official one, but there are (at least) one actively developed:
 
 * Pack: https://github.com/stefan-hoeck/idris2-pack
 
+
+Libraries that come with Idris 2
+--------------------------------
+
+Most of the libraries of the Idris 2 repository (``prelude``, ``base``,
+``contrib``, ``network``, ...) are described by their documentation
+comments (``make libdocs``).  These have a page here:
+
+.. toctree::
+   :maxdepth: 1
+
+   tls

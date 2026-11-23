@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+# About 3 seconds; twice as long when every candidate of a search was unified
+# with the goal (the searches alone took six times as long).
+TIMEOUT=60
+check Hints.idr

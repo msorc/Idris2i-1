@@ -1,0 +1,5 @@
+# The C part, as libs/tls/c/Makefile builds it
+/c/*.o
+/c/*.a
+/c/*.so
+/c/*.dylib

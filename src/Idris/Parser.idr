@@ -110,6 +110,89 @@ export
 plhs : ParseOpts
 plhs = MkParseOpts {eqOK = False, withOK = False}
 
+-- The tokens that the rules below can start with, for `guarded`: each is
+-- true of every token for which its rule may succeed, commit, or fail with
+-- a fatal error (for any other, the rule fails at once)
+
+-- `do` or a namespaced `do`
+isDoTok : Token -> Bool
+isDoTok (Keyword "do") = True
+isDoTok (DotSepIdent _ "do") = True
+isDoTok (Ident "do") = True
+isDoTok _ = False
+
+-- the identifiers of `lazy`
+isLazyTok : Token -> Bool
+isLazyTok (Ident "Lazy") = True
+isLazyTok (Ident "Inf") = True
+isLazyTok (Ident "Delay") = True
+isLazyTok (Ident "Force") = True
+isLazyTok _ = False
+
+isStringBeginTok : Token -> Bool
+isStringBeginTok (StringBegin _ _) = True
+isStringBeginTok _ = False
+
+isDotIdentTok : Token -> Bool
+isDotIdentTok (DotIdent _) = True
+isDotIdentTok _ = False
+
+isDebugInfoTok : Token -> Bool
+isDebugInfoTok (MagicDebugInfo _) = True
+isDebugInfoTok _ = False
+
+isHoleTok : Token -> Bool
+isHoleTok (HoleIdent _) = True
+isHoleTok _ = False
+
+-- a `constant`
+isConstantTok : Token -> Bool
+isConstantTok (CharLit _) = True
+isConstantTok (DoubleLit _) = True
+isConstantTok (IntegerLit _) = True
+isConstantTok (Ident _) = True
+isConstantTok _ = False
+
+-- a `name`: an operator in parentheses, or an identifier
+isNameStartTok : Token -> Bool
+isNameStartTok (Symbol "(") = True
+isNameStartTok t = isNameTok t
+
+-- a documentation comment, or a visibility or totality modifier: what most
+-- declarations can start with
+isDeclPrefixTok : Token -> Bool
+isDeclPrefixTok (DocComment _) = True
+isDeclPrefixTok (Keyword "public") = True
+isDeclPrefixTok (Keyword "export") = True
+isDeclPrefixTok (Keyword "private") = True
+isDeclPrefixTok (Keyword "partial") = True
+isDeclPrefixTok (Keyword "total") = True
+isDeclPrefixTok (Keyword "covering") = True
+isDeclPrefixTok _ = False
+
+-- what a fixity declaration can start with
+isFixityDeclTok : Token -> Bool
+isFixityDeclTok (Keyword "autobind") = True
+isFixityDeclTok (Keyword "typebind") = True
+isFixityDeclTok (Keyword "infixl") = True
+isFixityDeclTok (Keyword "infixr") = True
+isFixityDeclTok (Keyword "infix") = True
+isFixityDeclTok (Keyword "prefix") = True
+isFixityDeclTok t = isDeclPrefixTok t
+
+isCGDirectiveTok : Token -> Bool
+isCGDirectiveTok (CGDirective _) = True
+isCGDirectiveTok _ = False
+
+isAnyKeywordTok : Token -> Bool
+isAnyKeywordTok (Keyword _) = True
+isAnyKeywordTok _ = False
+
+-- a pragma with the given name
+isPragmaNamed : String -> Token -> Bool
+isPragmaNamed n (Pragma p) = p == n
+isPragmaNamed _ _ = False
+
 %hide Prelude.(>>)
 %hide Prelude.(>>=)
 %hide Core.Core.(>>)
@@ -121,28 +204,37 @@ plhs = MkParseOpts {eqOK = False, withOK = False}
 
 atom : OriginDesc -> Rule PTerm
 atom fname
-    = do x <- bounds $ decorate fname Typ $ exactIdent "Type"
-         pure (PType (boundToFC fname x))
-  <|> do x <- bounds $ name
-         pure (PRef (boundToFC fname x) x.val)
-  <|> do x <- bounds $ dependentDecorate fname constant $ \c =>
+    = guarded (\case Ident "Type" => True; _ => False)
+     (do x <- bounds $ decorate fname Typ $ exactIdent "Type"
+         pure (PType (boundToFC fname x)))
+  <|> guarded isNameStartTok
+     (do x <- bounds $ name
+         pure (PRef (boundToFC fname x) x.val))
+  <|> guarded isConstantTok
+     (do x <- bounds $ dependentDecorate fname constant $ \c =>
                        if isPrimType c
                        then Typ
                        else Data
-         pure (PPrimVal (boundToFC fname x) x.val)
-  <|> do x <- bounds $ decoratedSymbol fname "_"
-         pure (PImplicit (boundToFC fname x))
-  <|> do x <- bounds $ symbol "?"
-         pure (PInfer (boundToFC fname x))
-  <|> do x <- bounds $ holeName
+         pure (PPrimVal (boundToFC fname x) x.val))
+  <|> guarded (isSymbolTok "_")
+     (do x <- bounds $ decoratedSymbol fname "_"
+         pure (PImplicit (boundToFC fname x)))
+  <|> guarded (isSymbolTok "?")
+     (do x <- bounds $ symbol "?"
+         pure (PInfer (boundToFC fname x)))
+  <|> guarded isHoleTok
+     (do x <- bounds $ holeName
          actH x.val -- record the hole name in the parser
-         pure (PHole (boundToFC fname x) False x.val)
-  <|> do x <- bounds $ decorate fname Data $ pragma "MkWorld"
-         pure (PPrimVal (boundToFC fname x) WorldVal)
-  <|> do x <- bounds $ decorate fname Typ  $ pragma "World"
-         pure (PPrimVal (boundToFC fname x) $ PrT WorldType)
-  <|> do x <- bounds $ decoratedPragma fname "search"
-         pure (PSearch (boundToFC fname x) 50)
+         pure (PHole (boundToFC fname x) False x.val))
+  <|> guarded isPragmaTok
+     (do x <- bounds $ decorate fname Data $ pragma "MkWorld"
+         pure (PPrimVal (boundToFC fname x) WorldVal))
+  <|> guarded isPragmaTok
+     (do x <- bounds $ decorate fname Typ  $ pragma "World"
+         pure (PPrimVal (boundToFC fname x) $ PrT WorldType))
+  <|> guarded isPragmaTok
+     (do x <- bounds $ decoratedPragma fname "search"
+         pure (PSearch (boundToFC fname x) 50))
 
 whereBlock : OriginDesc -> Int -> Rule (List PDecl)
 whereBlock fname col
@@ -175,7 +267,7 @@ continueWith indents req
 iOperator : Rule OpStr
 iOperator
     = OpSymbols <$> operator
-  <|> Backticked <$> (symbol "`" *> name <* symbol "`")
+  <|> guarded (isSymbolTok "`") (Backticked <$> (symbol "`" *> name <* symbol "`"))
 
 data ArgType
     = UnnamedExpArg PTerm
@@ -253,18 +345,19 @@ foreignSpecifiers = concatMap splitSpec
 mutual
   appExpr : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
   appExpr q fname indents
-      = case_ fname indents
-    <|> doBlock fname indents
-    <|> lam fname indents
-    <|> lazy fname indents
-    <|> if_ fname indents
-    <|> with_ fname indents
+      = guarded (\t => isPragmaTok t || isKeywordTok "case" t) (case_ fname indents)
+    <|> guarded isDoTok (doBlock fname indents)
+    <|> guarded (isSymbolTok "\\") (lam fname indents)
+    <|> guarded isLazyTok (lazy fname indents)
+    <|> guarded (isKeywordTok "if") (if_ fname indents)
+    <|> guarded (isKeywordTok "with") (with_ fname indents)
     <|> do b <- bounds (MkPair <$> simpleExpr fname indents <*> many (argExpr q fname indents))
            (f, args) <- pure b.val
            pure (applyExpImp (start b) (end b) f (concat args))
-    <|> do b <- fcBounds (MkPair <$> fcBounds iOperator <*> expr pdef fname indents)
+    <|> guarded isOperatorStartTok
+       (do b <- fcBounds (MkPair <$> fcBounds iOperator <*> expr pdef fname indents)
            (op, arg) <- pure b.val
-           pure (PPrefixOp b.fc op arg)
+           pure (PPrefixOp b.fc op arg))
     <|> fail "Expected 'case', 'if', 'do', application or operator expression"
     where
       applyExpImp : FilePos -> FilePos -> PTerm ->
@@ -288,14 +381,16 @@ mutual
            the (EmptyRule _) $ case arg of
                 PHole loc _ n => pure [UnnamedExpArg (PHole loc True n)]
                 t => pure [UnnamedExpArg t]
-    <|> do continue indents
-           braceArgs fname indents
-    <|> if withOK q
+    <|> guarded (\t => isSymbolTok "{" t || isSymbolTok "@{" t)
+       (do continue indents
+           braceArgs fname indents)
+    <|> guarded (isSymbolTok "|")
+       (if withOK q
            then do continue indents
                    decoratedSymbol fname "|"
                    arg <- expr ({withOK := False} q) fname indents
                    pure [WithArg arg]
-           else fail "| not allowed here"
+           else fail "| not allowed here")
     where
       underscore : FC -> ArgType
       underscore fc = NamedArg (UN Underscore) (PImplicit fc)
@@ -420,7 +515,8 @@ mutual
   opExprBase : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
   opExprBase q fname indents
       = do l <- bounds (appExpr q fname indents)
-           (if eqOK q
+           guarded (isSymbolTok "=")
+            (if eqOK q
                then do r <- bounds (continue indents
                                 *> decoratedSymbol fname "="
                                 *> opExprBase q fname indents)
@@ -432,6 +528,7 @@ mutual
                                    r.val
                else fail "= not allowed")
              <|>
+             guarded isOperatorStartTok
              (do b <- bounds $ do
                         continue indents
                         op <- fcBounds iOperator
@@ -483,29 +580,33 @@ mutual
       -- left section. This may also be a prefix operator, but we'll sort
       -- that out when desugaring: if the operator is infix, treat it as a
       -- section otherwise treat it as prefix
-      = do b <- bounds (do op <- fcBounds iOperator
+      = guarded isOperatorStartTok
+       (do b <- bounds (do op <- fcBounds iOperator
                            e <- expr pdef fname indents
                            continueWithDecorated fname indents ")"
                            pure (op, e))
            (op, e) <- pure b.val
            actD (toNonEmptyFC $ boundToFC fname s, Keyword, Nothing)
            let fc = boundToFC fname (mergeBounds s b)
-           pure (PSectionL fc op e)
-    <|> do  -- (.y.z)  -- section of projection (chain)
+           pure (PSectionL fc op e))
+    <|> guarded isDotIdentTok
+       (do  -- (.y.z)  -- section of projection (chain)
            b <- bounds $ forget <$> some (bounds postfixProj)
            decoratedSymbol fname ")"
            actD (toNonEmptyFC $ boundToFC fname s, Keyword, Nothing)
            let projs = map (\ proj => (boundToFC fname proj, proj.val)) b.val
-           pure $ PPostfixAppPartial (boundToFC fname b) projs
+           pure $ PPostfixAppPartial (boundToFC fname b) projs)
       -- unit type/value
     <|> do b <- bounds (continueWith indents ")")
            pure (PUnit (boundToFC fname (mergeBounds s b)))
       -- dependent pairs with type annotation (so, the type form)
-    <|> do dpairType fname s indents <* (decorate fname Typ $ symbol ")")
-                                     <* actD (toNonEmptyFC $ boundToFC fname s, Typ, Nothing)
+    <|> guarded2 (\t, u => isIdentTok t && isSymbolTok ":" u)
+       (do dpairType fname s indents <* (decorate fname Typ $ symbol ")")
+                                     <* actD (toNonEmptyFC $ boundToFC fname s, Typ, Nothing))
     <|> do e <- bounds (typeExpr pdef fname indents)
            -- dependent pairs with no type annotation
-           (do loc <- bounds (symbol "**")
+           (guarded (isSymbolTok "**") $
+            do loc <- bounds (symbol "**")
                rest <- bounds ((nestedDpair fname loc indents <|> expr pdef fname indents) <* symbol ")")
                pure (PDPair (boundToFC fname (mergeBounds s rest))
                             (boundToFC fname loc)
@@ -513,18 +614,20 @@ mutual
                             (PImplicit (boundToFC fname (mergeBounds s rest)))
                             rest.val)) <|>
              -- right sections
-             ((do op <- bounds (fcBounds iOperator <* decoratedSymbol fname ")")
+             (guarded isOperatorStartTok
+              (do op <- bounds (fcBounds iOperator <* decoratedSymbol fname ")")
                   actD (toNonEmptyFC $ boundToFC fname s, Keyword, Nothing)
                   let fc = boundToFC fname (mergeBounds s op)
-                  pure (PSectionR fc e.val op.val)
+                  pure (PSectionR fc e.val op.val))
                <|>
               -- all the other bracketed expressions
-              tuple fname s indents e.val))
-    <|> do here <- location
+              tuple fname s indents e.val)
+    <|> guarded (isSymbolTok ",")
+       (do here <- location
            let fc = MkFC fname here here
            let var = PRef fc (MN "__leftTupleSection" 0)
            ts <- bounds (nonEmptyTuple fname s indents var)
-           pure (PLam fc top Explicit var (PInfer fc) ts.val)
+           pure (PLam fc top Explicit var (PInfer fc) ts.val))
 
   getInitRange : List (WithBounds PTerm) -> EmptyRule (PTerm, Maybe PTerm)
   getInitRange [x] = pure (x.val, Nothing)
@@ -625,7 +728,7 @@ mutual
   -- A pair, dependent pair, or just a single expression
   tuple : OriginDesc -> WithBounds t -> IndentInfo -> PTerm -> Rule PTerm
   tuple fname s indents e
-     =   nonEmptyTuple fname s indents e
+     =   guarded (isSymbolTok ",") (nonEmptyTuple fname s indents e)
      <|> do end <- bounds (continueWithDecorated fname indents ")")
             actD (toNonEmptyFC $ boundToFC fname s, Keyword, Nothing)
             pure (PBracketed (boundToFC fname (mergeBounds s end)) e)
@@ -634,81 +737,99 @@ mutual
   simpleExpr fname indents
     = do  -- x.y.z
           b <- bounds (do root <- simplerExpr fname indents
-                          projs <- many (bounds postfixProj)
+                          -- (`many`, which fails at once unless the next
+                          -- token is a projection)
+                          projs <- option [] (guarded isDotIdentTok
+                                                (forget <$> some (bounds postfixProj)))
                           pure (root, projs))
           (root, projs) <- pure b.val
           let projs = map (\ proj => (boundToFC fname proj, proj.val)) projs
           pure $ case projs of
             [] => root
             _  => PPostfixApp (boundToFC fname b) root projs
-    <|> debugString fname
-    <|> do b <- bounds (forget <$> some (bounds postfixProj))
+    <|> guarded isDebugInfoTok (debugString fname)
+    <|> guarded isDotIdentTok
+       (do b <- bounds (forget <$> some (bounds postfixProj))
            pure $ let projs = map (\ proj => (boundToFC fname proj, proj.val)) b.val in
-                  PPostfixAppPartial (boundToFC fname b) projs
+                  PPostfixAppPartial (boundToFC fname b) projs)
 
   simplerExpr : OriginDesc -> IndentInfo -> Rule PTerm
   simplerExpr fname indents
-      = do b <- bounds (do x <- bounds (decoratedSimpleBinderUName fname)
+      = guarded2 (\t, u => isIdentTok t && isSymbolTok "@" u)
+       (do b <- bounds (do x <- bounds (decoratedSimpleBinderUName fname)
                            decoratedSymbol fname "@"
                            commit
                            expr <- simpleExpr fname indents
                            pure (x, expr))
            (x, expr) <- pure b.val
-           pure (PAs (boundToFC fname b) (boundToFC fname x) x.val expr)
-    <|> do b <- bounds $ do
+           pure (PAs (boundToFC fname b) (boundToFC fname x) x.val expr))
+    <|> guarded2 (\t, u => isSymbolTok "[|" t || (isNameTok t && isSymbolTok ".[|" u))
+       (do b <- bounds $ do
                   mns <- decoratedNamespacedSymbol fname "[|"
                   t   <- expr pdef fname indents
                   decoratedSymbol fname "|]"
                   pure (t, mns)
-           pure (PIdiom (boundToFC fname b) (snd b.val) (fst b.val))
+           pure (PIdiom (boundToFC fname b) (snd b.val) (fst b.val)))
     <|> atom fname
-    <|> record_ fname indents
-    <|> singlelineStr pdef fname indents
-    <|> multilineStr pdef fname indents
-    <|> do b <- bounds $ do
+    <|> guarded (\t => isKeywordTok "record" t || isSymbolTok "{" t)
+          (record_ fname indents)
+    <|> guarded isStringBeginTok (singlelineStr pdef fname indents)
+    <|> guarded isStringBeginTok (multilineStr pdef fname indents)
+    <|> guarded (isSymbolTok ".(")
+       (do b <- bounds $ do
                   decoratedSymbol fname ".("
                   commit
                   t <- typeExpr pdef fname indents
                   decoratedSymbol fname ")"
                   pure t
-           pure (PDotted (boundToFC fname b) b.val)
-    <|> do b <- bounds $ do
+           pure (PDotted (boundToFC fname b) b.val))
+    <|> guarded (isSymbolTok "`(")
+       (do b <- bounds $ do
                   decoratedSymbol fname "`("
                   t <- typeExpr pdef fname indents
                   decoratedSymbol fname ")"
                   pure t
-           pure (PQuote (boundToFC fname b) b.val)
-    <|> do b <- bounds $ do
+           pure (PQuote (boundToFC fname b) b.val))
+    <|> guarded (isSymbolTok "`{")
+       (do b <- bounds $ do
                   decoratedSymbol fname "`{"
                   t <- name
                   decoratedSymbol fname "}"
                   pure t
-           pure (PQuoteName (boundToFC fname b) b.val)
-    <|> do b <- bounds $ do
+           pure (PQuoteName (boundToFC fname b) b.val))
+    <|> guarded (isSymbolTok "`[")
+       (do b <- bounds $ do
                   decoratedSymbol fname "`["
                   ts <- nonEmptyBlock (topDecl fname)
                   decoratedSymbol fname "]"
                   pure ts
-           pure (PQuoteDecl (boundToFC fname b) (collectDefs (forget b.val)))
-    <|> do b <- bounds (decoratedSymbol fname "~" *> simplerExpr fname indents)
-           pure (PUnquote (boundToFC fname b) b.val)
-    <|> do start <- bounds (symbol "(")
-           bracketedExpr fname start indents
-    <|> do start <- bounds (symbol "[<")
-           snocListExpr fname start indents
-    <|> do start <- bounds (symbol "[>" <|> symbol "[")
-           listExpr fname start indents
-    <|> do b <- bounds (decoratedSymbol fname "!" *> simpleExpr fname indents)
-           pure (PBang (virtualiseFC $ boundToFC fname b) b.val)
-    <|> do b <- bounds $ do decoratedPragma fname "logging"
+           pure (PQuoteDecl (boundToFC fname b) (collectDefs (forget b.val))))
+    <|> guarded (isSymbolTok "~")
+       (do b <- bounds (decoratedSymbol fname "~" *> simplerExpr fname indents)
+           pure (PUnquote (boundToFC fname b) b.val))
+    <|> guarded (isSymbolTok "(")
+       (do start <- bounds (symbol "(")
+           bracketedExpr fname start indents)
+    <|> guarded (isSymbolTok "[<")
+       (do start <- bounds (symbol "[<")
+           snocListExpr fname start indents)
+    <|> guarded (\t => isSymbolTok "[>" t || isSymbolTok "[" t)
+       (do start <- bounds (symbol "[>" <|> symbol "[")
+           listExpr fname start indents)
+    <|> guarded (isSymbolTok "!")
+       (do b <- bounds (decoratedSymbol fname "!" *> simpleExpr fname indents)
+           pure (PBang (virtualiseFC $ boundToFC fname b) b.val))
+    <|> guarded (isPragmaNamed "logging")
+       (do b <- bounds $ do decoratedPragma fname "logging"
                             topic <- optional (split (('.') ==) <$> simpleStr)
                             lvl   <- intLit
                             e     <- expr pdef fname indents
                             pure (MkPair (mkLogLevel' topic (integerToNat lvl)) e)
            (lvl, e) <- pure b.val
-           pure (PUnifyLog (boundToFC fname b) lvl e)
-    <|> withWarning "DEPRECATED: trailing lambda. Use a $ or parens"
-        (lam fname indents)
+           pure (PUnifyLog (boundToFC fname b) lvl e))
+    <|> guarded (isSymbolTok "\\")
+       (withWarning "DEPRECATED: trailing lambda. Use a $ or parens"
+          (lam fname indents))
 
   multiplicity : OriginDesc -> EmptyRule RigCount
   multiplicity fname
@@ -1102,17 +1223,18 @@ mutual
 
   binder : OriginDesc -> IndentInfo -> Rule PTerm
   binder fname indents
-      = autoImplicitPi fname indents
-    <|> defaultImplicitPi fname indents
-    <|> forall_ fname indents
-    <|> implicitPi fname indents
-    <|> do binder <- lookAhead autobindAhead
+      = guarded (isSymbolTok "{") (autoImplicitPi fname indents)
+    <|> guarded (isSymbolTok "{") (defaultImplicitPi fname indents)
+    <|> guarded (isKeywordTok "forall") (forall_ fname indents)
+    <|> guarded (isSymbolTok "{") (implicitPi fname indents)
+    <|> guarded (\t => isSymbolTok "(" t || isSymbolTok "\\" t)
+       (do binder <- lookAhead autobindAhead
            if binder
               then autobindOp pdef fname indents
                      <|> explicitPi fname indents
                      <|> lam fname indents
               else explicitPi fname indents
-                     <|> lam fname indents
+                     <|> lam fname indents)
 
   typeExpr : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
   typeExpr q fname indents
@@ -1139,12 +1261,13 @@ mutual
   export
   expr : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
   expr q fname indents
-       = let_ fname indents
-     <|> rewrite_ fname indents
-     <|> do b <- bounds $
+       = guarded (isKeywordTok "let") (let_ fname indents)
+     <|> guarded (isKeywordTok "rewrite") (rewrite_ fname indents)
+     <|> guarded (isPragmaNamed "runElab")
+        (do b <- bounds $
                    do decoratedPragma fname "runElab"
                       expr pdef fname indents
-            pure (PRunElab (boundToFC fname b) b.val)
+            pure (PRunElab (boundToFC fname b) b.val))
      <|> opExpr q fname indents
 
   interpBlock : ParseOpts -> OriginDesc -> IndentInfo -> Rule PTerm
@@ -1199,8 +1322,8 @@ mutual
             <>< map (\str => [StrLiteral fc str]) (init strs)
 
   fnDirectOpt : OriginDesc -> Rule PFnOpt
-  fnDirectOpt fname
-      = do decoratedPragma fname "hint"
+  fnDirectOpt fname = guarded isPragmaTok $
+        do decoratedPragma fname "hint"
            pure $ IFnOpt (Hint True)
     <|> do decoratedPragma fname "globalhint"
            pure $ IFnOpt (GlobalHint False)
@@ -2002,31 +2125,34 @@ cgDirectiveDecl
 topDecl fname indents
       -- Specifically check if the user has attempted to use a reserved identifier to begin their declaration to give improved error messages.
       -- i.e. the claim "String : Type" is a parse error, but the underlying reason may not be clear to new users.
-    = do id <- anyReservedIdent
-         the (Rule PDecl) $ fatalLoc id.bounds "Cannot begin a declaration with a reserved identifier"
-  <|> fcBounds dataDecl
+    = guarded isIdentTok
+     (do id <- anyReservedIdent
+         the (Rule PDecl) $ fatalLoc id.bounds "Cannot begin a declaration with a reserved identifier")
+  <|> guarded (\t => isDeclPrefixTok t || isKeywordTok "data" t) (fcBounds dataDecl)
   <|> fcBounds (PClaim <$> localClaim)
-  <|> fcBounds (PDirective <$> directive)
+  <|> guarded isPragmaTok (fcBounds (PDirective <$> directive))
   <|> fcBounds implDecl
   <|> fcBounds definition
-  <|> fixDecl
-  <|> fcBounds ifaceDecl
-  <|> fcBounds recordDecl
-  <|> fcBounds namespaceDecl
-  <|> fcBounds failDecls
-  <|> fcBounds mutualDecls
-  <|> fcBounds paramDecls
-  <|> fcBounds usingDecls
-  <|> fcBounds builtinDecl
-  <|> fcBounds runElabDecl
-  <|> fcBounds transformDecl
-  <|> fcBounds cgDirectiveDecl
+  <|> guarded isFixityDeclTok fixDecl
+  <|> guarded (\t => isDeclPrefixTok t || isKeywordTok "interface" t) (fcBounds ifaceDecl)
+  <|> guarded (\t => isDeclPrefixTok t || isKeywordTok "record" t) (fcBounds recordDecl)
+  <|> guarded (\t => isDeclPrefixTok t || isKeywordTok "namespace" t) (fcBounds namespaceDecl)
+  <|> guarded (isKeywordTok "failing") (fcBounds failDecls)
+  <|> guarded (isKeywordTok "mutual") (fcBounds mutualDecls)
+  <|> guarded (isKeywordTok "parameters") (fcBounds paramDecls)
+  <|> guarded (isKeywordTok "using") (fcBounds usingDecls)
+  <|> guarded (isPragmaNamed "builtin") (fcBounds builtinDecl)
+  <|> guarded (isPragmaNamed "runElab") (fcBounds runElabDecl)
+  <|> guarded (isPragmaNamed "transform") (fcBounds transformDecl)
+  <|> guarded isCGDirectiveTok (fcBounds cgDirectiveDecl)
       -- If the user tries to add import after some declarations, then show a more informative error.
-  <|> do kw <- bounds $ keyword "import"
-         the (Rule PDecl) $ fatalLoc kw.bounds "Imports must go before any declarations or directives"
+  <|> guarded (isKeywordTok "import")
+     (do kw <- bounds $ keyword "import"
+         the (Rule PDecl) $ fatalLoc kw.bounds "Imports must go before any declarations or directives")
       -- If the user tried to begin a declaration with any other keyword, then show a more informative error.
-  <|> do kw <- bounds anyKeyword
-         the (Rule PDecl) $ fatalLoc kw.bounds "Keyword '\{kw.val}' is not a valid start to a declaration"
+  <|> guarded isAnyKeywordTok
+     (do kw <- bounds anyKeyword
+         the (Rule PDecl) $ fatalLoc kw.bounds "Keyword '\{kw.val}' is not a valid start to a declaration")
   <|> fatalError "Couldn't parse declaration"
 
 -- All the clauses get parsed as one-clause definitions. Collect any
@@ -2319,6 +2445,7 @@ knownCommands =
   , ("gd", "Try to generate a definition using proof-search")
   , ("gdnext", "Show next definition")
   , ("version", "Display the Idris version")
+  , ("explain", "Explain an error code (such as E0101), with an example and the usual fixes")
   ] ++
   explain ["?", "h", "help"] (unlines     -- FIXME: this should be a multiline string (see #2087)
         [ "Display help text, optionally of a specific command.\n"
@@ -2801,6 +2928,7 @@ parserCommandsForHelp =
   , editLineNameOptionArgCmd (ParseREPLCmd ["gd"]) GenerateDef (firstHelpLine "gd")
   , noArgCmd (ParseREPLCmd ["gdnext"]) (Editing GenerateDefNext) (firstHelpLine "gdnext")
   , noArgCmd (ParseREPLCmd ["version"]) ShowVersion (firstHelpLine "version")
+  , nameArgCmd (ParseREPLCmd ["explain"]) (ExplainCode . show) (firstHelpLine "explain")
   , helpCmd (ParseREPLCmd ["?", "h", "help"]) Help (firstHelpLine "?")
   , declsArgCmd (ParseKeywordCmd ["let"]) NewDefn (firstHelpLine "let")
   , exprArgCmd (ParseREPLCmd ["fs", "fsearch"]) FuzzyTypeSearch (firstHelpLine "fs")

@@ -1,0 +1,13 @@
+Right ()
+Left byte 512: arrays and objects nested deeper than 512
+Right ()
+Left byte 10: arrays and objects nested deeper than 10
+Right ()
+Left byte 512: arrays and objects nested deeper than 512
+Right ()
+input bytes: 3297781
+elements: 40000
+output bytes: 3297781, same: True
+True
+Right 3000000
+Right True

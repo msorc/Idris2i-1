@@ -381,7 +381,7 @@ is rejected:
 
 ::
 
-    Error: half is not covering.
+    Error: half is not covering. [E0602]
 
     Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:...
     Prelude.Num.Integral implementation at Prelude.Num:... is not covering, because of Prelude.Num.div, Prelude.Num.mod

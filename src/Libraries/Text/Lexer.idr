@@ -124,7 +124,10 @@ mutual
   ||| /`l`\*/
   export
   many : Lexer -> Recognise False
-  many l = opt (some l)
+  many l = case isPred l of
+             -- (the same, faster)
+             Just f => predMany f
+             Nothing => opt (some l)
 
 ||| Repeat the sub-lexer `l` one or more times until the lexer
 ||| `stopBefore` is encountered. `stopBefore` will not be consumed.

@@ -1,0 +1,32 @@
+GET /health: 200 ok
+
+POST /todos: 201 {"id":1,"title":"write the docs","done":false}
+POST /todos: 201 {"id":2,"title":"run the benchmark","done":true}
+GET /todos: 200 [{"id":1,"title":"write the docs","done":false},{"id":2,"title":"run the benchmark","done":true}]
+GET /todos?done=false: 200 [{"id":1,"title":"write the docs","done":false}]
+PUT /todos/1: 200 {"id":1,"title":"write the docs","done":true}
+GET /todos/1: 200 {"id":1,"title":"write the docs","done":true}
+DELETE /todos/2: 204 
+GET /todos/2: 404 {"error":"no such item"}
+GET /todos/x: 404 {"error":"no such item"}
+POST /todos: 400 {"error":"missing member","path":"$.title"}
+POST /todos: 400 {"error":"invalid JSON at byte 0: unexpected 'n', expected a value"}
+PATCH /todos/1: 405 405 Method Not Allowed
+
+service exit: 0
+listening on 127.0.0.1:PORT
+GET /health 200 3B
+POST /todos 201 46B
+POST /todos 201 48B
+GET /todos 200 97B
+GET /todos?done=false 200 48B
+PUT /todos/1 200 45B
+GET /todos/1 200 45B
+DELETE /todos/2 204 0B
+GET /todos/2 404 24B
+GET /todos/x 404 24B
+POST /todos 400 43B
+POST /todos 400 68B
+PATCH /todos/1 405 23B
+interrupted: stopping
+stopped

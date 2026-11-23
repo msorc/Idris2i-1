@@ -19,6 +19,7 @@ Idris2_Value *Main_insert
 {
     Idris2_Value *idris2_trmc_result = NULL;
     Idris2_Value **idris2_trmc_hole = &idris2_trmc_result;
+    IDRIS2_SAFEPOINT();
     idris2_self_entry: ;
     Idris2_Value * tmp_0 = NULL;                             // Main:6:24--6:31
     switch (((Idris2_Constructor *)var_2)->tag) {

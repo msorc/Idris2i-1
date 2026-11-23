@@ -1,0 +1,23 @@
+--- curl against the server
+curl exit: 0
+ h e l l o f r o m i d r i s
+ \0 001 002 377 b y e 003 350 d o n e
+--- the client against a Python peer
+subprotocol: Just "echo"
+echo: TextMessage (16 bytes) same: True
+echo: TextMessage (10 bytes) same: True
+echo: BinaryMessage (3 bytes) same: True
+echo: BinaryMessage (70000 bytes) same: True
+client: closed 1000, sent 1000, by this side
+request: GET /path?q=1 HTTP/1.1
+  upgrade = websocket
+  connection = Upgrade
+  sec-websocket-version = 13
+  sec-websocket-protocol = echo
+  key is 16 bytes: True
+message: opcode 1 fin True length 16
+message: opcode 1 fin True length 10
+message: opcode 2 fin True length 3
+message: opcode 2 fin True length 70000
+close from the client: 1000 client done
+masking keys all different: True

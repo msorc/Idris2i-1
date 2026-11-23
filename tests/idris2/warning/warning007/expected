@@ -1,6 +1,6 @@
 1/1: Building Recompute (Recompute.idr)
 1/1: Building Recompute (Recompute.idr)
-Warning: us is a local definition without arguments that uses m from sumLookups, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+Warning: us is a local definition without arguments that uses m from sumLookups, so it is recomputed at each use. If it is expensive, bind it with let and pass it on. [W0007]
 
 Recompute:15:5--15:18
  11 | -- Used from a local function with arguments
@@ -10,7 +10,7 @@ Recompute:15:5--15:18
  15 |     us : List Nat
           ^^^^^^^^^^^^^
 
-Warning: us is a local definition without arguments that uses m from countIn, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+Warning: us is a local definition without arguments that uses m from countIn, so it is recomputed at each use. If it is expensive, bind it with let and pass it on. [W0007]
 
 Recompute:25:5--25:18
  21 | -- Used under a lambda
@@ -20,7 +20,7 @@ Recompute:25:5--25:18
  25 |     us : List Nat
           ^^^^^^^^^^^^^
 
-Warning: us is a local definition without arguments that uses m from twice, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+Warning: us is a local definition without arguments that uses m from twice, so it is recomputed at each use. If it is expensive, bind it with let and pass it on. [W0007]
 
 Recompute:32:5--32:18
  28 | -- Used twice
@@ -30,7 +30,7 @@ Recompute:32:5--32:18
  32 |     us : List Nat
           ^^^^^^^^^^^^^
 
-Warning: us is a local definition without arguments that uses m from letBlock, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+Warning: us is a local definition without arguments that uses m from letBlock, so it is recomputed at each use. If it is expensive, bind it with let and pass it on. [W0007]
 
 Recompute:38:9--38:22
  34 |
@@ -40,7 +40,7 @@ Recompute:38:9--38:22
  38 |   = let us : List Nat
               ^^^^^^^^^^^^^
 
-Warning: us is a local definition without arguments that uses m from inCase, so it is recomputed at each use. If it is expensive, bind it with let and pass it on.
+Warning: us is a local definition without arguments that uses m from inCase, so it is recomputed at each use. If it is expensive, bind it with let and pass it on. [W0007]
 
 Recompute:50:5--50:18
  46 | inCase m xs = sum (map (\x => case x of

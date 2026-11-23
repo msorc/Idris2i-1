@@ -1,5 +1,5 @@
 1/1: Building Issue3474 (Issue3474.idr)
-Warning: You may be unintentionally shadowing the following local bindings:
+Warning: You may be unintentionally shadowing the following local bindings: [W0004]
   x
 
 Issue3474:23:3--23:10

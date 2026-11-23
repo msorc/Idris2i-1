@@ -1,8 +1,7 @@
 1/1: Building UnifyPiInfo (UnifyPiInfo.idr)
-Error: While processing right hand side of g. When unifying:
-    Type -> Type -> Type
-and:
-    Type -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> {_ : Type} -> Type
+    Got:      Type -> Type -> Type
 Mismatch between: Type -> Type and Type.
 
 UnifyPiInfo:8:7--8:8
@@ -13,10 +12,9 @@ UnifyPiInfo:8:7--8:8
  8 |   g = f
            ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> Type -> Type
-and:
-    Type -> Type => Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> Type => Type
+    Got:      Type -> Type -> Type
 Mismatch between: Type -> Type and Type => Type.
 
 UnifyPiInfo:13:7--13:8
@@ -27,10 +25,9 @@ UnifyPiInfo:13:7--13:8
  13 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> Type -> Type
-and:
-    Type -> {default Int _ : Type} -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> {default Int _ : Type} -> Type
+    Got:      Type -> Type -> Type
 Mismatch between: Type -> Type and {default Int _ : Type} -> Type.
 
 UnifyPiInfo:18:7--18:8
@@ -41,10 +38,9 @@ UnifyPiInfo:18:7--18:8
  18 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> Type
-and:
-    Type -> Type -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> Type -> Type
+    Got:      Type -> {_ : Type} -> Type
 Mismatch between: Type and Type -> Type.
 
 UnifyPiInfo:27:7--27:8
@@ -55,10 +51,9 @@ UnifyPiInfo:27:7--27:8
  27 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> Type
-and:
-    Type -> Type => Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> Type => Type
+    Got:      Type -> {_ : Type} -> Type
 Mismatch between: Type and Type => Type.
 
 UnifyPiInfo:32:7--32:8
@@ -69,10 +64,9 @@ UnifyPiInfo:32:7--32:8
  32 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> Type
-and:
-    Type -> {default Int _ : Type} -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> {default Int _ : Type} -> Type
+    Got:      Type -> {_ : Type} -> Type
 Mismatch between: Type and {default Int _ : Type} -> Type.
 
 UnifyPiInfo:37:7--37:8
@@ -83,10 +77,9 @@ UnifyPiInfo:37:7--37:8
  37 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> Type => Type
-and:
-    Type -> Type -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> Type -> Type
+    Got:      Type -> Type => Type
 Mismatch between: Type => Type and Type -> Type.
 
 UnifyPiInfo:46:7--46:8
@@ -97,10 +90,9 @@ UnifyPiInfo:46:7--46:8
  46 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> Type => Type
-and:
-    Type -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> {_ : Type} -> Type
+    Got:      Type -> Type => Type
 Mismatch between: Type => Type and Type.
 
 UnifyPiInfo:51:7--51:8
@@ -111,10 +103,9 @@ UnifyPiInfo:51:7--51:8
  51 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> Type => Type
-and:
-    Type -> {default Int _ : Type} -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> {default Int _ : Type} -> Type
+    Got:      Type -> Type => Type
 Mismatch between: Type => Type and {default Int _ : Type} -> Type.
 
 UnifyPiInfo:56:7--56:8
@@ -125,10 +116,9 @@ UnifyPiInfo:56:7--56:8
  56 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> {default Int _ : Type} -> Type
-and:
-    Type -> Type -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> Type -> Type
+    Got:      Type -> {default Int _ : Type} -> Type
 Mismatch between: {default Int _ : Type} -> Type and Type -> Type.
 
 UnifyPiInfo:65:7--65:8
@@ -139,10 +129,9 @@ UnifyPiInfo:65:7--65:8
  65 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> {default Int _ : Type} -> Type
-and:
-    Type -> Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> {_ : Type} -> Type
+    Got:      Type -> {default Int _ : Type} -> Type
 Mismatch between: {default Int _ : Type} -> Type and Type.
 
 UnifyPiInfo:70:7--70:8
@@ -153,10 +142,9 @@ UnifyPiInfo:70:7--70:8
  70 |   g = f
             ^
 
-Error: While processing right hand side of g. When unifying:
-    Type -> {default Int _ : Type} -> Type
-and:
-    Type -> Type => Type
+Error: While processing right hand side of g. When unifying: [E0101]
+    Expected: Type -> Type => Type
+    Got:      Type -> {default Int _ : Type} -> Type
 Mismatch between: {default Int _ : Type} -> Type and Type => Type.
 
 UnifyPiInfo:75:7--75:8
@@ -168,10 +156,9 @@ UnifyPiInfo:75:7--75:8
             ^
 
 1/1: Building Examples (Examples.idr)
-Error: While processing right hand side of pls. When unifying:
-    Int -> Int -> Int
-and:
-    Int -> Int
+Error: While processing right hand side of pls. When unifying: [E0101]
+    Expected: Int -> {_ : Int} -> Int
+    Got:      Int -> Int -> Int
 Mismatch between: Int -> Int and Int.
 
 Examples:2:7--2:10
@@ -179,10 +166,9 @@ Examples:2:7--2:10
  2 | pls = (+)
            ^^^
 
-Error: While processing right hand side of foo. When unifying:
-    Int -> Int -> Int
-and:
-    Int -> Int
+Error: While processing right hand side of foo. When unifying: [E0101]
+    Expected: Int -> {_ : Int} -> Int
+    Got:      Int -> Int -> Int
 Mismatch between: Int -> Int and Int.
 
 Examples:8:19--8:22
@@ -193,15 +179,13 @@ Examples:8:19--8:22
  8 | foo = higherOrder (+)
                        ^^^
 
-Error: While processing right hand side of maybePls. When unifying:
-    Maybe Int
-and:
-    Maybe Int
+Error: While processing right hand side of maybePls. When unifying: [E0101]
+    Expected: Maybe Int
+    Got:      Maybe Int
 When unifying:
-    Maybe Int
-and:
-    Maybe (Int -> ?b)
-Mismatch between: Int and Int -> ?b.
+    Expected: Maybe (Int -> ?b{1})
+    Got:      Maybe Int
+Mismatch between: Int and Int -> ?b{1}.
 
 Examples:11:16--11:46
  07 | foo : ()
@@ -210,4 +194,6 @@ Examples:11:16--11:46
  10 | maybePls : Maybe Int -> Maybe Int -> Maybe Int
  11 | maybePls x y = pure {f=Maybe} pls <*> x <*> y
                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This was postponed, and failed after inferring ?b{2} = Int (at Examples:11:16--11:46), ?f = Maybe (at Examples:11:45--11:46).
 

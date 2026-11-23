@@ -9,3 +9,5 @@ The cookbook provides common recipes for common patterns and applications in Idr
    :maxdepth: 1
 
    parsing
+   webservice
+   websocket

@@ -1,0 +1,44 @@
+1/1: Building Spans (Spans.idr)
+Error: While processing right hand side of wrong. Mismatch between: Nat and String. [E0101]
+When unifying:
+    Expected: String
+    Got:      Nat
+
+Spans:19:11--21:34
+ 19 | wrong n = the Nat (case n of
+                ^^^^^^^^^^^^^^^^^^
+ 20 |                         Z => 0
+ 21 |                         S k => 1) ++ "x"
+                              ^^^^^^^^^
+
+Error: long is not covering. [E0601]
+
+Spans:8:1--15:12
+ 08 | long : Nat ->
+      ^^^^^^^^^^^^^
+ 09 |        Nat ->
+ .. |
+ 14 |        Nat ->
+ 15 |        Bool
+             ^^^^
+
+Missing cases:
+    long 0 0 0 0 0 0 (S _)
+    long 0 0 0 0 0 (S _) _
+    long 0 0 0 0 (S _) _ _
+    long 0 0 0 (S _) _ _ _
+    long 0 0 (S _) _ _ _ _
+    long 0 (S _) _ _ _ _ _
+    long (S _) _ _ _ _ _ _
+
+Error: short is not covering. [E0601]
+
+Spans:4:1--5:13
+ 4 | short : Nat ->
+     ^^^^^^^^^^^^^^
+ 5 |         Bool
+             ^^^^
+
+Missing cases:
+    short (S _)
+

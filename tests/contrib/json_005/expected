@@ -1,0 +1,43 @@
+Just "80": byte 2: invalid UTF-8 in a string
+Just "c080": byte 2: invalid UTF-8 in a string
+Just "c1bf": byte 2: invalid UTF-8 in a string
+Just "e08080": byte 2: invalid UTF-8 in a string
+Just "eda080": byte 2: invalid UTF-8 in a string
+Just "f0808080": byte 2: invalid UTF-8 in a string
+Just "f4908080": byte 2: invalid UTF-8 in a string
+Just "f5808080": byte 2: invalid UTF-8 in a string
+Just "ff": byte 2: invalid UTF-8 in a string
+Just "c3": byte 2: invalid UTF-8 in a string
+Just "e282": byte 2: invalid UTF-8 in a string
+Just "c328": byte 2: invalid UTF-8 in a string
+35 accepted, 50 rejected
+True
+Right {"a":1.0,"a":2.0,"b":[]}
+Right ["b", "a", "b"]
+Right [-0.0,0.1,1e21,+inf.0,9.007199254740992e15,1.7976931348623157e308,5e-324|1,2.2250738585072014e-308]
+"[1, 2,]"
+  line 1, column 6 (byte 5): trailing comma
+"{\"a\": tru}"
+  line 1, column 7 (byte 6): unexpected 't', expected a value
+"[1,\n 2,\n 3 4]"
+  line 3, column 4 (byte 11): unexpected '4', expected ',' or ']'
+"\"\\ud800\" "
+  line 1, column 2 (byte 1): \u escape of a surrogate that is not part of a pair
+"{\"k\":\n\t\"v\\q\"}"
+  line 2, column 4 (byte 9): invalid escape sequence
+"[\"caf\233\", \"\128512\", x]"
+  line 1, column 15 (byte 18): unexpected 'x', expected a value
+"  01"
+  line 1, column 4 (byte 3): leading zero in a number
+"[1.e5]"
+  line 1, column 4 (byte 3): invalid number
+"{\"a\" 1}"
+  line 1, column 6 (byte 5): unexpected '1', expected ':'
+"[\"a\tb\"]"
+  line 1, column 4 (byte 3): unescaped control character byte 0x09 in a string
+"\"open"
+  line 1, column 1 (byte 0): unterminated string
+"[1] 2"
+  line 1, column 5 (byte 4): unexpected data after the JSON value
+"[[["
+  line 1, column 4 (byte 3): unexpected end of input, expected a value

@@ -156,7 +156,9 @@ How directives are treated in aggregate depends on the codegen and directive. Fo
 ``extraRuntime`` directive for the Chez codegen is deduplicated.  And the javascript backend gives
 the ``minimal`` directive priority over the ``compact`` directive if both are present.
 
-See the section for each codegen under :ref:`sect-execs` for available directives.
+See the section for each codegen under :ref:`sect-execs` for available directives.  With the RefC
+codegen, directives tell what to link a program with (``%cg refc refc-lib=ssl``), see
+:ref:`sect-ffi-linking`.
 
 Pragmas on declarations
 =======================

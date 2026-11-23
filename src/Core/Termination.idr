@@ -83,7 +83,8 @@ export
 checkPositive : {auto c : Ref Ctxt Defs} ->
                 FC -> Name -> Core Terminating
 checkPositive loc n_in
-    = do n <- toResolvedNames n_in
+    = profile "totality" $
+      do n <- toResolvedNames n_in
          tot <- getTotality loc n
          logC "totality.positivity" 6 $ do pure $ "Checking positivity: " ++ show !(toFullNames n)
          case isTerminating tot of
@@ -101,7 +102,8 @@ export
 checkTotal : {auto c : Ref Ctxt Defs} ->
              FC -> Name -> Core Terminating
 checkTotal loc n_in
-    = do defs <- get Ctxt
+    = profile "totality" $
+      do defs <- get Ctxt
          let Just nidx = getNameID n_in (gamma defs)
              | Nothing => undefinedName loc n_in
          let n = Resolved nidx

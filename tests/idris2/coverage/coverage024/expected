@@ -1,15 +1,16 @@
 1/1: Building Issue2690 (Issue2690.idr)
-Error: boom is not covering.
+Error: boom is not covering. [E0602]
 
-Issue2690:4:1--4:12
+Issue2690:5:8--5:15
  1 | trythis : (mb : Maybe Bool) -> mb === Just True -> Void
  2 | trythis Nothing ab = absurd ab
  3 |
  4 | boom : Void
-     ^^^^^^^^^^^
+ 5 | boom = trythis (Just True) Refl
+            ^^^^^^^
 
 Calls non covering function Main.trythis
-Error: trythis is not covering.
+Error: trythis is not covering. [E0601]
 
 Issue2690:1:1--1:56
  1 | trythis : (mb : Maybe Bool) -> mb === Just True -> Void

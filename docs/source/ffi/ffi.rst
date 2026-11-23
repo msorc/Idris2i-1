@@ -80,6 +80,96 @@ the individual backends.
 The standard C backend is known as "RefC", and uses the ``RefC`` language
 specifier.
 
+.. _sect-ffi-linking:
+
+Linking C libraries
+-------------------
+
+The back ends find the C code of a foreign function in different ways.  The
+Scheme back ends load the ``library`` of the specifier (``"C:fn,libfoo"``) when
+the program runs, as a shared object: ``libfoo.so`` in the current directory or
+the system library paths, or one that ``%cg chez lib...`` names.  The RefC back
+end compiles and links the program with the C compiler, and ignores the
+``library`` of the specifier: it only uses the header (the third part), which it
+includes.  What the program is linked with is told by directives:
+
+``refc-lib=<names>``
+    links ``-l<name>`` for each name (``refc-lib=ssl crypto`` for
+    ``-lssl -lcrypto``).
+
+``refc-archive=<files>``
+    links a static archive (or an object file) by its path.  It is looked for
+    in the ``lib`` directories: those of the installed packages that the
+    program depends on, those of ``IDRIS2_LIBS``, the ``lib`` directory of the
+    Idris 2 installation and the current directory.
+
+``refc-pkg-config=<names>``
+    compiles the C of the program with the flags of
+    ``pkg-config --cflags <name>``, and links it with those of
+    ``pkg-config --libs <name>`` (``PKG_CONFIG`` names another program than
+    ``pkg-config``, and ``PKG_CONFIG_PATH`` tells it where to look).  This
+    finds libraries that are installed in other places than the system ones
+    (OpenSSL from Homebrew, say).  A module that pkg-config does not know is an
+    error.
+
+The directives are given with ``--directive`` (on the command line, or in the
+``opts`` of a package), or in a module with ``%cg refc``; a module stores its
+``%cg`` directives, and every program that imports it, directly or through
+other modules, gets them.  So a library that wraps a C library says what to
+link, and its users have nothing to do:
+
+.. code-block:: idris
+
+    module Answer
+
+    %cg refc refc-archive=libanswer.a
+
+    %foreign "C:answer_plus,,answer.h"
+    prim__answerPlus : Int -> Int
+
+The ``lib`` directories of the packages are also directories where the C
+compiler looks for headers (``-I``), so that a package can ship the header of
+its C code next to its archive.  ``idris2 --install`` runs the ``postinstall``
+script of the package with ``IDRIS2_PACKAGE_INSTALL_DIR`` set to the directory
+where the package was installed, which can copy them there (like the other
+scripts of a package, it runs in the directory of the ``.ipkg`` file, wherever
+``idris2`` was started):
+
+::
+
+    package answer
+    version = 0.1.0
+    modules = Answer
+    prebuild = "make -C c"
+    postinstall = "sh install-c.sh"
+
+with ``install-c.sh``:
+
+::
+
+    set -e
+    mkdir -p "$IDRIS2_PACKAGE_INSTALL_DIR/lib"
+    cp c/libanswer.a c/answer.h "$IDRIS2_PACKAGE_INSTALL_DIR/lib/"
+
+The archives come first on the line of the linker, in the order of the
+directives, then the libraries, then the flags of pkg-config, all after the
+object files of the program and before the support libraries of the run time
+(so that the C code of a library may call the run time) and the
+``IDRIS2_LDLIBS`` of the user, which can still add other libraries.  The
+directives of the command line come first, then those of the modules, sorted
+by their text; the names of one directive keep their order, and a name that
+comes more than once is linked once, at its last place, so that an archive
+that needs another one is best given in the same directive, before it
+(``refc-archive=libtls.a libcrypto.a``).  A directive with a value that cannot
+be a name (``refc-lib=-lssl``, an empty one), an archive that is not found and
+an unknown ``refc-`` directive are errors, before anything is compiled.  The
+other back ends ignore these directives, as RefC ignores the ``%cg chez``
+ones.
+
+The flags of the environment (``IDRIS2_CFLAGS``, ``IDRIS2_LDFLAGS``,
+``IDRIS2_LDLIBS``, see :doc:`../backends/refc`) still work, for what the directives
+do not cover.
+
 Javascript Details
 -------------------
 

@@ -15,18 +15,16 @@ exit code 0
 --- one module changed
 exit code 0
 3/5: Building Right (work/Right.idr)
-5/5: Building Top (work/Top.idr)
 --- an error in a module that is built at the same time as another
 exit code 1
 1/5: Building Base (work/Base.idr)
 4/5: Building Extra (work/Extra.idr)
 3/5: Building Right (work/Right.idr)
 2/5: Building Left (work/Left.idr)
-Error: While processing right hand side of twice. When unifying:
-    Colour
-and:
-    Colour -> Colour
-Mismatch between: Colour and Colour -> Colour.
+Error: While processing right hand side of twice. Mismatch between: Colour and Colour -> Colour. [E0101]
+When unifying:
+    Expected: Colour -> Colour
+    Got:      Colour
 
 Left:7:11--7:26
  3 | import Base

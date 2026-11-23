@@ -1,0 +1,22 @@
+. ../../testutils.sh
+
+# The client and server tests of HTTP/1.1 (client_basic, server_stream) run
+# again, with the same handlers and expectations, over HTTP/2 (h2c with
+# prior knowledge): their clients are made with `http2PriorKnowledge`.
+# The raw HTTP/1.1 servers of client_basic are left out, and the expected
+# outputs differ where HTTP/2 differs (no chunked coding).
+h2() { sed -e 's/newClient defaultClientConfig/newClient ({ http2PriorKnowledge := True } defaultClientConfig)/' \
+           -e '/http2PriorKnowledge/!s/newClient ({ \([^}]*\) } defaultClientConfig)/newClient ({ \1, http2PriorKnowledge := True } defaultClientConfig)/' "$1"; }
+
+mkdir -p build/basic build/stream
+h2 ../client_basic/Main.idr | sed -e '/-- raw servers/,/^  closeIdle c$/{/^  closeIdle c$/!d}' > build/basic/Main.idr
+h2 ../server_stream/Main.idr > build/stream/Main.idr
+cp ../common/HttpTest.idr build/basic/
+cp ../common/HttpTest.idr build/stream/
+(cd build/basic && idris2 -p contrib -p network -p http -o main Main.idr)
+(cd build/stream && idris2 -p contrib -p network -p http -o main Main.idr)
+for w in 1 4; do
+  echo "=== $w workers"
+  IDRIS2_WORKERS=$w timeout 120 build/basic/build/exec/main
+  IDRIS2_WORKERS=$w timeout 120 build/stream/build/exec/main
+done

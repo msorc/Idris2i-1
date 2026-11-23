@@ -1,5 +1,5 @@
 1/1: Building RecordParam (RecordParam.idr)
-Warning: You may be unintentionally shadowing the following local bindings:
+Warning: You may be unintentionally shadowing the following local bindings: [W0004]
   x
 
 RecordParam:23:3--23:87
@@ -10,7 +10,7 @@ RecordParam:23:3--23:87
  23 |   f : {x : Type} -> {x : Int} -> {_ : String} -> (x : Double) => {x : Integer} -> Type
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: You may be unintentionally shadowing the following local bindings:
+Warning: You may be unintentionally shadowing the following local bindings: [W0004]
   x
 
 RecordParam:23:3--23:87

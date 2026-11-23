@@ -383,3 +383,30 @@ const _sub64u = (a,b) => BigInt.asUintN(64, a - b)
 const _strReverse = x => x.split('').reverse().join('')
 
 const _substr = (o,l,x) => x.slice(o, o + l)
+
+// Crash boundaries (System.Crash): `act` is a `PrimIO a`.  An Idris crash
+// (an IdrisError) or any error that JavaScript raises ends it; its result is
+// returned, or null if it crashed, and then __prim_crash_last is the record
+// of what happened (until it is read).
+let __prim_crashes = 0
+let __prim_crash_last = null
+
+function __prim_crash_catch(act) {
+  try {
+    return act(_idrisworld)
+  } catch (e) {
+    __prim_crashes++
+    // (the clause added to a function that does not cover every input
+    // crashes with this message)
+    if (e instanceof IdrisError)
+      __prim_crash_last = { kind: e.message.startsWith('Unhandled input for ') ? 1 : 0,
+                            message: e.message, backtrace: null }
+    else
+      __prim_crash_last =
+        { kind: 2, message: String(e && e.message !== undefined ? e.message : e),
+          backtrace: e && typeof e.stack === 'string' ? e.stack + '\n' : null }
+    return null
+  }
+}
+
+function __prim_crashes_caught() { return __prim_crashes }

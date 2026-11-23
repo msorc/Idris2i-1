@@ -1,5 +1,5 @@
  1/10: Building AppendVec (AppendVec.idr)
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -10,7 +10,7 @@ AppendVec:4:1--4:49
  4 | append_nil : Vect m elem -> Vect (plus m 0) elem
      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -22,7 +22,7 @@ AppendVec:7:1--7:62
  7 | append_xs : Vect (S (m + k)) elem -> Vect (plus m (S k)) elem
      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 

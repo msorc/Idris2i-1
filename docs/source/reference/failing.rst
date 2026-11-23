@@ -67,14 +67,14 @@ Checking the above gives:
 
 ::
 
-    Error: Failing block did not fail.
+    Error: Failing block did not fail. [E1401]
 
 Similarly, if an expected error (sub)string is given but the error output does
 not match, we get:
 
 ::
 
-    Error: Failing block failed with the wrong error.
+    Error: Failing block failed with the wrong error. [E1402]
 
 Followed by the given expected error string and the actual error output,
 allowing us to compare and contrast.

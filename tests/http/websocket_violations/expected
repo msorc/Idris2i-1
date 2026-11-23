@@ -1,0 +1,236 @@
+fragments with pings between them
+  pong "p1"
+  pong "p2"
+  text "Hello, world"
+  close 1000 ""
+  [end]
+  server: closed 1000 "bye", sent 1000, by the peer
+binary fragments of zero bytes
+  binary ""
+  close 1000 ""
+  [end]
+  server: closed 1000, sent 1000, by the peer
+close without a code
+  close (no code)
+  [end]
+  server: closed 1005, sent nothing, by the peer
+close with a private code
+  close 4321 ""
+  [end]
+  server: closed 4321 "private", sent 4321, by the peer
+unmasked client frame
+  close 1002 "unmasked frame from a client"
+  [end]
+  server: closed 1006 "unmasked frame from a client", sent 1002, by this side
+RSV1 set (no extension was agreed)
+  close 1002 "reserved bit set"
+  [end]
+  server: closed 1006 "reserved bit set", sent 1002, by this side
+RSV2 set
+  close 1002 "reserved bit set"
+  [end]
+  server: closed 1006 "reserved bit set", sent 1002, by this side
+RSV3 set
+  close 1002 "reserved bit set"
+  [end]
+  server: closed 1006 "reserved bit set", sent 1002, by this side
+reserved opcode 3
+  close 1002 "reserved opcode 3"
+  [end]
+  server: closed 1006 "reserved opcode 3", sent 1002, by this side
+reserved opcode 11
+  close 1002 "reserved opcode 11"
+  [end]
+  server: closed 1006 "reserved opcode 11", sent 1002, by this side
+fragmented ping
+  close 1002 "fragmented control frame"
+  [end]
+  server: closed 1006 "fragmented control frame", sent 1002, by this side
+ping of 126 bytes
+  close 1002 "control frame longer than 125 bytes"
+  [end]
+  server: closed 1006 "control frame longer than 125 bytes", sent 1002, by this side
+continuation without a message
+  close 1002 "continuation without a message"
+  [end]
+  server: closed 1006 "continuation without a message", sent 1002, by this side
+text inside a fragmented message
+  close 1002 "new message inside a fragmented one"
+  [end]
+  server: closed 1006 "new message inside a fragmented one", sent 1002, by this side
+invalid UTF-8 in one frame
+  close 1007 "invalid UTF-8"
+  [end]
+  server: closed 1006 "invalid UTF-8", sent 1007, by this side
+invalid UTF-8 split across fragments
+  close 1007 "invalid UTF-8"
+  [end]
+  server: closed 1006 "invalid UTF-8", sent 1007, by this side
+text ending inside a code point
+  close 1007 "invalid UTF-8"
+  [end]
+  server: closed 1006 "invalid UTF-8", sent 1007, by this side
+a surrogate (U+D800)
+  close 1007 "invalid UTF-8"
+  [end]
+  server: closed 1006 "invalid UTF-8", sent 1007, by this side
+close payload of one byte
+  close 1002 "invalid close frame"
+  [end]
+  server: closed 1006 "invalid close frame", sent 1002, by this side
+close code 1005
+  close 1002 "invalid close frame"
+  [end]
+  server: closed 1006 "invalid close frame", sent 1002, by this side
+close code 999
+  close 1002 "invalid close frame"
+  [end]
+  server: closed 1006 "invalid close frame", sent 1002, by this side
+close code 1004
+  close 1002 "invalid close frame"
+  [end]
+  server: closed 1006 "invalid close frame", sent 1002, by this side
+close code 5000
+  close 1002 "invalid close frame"
+  [end]
+  server: closed 1006 "invalid close frame", sent 1002, by this side
+close reason not UTF-8
+  close 1007 "invalid close frame"
+  [end]
+  server: closed 1006 "invalid close frame", sent 1007, by this side
+one frame over the message limit (100000)
+  close 1009 "message too big"
+  [end]
+  server: closed 1006 "message too big", sent 1009, by this side
+fragments over the message limit
+  close 1009 "message too big"
+  [end]
+  server: closed 1006 "message too big", sent 1009, by this side
+a 64-bit length with the top bit set
+  close 1002 "length out of range"
+  [end]
+  server: closed 1006 "length out of range", sent 1002, by this side
+a length in 16 bits that fits 7
+  close 1002 "length not in its shortest form"
+  [end]
+  server: closed 1006 "length not in its shortest form", sent 1002, by this side
+data after the close
+  close 1000 ""
+  [end]
+  server: closed 1000, sent 1000, by the peer
+client /masked: closed 1006 "masked frame from a server", sent 1002, by this side
+raw server got: opcode 8 code 1002
+client /rsv: closed 1006 "reserved bit set", sent 1002, by this side
+raw server got: opcode 8 code 1002
+client /opcode: closed 1006 "reserved opcode 3", sent 1002, by this side
+raw server got: opcode 8 code 1002
+client /badtext: closed 1006 "invalid UTF-8", sent 1007, by this side
+raw server got: opcode 8 code 1007
+--- valid
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+Sec-WebSocket-Protocol: b
+
+[closed by the server]
+--- subprotocols in two fields
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+Sec-WebSocket-Protocol: a
+
+[closed by the server]
+--- no subprotocol in common
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+
+[closed by the server]
+--- version 8
+HTTP/1.1 426 Upgrade Required
+Content-Type: text/plain; charset=utf-8
+Sec-WebSocket-Version: 13
+Content-Length: 42
+
+only version 13 of WebSocket is supported
+[closed by the server]
+--- no version
+HTTP/1.1 426 Upgrade Required
+Content-Type: text/plain; charset=utf-8
+Sec-WebSocket-Version: 13
+Content-Length: 42
+
+only version 13 of WebSocket is supported
+[closed by the server]
+--- bad key
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 26
+
+invalid Sec-WebSocket-Key
+[closed by the server]
+--- no key
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 32
+
+one Sec-WebSocket-Key is needed
+[closed by the server]
+--- no Upgrade
+HTTP/1.1 426 Upgrade Required
+Content-Type: text/plain; charset=utf-8
+Upgrade: websocket
+Connection: Upgrade
+Content-Length: 43
+
+this resource needs a WebSocket connection
+[closed by the server]
+--- no Connection: Upgrade
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 42
+
+the Connection field has no upgrade token
+[closed by the server]
+--- tokens in other case and lists
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+
+[closed by the server]
+--- POST
+HTTP/1.1 405 Method Not Allowed
+Content-Type: text/plain; charset=utf-8
+Allow: GET
+Content-Length: 39
+
+a WebSocket handshake is a GET request
+[closed by the server]
+--- HTTP/1.0
+HTTP/1.1 400 Bad Request
+Content-Type: text/plain; charset=utf-8
+Content-Length: 37
+Connection: close
+
+a WebSocket handshake needs HTTP/1.1
+[closed by the server]
+--- origin allowed
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+
+[closed by the server]
+--- origin refused
+HTTP/1.1 403 Forbidden
+Content-Type: text/plain; charset=utf-8
+Content-Length: 19
+
+origin not allowed
+[closed by the server]
+=== 4 workers
+same output

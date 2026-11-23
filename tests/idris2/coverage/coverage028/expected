@@ -1,15 +1,16 @@
 1/1: Building Issue1998 (Issue1998.idr)
-Error: falseIsTrue is not covering.
+Error: falseIsTrue is not covering. [E0602]
 
-Issue1998:4:1--4:27
+Issue1998:5:30--5:37
  1 | 0 proveit : (0 c : Bool) -> c = True
  2 | proveit True = Refl
  3 |
  4 | falseIsTrue : False = True
-     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 5 | falseIsTrue = irrelevantEq $ proveit False
+                                  ^^^^^^^
 
 Calls non covering function Main.proveit
-Error: proveit is not covering.
+Error: proveit is not covering. [E0601]
 
 Issue1998:1:1--1:37
  1 | 0 proveit : (0 c : Bool) -> c = True

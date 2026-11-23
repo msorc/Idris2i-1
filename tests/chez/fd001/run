@@ -1,0 +1,4 @@
+. ../../testutils.sh
+
+idris2 --cg chez -o main Main.idr
+./build/exec/main

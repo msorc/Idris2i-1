@@ -1,0 +1,19 @@
+package tls
+version = 0.8.0
+brief = "TLS connections over the non-blocking sockets, with OpenSSL 3"
+
+-- The C part (c/) is built before the modules, and installed in the `lib`
+-- directory of the package, where programs find its archive and header
+-- (RefC) or its shared library (Chez, Racket).  It needs OpenSSL 3 and
+-- pkg-config.
+
+opts = "--ignore-missing-ipkg"
+
+depends = network
+
+modules = Network.TLS,
+          Network.TLS.Codes,
+          Network.TLS.FFI
+
+prebuild = "make --no-print-directory -s -C c 1>&2"
+postinstall = "sh install-c.sh"

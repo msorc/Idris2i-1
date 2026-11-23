@@ -34,10 +34,24 @@ void idris2_backtraceThreadSetup(void);
 // on: after the message of a fatal error, before the program exits.
 void idris2_backtracePrint(void);
 
+// The backtrace of the current thread as text (allocated with malloc), as
+// idris2_backtracePrint would print it, down to the innermost crash
+// boundary (see crash.c); NULL when backtraces are off.
+char *idris2_backtraceCapture(void);
+
 // What the functions of a program compiled with `--directive refc-backtrace`
 // are declared with: a function that is inlined has no frame of its own.
 #if defined(__GNUC__) || defined(__clang__)
 #define IDRIS2_BT_NOINLINE __attribute__((noinline))
 #else
 #define IDRIS2_BT_NOINLINE
+#endif
+
+// Put after a call that would be the last thing that a function does, so
+// that the C compiler does not make it a jump: the frame of the function
+// stays on the stack during the call, for the backtraces.
+#if defined(__GNUC__) || defined(__clang__)
+#define IDRIS2_BT_KEEP_FRAME() __asm__ volatile("" ::: "memory")
+#else
+#define IDRIS2_BT_KEEP_FRAME()
 #endif

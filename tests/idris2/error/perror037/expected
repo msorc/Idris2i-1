@@ -1,0 +1,49 @@
+1/1: Building ByteStringLit (ByteStringLit.idr)
+Error: While processing left hand side of f. Can't match on the string literal "abc" of type ByteString: fromString for this type does not reduce to a constructor form. [E0608]
+
+ByteStringLit:4:3--4:8
+ 1 | import Data.ByteString
+ 2 |
+ 3 | f : ByteString -> IO ()
+ 4 | f "abc" = putStrLn "abc"
+       ^^^^^
+
+Suggestion: match a variable and compare it with == instead.
+1/1: Building ByteStringCase (ByteStringCase.idr)
+Error: While processing right hand side of f. Can't match on the string literal "/a" of type ByteString: fromString for this type does not reduce to a constructor form. [E0608]
+
+ByteStringCase:5:3--5:7
+ 1 | import Data.ByteString
+ 2 |
+ 3 | f : ByteString -> String
+ 4 | f p = case p of
+ 5 |   "/a" => "a"
+       ^^^^
+
+Suggestion: match a variable and compare it with == instead.
+1/1: Building Opaque (Opaque.idr)
+Error: While processing left hand side of f. Can't match on the integer literal 3 of type Big: fromInteger for this type does not reduce to a constructor form. [E0608]
+
+Opaque:13:3--13:4
+ 09 |   a + b = a
+ 10 |   a * b = a
+ 11 |
+ 12 | f : Big -> String
+ 13 | f 3 = "three"
+        ^
+
+Suggestion: match a variable and compare it with == instead.
+Error: While processing left hand side of g. Can't match on the string literal "x" of type Name: fromString for this type does not reduce to a constructor form. [E0608]
+
+Opaque:25:3--25:6
+ 21 | FromString Name where
+ 22 |   fromString s = MkName (prim__opaqueStr s)
+ 23 |
+ 24 | g : Name -> String
+ 25 | g "x" = "x"
+        ^^^
+
+Suggestion: match a variable and compare it with == instead.
+is a other
+three other
+three other

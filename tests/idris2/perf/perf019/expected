@@ -1,0 +1,12 @@
+1/1: Building Long (Long.idr)
+Error: While processing right hand side of main. Undefined name isNothing. [E0201]
+
+Long:366:19--366:28
+ 362 |     | Nothing => putStrLn "none"
+ 363 |   x288 <- pure (the Int 288 + 1)
+ 364 |   putStrLn (show x288)
+ 365 |   let y290 = x288 * 2
+ 366 |   putStrLn (show (isNothing (the (Maybe Int) Nothing)))
+                         ^^^^^^^^^
+Suggestion: Data.Maybe exports isNothing; add import Data.Maybe.
+Did you mean: Nothing?

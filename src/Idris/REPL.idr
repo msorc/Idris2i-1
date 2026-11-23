@@ -21,6 +21,7 @@ import Core.SchemeEval
 import Parser.Unlit
 
 import Idris.CommandLine
+import Idris.ErrorCode
 import Idris.Desugar
 import Idris.Doc.Display
 import Idris.Doc.String
@@ -1071,6 +1072,10 @@ process NOP
     = pure Done
 process ShowVersion
     = pure $ VersionIs version
+process (ExplainCode code)
+    = case lookupCode code of
+        Just k => pure $ Printed (vsep (map pretty0 (lines (explainText k))))
+        Nothing => pure $ REPLError (reflow ("Unknown error code: " ++ code ++ "."))
 process (ImportPackage package) = do
   defs <- get Ctxt
   searchDirs <- extraSearchDirectories

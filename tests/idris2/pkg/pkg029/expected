@@ -1,0 +1,64 @@
+=== one process
+--- first build
+Building A
+Building B
+Building C
+Building D
+Building E
+--- nothing changed
+--- a comment in A
+Building A
+--- nothing changed
+--- a private definition of A
+Building A
+--- nothing changed
+--- the body of a public definition of A
+Building A
+Building B
+Building D
+Building E
+--- nothing changed
+--- a definition exported by A
+Building A
+Building B
+Building D
+Building E
+--- nothing changed
+--- B written again, unchanged
+Building B
+--- nothing changed
+--- C
+Building C
+--- nothing changed
+=== two processes
+--- first build
+Building A
+Building B
+Building C
+Building D
+Building E
+--- nothing changed
+--- a comment in A
+Building A
+--- nothing changed
+--- a private definition of A
+Building A
+--- nothing changed
+--- the body of a public definition of A
+Building A
+Building B
+Building D
+Building E
+--- nothing changed
+--- a definition exported by A
+Building A
+Building B
+Building D
+Building E
+--- nothing changed
+--- B written again, unchanged
+Building B
+--- nothing changed
+--- C
+Building C
+--- nothing changed

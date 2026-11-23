@@ -1,0 +1,49 @@
+1/1: Building Capped (Capped.idr)
+Error: While processing right hand side of n. Sorry, I can't find any elaboration which works. All errors: [E0302]
+If Main.G.val: Mismatch between: Maybe Nat and Nat.
+If Main.F.val: Mismatch between: List Nat and Nat.
+If Main.E.val: Mismatch between: Bool and Nat.
+If Main.D.val: Mismatch between: Double and Nat.
+If Main.C.val: Mismatch between: Char and Nat.
+
+Capped:32:5--32:8
+ 28 |   val : Maybe Nat
+ 29 |   val = Just 1
+ 30 |
+ 31 | n : Nat
+ 32 | n = val
+          ^^^
+
+... and 2 more candidates. Use --candidate-error-count 0 to see them all.
+1/1: Building Capped (Capped.idr)
+Error: While processing right hand side of n. Sorry, I can't find any elaboration which works. All errors: [E0302]
+If Main.G.val: Mismatch between: Maybe Nat and Nat.
+If Main.F.val: Mismatch between: List Nat and Nat.
+If Main.E.val: Mismatch between: Bool and Nat.
+If Main.D.val: Mismatch between: Double and Nat.
+If Main.C.val: Mismatch between: Char and Nat.
+If Main.B.val: Mismatch between: String and Nat.
+If Main.A.val: Mismatch between: Int and Nat.
+
+Capped:32:5--32:8
+ 28 |   val : Maybe Nat
+ 29 |   val = Just 1
+ 30 |
+ 31 | n : Nat
+ 32 | n = val
+          ^^^
+
+1/1: Building Capped (Capped.idr)
+Error: While processing right hand side of n. Sorry, I can't find any elaboration which works. All errors: [E0302]
+If Main.G.val: Mismatch between: Maybe Nat and Nat.
+If Main.F.val: Mismatch between: List Nat and Nat.
+
+Capped:32:5--32:8
+ 28 |   val : Maybe Nat
+ 29 |   val = Just 1
+ 30 |
+ 31 | n : Nat
+ 32 | n = val
+          ^^^
+
+... and 5 more candidates. Use --candidate-error-count 0 to see them all.

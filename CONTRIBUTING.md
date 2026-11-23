@@ -60,6 +60,11 @@ We may need to be more formal about this in future!
 Please remember to update `CHANGELOG_NEXT.md`, and if it's your first contribution
 you can add yourself to `CONTRIBUTORS`.
 
+If you change the text of an error message or a warning, follow the guide in
+[`docs/source/implementation/error-messages.rst`](docs/source/implementation/error-messages.rst):
+some of its phrases are matched by `failing` blocks and must not change, and
+the `expected` files of the tests that change must be reviewed one by one.
+
 In all cases, a pull request must have a short description that explains its purpose.
 However obvious you think it might be, it really helps reviewers know what to look for
 when reviewing the changes. A reviewer does not have to be an Idris maintainer and

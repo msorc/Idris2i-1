@@ -1,0 +1,1175 @@
+package http
+
+module Network.HTTP.Base64
+  public export data Alphabet : Type
+    constructor Standard : Network.HTTP.Base64.Alphabet
+    constructor UrlSafe : Network.HTTP.Base64.Alphabet
+  public export data Padding : Type
+    constructor Padded : Network.HTTP.Base64.Padding
+    constructor Unpadded : Network.HTTP.Base64.Padding
+  export total decode : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total decodeUrl : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total decodeUrlUnpadded : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total decodeWith : Network.HTTP.Base64.Alphabet -> Network.HTTP.Base64.Padding -> Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total encode : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total encodeUrl : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total encodeUrlUnpadded : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total encodeWith : Network.HTTP.Base64.Alphabet -> Network.HTTP.Base64.Padding -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Base64.Alphabet
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Base64.Padding
+
+module Network.HTTP.Chunked
+  export record ChunkDecoder : Type
+    field decoded : Network.HTTP.Chunked.ChunkDecoder -> Int
+    field limits : Network.HTTP.Chunked.ChunkDecoder -> Network.HTTP.Chunked.ChunkLimits
+    field state : Network.HTTP.Chunked.ChunkDecoder -> Network.HTTP.Chunked.DState
+  public export data ChunkError : Type
+    constructor BadChunkSize : Network.HTTP.Chunked.ChunkError
+    constructor ChunkSizeTooLarge : Network.HTTP.Chunked.ChunkError
+    constructor BadChunkExt : Network.HTTP.Chunked.ChunkError
+    constructor MissingChunkCRLF : Network.HTTP.Chunked.ChunkError
+    constructor BadLineEnd : Network.HTTP.Chunked.ChunkError
+    constructor BadTrailer : Network.HTTP.Parser.HeadError -> Network.HTTP.Chunked.ChunkError
+  public export record ChunkLimits : Type
+    constructor MkChunkLimits : Int -> Network.HTTP.Parser.Limits -> Network.HTTP.Chunked.ChunkLimits
+    field maxChunkExt : Network.HTTP.Chunked.ChunkLimits -> Int
+    field trailerLimits : Network.HTTP.Chunked.ChunkLimits -> Network.HTTP.Parser.Limits
+  public export data ChunkResult : Type
+    constructor More : Prelude.Basics.List Data.ByteString.Types.ByteString -> Network.HTTP.Chunked.ChunkDecoder -> Network.HTTP.Chunked.ChunkResult
+    constructor End : Prelude.Basics.List Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Data.ByteString.Types.ByteString -> Network.HTTP.Chunked.ChunkResult
+    constructor ChunkFailed : Network.HTTP.Chunked.ChunkError -> Network.HTTP.Chunked.ChunkResult
+  export total chunkDecoder : Network.HTTP.Chunked.ChunkLimits -> Network.HTTP.Chunked.ChunkDecoder
+  export total decodeChunks : Network.HTTP.Chunked.ChunkDecoder -> Data.ByteString.Types.ByteString -> Network.HTTP.Chunked.ChunkResult
+  export total decodedLength : Network.HTTP.Chunked.ChunkDecoder -> Int
+  export total defaultChunkLimits : Network.HTTP.Chunked.ChunkLimits
+  export total encodeChunk : Data.ByteString.Types.ByteString -> Data.ByteString.Builder.Builder
+  export total encodeChunked : Prelude.Basics.List Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Data.ByteString.Builder.Builder
+  export total encodeLastChunk : Network.HTTP.Types.Headers -> Data.ByteString.Builder.Builder
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Chunked.ChunkError
+  export implementation : Prelude.Show.Show Network.HTTP.Chunked.ChunkError
+
+module Network.HTTP.Client
+  import public Network.HTTP.Connection
+  import public Network.HTTP.Parser
+  import public Network.HTTP.Transport
+  import public Network.HTTP.Types
+  import public Network.HTTP2.Config
+  export record Client : Type
+    field config : Network.HTTP.Client.Client -> Network.HTTP.Client.ClientConfig
+    field connected : Network.HTTP.Client.Client -> System.Concurrency.Condition
+    field connecting : Network.HTTP.Client.Client -> Data.IORef.IORef (Prelude.Basics.List String)
+    field h2hosts : Network.HTTP.Client.Client -> Data.IORef.IORef (Prelude.Basics.List String)
+    field h2pool : Network.HTTP.Client.Client -> Data.IORef.IORef (Prelude.Basics.List (String, Network.HTTP2.Connection.H2Conn))
+    field lock : Network.HTTP.Client.Client -> System.Concurrency.Mutex
+    field opened : Network.HTTP.Client.Client -> Data.IORef.IORef Int
+    field pool : Network.HTTP.Client.Client -> Data.IORef.IORef (Prelude.Basics.List Network.HTTP.Client.Idle)
+  public export record ClientConfig : Type
+    constructor MkClientConfig : Int -> Int -> Int -> Int -> Int -> Int -> Int -> Network.HTTP.Parser.Limits -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Network.HTTP.Client.TLSConnector -> Network.HTTP2.Config.H2Config -> Prelude.Basics.Bool -> Network.HTTP.Client.ClientConfig
+    field bufferSize : Network.HTTP.Client.ClientConfig -> Int
+    field connectTimeout : Network.HTTP.Client.ClientConfig -> Int
+    field http2 : Network.HTTP.Client.ClientConfig -> Network.HTTP2.Config.H2Config
+    field http2PriorKnowledge : Network.HTTP.Client.ClientConfig -> Prelude.Basics.Bool
+    field idleTimeout : Network.HTTP.Client.ClientConfig -> Int
+    field limits : Network.HTTP.Client.ClientConfig -> Network.HTTP.Parser.Limits
+    field maxIdlePerHost : Network.HTTP.Client.ClientConfig -> Int
+    field maxRedirects : Network.HTTP.Client.ClientConfig -> Int
+    field maxResponseSize : Network.HTTP.Client.ClientConfig -> Int
+    field requestTimeout : Network.HTTP.Client.ClientConfig -> Int
+    field tlsConnect : Network.HTTP.Client.ClientConfig -> Prelude.Types.Maybe Network.HTTP.Client.TLSConnector
+    field userAgent : Network.HTTP.Client.ClientConfig -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  public export record ClientRequest : Type
+    constructor MkClientRequest : Network.HTTP.Types.Method -> Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Network.HTTP.Client.RequestBody -> Network.HTTP.Client.ClientRequest
+    field body : Network.HTTP.Client.ClientRequest -> Network.HTTP.Client.RequestBody
+    field headers : Network.HTTP.Client.ClientRequest -> Network.HTTP.Types.Headers
+    field method : Network.HTTP.Client.ClientRequest -> Network.HTTP.Types.Method
+    field target : Network.HTTP.Client.ClientRequest -> Data.ByteString.Types.ByteString
+  public export record ClientResponse : Type
+    constructor MkClientResponse : Network.HTTP.Types.Version -> Network.HTTP.Types.Status -> Network.HTTP.Types.Headers -> Network.HTTP.Connection.BodyReader -> Prelude.Basics.Bool -> Network.HTTP.Client.ClientResponse
+    field body : Network.HTTP.Client.ClientResponse -> Network.HTTP.Connection.BodyReader
+    field headers : Network.HTTP.Client.ClientResponse -> Network.HTTP.Types.Headers
+    field reusable : Network.HTTP.Client.ClientResponse -> Prelude.Basics.Bool
+    field status : Network.HTTP.Client.ClientResponse -> Network.HTTP.Types.Status
+    field version : Network.HTTP.Client.ClientResponse -> Network.HTTP.Types.Version
+  public export record Reply : Type
+    constructor MkReply : Network.HTTP.Types.Status -> Network.HTTP.Types.Headers -> Data.ByteString.Types.ByteString -> String -> Network.HTTP.Client.Reply
+    field body : Network.HTTP.Client.Reply -> Data.ByteString.Types.ByteString
+    field headers : Network.HTTP.Client.Reply -> Network.HTTP.Types.Headers
+    field status : Network.HTTP.Client.Reply -> Network.HTTP.Types.Status
+    field url : Network.HTTP.Client.Reply -> String
+  public export data RequestBody : Type
+    constructor NoRequestBody : Network.HTTP.Client.RequestBody
+    constructor RequestBytes : Data.ByteString.Types.ByteString -> Network.HTTP.Client.RequestBody
+    constructor RequestStream : Prelude.Types.Maybe Int -> (Network.HTTP.Connection.BodyWriter -> PrimIO.IO Builtin.Unit) -> Network.HTTP.Client.RequestBody
+  public export covering TLSConnector : Type
+  public export record Target : Type
+    constructor MkTarget : Prelude.Basics.Bool -> String -> Int -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.URI.URI -> Network.HTTP.Client.Target
+    field host : Network.HTTP.Client.Target -> String
+    field hostField : Network.HTTP.Client.Target -> Data.ByteString.Types.ByteString
+    field path : Network.HTTP.Client.Target -> Data.ByteString.Types.ByteString
+    field port : Network.HTTP.Client.Target -> Int
+    field secure : Network.HTTP.Client.Target -> Prelude.Basics.Bool
+    field uri : Network.HTTP.Client.Target -> Network.URI.URI
+  export covering closeIdle : Network.HTTP.Client.Client -> PrimIO.IO Builtin.Unit
+  export covering connectionsOpened : Network.HTTP.Client.Client -> PrimIO.IO Int
+  export covering defaultClientConfig : Network.HTTP.Client.ClientConfig
+  export covering fetch : Network.HTTP.Client.Client -> Network.HTTP.Types.Method -> String -> Network.HTTP.Types.Headers -> Network.HTTP.Client.RequestBody -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Network.HTTP.Client.Reply)
+  export covering httpGet : Network.HTTP.Client.Client -> String -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Network.HTTP.Client.Reply)
+  export covering httpPost : Network.HTTP.Client.Client -> String -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Network.HTTP.Client.Reply)
+  export covering newClient : Network.HTTP.Client.ClientConfig -> PrimIO.IO Network.HTTP.Client.Client
+  export covering parseURL : String -> Prelude.Types.Either Network.HTTP.Connection.HttpError Network.HTTP.Client.Target
+  export covering readResponse : Network.HTTP.Connection.Conn -> Network.HTTP.Parser.Limits -> Network.HTTP.Types.Method -> Prelude.Basics.Bool -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Network.HTTP.Client.ClientResponse)
+  export covering request : Network.HTTP.Connection.Conn -> Network.HTTP.Client.ClientRequest -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Network.HTTP.Client.ClientResponse)
+  export covering uriTarget : Network.URI.URI -> Prelude.Types.Either Network.HTTP.Connection.HttpError Network.HTTP.Client.Target
+  export covering withResponse : {0 a : Type} -> Network.HTTP.Client.Client -> Network.HTTP.Types.Method -> String -> Network.HTTP.Types.Headers -> Network.HTTP.Client.RequestBody -> (Network.HTTP.Client.ClientResponse -> PrimIO.IO a) -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError a)
+  export covering writeRequest : Network.HTTP.Connection.Conn -> Network.HTTP.Client.ClientRequest -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+
+module Network.HTTP.Connection
+  import public Data.ByteString
+  import public Network.HTTP.Parser
+  import public Network.HTTP.Transport
+  import public Network.HTTP.Types
+  export data BodyReader : Type
+  public export record BodySource : Type
+    constructor MkBodySource : PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError (Prelude.Types.Maybe Data.ByteString.Types.ByteString)) -> PrimIO.IO Network.HTTP.Types.Headers -> Network.HTTP.Connection.BodySource
+    field next : Network.HTTP.Connection.BodySource -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError (Prelude.Types.Maybe Data.ByteString.Types.ByteString))
+    field trailers : Network.HTTP.Connection.BodySource -> PrimIO.IO Network.HTTP.Types.Headers
+  export record BodyWriter : Type
+    field conn : Network.HTTP.Connection.BodyWriter -> Network.HTTP.Connection.Conn
+    field deadline : Network.HTTP.Connection.BodyWriter -> PrimIO.IO Int
+    field failure : Network.HTTP.Connection.BodyWriter -> Data.IORef.IORef (Prelude.Types.Maybe Network.HTTP.Connection.HttpError)
+    field mode : Network.HTTP.Connection.BodyWriter -> Network.HTTP.Connection.WMode
+    field needCRLF : Network.HTTP.Connection.BodyWriter -> Data.IORef.IORef Prelude.Basics.Bool
+    field remaining : Network.HTTP.Connection.BodyWriter -> Data.IORef.IORef Int
+    field written : Network.HTTP.Connection.BodyWriter -> Data.IORef.IORef Int
+  export record Conn : Type
+    field buf : Network.HTTP.Connection.Conn -> Data.Buffer.Buffer
+    field bufSize : Network.HTTP.Connection.Conn -> Int
+    field pending : Network.HTTP.Connection.Conn -> Data.IORef.IORef Data.ByteString.Types.ByteString
+    field transport : Network.HTTP.Connection.Conn -> Network.HTTP.Transport.Transport
+  public export data HttpError : Type
+    constructor ConnectionClosed : Network.HTTP.Connection.HttpError
+    constructor IdleTimeout : Network.HTTP.Connection.HttpError
+    constructor UnexpectedEnd : Network.HTTP.Connection.HttpError
+    constructor TimedOut : Network.HTTP.Connection.HttpError
+    constructor NetFailure : Network.Socket.Async.NetError -> Network.HTTP.Connection.HttpError
+    constructor BadHead : Network.HTTP.Parser.HeadError -> Network.HTTP.Connection.HttpError
+    constructor BadChunks : Network.HTTP.Chunked.ChunkError -> Network.HTTP.Connection.HttpError
+    constructor BodyTooLarge : Network.HTTP.Connection.HttpError
+    constructor BodyLengthMismatch : Network.HTTP.Connection.HttpError
+    constructor BadURL : String -> Network.HTTP.Connection.HttpError
+    constructor UnsupportedScheme : String -> Network.HTTP.Connection.HttpError
+    constructor TooManyRedirects : Network.HTTP.Connection.HttpError
+    constructor OtherError : String -> Network.HTTP.Connection.HttpError
+  export covering bodyBytesRead : Network.HTTP.Connection.BodyReader -> PrimIO.IO Int
+  export covering bodyBytesWritten : Network.HTTP.Connection.BodyWriter -> PrimIO.IO Int
+  export covering bodyEnded : Network.HTTP.Connection.BodyReader -> PrimIO.IO Prelude.Basics.Bool
+  export covering bodyFailed : Network.HTTP.Connection.BodyReader -> PrimIO.IO Prelude.Basics.Bool
+  export covering bodyReader : Network.HTTP.Connection.Conn -> Network.HTTP.Parser.BodyFraming -> Int -> PrimIO.IO Int -> Prelude.Types.Maybe (PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)) -> PrimIO.IO Network.HTTP.Connection.BodyReader
+  export covering bodyStarted : Network.HTTP.Connection.BodyReader -> PrimIO.IO Prelude.Basics.Bool
+  export covering bodyTrailers : Network.HTTP.Connection.BodyReader -> PrimIO.IO Network.HTTP.Types.Headers
+  export covering chunkLimits : Network.HTTP.Chunked.ChunkLimits
+  export covering chunkedWriter : Network.HTTP.Connection.Conn -> PrimIO.IO Int -> PrimIO.IO Network.HTTP.Connection.BodyWriter
+  export covering closeConn : Network.HTTP.Connection.Conn -> PrimIO.IO Builtin.Unit
+  export covering codeToError : Int -> Network.HTTP.Connection.HttpError
+  export covering connBufferSize : Network.HTTP.Connection.Conn -> Int
+  export covering connScratch : Network.HTTP.Connection.Conn -> Data.Buffer.Buffer
+  export covering connTransport : Network.HTTP.Connection.Conn -> Network.HTTP.Transport.Transport
+  export covering decimalLength : Int -> Int
+  export covering discardWriter : Network.HTTP.Connection.Conn -> PrimIO.IO Network.HTTP.Connection.BodyWriter
+  export covering drain : Network.HTTP.Connection.BodyReader -> Int -> PrimIO.IO Prelude.Basics.Bool
+  export covering finishBody : Network.HTTP.Connection.BodyWriter -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+  export covering headBuffer : Network.HTTP.Connection.Conn -> Int -> PrimIO.IO Data.Buffer.Buffer
+  export covering newConn : Network.HTTP.Transport.Transport -> Int -> PrimIO.IO Network.HTTP.Connection.Conn
+  export covering noBody : Network.HTTP.Connection.BodyReader
+  export covering pendingBytes : Network.HTTP.Connection.Conn -> PrimIO.IO Data.ByteString.Types.ByteString
+  export covering putByte : Data.Buffer.Buffer -> Int -> Bits8 -> PrimIO.IO Int
+  export covering putBytes : Data.Buffer.Buffer -> Int -> Data.ByteString.Types.ByteString -> PrimIO.IO Int
+  export covering putDecimal : Data.Buffer.Buffer -> Int -> Int -> PrimIO.IO Int
+  export covering rawWriter : Network.HTTP.Connection.Conn -> Prelude.Types.Maybe Int -> PrimIO.IO Int -> PrimIO.IO Network.HTTP.Connection.BodyWriter
+  export covering readAll : Network.HTTP.Connection.BodyReader -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Data.ByteString.Types.ByteString)
+  export covering readChunk : Network.HTTP.Connection.BodyReader -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError (Prelude.Types.Maybe Data.ByteString.Types.ByteString))
+  export covering readHead : {0 a : Type} -> Network.HTTP.Connection.Conn -> Network.HTTP.Parser.HeadParser a -> Int -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError a)
+  export covering readSome : Network.HTTP.Connection.Conn -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Data.ByteString.Types.ByteString)
+  export covering sendBytes : Network.HTTP.Connection.Conn -> Data.ByteString.Types.ByteString -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+  export covering sendHeadAndBody : Network.HTTP.Connection.Conn -> Data.Buffer.Buffer -> Int -> Data.ByteString.Types.ByteString -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+  export covering sinkWriter : Prelude.Types.Maybe Int -> (Data.ByteString.Types.ByteString -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)) -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit) -> PrimIO.IO Network.HTTP.Connection.BodyWriter
+  export covering sourceReader : Network.HTTP.Connection.BodySource -> PrimIO.IO Network.HTTP.Connection.BodyReader
+  export covering startBody : Network.HTTP.Connection.BodyReader -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+  export covering unread : Network.HTTP.Connection.Conn -> Data.ByteString.Types.ByteString -> PrimIO.IO Builtin.Unit
+  export covering writeBody : Network.HTTP.Connection.BodyWriter -> Data.ByteString.Types.ByteString -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+  export covering writeBuilder : Network.HTTP.Connection.BodyWriter -> Data.ByteString.Builder.Builder -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+  export covering writerFailed : Network.HTTP.Connection.BodyWriter -> PrimIO.IO Prelude.Basics.Bool
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Connection.HttpError
+  export implementation : Prelude.Show.Show Network.HTTP.Connection.HttpError
+
+module Network.HTTP.Internal.Bytes
+  export total bufCopy : Data.Buffer.Buffer -> Int -> Int -> Data.Buffer.Buffer -> Int -> PrimIO.IO Builtin.Unit
+  export total bufNew : Int -> PrimIO.IO Data.Buffer.Buffer
+  export total bufSetByte : Data.Buffer.Buffer -> Int -> Bits8 -> PrimIO.IO Builtin.Unit
+  export total bufSize : Data.Buffer.Buffer -> Int
+  export total decimalBytes : Int -> Data.ByteString.Types.ByteString
+  export total dropInt : Int -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total eqIgnoreCase : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+  export total eqLower : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+  export total hasByteBelow : Bits32 -> Bits32 -> Prelude.Basics.Bool
+  export total hasByteEq : Bits32 -> Bits32 -> Prelude.Basics.Bool
+  export total hasHighByte : Bits32 -> Prelude.Basics.Bool
+  export total hexBytes : Int -> Data.ByteString.Types.ByteString
+  export total hexValue : Bits8 -> Int
+  export total isDigit : Bits8 -> Prelude.Basics.Bool
+  export total isFieldVChar : Bits8 -> Prelude.Basics.Bool
+  export total isOWS : Bits8 -> Prelude.Basics.Bool
+  export total isTChar : Bits8 -> Prelude.Basics.Bool
+  export total listHasToken : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+  export total lowerAscii : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total maskHas : Bits64 -> Bits8 -> Prelude.Basics.Bool
+  export total parseDecimal : Data.ByteString.Types.ByteString -> Int
+  export total quot10 : Int -> Int
+  export total rem10 : Int -> Int
+  export total sliceFromTo : Int -> Int -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total takeInt : Int -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total toLowerByte : Bits8 -> Bits8
+  export total trimOWS : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+
+module Network.HTTP.Parser
+  public export data BodyFraming : Type
+    constructor NoBody : Network.HTTP.Parser.BodyFraming
+    constructor ContentLength : Int -> Network.HTTP.Parser.BodyFraming
+    constructor Chunked : Network.HTTP.Parser.BodyFraming
+    constructor UntilClose : Network.HTTP.Parser.BodyFraming
+  public export data HeadError : Type
+    constructor StartLineTooLong : Network.HTTP.Parser.HeadError
+    constructor HeaderLineTooLong : Network.HTTP.Parser.HeadError
+    constructor TooManyHeaders : Network.HTTP.Parser.HeadError
+    constructor HeadTooLarge : Network.HTTP.Parser.HeadError
+    constructor BadRequestLine : Network.HTTP.Parser.HeadError
+    constructor BadMethod : Network.HTTP.Parser.HeadError
+    constructor BadTarget : Network.HTTP.Parser.HeadError
+    constructor BadVersion : Network.HTTP.Parser.HeadError
+    constructor UnsupportedVersion : Network.HTTP.Parser.HeadError
+    constructor BadStatusLine : Network.HTTP.Parser.HeadError
+    constructor BadHeaderName : Network.HTTP.Parser.HeadError
+    constructor SpaceBeforeColon : Network.HTTP.Parser.HeadError
+    constructor MissingColon : Network.HTTP.Parser.HeadError
+    constructor ObsFold : Network.HTTP.Parser.HeadError
+    constructor BareCR : Network.HTTP.Parser.HeadError
+    constructor BareLF : Network.HTTP.Parser.HeadError
+    constructor NulInHeader : Network.HTTP.Parser.HeadError
+    constructor BadHeaderValue : Network.HTTP.Parser.HeadError
+    constructor MissingHost : Network.HTTP.Parser.HeadError
+    constructor DuplicateHost : Network.HTTP.Parser.HeadError
+    constructor BadContentLength : Network.HTTP.Parser.HeadError
+    constructor ConflictingContentLength : Network.HTTP.Parser.HeadError
+    constructor ContentLengthAndTransferEncoding : Network.HTTP.Parser.HeadError
+    constructor BadTransferEncoding : Network.HTTP.Parser.HeadError
+    constructor UnsupportedTransferCoding : Network.HTTP.Parser.HeadError
+    constructor TransferEncodingInHTTP10 : Network.HTTP.Parser.HeadError
+    constructor ContentTooLarge : Network.HTTP.Parser.HeadError
+  export record HeadParser : Type -> Type
+    field fieldsRev : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Prelude.Basics.List Network.HTTP.Types.Header
+    field kind : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Network.HTTP.Parser.Kind a
+    field limits : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Network.HTTP.Parser.Limits
+    field nfields : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Int
+    field pending : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Prelude.Basics.List Data.ByteString.Types.ByteString
+    field pendingLen : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Int
+    field start : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Network.HTTP.Parser.StartLine
+    field used : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Int
+  public export record Limits : Type
+    constructor MkLimits : Int -> Int -> Int -> Int -> Prelude.Types.Maybe Int -> Network.HTTP.Parser.Limits
+    field maxContentLength : Network.HTTP.Parser.Limits -> Prelude.Types.Maybe Int
+    field maxHeadSize : Network.HTTP.Parser.Limits -> Int
+    field maxHeaderLine : Network.HTTP.Parser.Limits -> Int
+    field maxHeaders : Network.HTTP.Parser.Limits -> Int
+    field maxStartLine : Network.HTTP.Parser.Limits -> Int
+  public export data Progress : Type -> Type
+    constructor NeedMore : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Network.HTTP.Parser.Progress a
+    constructor Done : {0 a : Type} -> a -> Data.ByteString.Types.ByteString -> Network.HTTP.Parser.Progress a
+    constructor Failed : {0 a : Type} -> Network.HTTP.Parser.HeadError -> Network.HTTP.Parser.Progress a
+  export total consumed : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Int
+  export total defaultLimits : Network.HTTP.Parser.Limits
+  export total errorStatus : Network.HTTP.Parser.HeadError -> Int
+  export total expectsContinue : Network.HTTP.Types.RequestHead -> Prelude.Basics.Bool
+  export total feed : {0 a : Type} -> Network.HTTP.Parser.HeadParser a -> Data.ByteString.Types.ByteString -> Network.HTTP.Parser.Progress a
+  export total fieldsParser : Network.HTTP.Parser.Limits -> Network.HTTP.Parser.HeadParser Network.HTTP.Types.Headers
+  export total isPersistent : Network.HTTP.Types.Version -> Network.HTTP.Types.Headers -> Prelude.Basics.Bool
+  export total parseRequestHead : Network.HTTP.Parser.Limits -> Data.ByteString.Types.ByteString -> Network.HTTP.Parser.Progress Network.HTTP.Types.RequestHead
+  export total parseResponseHead : Network.HTTP.Parser.Limits -> Data.ByteString.Types.ByteString -> Network.HTTP.Parser.Progress Network.HTTP.Types.ResponseHead
+  export total requestFraming : Network.HTTP.Parser.Limits -> Network.HTTP.Types.RequestHead -> Prelude.Types.Either Network.HTTP.Parser.HeadError Network.HTTP.Parser.BodyFraming
+  export total requestParser : Network.HTTP.Parser.Limits -> Network.HTTP.Parser.HeadParser Network.HTTP.Types.RequestHead
+  export total responseFraming : Network.HTTP.Types.Method -> Network.HTTP.Types.ResponseHead -> Prelude.Types.Either Network.HTTP.Parser.HeadError Network.HTTP.Parser.BodyFraming
+  export total responseParser : Network.HTTP.Parser.Limits -> Network.HTTP.Parser.HeadParser Network.HTTP.Types.ResponseHead
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Parser.BodyFraming
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Parser.HeadError
+  export implementation : Prelude.Show.Show Network.HTTP.Parser.BodyFraming
+  export implementation : Prelude.Show.Show Network.HTTP.Parser.HeadError
+
+module Network.HTTP.Render
+  export total renderHeaders : Network.HTTP.Types.Headers -> Data.ByteString.Builder.Builder
+  export total renderRequestHead : Network.HTTP.Types.RequestHead -> Data.ByteString.Builder.Builder
+  export total renderResponseHead : Network.HTTP.Types.ResponseHead -> Data.ByteString.Builder.Builder
+
+module Network.HTTP.Router
+  import public Network.HTTP.Server
+  public export covering Params : Type
+  export record Route : Type
+    field handler : Network.HTTP.Router.Route -> Network.HTTP.Router.RouteHandler
+    field method : Network.HTTP.Router.Route -> Network.HTTP.Types.Method
+    field segments : Network.HTTP.Router.Route -> Prelude.Basics.List Network.HTTP.Router.Segment
+  public export covering RouteHandler : Type
+  public export data Segment : Type
+    constructor Literal : Data.ByteString.Types.ByteString -> Network.HTTP.Router.Segment
+    constructor Capture : String -> Network.HTTP.Router.Segment
+    constructor Rest : String -> Network.HTTP.Router.Segment
+  export covering decodedSegments : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe (Prelude.Basics.List Data.ByteString.Types.ByteString)
+  export covering jsonBody : {0 a : Type} -> Language.JSON.Typed.FromJSON a => Network.HTTP.Server.Request -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Server.Response a)
+  export covering jsonError : Network.HTTP.Types.Status -> String -> Network.HTTP.Server.Response
+  export covering jsonResponse : {0 a : Type} -> Language.JSON.Typed.ToJSON a => Network.HTTP.Types.Status -> a -> Network.HTTP.Server.Response
+  export covering matchPath : Prelude.Basics.List Network.HTTP.Router.Segment -> Prelude.Basics.List Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Network.HTTP.Router.Params
+  export covering param : String -> Network.HTTP.Router.Params -> Prelude.Types.Maybe String
+  export covering parsePattern : String -> Prelude.Basics.List Network.HTTP.Router.Segment
+  export covering queryParam : String -> Network.HTTP.Server.Request -> Prelude.Types.Maybe String
+  export covering queryParams : Network.HTTP.Server.Request -> Prelude.Basics.List (String, String)
+  export covering route : Network.HTTP.Types.Method -> String -> Network.HTTP.Router.RouteHandler -> Network.HTTP.Router.Route
+  export covering routeSegments : Network.HTTP.Types.Method -> Prelude.Basics.List Network.HTTP.Router.Segment -> Network.HTTP.Router.RouteHandler -> Network.HTTP.Router.Route
+  export covering router : Prelude.Basics.List Network.HTTP.Router.Route -> Network.HTTP.Server.Handler
+  export covering routerWith : Network.HTTP.Server.Handler -> Prelude.Basics.List Network.HTTP.Router.Route -> Network.HTTP.Server.Handler
+
+module Network.HTTP.SHA1
+  export total sha1 : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+
+module Network.HTTP.Server
+  import public Data.ByteString.Builder
+  import public Network.HTTP.Connection
+  import public Network.HTTP.Parser
+  import public Network.HTTP.Transport
+  import public Network.HTTP.Types
+  import public Network.HTTP2.Config
+  public export record AccessLogEntry : Type
+    constructor MkAccessLogEntry : Prelude.Types.Maybe Network.Socket.Address.SockAddr -> Network.HTTP.Types.Method -> Data.ByteString.Types.ByteString -> Network.HTTP.Types.Version -> Int -> Int -> Int -> Network.HTTP.Server.AccessLogEntry
+    field bodyBytes : Network.HTTP.Server.AccessLogEntry -> Int
+    field durationNs : Network.HTTP.Server.AccessLogEntry -> Int
+    field method : Network.HTTP.Server.AccessLogEntry -> Network.HTTP.Types.Method
+    field remote : Network.HTTP.Server.AccessLogEntry -> Prelude.Types.Maybe Network.Socket.Address.SockAddr
+    field status : Network.HTTP.Server.AccessLogEntry -> Int
+    field target : Network.HTTP.Server.AccessLogEntry -> Data.ByteString.Types.ByteString
+    field version : Network.HTTP.Server.AccessLogEntry -> Network.HTTP.Types.Version
+  public export covering Handler : Type
+  public export record Request : Type
+    constructor MkRequest : Network.HTTP.Types.Method -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Network.HTTP.Types.Version -> Network.HTTP.Types.Headers -> Network.HTTP.Connection.BodyReader -> Int -> Prelude.Types.Maybe Network.Socket.Address.SockAddr -> Prelude.Basics.Bool -> Network.HTTP.Server.Request
+    field body : Network.HTTP.Server.Request -> Network.HTTP.Connection.BodyReader
+    field bodyLimit : Network.HTTP.Server.Request -> Int
+    field headers : Network.HTTP.Server.Request -> Network.HTTP.Types.Headers
+    field method : Network.HTTP.Server.Request -> Network.HTTP.Types.Method
+    field path : Network.HTTP.Server.Request -> Data.ByteString.Types.ByteString
+    field query : Network.HTTP.Server.Request -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+    field remote : Network.HTTP.Server.Request -> Prelude.Types.Maybe Network.Socket.Address.SockAddr
+    field secure : Network.HTTP.Server.Request -> Prelude.Basics.Bool
+    field target : Network.HTTP.Server.Request -> Data.ByteString.Types.ByteString
+    field version : Network.HTTP.Server.Request -> Network.HTTP.Types.Version
+  public export record Response : Type
+    constructor MkResponse : Network.HTTP.Types.Status -> Network.HTTP.Types.Headers -> Network.HTTP.Server.ResponseBody -> Network.HTTP.Server.Response
+    field body : Network.HTTP.Server.Response -> Network.HTTP.Server.ResponseBody
+    field headers : Network.HTTP.Server.Response -> Network.HTTP.Types.Headers
+    field status : Network.HTTP.Server.Response -> Network.HTTP.Types.Status
+  public export data ResponseBody : Type
+    constructor EmptyBody : Network.HTTP.Server.ResponseBody
+    constructor BytesBody : Data.ByteString.Types.ByteString -> Network.HTTP.Server.ResponseBody
+    constructor BuilderBody : Data.ByteString.Builder.Builder -> Network.HTTP.Server.ResponseBody
+    constructor StreamBody : Prelude.Types.Maybe Int -> (Network.HTTP.Connection.BodyWriter -> PrimIO.IO Builtin.Unit) -> Network.HTTP.Server.ResponseBody
+    constructor UpgradeBody : (Network.HTTP.Connection.Conn -> PrimIO.IO Builtin.Unit) -> Network.HTTP.Server.ResponseBody
+  export record Server : Type
+    field acceptDone : Network.HTTP.Server.Server -> Data.IORef.IORef Prelude.Basics.Bool
+    field accepted : Network.HTTP.Server.Server -> Data.IORef.IORef Int
+    field boundAddress : Network.HTTP.Server.Server -> Network.Socket.Address.SockAddr
+    field config : Network.HTTP.Server.Server -> Network.HTTP.Server.ServerConfig
+    field conns : Network.HTTP.Server.Server -> Data.IORef.IORef (Data.SortedMap.SortedMap Int Network.HTTP.Server.ConnEntry)
+    field count : Network.HTTP.Server.Server -> Data.IORef.IORef Int
+    field date : Network.HTTP.Server.Server -> Data.IORef.IORef Network.HTTP.Server.DateCache
+    field handler : Network.HTTP.Server.Server -> Network.HTTP.Server.Handler
+    field listener : Network.HTTP.Server.Server -> Network.Socket.Async.AsyncSocket
+    field lock : Network.HTTP.Server.Server -> System.Concurrency.Mutex
+    field nextId : Network.HTTP.Server.Server -> Data.IORef.IORef Int
+    field parser : Network.HTTP.Server.Server -> Network.HTTP.Parser.HeadParser Network.HTTP.Types.RequestHead
+    field reqLimits : Network.HTTP.Server.Server -> Network.HTTP.Parser.Limits
+    field stopDone : Network.HTTP.Server.Server -> Data.IORef.IORef Prelude.Basics.Bool
+    field stopped : Network.HTTP.Server.Server -> System.Concurrency.Condition
+    field stopping : Network.HTTP.Server.Server -> Data.IORef.IORef Prelude.Basics.Bool
+  public export record ServerConfig : Type
+    constructor MkServerConfig : Network.Socket.Address.SockAddr -> Int -> Network.HTTP.Parser.Limits -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Prelude.Types.Maybe (Network.HTTP.Server.AccessLogEntry -> PrimIO.IO Builtin.Unit) -> (String -> PrimIO.IO Builtin.Unit) -> (Network.Socket.Async.AsyncSocket -> Network.Socket.Address.SockAddr -> PrimIO.IO (Prelude.Types.Either String Network.HTTP.Transport.Transport)) -> Network.HTTP2.Config.H2Config -> Network.HTTP.Server.ServerConfig
+    field accessLog : Network.HTTP.Server.ServerConfig -> Prelude.Types.Maybe (Network.HTTP.Server.AccessLogEntry -> PrimIO.IO Builtin.Unit)
+    field address : Network.HTTP.Server.ServerConfig -> Network.Socket.Address.SockAddr
+    field backlog : Network.HTTP.Server.ServerConfig -> Int
+    field bodyTimeout : Network.HTTP.Server.ServerConfig -> Int
+    field bufferSize : Network.HTTP.Server.ServerConfig -> Int
+    field errorLog : Network.HTTP.Server.ServerConfig -> String -> PrimIO.IO Builtin.Unit
+    field headTimeout : Network.HTTP.Server.ServerConfig -> Int
+    field http2 : Network.HTTP.Server.ServerConfig -> Network.HTTP2.Config.H2Config
+    field idleTimeout : Network.HTTP.Server.ServerConfig -> Int
+    field limits : Network.HTTP.Server.ServerConfig -> Network.HTTP.Parser.Limits
+    field makeTransport : Network.HTTP.Server.ServerConfig -> Network.Socket.Async.AsyncSocket -> Network.Socket.Address.SockAddr -> PrimIO.IO (Prelude.Types.Either String Network.HTTP.Transport.Transport)
+    field maxBodySize : Network.HTTP.Server.ServerConfig -> Int
+    field maxConnections : Network.HTTP.Server.ServerConfig -> Int
+    field maxDrain : Network.HTTP.Server.ServerConfig -> Int
+    field serverName : Network.HTTP.Server.ServerConfig -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+    field writeTimeout : Network.HTTP.Server.ServerConfig -> Int
+  export covering acceptedConnections : Network.HTTP.Server.Server -> PrimIO.IO Int
+  export covering bytesResponse : Network.HTTP.Types.Status -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP.Server.Response
+  export covering connectionEntry : Network.HTTP.Server.Server -> Network.Socket.Async.AsyncSocket -> Network.Socket.Address.SockAddr -> PrimIO.IO Builtin.Unit
+  export covering defaultServerConfig : Network.Socket.Address.SockAddr -> Network.HTTP.Server.ServerConfig
+  export covering emptyResponse : Network.HTTP.Types.Status -> Network.HTTP.Server.Response
+  export covering fromEither : (String -> PrimIO.IO Builtin.Unit) -> (Network.HTTP.Server.Request -> PrimIO.IO (Prelude.Types.Either String Network.HTTP.Server.Response)) -> Network.HTTP.Server.Handler
+  export covering http2 : Network.HTTP.Types.Version
+  export covering httpDate : Int -> String
+  export covering openConnections : Network.HTTP.Server.Server -> PrimIO.IO Int
+  export covering plainTransport : Network.Socket.Async.AsyncSocket -> Network.Socket.Address.SockAddr -> PrimIO.IO (Prelude.Types.Either String Network.HTTP.Transport.Transport)
+  export covering requestBody : Network.HTTP.Server.Request -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Data.ByteString.Types.ByteString)
+  export covering respond : Network.HTTP.Types.Status -> Network.HTTP.Types.Headers -> Network.HTTP.Server.ResponseBody -> Network.HTTP.Server.Response
+  export covering serve : Network.HTTP.Server.ServerConfig -> Network.HTTP.Server.Handler -> PrimIO.IO (Prelude.Types.Either Network.Socket.Async.NetError Builtin.Unit)
+  export covering serverAddress : Network.HTTP.Server.Server -> Network.Socket.Address.SockAddr
+  export covering startServer : Network.HTTP.Server.ServerConfig -> Network.HTTP.Server.Handler -> PrimIO.IO (Prelude.Types.Either Network.Socket.Async.NetError Network.HTTP.Server.Server)
+  export covering statusResponse : Network.HTTP.Types.Status -> Network.HTTP.Server.Response
+  export covering stopServer : Network.HTTP.Server.Server -> Int -> PrimIO.IO Builtin.Unit
+  export covering textResponse : Network.HTTP.Types.Status -> String -> Network.HTTP.Server.Response
+  export covering waitServer : Network.HTTP.Server.Server -> PrimIO.IO Builtin.Unit
+  export covering withHeader : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP.Server.Response -> Network.HTTP.Server.Response
+
+module Network.HTTP.Transport
+  import public Network.Socket.Async
+  export data Transport : Type
+  public export record TransportOps : Type
+    constructor MkTransportOps : (Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int) -> (Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int) -> (Data.Buffer.Buffer -> Int -> Int -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int) -> (Network.Socket.Async.ShutdownHow -> PrimIO.IO Builtin.Unit) -> PrimIO.IO Builtin.Unit -> Prelude.Types.Maybe Network.Socket.Address.SockAddr -> Prelude.Basics.Bool -> Network.HTTP.Transport.TransportOps
+    field close : Network.HTTP.Transport.TransportOps -> PrimIO.IO Builtin.Unit
+    field peer : Network.HTTP.Transport.TransportOps -> Prelude.Types.Maybe Network.Socket.Address.SockAddr
+    field recv : Network.HTTP.Transport.TransportOps -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int
+    field secure : Network.HTTP.Transport.TransportOps -> Prelude.Basics.Bool
+    field sendAll : Network.HTTP.Transport.TransportOps -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int
+    field sendAll2 : Network.HTTP.Transport.TransportOps -> Data.Buffer.Buffer -> Int -> Int -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int
+    field shutdown : Network.HTTP.Transport.TransportOps -> Network.Socket.Async.ShutdownHow -> PrimIO.IO Builtin.Unit
+  export covering customTransport : Network.HTTP.Transport.TransportOps -> Network.HTTP.Transport.Transport
+  export covering customTransportWithProtocol : Network.HTTP.Transport.TransportOps -> Prelude.Types.Maybe String -> Network.HTTP.Transport.Transport
+  export covering deadlineAfterMs : Int -> PrimIO.IO Int
+  export covering earlierDeadline : Int -> Int -> Int
+  export covering nowNs : PrimIO.IO Int
+  export covering socketTransport : Network.Socket.Async.AsyncSocket -> Prelude.Types.Maybe Network.Socket.Address.SockAddr -> Network.HTTP.Transport.Transport
+  export covering timedOutCode : Int
+  export covering transportClose : Network.HTTP.Transport.Transport -> PrimIO.IO Builtin.Unit
+  export covering transportOps : Network.HTTP.Transport.Transport -> Network.HTTP.Transport.TransportOps
+  export covering transportPeer : Network.HTTP.Transport.Transport -> Prelude.Types.Maybe Network.Socket.Address.SockAddr
+  export covering transportProtocol : Network.HTTP.Transport.Transport -> Prelude.Types.Maybe String
+  export covering transportRecv : Network.HTTP.Transport.Transport -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int
+  export covering transportSecure : Network.HTTP.Transport.Transport -> Prelude.Basics.Bool
+  export covering transportSendAll : Network.HTTP.Transport.Transport -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int
+  export covering transportSendAll2 : Network.HTTP.Transport.Transport -> Data.Buffer.Buffer -> Int -> Int -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int
+  export covering transportSendAll2Within : Network.HTTP.Transport.Transport -> Data.Buffer.Buffer -> Int -> Int -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int
+  export covering transportSendAllWithin : Network.HTTP.Transport.Transport -> Data.Buffer.Buffer -> Int -> Int -> Int -> PrimIO.IO Int
+  export covering transportShutdown : Network.HTTP.Transport.Transport -> Network.Socket.Async.ShutdownHow -> PrimIO.IO Builtin.Unit
+  export covering transportSocket : Network.HTTP.Transport.Transport -> Prelude.Types.Maybe Network.Socket.Async.AsyncSocket
+
+module Network.HTTP.Types
+  public export record Header : Type
+    constructor MkHeader : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP.Types.Header
+    field name : Network.HTTP.Types.Header -> Data.ByteString.Types.ByteString
+    field value : Network.HTTP.Types.Header -> Data.ByteString.Types.ByteString
+  export data Headers : Type
+  public export data Method : Type
+    constructor GET : Network.HTTP.Types.Method
+    constructor HEAD : Network.HTTP.Types.Method
+    constructor POST : Network.HTTP.Types.Method
+    constructor PUT : Network.HTTP.Types.Method
+    constructor DELETE : Network.HTTP.Types.Method
+    constructor CONNECT : Network.HTTP.Types.Method
+    constructor OPTIONS : Network.HTTP.Types.Method
+    constructor TRACE : Network.HTTP.Types.Method
+    constructor PATCH : Network.HTTP.Types.Method
+    constructor OtherMethod : Data.ByteString.Types.ByteString -> Network.HTTP.Types.Method
+  public export record RequestHead : Type
+    constructor MkRequestHead : Network.HTTP.Types.Method -> Data.ByteString.Types.ByteString -> Network.HTTP.Types.Version -> Network.HTTP.Types.Headers -> Network.HTTP.Types.RequestHead
+    field headers : Network.HTTP.Types.RequestHead -> Network.HTTP.Types.Headers
+    field method : Network.HTTP.Types.RequestHead -> Network.HTTP.Types.Method
+    field target : Network.HTTP.Types.RequestHead -> Data.ByteString.Types.ByteString
+    field version : Network.HTTP.Types.RequestHead -> Network.HTTP.Types.Version
+  public export record ResponseHead : Type
+    constructor MkResponseHead : Network.HTTP.Types.Version -> Network.HTTP.Types.Status -> Network.HTTP.Types.Headers -> Network.HTTP.Types.ResponseHead
+    field headers : Network.HTTP.Types.ResponseHead -> Network.HTTP.Types.Headers
+    field status : Network.HTTP.Types.ResponseHead -> Network.HTTP.Types.Status
+    field version : Network.HTTP.Types.ResponseHead -> Network.HTTP.Types.Version
+  public export record Status : Type
+    constructor MkStatus : Int -> Data.ByteString.Types.ByteString -> Network.HTTP.Types.Status
+    field code : Network.HTTP.Types.Status -> Int
+    field reason : Network.HTTP.Types.Status -> Data.ByteString.Types.ByteString
+  public export record Version : Type
+    constructor MkVersion : Int -> Int -> Network.HTTP.Types.Version
+    field major : Network.HTTP.Types.Version -> Int
+    field minor : Network.HTTP.Types.Version -> Int
+  export total addHeader : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Network.HTTP.Types.Headers
+  export total combinedHeader : Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total emptyHeaders : Network.HTTP.Types.Headers
+  export total hAccept : Data.ByteString.Types.ByteString
+  export total hAuthorization : Data.ByteString.Types.ByteString
+  export total hConnection : Data.ByteString.Types.ByteString
+  export total hContentLength : Data.ByteString.Types.ByteString
+  export total hContentType : Data.ByteString.Types.ByteString
+  export total hCookie : Data.ByteString.Types.ByteString
+  export total hDate : Data.ByteString.Types.ByteString
+  export total hExpect : Data.ByteString.Types.ByteString
+  export total hHTTP2Settings : Data.ByteString.Types.ByteString
+  export total hHost : Data.ByteString.Types.ByteString
+  export total hKeepAlive : Data.ByteString.Types.ByteString
+  export total hLocation : Data.ByteString.Types.ByteString
+  export total hSecWebSocketAccept : Data.ByteString.Types.ByteString
+  export total hSecWebSocketExtensions : Data.ByteString.Types.ByteString
+  export total hSecWebSocketKey : Data.ByteString.Types.ByteString
+  export total hSecWebSocketProtocol : Data.ByteString.Types.ByteString
+  export total hSecWebSocketVersion : Data.ByteString.Types.ByteString
+  export total hServer : Data.ByteString.Types.ByteString
+  export total hSetCookie : Data.ByteString.Types.ByteString
+  export total hTE : Data.ByteString.Types.ByteString
+  export total hTrailer : Data.ByteString.Types.ByteString
+  export total hTransferEncoding : Data.ByteString.Types.ByteString
+  export total hUpgrade : Data.ByteString.Types.ByteString
+  export total hUserAgent : Data.ByteString.Types.ByteString
+  export total hasHeader : Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Prelude.Basics.Bool
+  export total headerCount : Network.HTTP.Types.Headers -> Prelude.Types.Nat
+  export total headerHasToken : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Prelude.Basics.Bool
+  export total headersFromList : Prelude.Basics.List Network.HTTP.Types.Header -> Network.HTTP.Types.Headers
+  export total headersFromListRev : Prelude.Basics.List Network.HTTP.Types.Header -> Network.HTTP.Types.Headers
+  export total headersFromPairs : Prelude.Basics.List (Data.ByteString.Types.ByteString, Data.ByteString.Types.ByteString) -> Network.HTTP.Types.Headers
+  export total headersToList : Network.HTTP.Types.Headers -> Prelude.Basics.List Network.HTTP.Types.Header
+  export total headersToListRev : Network.HTTP.Types.Headers -> Prelude.Basics.List Network.HTTP.Types.Header
+  export total http10 : Network.HTTP.Types.Version
+  export total http11 : Network.HTTP.Types.Version
+  export total invalidHeader : Network.HTTP.Types.Headers -> Prelude.Types.Maybe Network.HTTP.Types.Header
+  export total isClientError : Network.HTTP.Types.Status -> Prelude.Basics.Bool
+  export total isIdempotent : Network.HTTP.Types.Method -> Prelude.Basics.Bool
+  export total isInformational : Network.HTTP.Types.Status -> Prelude.Basics.Bool
+  export total isRedirection : Network.HTTP.Types.Status -> Prelude.Basics.Bool
+  export total isSafe : Network.HTTP.Types.Method -> Prelude.Basics.Bool
+  export total isServerError : Network.HTTP.Types.Status -> Prelude.Basics.Bool
+  export total isSuccessful : Network.HTTP.Types.Status -> Prelude.Basics.Bool
+  export total isValidHeaderName : Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+  export total isValidHeaderValue : Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+  export total lookupHeader : Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total lookupHeaders : Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Prelude.Basics.List Data.ByteString.Types.ByteString
+  export total methodBytes : Network.HTTP.Types.Method -> Data.ByteString.Types.ByteString
+  export total methodFromBytes : Data.ByteString.Types.ByteString -> Network.HTTP.Types.Method
+  export total removeHeader : Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Network.HTTP.Types.Headers
+  export total setHeader : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Network.HTTP.Types.Headers
+  export total statusAccepted : Network.HTTP.Types.Status
+  export total statusBadGateway : Network.HTTP.Types.Status
+  export total statusBadRequest : Network.HTTP.Types.Status
+  export total statusConflict : Network.HTTP.Types.Status
+  export total statusContentTooLarge : Network.HTTP.Types.Status
+  export total statusContinue : Network.HTTP.Types.Status
+  export total statusCreated : Network.HTTP.Types.Status
+  export total statusExpectationFailed : Network.HTTP.Types.Status
+  export total statusForbidden : Network.HTTP.Types.Status
+  export total statusFound : Network.HTTP.Types.Status
+  export total statusFromCode : Int -> Network.HTTP.Types.Status
+  export total statusGatewayTimeout : Network.HTTP.Types.Status
+  export total statusGone : Network.HTTP.Types.Status
+  export total statusHTTPVersionNotSupported : Network.HTTP.Types.Status
+  export total statusInternalServerError : Network.HTTP.Types.Status
+  export total statusLengthRequired : Network.HTTP.Types.Status
+  export total statusMethodNotAllowed : Network.HTTP.Types.Status
+  export total statusMisdirectedRequest : Network.HTTP.Types.Status
+  export total statusMovedPermanently : Network.HTTP.Types.Status
+  export total statusMultipleChoices : Network.HTTP.Types.Status
+  export total statusNoContent : Network.HTTP.Types.Status
+  export total statusNonAuthoritativeInfo : Network.HTTP.Types.Status
+  export total statusNotAcceptable : Network.HTTP.Types.Status
+  export total statusNotFound : Network.HTTP.Types.Status
+  export total statusNotImplemented : Network.HTTP.Types.Status
+  export total statusNotModified : Network.HTTP.Types.Status
+  export total statusOK : Network.HTTP.Types.Status
+  export total statusPartialContent : Network.HTTP.Types.Status
+  export total statusPaymentRequired : Network.HTTP.Types.Status
+  export total statusPermanentRedirect : Network.HTTP.Types.Status
+  export total statusPreconditionFailed : Network.HTTP.Types.Status
+  export total statusPreconditionRequired : Network.HTTP.Types.Status
+  export total statusProxyAuthRequired : Network.HTTP.Types.Status
+  export total statusRangeNotSatisfiable : Network.HTTP.Types.Status
+  export total statusRequestHeaderFieldsTooLarge : Network.HTTP.Types.Status
+  export total statusRequestTimeout : Network.HTTP.Types.Status
+  export total statusResetContent : Network.HTTP.Types.Status
+  export total statusSeeOther : Network.HTTP.Types.Status
+  export total statusServiceUnavailable : Network.HTTP.Types.Status
+  export total statusSwitchingProtocols : Network.HTTP.Types.Status
+  export total statusTemporaryRedirect : Network.HTTP.Types.Status
+  export total statusTooManyRequests : Network.HTTP.Types.Status
+  export total statusURITooLong : Network.HTTP.Types.Status
+  export total statusUnauthorized : Network.HTTP.Types.Status
+  export total statusUnprocessableContent : Network.HTTP.Types.Status
+  export total statusUnsupportedMediaType : Network.HTTP.Types.Status
+  export total statusUpgradeRequired : Network.HTTP.Types.Status
+  export total statusUseProxy : Network.HTTP.Types.Status
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Types.Header
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Types.Headers
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Types.Method
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Types.RequestHead
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Types.ResponseHead
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Types.Status
+  export implementation : Prelude.EqOrd.Eq Network.HTTP.Types.Version
+  export implementation : Prelude.EqOrd.Ord Network.HTTP.Types.Version
+  export implementation : Prelude.Show.Show Network.HTTP.Types.Header
+  export implementation : Prelude.Show.Show Network.HTTP.Types.Headers
+  export implementation : Prelude.Show.Show Network.HTTP.Types.Method
+  export implementation : Prelude.Show.Show Network.HTTP.Types.RequestHead
+  export implementation : Prelude.Show.Show Network.HTTP.Types.ResponseHead
+  export implementation : Prelude.Show.Show Network.HTTP.Types.Status
+  export implementation : Prelude.Show.Show Network.HTTP.Types.Version
+
+module Network.HTTP2.Config
+  public export record H2Config : Type
+    constructor MkH2Config : Prelude.Basics.Bool -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Network.HTTP2.Config.H2Config
+    field cleartext : Network.HTTP2.Config.H2Config -> Prelude.Basics.Bool
+    field connectionBufferSize : Network.HTTP2.Config.H2Config -> Int
+    field connectionWindowSize : Network.HTTP2.Config.H2Config -> Int
+    field headerTableSize : Network.HTTP2.Config.H2Config -> Int
+    field initialWindowSize : Network.HTTP2.Config.H2Config -> Int
+    field maxConcurrentStreams : Network.HTTP2.Config.H2Config -> Int
+    field maxContinuations : Network.HTTP2.Config.H2Config -> Int
+    field maxEmptyFramesPerSecond : Network.HTTP2.Config.H2Config -> Int
+    field maxHeaderBlockSize : Network.HTTP2.Config.H2Config -> Int
+    field maxHeaderListSize : Network.HTTP2.Config.H2Config -> Int
+    field maxQueuedControlFrames : Network.HTTP2.Config.H2Config -> Int
+    field maxResetsPerSecond : Network.HTTP2.Config.H2Config -> Int
+    field settingsTimeout : Network.HTTP2.Config.H2Config -> Int
+    field streamBufferSize : Network.HTTP2.Config.H2Config -> Int
+  export total defaultH2Config : Network.HTTP2.Config.H2Config
+  export total h2Protocol : String
+
+module Network.HTTP2.Connection
+  import public Network.HTTP2.Config
+  import public Network.HTTP2.Frame
+  import public Network.HTTP2.HPACK
+  export record H2Conn : Type
+    field cfg : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Config.H2Config
+    field conn : Network.HTTP2.Connection.H2Conn -> Network.HTTP.Connection.Conn
+    field dec : Network.HTTP2.Connection.H2Conn -> Data.IORef.IORef Network.HTTP2.HPACK.DecoderState
+    field enc : Network.HTTP2.Connection.H2Conn -> Data.IORef.IORef Network.HTTP2.HPACK.EncoderState
+    field flowCond : Network.HTTP2.Connection.H2Conn -> System.Concurrency.Condition
+    field idleTimeout : Network.HTTP2.Connection.H2Conn -> Int
+    field isServer : Network.HTTP2.Connection.H2Conn -> Prelude.Basics.Bool
+    field lock : Network.HTTP2.Connection.H2Conn -> System.Concurrency.Mutex
+    field log : Network.HTTP2.Connection.H2Conn -> String -> PrimIO.IO Builtin.Unit
+    field outCond : Network.HTTP2.Connection.H2Conn -> System.Concurrency.Condition
+    field readTimeout : Network.HTTP2.Connection.H2Conn -> Int
+    field st : Network.HTTP2.Connection.H2Conn -> Data.IORef.IORef Network.HTTP2.Connection.CState
+    field writeTimeout : Network.HTTP2.Connection.H2Conn -> Int
+  public export record H2Request : Type
+    constructor MkH2Request : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Prelude.Types.Maybe Int -> Network.HTTP2.Connection.H2Request
+    field authority : Network.HTTP2.Connection.H2Request -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+    field contentLength : Network.HTTP2.Connection.H2Request -> Prelude.Types.Maybe Int
+    field fields : Network.HTTP2.Connection.H2Request -> Network.HTTP.Types.Headers
+    field method : Network.HTTP2.Connection.H2Request -> Data.ByteString.Types.ByteString
+    field path : Network.HTTP2.Connection.H2Request -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+    field scheme : Network.HTTP2.Connection.H2Request -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export record H2Stream : Type
+    field cond : Network.HTTP2.Connection.H2Stream -> System.Concurrency.Condition
+    field sid : Network.HTTP2.Connection.H2Stream -> Int
+    field st : Network.HTTP2.Connection.H2Stream -> Data.IORef.IORef Network.HTTP2.Connection.SState
+  public export record ServerSide : Type
+    constructor MkServerSide : Network.HTTP2.Config.H2Config -> Int -> Int -> Int -> Int -> (String -> PrimIO.IO Builtin.Unit) -> (PrimIO.IO Builtin.Unit -> PrimIO.IO Builtin.Unit) -> (Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> Network.HTTP2.Connection.H2Request -> PrimIO.IO Builtin.Unit) -> (Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> PrimIO.IO Builtin.Unit) -> Network.HTTP2.Connection.ServerSide
+    field config : Network.HTTP2.Connection.ServerSide -> Network.HTTP2.Config.H2Config
+    field idleTimeout : Network.HTTP2.Connection.ServerSide -> Int
+    field log : Network.HTTP2.Connection.ServerSide -> String -> PrimIO.IO Builtin.Unit
+    field onStart : Network.HTTP2.Connection.ServerSide -> PrimIO.IO Builtin.Unit -> PrimIO.IO Builtin.Unit
+    field prefaceTimeout : Network.HTTP2.Connection.ServerSide -> Int
+    field readTimeout : Network.HTTP2.Connection.ServerSide -> Int
+    field serveStream : Network.HTTP2.Connection.ServerSide -> Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> Network.HTTP2.Connection.H2Request -> PrimIO.IO Builtin.Unit
+    field tooLarge : Network.HTTP2.Connection.ServerSide -> Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> PrimIO.IO Builtin.Unit
+    field writeTimeout : Network.HTTP2.Connection.ServerSide -> Int
+  export covering awaitResponse : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError (Int, Network.HTTP.Types.Headers))
+  export covering cancelStream : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> Network.HTTP2.Frame.ErrorCode -> PrimIO.IO Builtin.Unit
+  export covering checkRequest : Prelude.Basics.List Network.HTTP2.HPACK.HeaderField -> Prelude.Types.Either String Network.HTTP2.Connection.H2Request
+  export covering closeH2 : Network.HTTP2.Connection.H2Conn -> PrimIO.IO Builtin.Unit
+  export covering closeStream : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> PrimIO.IO Builtin.Unit
+  export covering dataWriter : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> Prelude.Types.Maybe Int -> PrimIO.IO Network.HTTP.Connection.BodyWriter
+  export covering h2Config : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Config.H2Config
+  export covering h2Usable : Network.HTTP2.Connection.H2Conn -> PrimIO.IO Prelude.Basics.Bool
+  export covering notProcessed : Network.HTTP.Connection.HttpError -> Prelude.Basics.Bool
+  export covering openRequest : Network.HTTP2.Connection.H2Conn -> Prelude.Basics.List Network.HTTP2.HPACK.HeaderField -> Prelude.Basics.Bool -> Int -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Network.HTTP2.Connection.H2Stream)
+  export covering runServer : Network.HTTP2.Connection.ServerSide -> Network.HTTP.Connection.Conn -> PrimIO.IO Builtin.Unit
+  export covering sendData : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> Data.ByteString.Types.ByteString -> Prelude.Basics.Bool -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+  export covering sendHeaders : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> Prelude.Basics.List Network.HTTP2.HPACK.HeaderField -> Prelude.Basics.Bool -> PrimIO.IO (Prelude.Types.Either Network.HTTP.Connection.HttpError Builtin.Unit)
+  export covering startClient : Network.HTTP2.Config.H2Config -> Network.HTTP.Connection.Conn -> Int -> Int -> Int -> (String -> PrimIO.IO Builtin.Unit) -> PrimIO.IO Network.HTTP2.Connection.H2Conn
+  export covering streamBody : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> PrimIO.IO Network.HTTP.Connection.BodyReader
+  export covering streamDone : Network.HTTP2.Connection.H2Conn -> Network.HTTP2.Connection.H2Stream -> PrimIO.IO Builtin.Unit
+  export covering streamId : Network.HTTP2.Connection.H2Stream -> Int
+  export covering toFields : Network.HTTP.Types.Headers -> Prelude.Basics.List Network.HTTP2.HPACK.HeaderField
+
+module Network.HTTP2.Frame
+  public export data ErrorCode : Type
+    constructor NoError : Network.HTTP2.Frame.ErrorCode
+    constructor ProtocolError : Network.HTTP2.Frame.ErrorCode
+    constructor InternalError : Network.HTTP2.Frame.ErrorCode
+    constructor FlowControlError : Network.HTTP2.Frame.ErrorCode
+    constructor SettingsTimeout : Network.HTTP2.Frame.ErrorCode
+    constructor StreamClosed : Network.HTTP2.Frame.ErrorCode
+    constructor FrameSizeError : Network.HTTP2.Frame.ErrorCode
+    constructor RefusedStream : Network.HTTP2.Frame.ErrorCode
+    constructor Cancel : Network.HTTP2.Frame.ErrorCode
+    constructor CompressionError : Network.HTTP2.Frame.ErrorCode
+    constructor ConnectError : Network.HTTP2.Frame.ErrorCode
+    constructor EnhanceYourCalm : Network.HTTP2.Frame.ErrorCode
+    constructor InadequateSecurity : Network.HTTP2.Frame.ErrorCode
+    constructor HTTP11Required : Network.HTTP2.Frame.ErrorCode
+    constructor UnknownErrorCode : Bits32 -> Network.HTTP2.Frame.ErrorCode
+  public export data Frame : Type
+    constructor DataFrame : Int -> Prelude.Basics.Bool -> Prelude.Types.Maybe Int -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.Frame
+    constructor Headers : Int -> Prelude.Basics.Bool -> Prelude.Basics.Bool -> Prelude.Types.Maybe Network.HTTP2.Frame.Priority -> Prelude.Types.Maybe Int -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.Frame
+    constructor PriorityFrame : Int -> Network.HTTP2.Frame.Priority -> Network.HTTP2.Frame.Frame
+    constructor RstStream : Int -> Network.HTTP2.Frame.ErrorCode -> Network.HTTP2.Frame.Frame
+    constructor SettingsFrame : Prelude.Basics.Bool -> Prelude.Basics.List (Network.HTTP2.Frame.SettingId, Bits32) -> Network.HTTP2.Frame.Frame
+    constructor PushPromise : Int -> Prelude.Basics.Bool -> Prelude.Types.Maybe Int -> Int -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.Frame
+    constructor Ping : Prelude.Basics.Bool -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.Frame
+    constructor GoAway : Int -> Network.HTTP2.Frame.ErrorCode -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.Frame
+    constructor WindowUpdate : Int -> Int -> Network.HTTP2.Frame.Frame
+    constructor Continuation : Int -> Prelude.Basics.Bool -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.Frame
+    constructor UnknownFrame : Bits8 -> Bits8 -> Int -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.Frame
+  public export data FrameError : Type
+    constructor ConnectionError : Network.HTTP2.Frame.ErrorCode -> String -> Network.HTTP2.Frame.FrameError
+    constructor StreamError : Int -> Network.HTTP2.Frame.ErrorCode -> String -> Network.HTTP2.Frame.FrameError
+  public export record FrameHeader : Type
+    constructor MkFrameHeader : Int -> Bits8 -> Bits8 -> Int -> Network.HTTP2.Frame.FrameHeader
+    field flags : Network.HTTP2.Frame.FrameHeader -> Bits8
+    field length : Network.HTTP2.Frame.FrameHeader -> Int
+    field streamId : Network.HTTP2.Frame.FrameHeader -> Int
+    field type : Network.HTTP2.Frame.FrameHeader -> Bits8
+  public export data FrameResult : Type
+    constructor NeedMore : Int -> Network.HTTP2.Frame.FrameResult
+    constructor Decoded : Network.HTTP2.Frame.Frame -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.FrameResult
+    constructor Failed : Network.HTTP2.Frame.FrameError -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.FrameResult
+  public export data PrefaceResult : Type
+    constructor PrefaceNeedMore : Int -> Network.HTTP2.Frame.PrefaceResult
+    constructor PrefaceOk : Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.PrefaceResult
+    constructor PrefaceBad : Network.HTTP2.Frame.PrefaceResult
+  public export record Priority : Type
+    constructor MkPriority : Prelude.Basics.Bool -> Int -> Bits8 -> Network.HTTP2.Frame.Priority
+    field dependency : Network.HTTP2.Frame.Priority -> Int
+    field exclusive : Network.HTTP2.Frame.Priority -> Prelude.Basics.Bool
+    field weight : Network.HTTP2.Frame.Priority -> Bits8
+  public export data SettingId : Type
+    constructor HeaderTableSize : Network.HTTP2.Frame.SettingId
+    constructor EnablePush : Network.HTTP2.Frame.SettingId
+    constructor MaxConcurrentStreams : Network.HTTP2.Frame.SettingId
+    constructor InitialWindowSize : Network.HTTP2.Frame.SettingId
+    constructor MaxFrameSize : Network.HTTP2.Frame.SettingId
+    constructor MaxHeaderListSize : Network.HTTP2.Frame.SettingId
+    constructor UnknownSetting : Bits16 -> Network.HTTP2.Frame.SettingId
+  public export record Settings : Type
+    constructor MkSettings : Int -> Prelude.Basics.Bool -> Prelude.Types.Maybe Int -> Int -> Int -> Prelude.Types.Maybe Int -> Network.HTTP2.Frame.Settings
+    field enablePush : Network.HTTP2.Frame.Settings -> Prelude.Basics.Bool
+    field headerTableSize : Network.HTTP2.Frame.Settings -> Int
+    field initialWindowSize : Network.HTTP2.Frame.Settings -> Int
+    field maxConcurrentStreams : Network.HTTP2.Frame.Settings -> Prelude.Types.Maybe Int
+    field maxFrameSize : Network.HTTP2.Frame.Settings -> Int
+    field maxHeaderListSize : Network.HTTP2.Frame.Settings -> Prelude.Types.Maybe Int
+  export total applySettings : Prelude.Basics.List (Network.HTTP2.Frame.SettingId, Bits32) -> Network.HTTP2.Frame.Settings -> Network.HTTP2.Frame.Settings
+  export total checkPreface : Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.PrefaceResult
+  export total connectionPreface : Data.ByteString.Types.ByteString
+  export total decodeFrame : Int -> Data.ByteString.Types.ByteString -> Network.HTTP2.Frame.FrameResult
+  export total decodeFrameHeader : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Network.HTTP2.Frame.FrameHeader
+  export total defaultSettings : Network.HTTP2.Frame.Settings
+  export total encodeFrame : Network.HTTP2.Frame.Frame -> Data.ByteString.Builder.Builder
+  export total encodeFrameHeader : Network.HTTP2.Frame.FrameHeader -> Data.ByteString.Builder.Builder
+  export total errorCodeFromBits : Bits32 -> Network.HTTP2.Frame.ErrorCode
+  export total errorCodeToBits : Network.HTTP2.Frame.ErrorCode -> Bits32
+  export total flagAck : Bits8
+  export total flagEndHeaders : Bits8
+  export total flagEndStream : Bits8
+  export total flagPadded : Bits8
+  export total flagPriority : Bits8
+  export total frameHeaderSize : Int
+  export total maxMaxFrameSize : Int
+  export total maxWindowSize : Int
+  export total minMaxFrameSize : Int
+  export total settingIdFromBits : Bits16 -> Network.HTTP2.Frame.SettingId
+  export total settingIdToBits : Network.HTTP2.Frame.SettingId -> Bits16
+  export total typeContinuation : Bits8
+  export total typeData : Bits8
+  export total typeGoAway : Bits8
+  export total typeHeaders : Bits8
+  export total typePing : Bits8
+  export total typePriority : Bits8
+  export total typePushPromise : Bits8
+  export total typeRstStream : Bits8
+  export total typeSettings : Bits8
+  export total typeWindowUpdate : Bits8
+  export implementation : Prelude.EqOrd.Eq Network.HTTP2.Frame.ErrorCode
+  export implementation : Prelude.EqOrd.Eq Network.HTTP2.Frame.Frame
+  export implementation : Prelude.EqOrd.Eq Network.HTTP2.Frame.FrameError
+  export implementation : Prelude.EqOrd.Eq Network.HTTP2.Frame.FrameHeader
+  export implementation : Prelude.EqOrd.Eq Network.HTTP2.Frame.Priority
+  export implementation : Prelude.EqOrd.Eq Network.HTTP2.Frame.SettingId
+  export implementation : Prelude.Show.Show Network.HTTP2.Frame.ErrorCode
+  export implementation : Prelude.Show.Show Network.HTTP2.Frame.Frame
+  export implementation : Prelude.Show.Show Network.HTTP2.Frame.FrameError
+  export implementation : Prelude.Show.Show Network.HTTP2.Frame.FrameHeader
+  export implementation : Prelude.Show.Show Network.HTTP2.Frame.Priority
+  export implementation : Prelude.Show.Show Network.HTTP2.Frame.SettingId
+
+module Network.HTTP2.HPACK
+  import public Network.HTTP2.HPACK.Table
+  export record DecoderState : Type
+    field maxListSize : Network.HTTP2.HPACK.DecoderState -> Int
+    field table : Network.HTTP2.HPACK.DecoderState -> Network.HTTP2.HPACK.Table.DynamicTable
+    field tableLimit : Network.HTTP2.HPACK.DecoderState -> Int
+    field updateRequired : Network.HTTP2.HPACK.DecoderState -> Prelude.Basics.Bool
+  export record EncoderState : Type
+    field cap : Network.HTTP2.HPACK.EncoderState -> Int
+    field huffman : Network.HTTP2.HPACK.EncoderState -> Prelude.Basics.Bool
+    field pending : Network.HTTP2.HPACK.EncoderState -> Prelude.Types.Maybe (Int, Int)
+    field table : Network.HTTP2.HPACK.EncoderState -> Network.HTTP2.HPACK.Table.DynamicTable
+  public export data HPACKError : Type
+    constructor Truncated : Network.HTTP2.HPACK.HPACKError
+    constructor IntegerOverflow : Network.HTTP2.HPACK.HPACKError
+    constructor InvalidIndex : Int -> Network.HTTP2.HPACK.HPACKError
+    constructor InvalidHuffman : Network.HTTP2.HPACK.HPACKError
+    constructor TableSizeAboveLimit : Int -> Network.HTTP2.HPACK.HPACKError
+    constructor LateTableSizeUpdate : Network.HTTP2.HPACK.HPACKError
+    constructor MissingTableSizeUpdate : Network.HTTP2.HPACK.HPACKError
+    constructor HeaderListTooLarge : Network.HTTP2.HPACK.DecoderState -> Network.HTTP2.HPACK.HPACKError
+  public export record HeaderField : Type
+    constructor MkHeaderField : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Prelude.Basics.Bool -> Network.HTTP2.HPACK.HeaderField
+    field name : Network.HTTP2.HPACK.HeaderField -> Data.ByteString.Types.ByteString
+    field sensitive : Network.HTTP2.HPACK.HeaderField -> Prelude.Basics.Bool
+    field value : Network.HTTP2.HPACK.HeaderField -> Data.ByteString.Types.ByteString
+  public export data Indexing : Type
+    constructor IncrementalIndexing : Network.HTTP2.HPACK.HeaderField -> Network.HTTP2.HPACK.Indexing
+    constructor WithoutIndexing : Network.HTTP2.HPACK.HeaderField -> Network.HTTP2.HPACK.Indexing
+    constructor NeverIndexed : Network.HTTP2.HPACK.HeaderField -> Network.HTTP2.HPACK.Indexing
+  export total decodeHeaderBlock : Network.HTTP2.HPACK.DecoderState -> Data.ByteString.Types.ByteString -> Prelude.Types.Either Network.HTTP2.HPACK.HPACKError (Prelude.Basics.List Network.HTTP2.HPACK.HeaderField, Network.HTTP2.HPACK.DecoderState)
+  export total decodeInteger : Int -> Data.ByteString.Types.ByteString -> Prelude.Types.Maybe (Int, Int)
+  export total decodeString : Data.ByteString.Types.ByteString -> Prelude.Types.Either Network.HTTP2.HPACK.HPACKError (Data.ByteString.Types.ByteString, Int)
+  export total decoderTable : Network.HTTP2.HPACK.DecoderState -> Network.HTTP2.HPACK.Table.DynamicTable
+  export total defaultIndexing : Int -> Network.HTTP2.HPACK.HeaderField -> Network.HTTP2.HPACK.Indexing
+  export total encodeField : Network.HTTP2.HPACK.EncoderState -> Network.HTTP2.HPACK.Indexing -> (Data.ByteString.Builder.Builder, Network.HTTP2.HPACK.EncoderState)
+  export total encodeHeaderBlock : Network.HTTP2.HPACK.EncoderState -> Prelude.Basics.List Network.HTTP2.HPACK.HeaderField -> (Data.ByteString.Builder.Builder, Network.HTTP2.HPACK.EncoderState)
+  export total encodeHeaderBlockWith : (Network.HTTP2.HPACK.Table.DynamicTable -> Network.HTTP2.HPACK.HeaderField -> Network.HTTP2.HPACK.Indexing) -> Network.HTTP2.HPACK.EncoderState -> Prelude.Basics.List Network.HTTP2.HPACK.HeaderField -> (Data.ByteString.Builder.Builder, Network.HTTP2.HPACK.EncoderState)
+  export total encodeInteger : Int -> Bits8 -> Int -> Data.ByteString.Builder.Builder
+  export total encodeString : Prelude.Basics.Bool -> Data.ByteString.Types.ByteString -> Data.ByteString.Builder.Builder
+  export total encoderTable : Network.HTTP2.HPACK.EncoderState -> Network.HTTP2.HPACK.Table.DynamicTable
+  export total field : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP2.HPACK.HeaderField
+  export total newDecoder : Int -> Int -> Network.HTTP2.HPACK.DecoderState
+  export total newEncoder : Int -> Prelude.Basics.Bool -> Network.HTTP2.HPACK.EncoderState
+  export total setDecoderMaxListSize : Int -> Network.HTTP2.HPACK.DecoderState -> Network.HTTP2.HPACK.DecoderState
+  export total setDecoderTableLimit : Int -> Network.HTTP2.HPACK.DecoderState -> Network.HTTP2.HPACK.DecoderState
+  export total setEncoderTableLimit : Int -> Network.HTTP2.HPACK.EncoderState -> Network.HTTP2.HPACK.EncoderState
+  export implementation : Prelude.EqOrd.Eq Network.HTTP2.HPACK.HeaderField
+  export implementation : Prelude.Show.Show Network.HTTP2.HPACK.HPACKError
+  export implementation : Prelude.Show.Show Network.HTTP2.HPACK.HeaderField
+
+module Network.HTTP2.HPACK.Huffman
+  export total code : Int -> Bits32
+  export total codeLength : Int -> Int
+  export total huffmanDecode : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total huffmanEncode : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total huffmanLength : Data.ByteString.Types.ByteString -> Int
+  export total kraftSum : Integer
+
+module Network.HTTP2.HPACK.Table
+  export record DynamicTable : Type
+    field back : Network.HTTP2.HPACK.Table.DynamicTable -> Prelude.Basics.List Network.HTTP2.HPACK.Table.Entry
+    field backLen : Network.HTTP2.HPACK.Table.DynamicTable -> Int
+    field front : Network.HTTP2.HPACK.Table.DynamicTable -> Prelude.Basics.List Network.HTTP2.HPACK.Table.Entry
+    field frontLen : Network.HTTP2.HPACK.Table.DynamicTable -> Int
+    field maxSize : Network.HTTP2.HPACK.Table.DynamicTable -> Int
+    field size : Network.HTTP2.HPACK.Table.DynamicTable -> Int
+  public export record Entry : Type
+    constructor MkEntry : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP2.HPACK.Table.Entry
+    field name : Network.HTTP2.HPACK.Table.Entry -> Data.ByteString.Types.ByteString
+    field value : Network.HTTP2.HPACK.Table.Entry -> Data.ByteString.Types.ByteString
+  export total dynamicEntry : Int -> Network.HTTP2.HPACK.Table.DynamicTable -> Prelude.Types.Maybe Network.HTTP2.HPACK.Table.Entry
+  export total dynamicLookup : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Network.HTTP2.HPACK.Table.DynamicTable -> (Int, Int)
+  export total emptyTable : Int -> Network.HTTP2.HPACK.Table.DynamicTable
+  export total entrySize : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Int
+  export total insert : Network.HTTP2.HPACK.Table.Entry -> Network.HTTP2.HPACK.Table.DynamicTable -> Network.HTTP2.HPACK.Table.DynamicTable
+  export total setMaxSize : Int -> Network.HTTP2.HPACK.Table.DynamicTable -> Network.HTTP2.HPACK.Table.DynamicTable
+  export total staticEntry : Int -> Network.HTTP2.HPACK.Table.Entry
+  export total staticLookup : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> (Int, Int)
+  export total staticTableSize : Int
+  export total tableCount : Network.HTTP2.HPACK.Table.DynamicTable -> Int
+  export total tableEntries : Network.HTTP2.HPACK.Table.DynamicTable -> Prelude.Basics.List Network.HTTP2.HPACK.Table.Entry
+  export total tableMaxSize : Network.HTTP2.HPACK.Table.DynamicTable -> Int
+  export total tableSize : Network.HTTP2.HPACK.Table.DynamicTable -> Int
+
+module Network.HTTP2.Internal
+  export total createUpTo : Int -> (Data.Buffer.Buffer -> (1 _ : %World) -> PrimIO.IORes Int) -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total wset8 : Data.Buffer.Buffer -> Int -> Bits8 -> (1 _ : %World) -> PrimIO.IORes Builtin.Unit
+
+module Network.URI
+  public export record Authority : Type
+    constructor MkAuthority : Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Network.URI.Host -> Prelude.Types.Maybe Int -> Network.URI.Authority
+    field host : Network.URI.Authority -> Network.URI.Host
+    field port : Network.URI.Authority -> Prelude.Types.Maybe Int
+    field userinfo : Network.URI.Authority -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  public export data Host : Type
+    constructor RegName : Data.ByteString.Types.ByteString -> Network.URI.Host
+    constructor IPv4 : Data.ByteString.Types.ByteString -> Network.URI.Host
+    constructor IPv6 : Data.ByteString.Types.ByteString -> Network.URI.Host
+    constructor IPFuture : Data.ByteString.Types.ByteString -> Network.URI.Host
+  public export data RequestTarget : Type
+    constructor OriginForm : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Network.URI.RequestTarget
+    constructor AbsoluteForm : Network.URI.URI -> Network.URI.RequestTarget
+    constructor AuthorityForm : Network.URI.Host -> Int -> Network.URI.RequestTarget
+    constructor AsteriskForm : Network.URI.RequestTarget
+  public export record URI : Type
+    constructor MkURI : Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Network.URI.Authority -> Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Network.URI.URI
+    field authority : Network.URI.URI -> Prelude.Types.Maybe Network.URI.Authority
+    field fragment : Network.URI.URI -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+    field path : Network.URI.URI -> Data.ByteString.Types.ByteString
+    field query : Network.URI.URI -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+    field scheme : Network.URI.URI -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  public export data URIError : Type
+    constructor BadScheme : Network.URI.URIError
+    constructor BadUserinfo : Network.URI.URIError
+    constructor BadHost : Network.URI.URIError
+    constructor BadPort : Network.URI.URIError
+    constructor BadPath : Network.URI.URIError
+    constructor BadQuery : Network.URI.URIError
+    constructor BadFragment : Network.URI.URIError
+    constructor BadTargetForm : Network.URI.URIError
+  export total authorityBuilder : Network.URI.Authority -> Data.ByteString.Builder.Builder
+  export total encodePath : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total encodePathSegment : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total encodeQuery : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total encodeUserinfo : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total formDecode : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total formEncode : Prelude.Basics.List (Data.ByteString.Types.ByteString, Data.ByteString.Types.ByteString) -> Data.ByteString.Types.ByteString
+  export total formEncodeComponent : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total isIPv4 : Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+  export total isIPv6 : Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+  export total isPChar : Bits8 -> Prelude.Basics.Bool
+  export total isSubDelim : Bits8 -> Prelude.Basics.Bool
+  export total isUnreserved : Bits8 -> Prelude.Basics.Bool
+  export total originFormQuery : Data.ByteString.Types.ByteString -> Int
+  export total parseAuthority : Data.ByteString.Types.ByteString -> Prelude.Types.Either Network.URI.URIError Network.URI.Authority
+  export total parseHostField : Data.ByteString.Types.ByteString -> Prelude.Types.Either Network.URI.URIError (Network.URI.Host, Prelude.Types.Maybe Int)
+  export total parseQuery : Data.ByteString.Types.ByteString -> Prelude.Basics.List (Data.ByteString.Types.ByteString, Data.ByteString.Types.ByteString)
+  export total parseRequestTarget : Network.HTTP.Types.Method -> Data.ByteString.Types.ByteString -> Prelude.Types.Either Network.URI.URIError Network.URI.RequestTarget
+  export total parseURI : Data.ByteString.Types.ByteString -> Prelude.Types.Either Network.URI.URIError Network.URI.URI
+  export total parseURIReference : Data.ByteString.Types.ByteString -> Prelude.Types.Either Network.URI.URIError Network.URI.URI
+  export total percentDecode : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total percentEncode : (Bits8 -> Prelude.Basics.Bool) -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total removeDotSegments : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total renderURI : Network.URI.URI -> Data.ByteString.Types.ByteString
+  export total resolve : Network.URI.URI -> Network.URI.URI -> Network.URI.URI
+  export total uriBuilder : Network.URI.URI -> Data.ByteString.Builder.Builder
+  export implementation : Prelude.EqOrd.Eq Network.URI.Authority
+  export implementation : Prelude.EqOrd.Eq Network.URI.Host
+  export implementation : Prelude.EqOrd.Eq Network.URI.RequestTarget
+  export implementation : Prelude.EqOrd.Eq Network.URI.URI
+  export implementation : Prelude.EqOrd.Eq Network.URI.URIError
+  export implementation : Prelude.Show.Show Network.URI.Authority
+  export implementation : Prelude.Show.Show Network.URI.Host
+  export implementation : Prelude.Show.Show Network.URI.RequestTarget
+  export implementation : Prelude.Show.Show Network.URI.URI
+  export implementation : Prelude.Show.Show Network.URI.URIError
+
+module Network.WebSocket
+  import public Network.HTTP.Server
+  public export record AcceptOptions : Type
+    constructor MkAcceptOptions : Prelude.Basics.List Data.ByteString.Types.ByteString -> (Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Prelude.Basics.Bool) -> Network.HTTP.Types.Headers -> Network.WebSocket.WSConfig -> Network.WebSocket.AcceptOptions
+    field checkOrigin : Network.WebSocket.AcceptOptions -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+    field config : Network.WebSocket.AcceptOptions -> Network.WebSocket.WSConfig
+    field headers : Network.WebSocket.AcceptOptions -> Network.HTTP.Types.Headers
+    field subprotocols : Network.WebSocket.AcceptOptions -> Prelude.Basics.List Data.ByteString.Types.ByteString
+  public export record CloseInfo : Type
+    constructor MkCloseInfo : Bits16 -> Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Bits16 -> Prelude.Basics.Bool -> Network.WebSocket.CloseInfo
+    field code : Network.WebSocket.CloseInfo -> Bits16
+    field local : Network.WebSocket.CloseInfo -> Prelude.Basics.Bool
+    field reason : Network.WebSocket.CloseInfo -> Data.ByteString.Types.ByteString
+    field sent : Network.WebSocket.CloseInfo -> Prelude.Types.Maybe Bits16
+  public export record ConnectOptions : Type
+    constructor MkConnectOptions : Prelude.Basics.List Data.ByteString.Types.ByteString -> Network.HTTP.Types.Headers -> Int -> Prelude.Types.Maybe Network.HTTP.Client.TLSConnector -> Int -> Network.WebSocket.WSConfig -> Network.WebSocket.ConnectOptions
+    field bufferSize : Network.WebSocket.ConnectOptions -> Int
+    field config : Network.WebSocket.ConnectOptions -> Network.WebSocket.WSConfig
+    field headers : Network.WebSocket.ConnectOptions -> Network.HTTP.Types.Headers
+    field subprotocols : Network.WebSocket.ConnectOptions -> Prelude.Basics.List Data.ByteString.Types.ByteString
+    field timeout : Network.WebSocket.ConnectOptions -> Int
+    field tlsConnect : Network.WebSocket.ConnectOptions -> Prelude.Types.Maybe Network.HTTP.Client.TLSConnector
+  public export record Handshake : Type
+    constructor MkHandshake : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Network.WebSocket.Handshake
+    field key : Network.WebSocket.Handshake -> Data.ByteString.Types.ByteString
+    field subprotocol : Network.WebSocket.Handshake -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  public export data Message : Type
+    constructor TextMessage : Data.ByteString.Types.ByteString -> Network.WebSocket.Message
+    constructor BinaryMessage : Data.ByteString.Types.ByteString -> Network.WebSocket.Message
+  public export record WSConfig : Type
+    constructor MkWSConfig : Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Network.WebSocket.WSConfig
+    field closeTimeout : Network.WebSocket.WSConfig -> Int
+    field fragmentSize : Network.WebSocket.WSConfig -> Int
+    field idleTimeout : Network.WebSocket.WSConfig -> Int
+    field maxFrameSize : Network.WebSocket.WSConfig -> Int
+    field maxMessageSize : Network.WebSocket.WSConfig -> Int
+    field pingInterval : Network.WebSocket.WSConfig -> Int
+    field pongTimeout : Network.WebSocket.WSConfig -> Int
+    field sendTimeout : Network.WebSocket.WSConfig -> Int
+  public export data WSError : Type
+    constructor WSClosed : Network.WebSocket.WSError
+    constructor WSTimedOut : Network.WebSocket.WSError
+    constructor WSNetFailure : Network.Socket.Async.NetError -> Network.WebSocket.WSError
+    constructor WSInvalidText : Network.WebSocket.WSError
+    constructor WSControlTooLong : Network.WebSocket.WSError
+    constructor WSBadURL : String -> Network.WebSocket.WSError
+    constructor WSHttpError : Network.HTTP.Connection.HttpError -> Network.WebSocket.WSError
+    constructor WSRejected : Network.HTTP.Types.Status -> Network.WebSocket.WSError
+    constructor WSBadHandshake : String -> Network.WebSocket.WSError
+  export record WebSocket : Type
+    field big : Network.WebSocket.WebSocket -> Data.IORef.IORef (Prelude.Types.Maybe Network.WebSocket.BigFrame)
+    field busy : Network.WebSocket.WebSocket -> Data.IORef.IORef Prelude.Basics.Bool
+    field closeDl : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field cond : Network.WebSocket.WebSocket -> System.Concurrency.Condition
+    field config : Network.WebSocket.WebSocket -> Network.WebSocket.WSConfig
+    field hbuf : Network.WebSocket.WebSocket -> Data.Buffer.Buffer
+    field idleAt : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field info : Network.WebSocket.WebSocket -> Data.IORef.IORef (Prelude.Types.Maybe Network.WebSocket.CloseInfo)
+    field isClient : Network.WebSocket.WebSocket -> Prelude.Basics.Bool
+    field local : Network.WebSocket.WebSocket -> Data.IORef.IORef Prelude.Basics.Bool
+    field lock : Network.WebSocket.WebSocket -> System.Concurrency.Mutex
+    field msgLen : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field msgOp : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field msgParts : Network.WebSocket.WebSocket -> Data.IORef.IORef (Prelude.Basics.List Data.ByteString.Types.ByteString)
+    field msgUtf8 : Network.WebSocket.WebSocket -> Data.IORef.IORef Network.WebSocket.UTF8.Utf8State
+    field nextPing : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field ops : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field opts : Network.WebSocket.WebSocket -> Network.WebSocket.Frame.DecodeOptions
+    field pendAny : Network.WebSocket.WebSocket -> Data.IORef.IORef Prelude.Basics.Bool
+    field pendPing : Network.WebSocket.WebSocket -> Data.IORef.IORef (Prelude.Types.Maybe Data.ByteString.Types.ByteString)
+    field pendPong : Network.WebSocket.WebSocket -> Data.IORef.IORef (Prelude.Types.Maybe Data.ByteString.Types.ByteString)
+    field pongDue : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field pongs : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field pool : Network.WebSocket.WebSocket -> Data.Buffer.Buffer
+    field poolPos : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field proto : Network.WebSocket.WebSocket -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+    field rbuf : Network.WebSocket.WebSocket -> Data.Buffer.Buffer
+    field reading : Network.WebSocket.WebSocket -> Data.IORef.IORef Prelude.Basics.Bool
+    field rend : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field rpos : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field rsize : Network.WebSocket.WebSocket -> Int
+    field sawData : Network.WebSocket.WebSocket -> Data.IORef.IORef Prelude.Basics.Bool
+    field sawMessage : Network.WebSocket.WebSocket -> Data.IORef.IORef Prelude.Basics.Bool
+    field sentCode : Network.WebSocket.WebSocket -> Data.IORef.IORef (Prelude.Types.Maybe Bits16)
+    field state : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+    field tclosed : Network.WebSocket.WebSocket -> Data.IORef.IORef Prelude.Basics.Bool
+    field timers : Network.WebSocket.WebSocket -> Prelude.Basics.Bool
+    field transport : Network.WebSocket.WebSocket -> Network.HTTP.Transport.Transport
+    field waiters : Network.WebSocket.WebSocket -> Data.IORef.IORef Int
+  export covering abort : Network.WebSocket.WebSocket -> PrimIO.IO Builtin.Unit
+  export covering acceptWebSocket : Network.WebSocket.AcceptOptions -> Network.HTTP.Server.Request -> (Network.WebSocket.WebSocket -> PrimIO.IO Builtin.Unit) -> Network.HTTP.Server.Response
+  export covering checkHandshake : Network.WebSocket.AcceptOptions -> Network.HTTP.Server.Request -> Prelude.Types.Either Network.HTTP.Server.Response Network.WebSocket.Handshake
+  export covering clientHandshake : Network.WebSocket.ConnectOptions -> Network.HTTP.Connection.Conn -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString -> Int -> PrimIO.IO (Prelude.Types.Either Network.WebSocket.WSError Network.WebSocket.WebSocket)
+  export covering closeStatus : Network.WebSocket.WebSocket -> PrimIO.IO (Prelude.Types.Maybe Network.WebSocket.CloseInfo)
+  export covering closeWebSocket : Network.WebSocket.WebSocket -> Bits16 -> String -> PrimIO.IO Network.WebSocket.CloseInfo
+  export covering connectWebSocket : Network.WebSocket.ConnectOptions -> String -> PrimIO.IO (Prelude.Types.Either Network.WebSocket.WSError Network.WebSocket.WebSocket)
+  export covering defaultAcceptOptions : Network.WebSocket.AcceptOptions
+  export covering defaultConnectOptions : Network.WebSocket.ConnectOptions
+  export covering defaultWSConfig : Network.WebSocket.WSConfig
+  export covering fromConn : Prelude.Basics.Bool -> Network.WebSocket.WSConfig -> Prelude.Types.Maybe Data.ByteString.Types.ByteString -> Network.HTTP.Connection.Conn -> PrimIO.IO Network.WebSocket.WebSocket
+  export covering isClientSide : Network.WebSocket.WebSocket -> Prelude.Basics.Bool
+  export covering isOpen : Network.WebSocket.WebSocket -> PrimIO.IO Prelude.Basics.Bool
+  export covering isWebSocketRequest : Network.HTTP.Server.Request -> Prelude.Basics.Bool
+  export covering messageBytes : Network.WebSocket.Message -> Data.ByteString.Types.ByteString
+  export covering messageString : Network.WebSocket.Message -> String
+  export covering parseWebSocketURL : String -> Prelude.Types.Either Network.WebSocket.WSError Network.HTTP.Client.Target
+  export covering ping : Network.WebSocket.WebSocket -> Data.ByteString.Types.ByteString -> PrimIO.IO (Prelude.Types.Either Network.WebSocket.WSError Builtin.Unit)
+  export covering pongCount : Network.WebSocket.WebSocket -> PrimIO.IO Int
+  export covering randomBytes : Int -> PrimIO.IO (Prelude.Types.Maybe Data.ByteString.Types.ByteString)
+  export covering receive : Network.WebSocket.WebSocket -> PrimIO.IO (Prelude.Types.Either Network.WebSocket.CloseInfo Network.WebSocket.Message)
+  export covering receiveBefore : Network.WebSocket.WebSocket -> Int -> PrimIO.IO (Prelude.Types.Maybe (Prelude.Types.Either Network.WebSocket.CloseInfo Network.WebSocket.Message))
+  export covering sendBinary : Network.WebSocket.WebSocket -> Data.ByteString.Types.ByteString -> PrimIO.IO (Prelude.Types.Either Network.WebSocket.WSError Builtin.Unit)
+  export covering sendMessage : Network.WebSocket.WebSocket -> Network.WebSocket.Message -> PrimIO.IO (Prelude.Types.Either Network.WebSocket.WSError Builtin.Unit)
+  export covering sendText : Network.WebSocket.WebSocket -> String -> PrimIO.IO (Prelude.Types.Either Network.WebSocket.WSError Builtin.Unit)
+  export covering sendTextBytes : Network.WebSocket.WebSocket -> Data.ByteString.Types.ByteString -> PrimIO.IO (Prelude.Types.Either Network.WebSocket.WSError Builtin.Unit)
+  export covering subprotocol : Network.WebSocket.WebSocket -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export covering upgradeResponse : Network.WebSocket.AcceptOptions -> Network.WebSocket.Handshake -> (Network.WebSocket.WebSocket -> PrimIO.IO Builtin.Unit) -> Network.HTTP.Server.Response
+  export covering waitUnused : Network.WebSocket.WebSocket -> PrimIO.IO Builtin.Unit
+  export covering webSocketPeer : Network.WebSocket.WebSocket -> Prelude.Types.Maybe Network.Socket.Address.SockAddr
+  export covering websocketRoute : String -> Network.WebSocket.AcceptOptions -> (Network.HTTP.Server.Request -> Network.HTTP.Router.Params -> Network.WebSocket.WebSocket -> PrimIO.IO Builtin.Unit) -> Network.HTTP.Router.Route
+  export implementation : Prelude.EqOrd.Eq Network.WebSocket.Message
+  export implementation : Prelude.EqOrd.Eq Network.WebSocket.WSError
+  export implementation : Prelude.Show.Show Network.WebSocket.CloseInfo
+  export implementation : Prelude.Show.Show Network.WebSocket.Message
+  export implementation : Prelude.Show.Show Network.WebSocket.WSError
+
+module Network.WebSocket.Frame
+  public export data CloseError : Type
+    constructor CloseTruncated : Network.WebSocket.Frame.CloseError
+    constructor InvalidCloseCode : Bits16 -> Network.WebSocket.Frame.CloseError
+    constructor InvalidReason : Network.WebSocket.Frame.CloseError
+  public export record DecodeOptions : Type
+    constructor MkDecodeOptions : Prelude.Basics.Bool -> Bits8 -> Int -> Network.WebSocket.Frame.DecodeOptions
+    field allowedRsv : Network.WebSocket.Frame.DecodeOptions -> Bits8
+    field expectMasked : Network.WebSocket.Frame.DecodeOptions -> Prelude.Basics.Bool
+    field maxPayload : Network.WebSocket.Frame.DecodeOptions -> Int
+  public export data FrameError : Type
+    constructor ReservedBitSet : Network.WebSocket.Frame.FrameError
+    constructor ReservedOpcode : Bits8 -> Network.WebSocket.Frame.FrameError
+    constructor FragmentedControl : Network.WebSocket.Frame.FrameError
+    constructor ControlTooLong : Network.WebSocket.Frame.FrameError
+    constructor MaskMissing : Network.WebSocket.Frame.FrameError
+    constructor MaskUnexpected : Network.WebSocket.Frame.FrameError
+    constructor NonMinimalLength : Network.WebSocket.Frame.FrameError
+    constructor LengthOverflow : Network.WebSocket.Frame.FrameError
+    constructor PayloadTooLarge : Network.WebSocket.Frame.FrameError
+  public export record FrameHeader : Type
+    constructor MkFrameHeader : Prelude.Basics.Bool -> Prelude.Basics.Bool -> Prelude.Basics.Bool -> Prelude.Basics.Bool -> Network.WebSocket.Frame.Opcode -> Prelude.Types.Maybe Bits32 -> Int -> Network.WebSocket.Frame.FrameHeader
+    field fin : Network.WebSocket.Frame.FrameHeader -> Prelude.Basics.Bool
+    field maskKey : Network.WebSocket.Frame.FrameHeader -> Prelude.Types.Maybe Bits32
+    field opcode : Network.WebSocket.Frame.FrameHeader -> Network.WebSocket.Frame.Opcode
+    field payloadLength : Network.WebSocket.Frame.FrameHeader -> Int
+    field rsv1 : Network.WebSocket.Frame.FrameHeader -> Prelude.Basics.Bool
+    field rsv2 : Network.WebSocket.Frame.FrameHeader -> Prelude.Basics.Bool
+    field rsv3 : Network.WebSocket.Frame.FrameHeader -> Prelude.Basics.Bool
+  public export data HeaderResult : Type
+    constructor NeedMore : Int -> Network.WebSocket.Frame.HeaderResult
+    constructor Header : Network.WebSocket.Frame.FrameHeader -> Int -> Network.WebSocket.Frame.HeaderResult
+    constructor Invalid : Network.WebSocket.Frame.FrameError -> Network.WebSocket.Frame.HeaderResult
+  public export data Opcode : Type
+    constructor Continuation : Network.WebSocket.Frame.Opcode
+    constructor Text : Network.WebSocket.Frame.Opcode
+    constructor Binary : Network.WebSocket.Frame.Opcode
+    constructor Close : Network.WebSocket.Frame.Opcode
+    constructor Ping : Network.WebSocket.Frame.Opcode
+    constructor Pong : Network.WebSocket.Frame.Opcode
+  export total clientOptions : Network.WebSocket.Frame.DecodeOptions
+  export total closeCodeFor : Network.WebSocket.Frame.FrameError -> Bits16
+  export total closeErrorCode : Network.WebSocket.Frame.CloseError -> Bits16
+  export total closePayload : Bits16 -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total decodeHeader : Network.WebSocket.Frame.DecodeOptions -> Data.ByteString.Types.ByteString -> Network.WebSocket.Frame.HeaderResult
+  export total encodeFrame : Network.WebSocket.Frame.FrameHeader -> Data.ByteString.Types.ByteString -> Data.ByteString.Builder.Builder
+  export total encodeHeader : Network.WebSocket.Frame.FrameHeader -> Data.ByteString.Types.ByteString
+  export total isControl : Network.WebSocket.Frame.Opcode -> Prelude.Basics.Bool
+  export total mask : Bits32 -> Int -> Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total maskInto : Bits32 -> Int -> Data.ByteString.Types.ByteString -> Data.Buffer.Buffer -> Int -> PrimIO.IO Builtin.Unit
+  export total opcodeFromValue : Bits8 -> Prelude.Types.Maybe Network.WebSocket.Frame.Opcode
+  export total opcodeValue : Network.WebSocket.Frame.Opcode -> Bits8
+  export total parseClose : Data.ByteString.Types.ByteString -> Prelude.Types.Either Network.WebSocket.Frame.CloseError (Prelude.Types.Maybe (Bits16, Data.ByteString.Types.ByteString))
+  export total serverOptions : Network.WebSocket.Frame.DecodeOptions
+  export total simpleHeader : Network.WebSocket.Frame.Opcode -> Int -> Network.WebSocket.Frame.FrameHeader
+  export total validCloseCode : Bits16 -> Prelude.Basics.Bool
+  export implementation : Prelude.EqOrd.Eq Network.WebSocket.Frame.CloseError
+  export implementation : Prelude.EqOrd.Eq Network.WebSocket.Frame.FrameError
+  export implementation : Prelude.EqOrd.Eq Network.WebSocket.Frame.FrameHeader
+  export implementation : Prelude.EqOrd.Eq Network.WebSocket.Frame.Opcode
+  export implementation : Prelude.Show.Show Network.WebSocket.Frame.CloseError
+  export implementation : Prelude.Show.Show Network.WebSocket.Frame.FrameError
+  export implementation : Prelude.Show.Show Network.WebSocket.Frame.FrameHeader
+  export implementation : Prelude.Show.Show Network.WebSocket.Frame.HeaderResult
+  export implementation : Prelude.Show.Show Network.WebSocket.Frame.Opcode
+
+module Network.WebSocket.Handshake
+  export total acceptKey : Data.ByteString.Types.ByteString -> Data.ByteString.Types.ByteString
+  export total clientKey : Data.ByteString.Types.ByteString -> Prelude.Types.Maybe Data.ByteString.Types.ByteString
+  export total validClientKey : Data.ByteString.Types.ByteString -> Prelude.Basics.Bool
+  export total websocketGUID : Data.ByteString.Types.ByteString
+
+module Network.WebSocket.UTF8
+  export record Utf8State : Type
+    field code : Network.WebSocket.UTF8.Utf8State -> Int
+  export total feedUtf8 : Network.WebSocket.UTF8.Utf8State -> Data.ByteString.Types.ByteString -> Network.WebSocket.UTF8.Utf8State
+  export total utf8Complete : Network.WebSocket.UTF8.Utf8State -> Prelude.Basics.Bool
+  export total utf8Invalid : Network.WebSocket.UTF8.Utf8State -> Prelude.Basics.Bool
+  export total utf8Start : Network.WebSocket.UTF8.Utf8State
+  export total validUtf8 : Data.ByteString.Types.ByteString -> Prelude.Basics.Bool

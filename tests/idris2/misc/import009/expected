@@ -1,6 +1,6 @@
 1/1: Building Test (Test.idr)
 2/2: Building Import (Import.idr)
-Error: Unknown operator '~:>'
+Error: Unknown operator '~:>' [E0000]
 
 Import:11:3--11:6
  07 | (|>) : (s : HasComp x) => {0 a, b, c : x} -> a ~> b -> b ~> c -> a ~> c
@@ -11,11 +11,10 @@ Import:11:3--11:6
         ^^^
 
 1/3: Building Prefix (Prefix.idr)
-Error: While processing right hand side of test. When unifying:
-    Either ((!!) a) ((!!) b)
-and:
-    Either a ?b -> Void
-Mismatch between: Either ((!!) a) ((!!) b) and Either a ?b -> Void.
+Error: While processing right hand side of test. Mismatch between: Either ((!!) a) ((!!) b) and Either a ?b -> Void. [E0101]
+When unifying:
+    Expected: Either a ?b -> Void
+    Got:      Either ((!!) a) ((!!) b)
 
 Prefix:12:17--12:27
  08 | (!!) = Not

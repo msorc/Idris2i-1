@@ -1,5 +1,5 @@
 1/1: Building Implicit (Implicit.idr)
-Error: Expected '}'.
+Error: Expected '}'. [E1101]
 
 Implicit:6:15--6:17
  2 |

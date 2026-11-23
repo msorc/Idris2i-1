@@ -1,0 +1,90 @@
+--- a valid GET
+  HEADERS 1 200
+  DATA 1 5 "hello" END
+--- version, host from :authority, cookies joined
+  HEADERS 1 200
+  DATA 1 36 "2.0 Just \"localhost\" Just \"a=1; b=2\"" END
+--- a POST with a body
+  HEADERS 1 200
+  DATA 1 5 "got 5" END
+--- a name in upper case
+  RST_STREAM 1 PROTOCOL_ERROR
+--- no :path
+  RST_STREAM 1 PROTOCOL_ERROR
+--- no :method
+  RST_STREAM 1 PROTOCOL_ERROR
+--- an empty :path
+  RST_STREAM 1 PROTOCOL_ERROR
+--- two :path
+  RST_STREAM 1 PROTOCOL_ERROR
+--- a pseudo-header field after a regular one
+  RST_STREAM 1 PROTOCOL_ERROR
+--- an unknown pseudo-header field
+  RST_STREAM 1 PROTOCOL_ERROR
+--- a response pseudo-header field
+  RST_STREAM 1 PROTOCOL_ERROR
+--- connection: keep-alive
+  RST_STREAM 1 PROTOCOL_ERROR
+--- transfer-encoding: chunked
+  RST_STREAM 1 PROTOCOL_ERROR
+--- te: gzip
+  RST_STREAM 1 PROTOCOL_ERROR
+--- te: trailers
+  HEADERS 1 200
+  DATA 1 5 "hello" END
+--- a value with a CR
+  RST_STREAM 1 PROTOCOL_ERROR
+--- content-length 5 with 3 bytes
+  RST_STREAM 1 PROTOCOL_ERROR
+--- content-length 2 with 3 bytes
+  RST_STREAM 1 PROTOCOL_ERROR
+--- content-length 3 and END_STREAM on HEADERS
+  RST_STREAM 1 PROTOCOL_ERROR
+--- trailers
+  HEADERS 1 200
+  DATA 1 5 "got 3" END
+--- trailers without END_STREAM
+  RST_STREAM 1 PROTOCOL_ERROR
+--- a pseudo-header field in trailers
+  RST_STREAM 1 PROTOCOL_ERROR
+--- DATA after END_STREAM
+  RST_STREAM 1 STREAM_CLOSED
+--- DATA on stream 0
+  GOAWAY 0 PROTOCOL_ERROR (DATA on stream 0)
+--- an even stream id
+  GOAWAY 0 PROTOCOL_ERROR (HEADERS opening a stream with a wrong id)
+--- a stream id lower than the one before
+  GOAWAY 5 PROTOCOL_ERROR (HEADERS on a stream that was skipped or closed long ago)
+--- PUSH_PROMISE from the client
+  GOAWAY 0 PROTOCOL_ERROR (PUSH_PROMISE from a client)
+--- CONTINUATION without HEADERS
+  GOAWAY 0 PROTOCOL_ERROR (CONTINUATION without HEADERS)
+--- another frame inside a header block
+  GOAWAY 0 PROTOCOL_ERROR (a frame inside a header block)
+--- a field block that is not HPACK
+  GOAWAY 0 COMPRESSION_ERROR (Truncated)
+--- RST_STREAM on an idle stream
+  GOAWAY 0 PROTOCOL_ERROR (RST_STREAM on an idle stream)
+--- WINDOW_UPDATE of 0
+  GOAWAY 0 PROTOCOL_ERROR (WINDOW_UPDATE of 0)
+--- SETTINGS_INITIAL_WINDOW_SIZE above 2^31-1
+  GOAWAY 0 FLOW_CONTROL_ERROR (SETTINGS_INITIAL_WINDOW_SIZE above 2^31-1)
+--- a frame larger than SETTINGS_MAX_FRAME_SIZE
+  GOAWAY 0 FRAME_SIZE_ERROR (frame larger than SETTINGS_MAX_FRAME_SIZE)
+--- PRIORITY, an unknown frame and an unknown setting, then a GET
+  HEADERS 1 200
+  DATA 1 5 "hello" END
+--- PING
+  PING ACK
+  HEADERS 1 200
+  DATA 1 5 "hello" END
+--- HEADERS with CONTINUATION
+  HEADERS 1 200
+  DATA 1 5 "hello" END
+--- a header list of 70 kB
+  HEADERS 1 431 END
+--- then a request that uses the dynamic table
+  HEADERS 3 200
+  DATA 3 5 "hello" END
+=== 4 workers
+same output

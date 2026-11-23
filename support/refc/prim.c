@@ -1,4 +1,5 @@
 #include "prim.h"
+#include "crash.h"
 #include "refc_util.h"
 #include <inttypes.h>
 #include <limits.h>
@@ -71,9 +72,19 @@ Idris2_ShortString const idris2_predefined_codegenstring = {
     IDRIS2_STOCKVAL(STRING_TAG), 5, 4, "refc"};
 
 // Like blodwen-error-quit of the Scheme backends: the message goes to stdout,
-// and the program exits with 1.
+// and the program exits with 1.  Inside a crash boundary (see crash.c), the
+// boundary gets the message instead.  (The clause that the elaborator adds
+// to a function that does not cover every input crashes with this too, with
+// a message that says so.)
 Idris2_Value *idris2_crash(Idris2_Value *msg) {
   Idris2_String *str = (Idris2_String *)msg;
+  if (idris2_crashCatchable()) {
+    static const char missing[] = "Unhandled input for ";
+    int isMissing = str->len >= sizeof(missing) - 1 &&
+                    memcmp(str->str, missing, sizeof(missing) - 1) == 0;
+    idris2_crashThrow(isMissing ? IDRIS2_CRASH_MISSING_CASE : IDRIS2_CRASH_CALL,
+                      str->str, str->len);
+  }
   fputs("ERROR: ", stdout);
   fwrite(str->str, 1, str->len, stdout);
   fputc('\n', stdout);
@@ -82,12 +93,37 @@ Idris2_Value *idris2_crash(Idris2_Value *msg) {
   exit(1);
 }
 
-Idris2_Value *idris2_crashMsg(const char *msg) {
+// The message of a boundary, without the "ERROR: " that the messages of
+// the crashes of the compiled code start with (that of idris_crash does not
+// have it either).
+static void idris2_crashThrowMsg(int kind, const char *msg) {
+  static const char prefix[] = "ERROR: ";
+  if (strncmp(msg, prefix, sizeof(prefix) - 1) == 0)
+    msg += sizeof(prefix) - 1;
+  idris2_crashThrow(kind, msg, strlen(msg));
+}
+
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((__noreturn__))
+#endif
+static void idris2_crashExit(const char *msg) {
   fputs(msg, stdout);
   fputc('\n', stdout);
   fflush(stdout);
   idris2_backtracePrint();
   exit(1);
+}
+
+Idris2_Value *idris2_crashMsg(const char *msg) {
+  if (idris2_crashCatchable())
+    idris2_crashThrowMsg(IDRIS2_CRASH_MISSING_CASE, msg);
+  idris2_crashExit(msg);
+}
+
+void idris2_crashCheck(const char *msg) {
+  if (idris2_crashCatchable())
+    idris2_crashThrowMsg(IDRIS2_CRASH_FAILED_CHECK, msg);
+  idris2_crashExit(msg);
 }
 
 // -----------------------------------
@@ -102,7 +138,7 @@ static int arrayLength(int64_t length) {
     char msg[64];
     snprintf(msg, sizeof(msg), "ERROR: Invalid array length: %" PRId64,
              length);
-    idris2_crashMsg(msg);
+    idris2_crashCheck(msg);
   }
   return (int)length;
 }

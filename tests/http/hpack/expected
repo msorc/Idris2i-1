@@ -1,0 +1,155 @@
+C.1.1 encode 10/5: ok
+C.1.2 encode 1337/5: ok
+C.1.3 encode 42/8: ok
+C.1.1 decode: ok
+C.1.2 decode: ok
+C.1.3 decode: ok
+prefix bits ignored: ok
+truncated integer: ok
+integer overflow: ok
+largest integer: ok
+round trip 2^31-1: ok
+C.2.1 encode: ok
+C.2.1 decode: ok
+  [1] (s=55) custom-key: custom-header
+  size 55
+C.2.2 encode: ok
+C.2.2 decode: ok
+  size 0
+C.2.3 encode: ok
+C.2.3 decode: ok
+  size 0
+C.2.4 encode: ok
+C.2.4 decode: ok
+  size 0
+C.3 (requests without Huffman):
+C.3.1 encode: ok
+C.3.1 decode: ok
+  [1] (s=57) :authority: www.example.com
+  size 57
+C.3.1 tables agree: ok
+C.3.2 encode: ok
+C.3.2 decode: ok
+  [1] (s=53) cache-control: no-cache
+  [2] (s=57) :authority: www.example.com
+  size 110
+C.3.2 tables agree: ok
+C.3.3 encode: ok
+C.3.3 decode: ok
+  [1] (s=54) custom-key: custom-value
+  [2] (s=53) cache-control: no-cache
+  [3] (s=57) :authority: www.example.com
+  size 164
+C.3.3 tables agree: ok
+C.4 (requests with Huffman):
+C.4.1 encode: ok
+C.4.1 decode: ok
+  [1] (s=57) :authority: www.example.com
+  size 57
+C.4.1 tables agree: ok
+C.4.2 encode: ok
+C.4.2 decode: ok
+  [1] (s=53) cache-control: no-cache
+  [2] (s=57) :authority: www.example.com
+  size 110
+C.4.2 tables agree: ok
+C.4.3 encode: ok
+C.4.3 decode: ok
+  [1] (s=54) custom-key: custom-value
+  [2] (s=53) cache-control: no-cache
+  [3] (s=57) :authority: www.example.com
+  size 164
+C.4.3 tables agree: ok
+C.5 (responses without Huffman, table of 256):
+C.5.1 encode: ok
+C.5.1 decode: ok
+  [1] (s=63) location: https://www.example.com
+  [2] (s=65) date: Mon, 21 Oct 2013 20:13:21 GMT
+  [3] (s=52) cache-control: private
+  [4] (s=42) :status: 302
+  size 222
+C.5.1 tables agree: ok
+C.5.2 encode: ok
+C.5.2 decode: ok
+  [1] (s=42) :status: 307
+  [2] (s=63) location: https://www.example.com
+  [3] (s=65) date: Mon, 21 Oct 2013 20:13:21 GMT
+  [4] (s=52) cache-control: private
+  size 222
+C.5.2 tables agree: ok
+C.5.3 encode: ok
+C.5.3 decode: ok
+  [1] (s=98) set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1
+  [2] (s=52) content-encoding: gzip
+  [3] (s=65) date: Mon, 21 Oct 2013 20:13:22 GMT
+  size 215
+C.5.3 tables agree: ok
+C.6 (responses with Huffman, table of 256):
+C.6.1 encode: ok
+C.6.1 decode: ok
+  [1] (s=63) location: https://www.example.com
+  [2] (s=65) date: Mon, 21 Oct 2013 20:13:21 GMT
+  [3] (s=52) cache-control: private
+  [4] (s=42) :status: 302
+  size 222
+C.6.1 tables agree: ok
+C.6.2 encode: ok
+C.6.2 decode: ok
+  [1] (s=42) :status: 307
+  [2] (s=63) location: https://www.example.com
+  [3] (s=65) date: Mon, 21 Oct 2013 20:13:21 GMT
+  [4] (s=52) cache-control: private
+  size 222
+C.6.2 tables agree: ok
+C.6.3 encode: ok
+C.6.3 decode: ok
+  [1] (s=98) set-cookie: foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1
+  [2] (s=52) content-encoding: gzip
+  [3] (s=65) date: Mon, 21 Oct 2013 20:13:22 GMT
+  size 215
+C.6.3 tables agree: ok
+Kraft sum is 1: ok
+codes of appendix B: ok
+round trip of all bytes: ok
+empty string: ok
+"a" with padding 111: ok
+padding not all ones: ok
+padding of 8 bits or more: ok
+a lone byte of ones: ok
+EOS in the string: ok
+EOS then a symbol: ok
+incomplete code of 15 bits: ok
+string with invalid Huffman: ok
+index 0: ok
+index beyond the tables: ok
+name index beyond the tables: ok
+truncated literal: ok
+truncated integer: ok
+huge index: ok
+empty block: ok
+size update to the limit: ok
+size update above the limit: ok
+size update after a field: ok
+two size updates at the start: ok
+lowered limit without update: ok
+lowered limit with update: ok
+no update needed afterwards: ok
+entry that fits: ok
+entry that evicts: ok
+entry larger than the table: ok
+list of exactly the limit: ok
+list above the limit: ok
+table kept after a list above the limit: ok
+next block after a list above the limit: ok
+default policy, huffman False:
+  True 5069 True [False, False, True, True, False, False]
+  True 42 True [False, False, True, True, False, True]
+default policy, huffman True:
+  True 4431 True [False, False, True, True, False, False]
+  True 36 True [False, False, True, True, False, True]
+  [1] (s=66) cookie: session=0123456789abcdef0123
+  size 66
+size updates signalled: ok
+size updates accepted: ok
+no update in the next block: ok
+cap of the encoder: ok

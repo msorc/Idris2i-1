@@ -1,3 +1,3 @@
 1/1: Building FunResult (FunResult.idr)
-Error: The foreign function Main.prim__getTwice returns a function, which the RefC backend does not support: return a Ptr or AnyPtr instead
+Error: The foreign function Main.prim__getTwice returns a function, which the RefC backend does not support: return a Ptr or AnyPtr instead [E0000]
 

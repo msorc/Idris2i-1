@@ -3,7 +3,7 @@ Hi, YY!
 Hi, XX!
 Hi, YY!
 ------
-Error: Ambiguous elaboration. Possible results:
+Error: Ambiguous elaboration. Possible results: [E0301]
     Main.XX.main
     Main.YY.main
 

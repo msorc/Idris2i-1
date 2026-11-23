@@ -1,5 +1,5 @@
 1/1: Building UninhabitedRec (UninhabitedRec.idr)
-Error: While processing right hand side of lkup3Bad. Can't find an implementation for Lookup 3 [(1, "one"), (2, "two"), (4, "four")].
+Error: While processing right hand side of lkup3Bad. Can't find an implementation for Lookup 3 [(1, "one"), (2, "two"), (4, "four")]. [E0401]
 
 UninhabitedRec:30:12--30:21
  26 | lkup2Good : String
@@ -9,9 +9,11 @@ UninhabitedRec:30:12--30:21
  30 | lkup3Bad = fff xxs 3
                  ^^^^^^^^^
 
-Possible cause: Can't find an implementation for Lookup 3 [], which is needed by a matching implementation.
+The constructor There : {auto 0 _ : Uninhabited (x = z)} -> Lookup z xys -> Lookup z ((x, y) :: xys) (at UninhabitedRec:16:3--16:82) matches, but needs Lookup 3 [(2, "two"), (4, "four")].
+    The constructor There : {auto 0 _ : Uninhabited (x = z)} -> Lookup z xys -> Lookup z ((x, y) :: xys) (at UninhabitedRec:16:3--16:82) matches that, but needs Lookup 3 [(4, "four")].
+        The constructor There : {auto 0 _ : Uninhabited (x = z)} -> Lookup z xys -> Lookup z ((x, y) :: xys) (at UninhabitedRec:16:3--16:82) matches that, but needs Lookup 3 [].
 
-Error: While processing right hand side of uniqBad. Can't find an implementation for Uninhabited (Elem 1 (toList [2, 1])).
+Error: While processing right hand side of uniqBad. Can't find an implementation for Uninhabited (Elem 1 (toList [2, 1])). [E0401]
 
 UninhabitedRec:49:11--49:12
  45 | uniqGood : Uniq Nat
@@ -21,6 +23,8 @@ UninhabitedRec:49:11--49:12
  49 | uniqBad = [1, 2, 1]
                 ^
 
-Possible cause: Can't find an implementation for Uninhabited (0 = 0), which is needed by a matching implementation.
+The implementation Uninhabited (x = z) => Uninhabited (Elem z xs) => Uninhabited (Elem z (x :: xs)) (in Data.List.Elem) matches, but needs Uninhabited (Elem 1 [1]).
+    The implementation Uninhabited (x = z) => Uninhabited (Elem z xs) => Uninhabited (Elem z (x :: xs)) (in Data.List.Elem) matches that, but needs Uninhabited (1 = 1).
+        The implementation Uninhabited (a = b) => Uninhabited (S a = S b) (in Data.Nat) matches that, but needs Uninhabited (0 = 0).
 
 UninhabitedRec> Bye for now!

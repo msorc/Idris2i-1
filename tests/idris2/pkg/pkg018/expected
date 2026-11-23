@@ -1,10 +1,10 @@
-Error: Unrecognised property "depend".
+Error: Unrecognised property "depend". [E0000]
 
 "bad.ipkg":2:1--2:7
  1 | package bad
  2 | depend = contrib
      ^^^^^^
-Error: Expected string.
+Error: Expected string. [E0000]
 
 "bad2.ipkg":2:13--2:16
  1 | package bad

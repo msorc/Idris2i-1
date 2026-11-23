@@ -25,3 +25,35 @@
    ...
    fun:refc_fork
 }
+
+# The same for the threads of the pool of blocking calls
+# (idris2_blockingCall in support/refc/reactor.c), which are started as the
+# calls need them and wait for more calls until the process exits.
+{
+   refc-blocking-pool-thread-dtv
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+   fun:_dl_allocate_tls
+   ...
+   fun:pthread_create*
+   ...
+   fun:idris2_blockingCall
+}
+
+# glibc keeps the resolver configuration that getaddrinfo loads in a
+# context of the thread that called it, found through a variable of the
+# thread, and frees it when the thread exits.  A thread of the pool of
+# blocking calls never exits (see above), so at exit Valgrind finds the
+# block pointed to by nothing that it scans.
+{
+   glibc-resolver-context-of-a-live-thread
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   ...
+   fun:__resolv_conf_allocate
+   ...
+   fun:getaddrinfo
+}

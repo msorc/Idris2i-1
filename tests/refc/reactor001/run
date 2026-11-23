@@ -1,0 +1,7 @@
+. ../../testutils.sh
+
+idris2 -o main Main.idr
+(sleep 0.2; echo "one") | ./build/exec/main
+(sleep 0.2; echo "two") | IDRIS2_WORKERS=1 ./build/exec/main
+(sleep 0.2; echo "three") | IDRIS2_WORKERS=4 ./build/exec/main
+(sleep 0.2; echo "four") | IDRIS2_WORKERS=1 $VALGRIND ./build/exec/main

@@ -1,5 +1,5 @@
 1/1: Building Errors (Errors.idr)
-Error: Operator =@ is a type-binding (typebind) operator, but is used as an automatically-binding (autobind) operator.
+Error: Operator =@ is a type-binding (typebind) operator, but is used as an automatically-binding (autobind) operator. [E0308]
 
 Errors:8:19--8:21
  4 | 0 (=@) : (a : Type) -> (a -> Type) -> Type
@@ -15,7 +15,7 @@ Possible solutions:
  - Change the fixity defined at Errors:2:18--2:29 to 'private autobind infixr 0 =@'.
  - Hide or remove the fixity at Errors:2:18--2:29 and import a module that exports a compatible fixity.
 1/1: Building Errors2 (Errors2.idr)
-Error: Operator =@ is an automatically-binding (autobind) operator, but is used as a regular operator.
+Error: Operator =@ is an automatically-binding (autobind) operator, but is used as a regular operator. [E0308]
 
 Errors2:7:29--7:31
  3 |
@@ -31,7 +31,7 @@ Possible solutions:
  - Change the fixity defined at Errors2:2:18--2:29 to 'private infixr 0 =@'.
  - Hide or remove the fixity at Errors2:2:18--2:29 and import a module that exports a compatible fixity.
 1/1: Building Errors3 (Errors3.idr)
-Error: Operator =@ is a type-binding (typebind) operator, but is used as a regular operator.
+Error: Operator =@ is a type-binding (typebind) operator, but is used as a regular operator. [E0308]
 
 Errors3:7:29--7:31
  3 |
@@ -47,7 +47,7 @@ Possible solutions:
  - Change the fixity defined at Errors3:2:18--2:29 to 'private infixr 0 =@'.
  - Hide or remove the fixity at Errors3:2:18--2:29 and import a module that exports a compatible fixity.
 1/1: Building Errors4 (Errors4.idr)
-Error: Operator =@ is a regular operator, but is used as a type-binding (typebind) operator.
+Error: Operator =@ is a regular operator, but is used as a type-binding (typebind) operator. [E0308]
 
 Errors4:9:18--9:20
  5 | (=@) a f = (1 x : a) -> f x
@@ -63,7 +63,7 @@ Possible solutions:
  - Change the fixity defined at Errors4:2:9--2:20 to 'private typebind infixr 0 =@'.
  - Hide or remove the fixity at Errors4:2:9--2:20 and import a module that exports a compatible fixity.
 1/1: Building Errors5 (Errors5.idr)
-Error: Operator =@ is a regular operator, but is used as an automatically-binding (autobind) operator.
+Error: Operator =@ is a regular operator, but is used as an automatically-binding (autobind) operator. [E0308]
 
 Errors5:10:19--10:21
  06 | (=@) a f = (1 x : a) -> f x
@@ -80,7 +80,7 @@ Possible solutions:
  - Hide or remove the fixity at Errors5:3:9--3:20 and import a module that exports a compatible fixity.
 1/2: Building Lin (Lin.idr)
 2/2: Building LinImport (LinImport.idr)
-Error: Operator =@ is a type-binding (typebind) operator, but is used as an automatically-binding (autobind) operator.
+Error: Operator =@ is a type-binding (typebind) operator, but is used as an automatically-binding (autobind) operator. [E0308]
 
 LinImport:8:19--8:21
  4 | 0 (=@) : (a : Type) -> (a -> Type) -> Type

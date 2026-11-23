@@ -189,6 +189,18 @@
 (define-macro (either-left x) `(vector 0 ,x))
 (define-macro (either-right x) `(vector 1 ,x))
 
+;; No crash boundaries (System.Crash): the action runs without one.
+(define (blodwen-crash-catch ty act)
+  (act (vector 0)))
+
+(define (blodwen-crash-caught) 0)
+
+(define (blodwen-crash-last . v) #f)
+
+(define (blodwen-crashes-caught) 0)
+
+(define (blodwen-crash-boundaries) 0)
+
 (define-macro (blodwen-error-quit msg)
   `(begin
     (display ,msg)

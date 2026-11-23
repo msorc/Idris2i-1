@@ -1,5 +1,5 @@
 1/1: Building TypeInt (TypeInt.idr)
-Error: While processing constructor MkRecord. Can't find an implementation for Interface ?s.
+Error: While processing constructor MkRecord. Can't find an implementation for Interface ?s. [E0401]
 
 TypeInt:14:25--14:49
  10 | 0 DependentValue : Interface s => Value s -> Type
@@ -8,4 +8,6 @@ TypeInt:14:25--14:49
  13 | data Record : s -> Type where
  14 |   MkRecord : Value s -> DependentValue {s} value -> Record s
                               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+There is no implementation of Interface for ?s in scope.
 

@@ -1,5 +1,5 @@
 1/1: Building Test (Test.idr)
-Error: Operator -:- is non-associative
+Error: Operator -:- is non-associative [E0000]
 
 Test:13:8--13:22
  09 | (:-:) : a -> List a -> List a
@@ -12,7 +12,7 @@ Test:13:8--13:22
 Possible solutions:
  - Add brackets around every use of -:-
  - Change the fixity of -:- at Test:2:9--2:20 to `infixl` or `infixr`
-Error: Operator :-: is non-associative
+Error: Operator :-: is non-associative [E0000]
 
 Test:16:9--16:23
  12 | test : List Nat

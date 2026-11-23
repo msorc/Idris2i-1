@@ -1,73 +1,73 @@
 1/1: Building Div (Div.idr)
-Error: guarded is not covering.
+Error: guarded is not covering. [E0602]
 
-Div:25:1--25:28
- 21 | viaAbstract : Int -> Int
+Div:26:37--26:46
  22 | viaAbstract x = abstract x 3
  23 |
  24 | -- A guard does not help: `div` is used
  25 | guarded : Int -> Int -> Int
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 26 | guarded x y = if y == 0 then 0 else x `div` y
+                                          ^^^^^^^^^
 
 Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
 Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
-Error: known is not covering.
+Error: known is not covering. [E0602]
 
-Div:8:1--8:26
- 4 | import Data.Nat
+Div:9:13--9:22
  5 |
  6 | %default total
  7 |
  8 | known : Int -> Int -> Int
-     ^^^^^^^^^^^^^^^^^^^^^^^^^
+ 9 | known x y = x `div` y
+                 ^^^^^^^^^
 
 Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
 Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod
-Error: knownInteger is not covering.
+Error: knownInteger is not covering. [E0602]
 
-Div:14:1--14:34
- 10 |
+Div:15:18--15:25
  11 | knownMod : Bits8 -> Bits8 -> Bits8
  12 | knownMod x y = x `mod` y
  13 |
  14 | knownInteger : Integer -> Integer
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 15 | knownInteger x = div x 2
+                       ^^^^^^^
 
 Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:2
 Prelude.Num.Integral implementation at Prelude.Num:2 is not covering, because of Prelude.Num.div, Prelude.Num.mod
-Error: knownMod is not covering.
+Error: knownMod is not covering. [E0602]
 
-Div:11:1--11:35
- 07 |
+Div:12:16--12:25
  08 | known : Int -> Int -> Int
  09 | known x y = x `div` y
  10 |
  11 | knownMod : Bits8 -> Bits8 -> Bits8
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 12 | knownMod x y = x `mod` y
+                     ^^^^^^^^^
 
 Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:3
 Prelude.Num.Integral implementation at Prelude.Num:3 is not covering, because of Prelude.Num.div, Prelude.Num.mod
-Error: nat is not covering.
+Error: nat is not covering. [E0602]
 
-Div:29:1--29:24
- 25 | guarded : Int -> Int -> Int
+Div:30:11--30:20
  26 | guarded x y = if y == 0 then 0 else x `div` y
  27 |
  28 | -- `Integral Nat` (from Data.Nat) is partial as well
  29 | nat : Nat -> Nat -> Nat
-      ^^^^^^^^^^^^^^^^^^^^^^^
+ 30 | nat x y = x `div` y
+                ^^^^^^^^^
 
 Calls non covering function Data.Nat.Integral implementation at Data.Nat:1
 Data.Nat.Integral implementation at Data.Nat:1 is not covering, because of Data.Nat.div, Data.Nat.mod
-Error: viaAbstract is not covering.
+Error: viaAbstract is not covering. [E0602]
 
-Div:21:1--21:25
- 17 | -- Total relative to the dictionary: the caller supplies it
+Div:22:17--22:29
  18 | abstract : Integral a => a -> a -> a
  19 | abstract x y = x `mod` y
  20 |
  21 | viaAbstract : Int -> Int
-      ^^^^^^^^^^^^^^^^^^^^^^^^
+ 22 | viaAbstract x = abstract x 3
+                      ^^^^^^^^^^^^
 
 Calls non covering function Prelude.Num.Integral implementation at Prelude.Num:1
 Prelude.Num.Integral implementation at Prelude.Num:1 is not covering, because of Prelude.Num.div, Prelude.Num.mod

@@ -22,12 +22,15 @@ import public Libraries.Text.Bounded
 export
 data Grammar : (state : Type) -> (tok : Type) -> (consumes : Bool) -> Type -> Type where
      Empty : (val : ty) -> Grammar state tok False ty
-     Terminal : String -> (tok -> Maybe a) -> Grammar state tok True a
+     -- (the messages are lazy: most rules are made for one attempt, which
+     -- most often succeeds or is not reported, and a message is often made
+     -- by appending strings)
+     Terminal : Lazy String -> (tok -> Maybe a) -> Grammar state tok True a
      NextIs : String -> (tok -> Bool) -> Grammar state tok False tok
      LookAhead : (List (WithBounds tok) -> a) -> Grammar state tok False a
      EOF : Grammar state tok False ()
 
-     Fail : (location : Maybe Bounds) -> (fatal : Bool) -> String -> Grammar state tok c ty
+     Fail : (location : Maybe Bounds) -> (fatal : Bool) -> Lazy String -> Grammar state tok c ty
      Warning : (location : Maybe Bounds) -> String -> Grammar state tok False ()
 
      Try : Grammar state tok c ty -> Grammar state tok c ty
@@ -56,6 +59,14 @@ data Grammar : (state : Type) -> (tok : Type) -> (consumes : Bool) -> Type -> Ty
      Position : Grammar state tok False Bounds
 
      Act : state -> Grammar state tok False ()
+
+     -- `g`, for which the predicate is false of the next token only when
+     -- `g` fails without committing or a fatal error (see `guarded`)
+     Guard : (tok -> Bool) -> Lazy (Grammar state tok c ty) ->
+             Grammar state tok c ty
+     -- the same, with a predicate of the next two tokens
+     Guard2 : (tok -> tok -> Bool) -> Lazy (Grammar state tok c ty) ->
+              Grammar state tok c ty
 
 ||| Sequence two grammars. If either consumes some input, the sequence is
 ||| guaranteed to consume some input. If the first one consumes input, the
@@ -117,6 +128,8 @@ Functor (Grammar state tok c) where
       = ThenEat act (map f next)
   map f (ThenEmpty act next)
       = ThenEmpty act (map f next)
+  map f (Guard p g) = Guard p (map f g)
+  map f (Guard2 p g) = Guard2 p (map f g)
   map {c} f (Bounds act)
     = rewrite sym $ orFalseNeutral c in
       SeqEmpty (Bounds act) (Empty . f) -- Bounds (map f act)
@@ -202,6 +215,8 @@ mapToken f (Alt x y) = Alt (mapToken f x) (mapToken f y)
 mapToken f (Bounds act) = Bounds (mapToken f act)
 mapToken f Position = Position
 mapToken f (Act action) = Act action
+mapToken f (Guard p g) = Guard (p . f) (mapToken f g)
+mapToken f (Guard2 p g) = Guard2 (\x, y => p (f x) (f y)) (mapToken f g)
 
 ||| Always succeed with the given value.
 export %inline
@@ -228,29 +243,29 @@ peek = nextIs "Unrecognised token" (const True)
 ||| Succeeds if running the predicate on the next token returns Just x,
 ||| returning x. Otherwise fails.
 export %inline
-terminal : String -> (tok -> Maybe a) -> Grammar state tok True a
+terminal : Lazy String -> (tok -> Maybe a) -> Grammar state tok True a
 terminal = Terminal
 
 ||| Always fail with a message
 export %inline
-fail : String -> Grammar state tok c ty
+fail : Lazy String -> Grammar state tok c ty
 fail = Fail Nothing False
 
 ||| Always fail with a message and a location
 export %inline
-failLoc : Bounds -> String -> Grammar state tok c ty
+failLoc : Bounds -> Lazy String -> Grammar state tok c ty
 failLoc b = Fail (Just b) False
 
 ||| Fail with no possibility for recovery (i.e.
 ||| no alternative parsing can succeed).
 export %inline
-fatalError : String -> Grammar state tok c ty
+fatalError : Lazy String -> Grammar state tok c ty
 fatalError = Fail Nothing True
 
 ||| Fail with no possibility for recovery (i.e.
 ||| no alternative parsing can succeed).
 export %inline
-fatalLoc : Bounds -> String -> Grammar state tok c ty
+fatalLoc : Bounds -> Lazy String -> Grammar state tok c ty
 fatalLoc b = Fail (Just b) True
 
 ||| Catch a fatal error
@@ -282,6 +297,21 @@ mustWorkBecause :
 mustWorkBecause {c} loc msg p
   = rewrite sym (andSameNeutral c) in
     p <|> fatalLoc loc msg
+
+||| `guarded p g` is `g`, but when `p` is false of the next token, `g` is not
+||| tried, only made and run again if the errors of the failure are needed:
+||| for a rule that most often fails at once, `p` is cheaper than making
+||| it. `p` must be true of every next token for which `g` may succeed,
+||| commit, or fail with a fatal error.
+export %inline
+guarded : (tok -> Bool) -> Lazy (Grammar state tok c ty) -> Grammar state tok c ty
+guarded = Guard
+
+||| As `guarded`, with a predicate of the next two tokens (when there is only
+||| one, the rule is tried)
+export %inline
+guarded2 : (tok -> tok -> Bool) -> Lazy (Grammar state tok c ty) -> Grammar state tok c ty
+guarded2 = Guard2
 
 export %inline
 bounds : Grammar state tok c ty -> Grammar state tok c (WithBounds ty)
@@ -315,8 +345,10 @@ ParsingWarnings : Type
 ParsingWarnings = List (Maybe Bounds, String)
 
 data ParseResult : Type -> Type -> Type -> Type where
+     -- (the errors are lazy: they are only needed when the whole parse
+     -- fails, and a failure is the common outcome of an alternative)
      Failure : (committed : Bool) -> (fatal : Bool) ->
-               List1 (ParsingError tok) -> ParseResult state tok ty
+               Lazy (List1 (ParsingError tok)) -> ParseResult state tok ty
      Res : state ->
            (ws : ParsingWarnings) ->
            (committed : Bool) ->
@@ -327,6 +359,11 @@ data ParseResult : Type -> Type -> Type -> Type where
 mergeWith : WithBounds ty -> ParseResult state tok sy -> ParseResult state tok sy
 mergeWith x (Res s ws committed val more) = Res s ws committed (mergeBounds x val) more
 mergeWith x v = v
+
+-- The errors of a rule that a guard skipped
+guardErrors : WithBounds tok -> ParseResult state tok ty -> List1 (ParsingError tok)
+guardErrors x (Failure _ _ errs) = errs
+guardErrors x (Res {}) = Error "Internal error: a guarded rule succeeded" (Just x.bounds) ::: Nil
 
 doParse : Semigroup state =>
           state -> (ws : ParsingWarnings) ->
@@ -405,6 +442,16 @@ doParse s ws com Position (x :: xs)
     = Res s ws com (irrelevantBounds x.bounds) (x :: xs)
 doParse s ws com (Act action) xs
   = Res (s <+> action) ws com (irrelevantBounds ()) xs
+doParse s ws com (Guard p g) [] = doParse s ws com g []
+doParse s ws com (Guard p g) (x :: xs)
+    = if p x.val
+         then doParse s ws com g (x :: xs)
+         else Failure com False (guardErrors x (doParse s ws com g (x :: xs)))
+doParse s ws com (Guard2 p g) (x :: y :: xs)
+    = if p x.val y.val
+         then doParse s ws com g (x :: y :: xs)
+         else Failure com False (guardErrors x (doParse s ws com g (x :: y :: xs)))
+doParse s ws com (Guard2 p g) xs = doParse s ws com g xs
 
 ||| Parse a list of tokens according to the given grammar. If successful,
 ||| returns a pair of the parse result and the unparsed tokens (the remaining

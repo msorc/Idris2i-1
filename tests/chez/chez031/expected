@@ -1,25 +1,27 @@
-Error: The given specifier '["scheme,racket:+"]' was not accepted by any backend. Available backends:
+Error: The given specifier '["scheme,racket:+"]' was not accepted by any backend. Available backends: [E1301]
   chez, chez-sep, racket, node, javascript, refc, gambit, vmcode-interp
 Some backends have additional specifier rules, refer to their documentation.
 
 Specifiers:29:1--30:35
 
-Error: The given specifier '["scheme,racket:+"]' was not accepted by any backend. Available backends:
+Error: The given specifier '["scheme,racket:+"]' was not accepted by any backend. Available backends: [E1301]
   chez, chez-sep, racket, node, javascript, refc, gambit, vmcode-interp
 Some backends have additional specifier rules, refer to their documentation.
 
 Specifiers:29:1--30:35
  29 | %foreign "scheme,racket:+"
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^
  30 | plusRacketFail : Int -> Int -> Int
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Main> Loaded file Specifiers.idr
-Specifiers> Error: The given specifier '["scheme,racket:+"]' was not accepted by any backend. Available backends:
+Specifiers> Error: The given specifier '["scheme,racket:+"]' was not accepted by any backend. Available backends: [E1301]
   chez, chez-sep, racket, node, javascript, refc, gambit, vmcode-interp
 Some backends have additional specifier rules, refer to their documentation.
 
 Specifiers:29:1--30:35
 
-Specifiers> [exec] Specifiers> Error: The given specifier '["scheme,racket:+"]' was not accepted by any backend. Available backends:
+Specifiers> [exec] Specifiers> Error: The given specifier '["scheme,racket:+"]' was not accepted by any backend. Available backends: [E1301]
   chez, chez-sep, racket, node, javascript, refc, gambit, vmcode-interp
 Some backends have additional specifier rules, refer to their documentation.
 

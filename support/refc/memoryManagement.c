@@ -800,8 +800,8 @@ void idris2_markShared(Idris2_Value *root) {
     }
     case CHANNEL_TAG: {
       Idris2_Channel *c = (Idris2_Channel *)v;
-      if (c->full)
-        IDRIS2_PUSH(c->value);
+      for (int64_t i = 0; i < c->count; i++)
+        IDRIS2_PUSH(c->slots[(c->head + i) % c->size]);
       break;
     }
     default:
@@ -1102,9 +1102,18 @@ IDRIS2_INLINE Idris2_Value *releaseOne(Idris2_Value *elem, ReleaseStack *st) {
     /* The finaliser may run while the caller has a pending tail call (see
        runtime.h): keep it. */
     Idris2_PendingTailCall pending = idris2_pendingTailCall;
+    /* A release may happen anywhere, in the runtime under a lock too: a
+       crash of the finaliser is fatal, unless it has a crash boundary of
+       its own (see crash.c).  (The thread stays the same while the
+       finaliser runs, even when it moves to another worker.) */
+    Idris2_CrashState *cs = idris2_crashState();
+    if (cs)
+      cs->finalisers++;
     Idris2_Value *closure1 = idris2_apply_closure(
         (Idris2_Value *)vPtr->onCollectFct, (Idris2_Value *)vPtr->p);
     idris2_removeReference(idris2_apply_closure(closure1, NULL));
+    if (cs)
+      cs->finalisers--;
     idris2_pendingTailCall = pending;
     break;
   }
@@ -1113,8 +1122,14 @@ IDRIS2_INLINE Idris2_Value *releaseOne(Idris2_Value *elem, ReleaseStack *st) {
     /* Nobody can be waiting on a channel that is being freed: a waiting
        thread holds a reference to it. */
     Idris2_Channel *channel = (Idris2_Channel *)elem;
-    if (channel->full)
-      last = channel->value;
+    if (channel->count > 0) {
+      for (int64_t i = 0; i < channel->count - 1; i++)
+        RELEASE_FIELD(channel->slots[(channel->head + i) % channel->size]);
+      last = channel->slots[(channel->head + channel->count - 1) %
+                            channel->size];
+    }
+    if (channel->slots != &channel->value)
+      free(channel->slots);
     break;
   }
 
@@ -1735,10 +1750,12 @@ static void markFromConstants(ValueList *list, uint8_t *reached) {
       LEAK_PUSH(((Idris2_GCPointer *)v)->p);
       LEAK_PUSH(((Idris2_GCPointer *)v)->onCollectFct);
       break;
-    case CHANNEL_TAG:
-      if (((Idris2_Channel *)v)->full)
-        LEAK_PUSH(((Idris2_Channel *)v)->value);
+    case CHANNEL_TAG: {
+      Idris2_Channel *c = (Idris2_Channel *)v;
+      for (int64_t i = 0; i < c->count; i++)
+        LEAK_PUSH(c->slots[(c->head + i) % c->size]);
       break;
+    }
     default:
       break;
     }

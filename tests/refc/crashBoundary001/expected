@@ -1,0 +1,30 @@
+pure: returned fine
+idris_crash: crash call: boom
+missing case: missing case: Unhandled input for Main.f at Main:20:1--20:8
+buffer read: failed check: Buffer access out of range: offset (6) + len (4) > buf.size (8)
+buffer write: failed check: Buffer access out of range: offset (-1) < 0
+buffer string: failed check: Buffer access out of range: offset (4) + len (20) > buf.size (8)
+buffer copy: failed check: Buffer access out of range: offset (2) + len (9) > buf.size (8)
+Integer division: missing case: Unhandled input for Prelude.Num.case block in div at Prelude.Num:91:3--93:44
+Int division: failed check: Division by zero
+Bits8 modulo: failed check: Division by zero
+array length: failed check: Invalid array length: -1
+buffer: 42
+inner: missing case: Unhandled input for Main.f at Main:20:1--20:8
+between
+outer: crash call: outer
+after inner: missing case: Unhandled input for Main.f at Main:20:1--20:8
+sortBy: missing case: Unhandled input for Main.f at Main:20:1--20:8
+foldl: missing case: Unhandled input for Main.f at Main:20:1--20:8
+traverse_: missing case: Unhandled input for Main.f at Main:20:1--20:8
+ref: 2
+map: missing case: Unhandled input for Main.f at Main:20:1--20:8
+crashes caught: 17
+boundaries: True
+exit code: 0
+exiting
+exit code: 3
+ERROR: Unhandled input for Main.f at Main:20:1--20:8
+exit code: 1
+assertion failed in buffer.c: offset <= (int64_t)buf->size - len: offset (2) + len (4) > buf.size (4)
+exit code: 134

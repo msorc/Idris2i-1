@@ -1,0 +1,112 @@
+1/1: Building Why (Why.idr)
+Error: While processing right hand side of noImpl. Can't find an implementation for Show Foo. [E0401]
+
+Why:16:10--16:20
+ 12 |   show (MkBox x) = show x
+ 13 |
+ 14 | -- No implementation of the interface matches the type
+ 15 | noImpl : String
+ 16 | noImpl = show MkFoo
+               ^^^^^^^^^^
+
+There is no implementation of Show for Foo in scope.
+
+Error: While processing right hand side of nested. Can't find an implementation for Show (List (Box Foo)). [E0401]
+
+Why:21:10--21:28
+ 17 |
+ 18 | -- An implementation matches, but needs a constraint that fails, through
+ 19 | -- several implementations
+ 20 | nested : String
+ 21 | nested = show [MkBox MkFoo]
+               ^^^^^^^^^^^^^^^^^^
+
+The implementation Show a => Show (List a) (in Prelude.Show) matches, but needs Show (Box Foo).
+    The implementation Show a => Show (Box a) (at Why:11:1--12:26) matches that, but needs Show Foo.
+        There is no implementation of Show for Foo in scope.
+
+Error: While processing right hand side of deep. Can't find an implementation for Show (List (Maybe (Box (Box (Box Foo))))). [E0401]
+
+Why:25:8--25:49
+ 21 | nested = show [MkBox MkFoo]
+ 22 |
+ 23 | -- A long chain is cut short
+ 24 | deep : String
+ 25 | deep = show [Just (MkBox (MkBox (MkBox MkFoo)))]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The implementation Show a => Show (List a) (in Prelude.Show) matches, but needs Show (Maybe (Box (Box (Box Foo)))).
+    The implementation Show a => Show (Maybe a) (in Prelude.Show) matches that, but needs Show (Box (Box (Box Foo))).
+        The implementation Show a => Show (Box a) (at Why:11:1--12:26) matches that, but needs Show (Box (Box Foo)).
+            ... and 1 more that match, of which the last:
+            The implementation Show a => Show (Box a) (at Why:11:1--12:26) matches that, but needs Show Foo.
+                There is no implementation of Show for Foo in scope.
+
+Error: While processing right hand side of unknown. Can't find an implementation for Show ?ty. [E0401]
+
+Why:29:11--29:24
+ 25 | deep = show [Just (MkBox (MkBox (MkBox MkFoo)))]
+ 26 |
+ 27 | -- The type is not known
+ 28 | unknown : String
+ 29 | unknown = show (cast 1)
+                ^^^^^^^^^^^^^
+
+?ty is not known, so I can't choose an implementation of Show.
+Suggestion: say what ?ty is, with a type annotation such as the T e.
+
+Error: While processing right hand side of local. Can't find an implementation for Describe Bool. [E0401]
+
+Why:39:11--39:21
+ 35 | Describe Int where
+ 36 |   describe _ = "Int"
+ 37 |
+ 38 | local : Describe Int => Bool -> String
+ 39 | local b = describe b
+                ^^^^^^^^^^
+
+There is no implementation of Describe for Bool in scope.
+Describe Int is in scope, but does not match.
+
+Error: While processing right hand side of ambiguous. Multiple solutions found in search of: [E0403]
+    Describe Int
+
+Why:50:15--50:25
+ 46 | otherInt : Describe Int
+ 47 | otherInt = other
+ 48 |
+ 49 | ambiguous : Int -> String
+ 50 | ambiguous i = describe i
+                    ^^^^^^^^^^
+
+Possible correct results:
+    otherInt : Describe Int (at Why:45:1--46:24)
+    Describe Int (implementation at Why:1)
+Suggestion: choose one with @{otherInt}.
+Error: While processing right hand side of twoSizes. Multiple solutions found in search of: [E0403]
+    Size (List Nat)
+
+Why:63:15--63:22
+ 59 | Size (List Nat) where
+ 60 |   size = sum
+ 61 |
+ 62 | twoSizes : List Nat -> Nat
+ 63 | twoSizes xs = size xs
+                    ^^^^^^^
+
+Possible correct results:
+    Size (List Nat) (implementation at Why:2)
+    Size (List a) (implementation at Why:3)
+Suggestion: remove one of the implementations, or give them names ([name] Interface t where) to choose one with @{name}.
+Error: While processing right hand side of sorted. Can't find an implementation for Ord Foo. [E0401]
+
+Why:67:13--67:20
+ 63 | twoSizes xs = size xs
+ 64 |
+ 65 | -- A function's constraint fails
+ 66 | sorted : List Foo -> List Foo
+ 67 | sorted xs = sort xs
+                  ^^^^^^^
+
+There is no implementation of Ord for Foo in scope.
+

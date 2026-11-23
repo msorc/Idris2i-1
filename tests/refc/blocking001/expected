@@ -1,0 +1,10 @@
+a blocking call before the first fork: 0
+the calls returned: 0
+ticks: 10
+more than 1s (100 calls of 50ms on 4 threads): True
+less than 5s: True
+a blocking call before the first fork: 0
+the calls returned: 0
+ticks: 10
+more than 1s (100 calls of 50ms on 4 threads): True
+less than 5s: True

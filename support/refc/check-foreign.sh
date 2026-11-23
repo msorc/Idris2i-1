@@ -9,7 +9,7 @@
 #   check-foreign.sh <refc support dir> <c support dir> <source dir>...
 # e.g., from the top of the repository, after `make support`:
 #   sh support/refc/check-foreign.sh support/refc support/c \
-#      libs/prelude libs/base libs/contrib libs/network libs/linear
+#      libs/prelude libs/base libs/contrib libs/network libs/linear libs/http
 #
 # For each `%foreign` declaration (at the start of a line, with the strings on
 # the lines indented below it) this takes the string that RefC uses: the first

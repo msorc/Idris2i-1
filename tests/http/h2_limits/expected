@@ -1,0 +1,45 @@
+--- 11 streams with a limit of 10
+  RST_STREAM 21 REFUSED_STREAM
+  responses: 10, 10 ended
+--- 1000 streams opened and reset at once
+  GOAWAY ENHANCE_YOUR_CALM (too many streams reset): True
+  other frames than RST_STREAM and GOAWAY: []
+--- 100 CONTINUATION frames
+  GOAWAY 0 ENHANCE_YOUR_CALM (header block too large)
+--- 144 kB of CONTINUATION frames
+  GOAWAY 0 ENHANCE_YOUR_CALM (header block too large)
+--- 2000 empty DATA frames
+  GOAWAY 1 ENHANCE_YOUR_CALM (too many empty frames)
+--- 2000 DATA frames of padding only
+  GOAWAY 1 ENHANCE_YOUR_CALM (too many empty frames)
+--- an empty HEADERS and empty CONTINUATION frames
+  GOAWAY 0 ENHANCE_YOUR_CALM (header block too large)
+--- 2000 empty frames of an unknown type
+  GOAWAY 0 ENHANCE_YOUR_CALM (too many empty frames)
+--- 500,000 PING frames, not read: the server ended the connection: True
+--- 500,000 SETTINGS frames, not read: the server ended the connection: True
+--- the window of the connection above 2^31-1
+  GOAWAY 0 FLOW_CONTROL_ERROR (connection window above 2^31-1)
+--- the window of a stream above 2^31-1
+  RST_STREAM 1 FLOW_CONTROL_ERROR
+--- 272 kB to a stream whose window is 256 kB, which the handler does not read
+  RST_STREAM 1 FLOW_CONTROL_ERROR
+--- 1.2 MB on five streams, beyond the window of the connection (1 MiB)
+  GOAWAY 9 FLOW_CONTROL_ERROR (DATA beyond the window of the connection)
+--- SETTINGS not acknowledged
+  GOAWAY 0 SETTINGS_TIMEOUT (SETTINGS not acknowledged)
+  after 0.5 to 2 s: True
+--- a client that never opens its window
+  DATA bytes: 65535
+  HEADERS 1 200
+  RST_STREAM 1 CANCEL
+--- a connection left idle
+  HEADERS 1 200
+  DATA 1 5 "hello" END
+  GOAWAY 1 NO_ERROR (idle)
+  after 0.7 to 3 s: True
+--- the server goes on
+  HEADERS 1 200
+  DATA 1 5 "hello" END
+=== 4 workers
+same output

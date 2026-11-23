@@ -6,6 +6,8 @@ import Core.CompileExpr
 import Core.Context
 import Core.Env
 import Core.Options
+import Core.Context.Log
+import Core.Profile
 
 import Data.IOArray
 import Data.List1
@@ -1222,13 +1224,37 @@ TTC Transform where
            rhs <- fromBuf
            pure (MkTransform {vars} n env lhs rhs)
 
+-- Count a definition decoded for --timing-summary: its bytes, and those of
+-- its compiled code (which comes first), by the timer that wants it. The
+-- compiled code is decoded a second time for that, untimed.
+profileDecode : Profiler -> Binary -> Core ()
+profileDecode p bin
+    = do let bytes = bin.used
+         cbytes <- untimedCore $
+                     do b <- newRef Bin bin
+                        ignore $ fromBuf {a = Maybe CDef}
+                        ignore $ fromBuf {a = Maybe (List (Name, Bool))}
+                        pure (loc !(get Bin))
+         coreLift $ do
+           profCount p "decode.defs" 1
+           profCount p ("decode.defs.under." ++ !(profInnermost p)) 1
+           profCount p "decode.bytes" bytes
+           profCount p "decode.bytes.compiled" cbytes
+  where
+    untimedCore : Core Int -> Core Int
+    untimedCore act
+        = do r <- coreLift $ profUntimed p $ coreRun act (const (pure 0)) pure
+             pure r
+
 -- decode : Context -> Int -> (update : Bool) -> ContextEntry -> Core GlobalDef
 Core.Context.decode gam idx update (Coded ns bin)
-    = do b <- newRef Bin bin
-         def <- fromBuf
-         let a = getContent gam
-         arr <- get Arr
-         def' <- resolved gam (restoreNS ns def)
-         when update $ coreLift_ $ writeArray arr idx (Decoded def')
-         pure def'
+    = do whenJust gam.profiler $ \ p => profileDecode p bin
+         maybe id (\ p => profileWith p "decode") gam.profiler $
+           do b <- newRef Bin bin
+              def <- fromBuf
+              let a = getContent gam
+              arr <- get Arr
+              def' <- resolved gam (restoreNS ns def)
+              when update $ coreLift_ $ writeArray arr idx (Decoded def')
+              pure def'
 Core.Context.decode gam idx update (Decoded def) = pure def

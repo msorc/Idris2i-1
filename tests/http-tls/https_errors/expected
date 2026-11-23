@@ -1,0 +1,43 @@
+certificate signed by an authority that is not trusted: error TLS: certificate verify failed: unable to get local issuer certificate
+certificate for another name: error TLS: certificate verify failed: hostname mismatch
+certificate expired: error TLS: certificate verify failed: certificate has expired
+the authorities of the system: error TLS: certificate verify failed: unable to get local issuer certificate
+the test authority: 200 "hello"
+plain HTTP to the HTTPS port: ended within 300 ms True, an HTTP response False
+http:// URL to the HTTPS port fails: True
+https:// URL to a plain port fails: True
+the plain server goes on: 200 "hello"
+silent client dropped: True, stalled handshake dropped: True, within 0.3 to 3 s: True
+the server goes on: 200 "hello"
+handshakes: 1 succeeded, 5 failed, 2 timed out
+error log:
+  connection from ADDRESS: TLS handshake failed: TLS error: http request
+  connection from ADDRESS: TLS handshake failed: TLS error: http request
+  connection from ADDRESS: TLS handshake failed: TLS error: ssl/tls alert bad certificate
+  connection from ADDRESS: TLS handshake failed: TLS error: ssl/tls alert certificate expired
+  connection from ADDRESS: TLS handshake failed: TLS error: tlsv1 alert unknown ca
+  connection from ADDRESS: TLS handshake failed: TLS error: tlsv1 alert unknown ca
+  connection from ADDRESS: TLS handshake failed: timed out
+  connection from ADDRESS: TLS handshake failed: timed out
+=== 4 workers
+certificate signed by an authority that is not trusted: error TLS: certificate verify failed: unable to get local issuer certificate
+certificate for another name: error TLS: certificate verify failed: hostname mismatch
+certificate expired: error TLS: certificate verify failed: certificate has expired
+the authorities of the system: error TLS: certificate verify failed: unable to get local issuer certificate
+the test authority: 200 "hello"
+plain HTTP to the HTTPS port: ended within 300 ms True, an HTTP response False
+http:// URL to the HTTPS port fails: True
+https:// URL to a plain port fails: True
+the plain server goes on: 200 "hello"
+silent client dropped: True, stalled handshake dropped: True, within 0.3 to 3 s: True
+the server goes on: 200 "hello"
+handshakes: 1 succeeded, 5 failed, 2 timed out
+error log:
+  connection from ADDRESS: TLS handshake failed: TLS error: http request
+  connection from ADDRESS: TLS handshake failed: TLS error: http request
+  connection from ADDRESS: TLS handshake failed: TLS error: ssl/tls alert bad certificate
+  connection from ADDRESS: TLS handshake failed: TLS error: ssl/tls alert certificate expired
+  connection from ADDRESS: TLS handshake failed: TLS error: tlsv1 alert unknown ca
+  connection from ADDRESS: TLS handshake failed: TLS error: tlsv1 alert unknown ca
+  connection from ADDRESS: TLS handshake failed: timed out
+  connection from ADDRESS: TLS handshake failed: timed out

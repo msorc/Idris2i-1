@@ -214,7 +214,32 @@ static void idris2_bt_demangleFilter(void) {
 static char bt_out[1024];
 static size_t bt_outLen = 0;
 
+// While a backtrace is captured for a crash boundary (see
+// idris2_backtraceCapture), the output goes to this string, which grows
+// with realloc (NULL once that failed).
+static int bt_capturing = 0;
+static char *bt_text = NULL;
+static size_t bt_textLen = 0, bt_textCap = 0;
+
 static void idris2_bt_flush(void) {
+  if (bt_capturing) {
+    if (bt_text && bt_textLen + bt_outLen + 1 > bt_textCap) {
+      size_t cap = 2 * (bt_textLen + bt_outLen + 1);
+      char *t = (char *)realloc(bt_text, cap);
+      if (!t) {
+        free(bt_text);
+      }
+      bt_text = t;
+      bt_textCap = cap;
+    }
+    if (bt_text) {
+      memcpy(bt_text + bt_textLen, bt_out, bt_outLen);
+      bt_textLen += bt_outLen;
+      bt_text[bt_textLen] = '\0';
+    }
+    bt_outLen = 0;
+    return;
+  }
   size_t off = 0;
   while (off < bt_outLen) {
     ssize_t w = write(2, bt_out + off, bt_outLen - off);
@@ -472,11 +497,16 @@ static void idris2_bt_walk(int fromSignal) {
 
 // The functions where a stack begins: the frames below them are those of the
 // runtime or of the C library.
+// (A backtrace captured for a crash boundary ends at the boundary.)
 static int idris2_bt_isBottom(const char *cname) {
   static const char *const bottoms[] = {"main_entry",     "thread_entry",
                                         "main",           "worker_main",
                                         "scheduler_loop", "__mainExpression_0"};
   size_t n = strcspn(cname, ".");
+  if (bt_capturing && n == strlen("idris2_crashCatch") &&
+      strncmp(cname, "idris2_crashCatch", n) == 0) {
+    return 1;
+  }
   for (size_t i = 0; i < sizeof(bottoms) / sizeof(bottoms[0]); i++) {
     if (strlen(bottoms[i]) == n && strncmp(cname, bottoms[i], n) == 0) {
       return 1;
@@ -617,25 +647,70 @@ static void idris2_bt_print(void) {
 // Fatal errors
 
 // The OS thread that prints a backtrace: there is at most one, and a thread
-// that crashes while another one reports waits for the program to end.
-static _Thread_local char bt_me;
+// that crashes while another one reports waits for the program to end.  A
+// thread that captures a backtrace for a crash boundary owns the state for
+// a while too, with the address of its bt_me plus one (bt_me is aligned, so
+// that is odd): the others wait until it is done.
+static _Thread_local long bt_me;
 static void *bt_owner = NULL;
 
+static int idris2_bt_isCapture(void *owner) {
+  return ((uintptr_t)owner & 1) != 0;
+}
+
 // 1 if this thread may report, 0 if it is reporting already (it crashed
-// while reporting).
+// while reporting, or while capturing).
 static int idris2_bt_claim(void) {
-  void *expected = NULL;
   void *me = &bt_me;
-  if (__atomic_compare_exchange_n(&bt_owner, &expected, me, 0, __ATOMIC_SEQ_CST,
-                                  __ATOMIC_SEQ_CST)) {
-    return 1;
-  }
-  if (expected == me) {
-    return 0;
+  for (;;) {
+    void *expected = NULL;
+    if (__atomic_compare_exchange_n(&bt_owner, &expected, me, 0,
+                                    __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+      return 1;
+    }
+    if (expected == me || expected == (char *)me + 1) {
+      return 0;
+    }
+    if (!idris2_bt_isCapture(expected)) {
+      break;
+    }
+    idris2_cpuRelax();
   }
   for (;;) {
     pause();
   }
+}
+
+char *idris2_backtraceCapture(void) {
+  if (!bt_on) {
+    return NULL;
+  }
+  void *token = (char *)&bt_me + 1;
+  for (;;) {
+    void *expected = NULL;
+    if (__atomic_compare_exchange_n(&bt_owner, &expected, token, 0,
+                                    __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+      break;
+    }
+    if (expected == &bt_me || expected == token) {
+      return NULL; // (a crash while this thread reports)
+    }
+    idris2_cpuRelax();
+  }
+  bt_textCap = 1024;
+  bt_textLen = 0;
+  bt_text = (char *)malloc(bt_textCap);
+  if (bt_text) {
+    bt_text[0] = '\0';
+  }
+  bt_capturing = 1;
+  idris2_bt_walk(0);
+  idris2_bt_print();
+  bt_capturing = 0;
+  char *text = bt_text;
+  bt_text = NULL;
+  __atomic_store_n(&bt_owner, NULL, __ATOMIC_SEQ_CST);
+  return text;
 }
 
 void idris2_backtracePrint(void) {
@@ -776,6 +851,7 @@ static void idris2_bt_start(void) {
 
 // No backtraces on this platform.
 void idris2_backtracePrint(void) {}
+char *idris2_backtraceCapture(void) { return NULL; }
 void idris2_backtraceThreadSetup(void) {}
 static void idris2_bt_start(void) { bt_on = 0; }
 

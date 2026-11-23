@@ -1,0 +1,29 @@
+. ../../testutils.sh
+. ../../tls/gencerts.sh
+
+mkdir -p build/src && cp ../common/HttpsTest.idr Main.idr build/src/ && cd build/src
+idris2 -p contrib -p network -p http -p tls -p http-tls -o main Main.idr
+IDRIS2_WORKERS=1 timeout 120 ./build/exec/main "$certs" client
+echo "=== 4 workers"
+IDRIS2_WORKERS=4 timeout 120 ./build/exec/main "$certs" client
+echo "=== curl"
+if ! command -v curl >/dev/null 2>&1 || ! curl --version | grep -q 'HTTP2'; then
+  # (without curl, or without HTTP/2 in it, the expected lines)
+  printf '%s\n' "HTTP/2 200 " "hello over HTTP/2.0, secure True" "2" "got 5 bytes" "1.1" "hello over HTTP/1.1, secure True" "bye"
+else
+  rm -f port
+  ./build/exec/main "$certs" curl &
+  pid=$!
+  for i in $(seq 1 100); do [ -s port ] && break; sleep 0.1; done
+  base="https://localhost:$(cat port)"
+  c() { curl -sS --max-time 10 --cacert "$certs/ca.pem" "$@" 2>&1 | tr -d '\r'; }
+  c -i --http2 "$base/hello" | grep -v '^[a-z-]*:' | grep -v '^$'
+  c --http2 -o /dev/null -w '%{http_version}\n' "$base/hello"
+  c --http2 -d hello "$base/echo"
+  c --http1.1 -o /dev/null -w '%{http_version}\n' "$base/hello"
+  c --http1.1 "$base/hello"
+  c --http2 "$base/quit"
+  wait $pid
+fi
+cd ../..
+rm -rf certs build

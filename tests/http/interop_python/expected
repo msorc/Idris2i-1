@@ -1,0 +1,5 @@
+GET /hello.txt: 200 type=Just "text/plain" "hello from python\n"
+GET /dir (redirected to /dir/): 200 lists the file: True url ends with /dir/: True
+GET /missing: 404
+GET /big.bin: 200 1000000 bytes
+connections (HTTP/1.0 closes each): 5

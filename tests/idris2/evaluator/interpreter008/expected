@@ -1,5 +1,5 @@
 1/1: Building Issue2041 (Issue2041.idr)
-Error: Unsolved holes:
+Error: Unsolved holes: [E0501]
 Main.{n:1} introduced at: 
 Issue2041:5:17--5:19
  1 | ex : {n : Nat} -> String

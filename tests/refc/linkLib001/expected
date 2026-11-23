@@ -1,0 +1,6 @@
+--- without the directive
+not linked
+--- --directive refc-lib=foo
+42
+--- %cg refc refc-lib=foo
+100

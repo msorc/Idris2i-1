@@ -8,6 +8,7 @@ import Data.List1
 import Data.SnocList
 import Data.String
 import Idris.Syntax
+import Libraries.Data.StringMap
 
 %hide Core.Core.(>>)
 %hide Core.Core.(>>=)
@@ -76,6 +77,55 @@ debugInfo : Rule DebugInfo
 debugInfo = terminal "Expected a magic debug info directive" $ \case
   MagicDebugInfo di => Just di
   _ => Nothing
+
+-- Tests of the next token, for `guarded`
+
+export
+isSymbolTok : String -> Token -> Bool
+isSymbolTok req (Symbol s) = s == req
+isSymbolTok _ _ = False
+
+||| Any symbol
+export
+isAnySymbolTok : Token -> Bool
+isAnySymbolTok (Symbol _) = True
+isAnySymbolTok _ = False
+
+export
+isKeywordTok : String -> Token -> Bool
+isKeywordTok req (Keyword s) = s == req
+isKeywordTok _ _ = False
+
+||| Any pragma
+export
+isPragmaTok : Token -> Bool
+isPragmaTok (Pragma _) = True
+isPragmaTok _ = False
+
+||| An identifier without a namespace
+export
+isIdentTok : Token -> Bool
+isIdentTok (Ident _) = True
+isIdentTok _ = False
+
+||| An identifier, with a namespace or not
+export
+isNameTok : Token -> Bool
+isNameTok (Ident _) = True
+isNameTok (DotSepIdent _ _) = True
+isNameTok _ = False
+
+||| A token that an infix operator can start with: a symbol that is not
+||| reserved, or a backtick
+export
+isOperatorStartTok : Token -> Bool
+isOperatorStartTok (Symbol s) = s == "`" || not (isReservedSymbol s)
+isOperatorStartTok _ = False
+
+export
+isEndInputTok : Token -> Bool
+isEndInputTok EndInput = True
+isEndInputTok _ = False
 
 export
 eoi : EmptyRule ()
@@ -229,7 +279,7 @@ anyReservedSymbol : Rule String
 anyReservedSymbol
   = terminal ("Expected a reserved symbol") $
                \case
-                 Symbol s => s <$ guard (s `elem` reservedSymbols)
+                 Symbol s => s <$ guard (isReservedSymbol s)
                  _ => Nothing
 
 export
@@ -291,7 +341,7 @@ unqualifiedOperatorName : Rule String
 unqualifiedOperatorName
     = terminal "Expected operator" $
                \case
-                 Symbol s => s <$ guard (not $ s `elem` reservedSymbols)
+                 Symbol s => s <$ guard (not $ isReservedSymbol s)
                  _ => Nothing
 
 export
@@ -367,21 +417,28 @@ reservedNames
       , "String", "Char", "Double", "Lazy", "Inf", "Force", "Delay"
       ]
 
+-- (as a set: see `isKeyword`)
+reservedNameSet : StringMap ()
+reservedNameSet = fromList (map (, ()) reservedNames)
+
+isReservedName : String -> Bool
+isReservedName x = isJust (lookup x reservedNameSet)
+
 export
 anyReservedIdent : Rule (WithBounds String)
 anyReservedIdent = do
     id <- bounds identPart
-    unless (id.val `elem` reservedNames) $ failLoc id.bounds "Expected reserved identifier"
+    unless (isReservedName id.val) $ failLoc id.bounds "Expected reserved identifier"
     pure id
 
 isNotReservedName : WithBounds String -> EmptyRule ()
 isNotReservedName x
-    = when (x.val `elem` reservedNames) $
+    = when (isReservedName x.val) $
         failLoc x.bounds $ "Can't use reserved name \{x.val}"
 
 isNotReservedSymbol : WithBounds String -> EmptyRule ()
 isNotReservedSymbol x
-    = when (x.val `elem` reservedSymbols) $
+    = when (isReservedSymbol x.val) $
         failLoc x.bounds $ "Can't use reserved symbol \{x.val}"
 
 export
@@ -399,9 +456,9 @@ identWithCapital : (capitalised : Bool) -> WithBounds String ->
 identWithCapital b x = when b (isCapitalisedIdent x)
 
 nameWithCapital : (capitalised : Bool) -> Rule Name
-nameWithCapital b = opNonNS <|> do
+nameWithCapital b = guarded (isSymbolTok "(") opNonNS <|> do
   nsx <- bounds namespacedIdent
-  opNS nsx <|> nameNS nsx
+  guarded (isSymbolTok ".(") (opNS nsx) <|> nameNS nsx
  where
 
   nameNS : WithBounds (Maybe Namespace, String) -> EmptyRule Name
@@ -472,8 +529,8 @@ init = 0
 
 continueF : EmptyRule () -> (indent : IndentInfo) -> EmptyRule ()
 continueF err indent
-    = do eoi; err
-  <|> do keyword "where"; err
+    = guarded isEndInputTok (do eoi; err)
+  <|> guarded (isKeywordTok "where") (do keyword "where"; err)
   <|> do col <- column
          when (col <= indent)
             err

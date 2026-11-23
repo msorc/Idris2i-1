@@ -20,9 +20,12 @@ public export
 data Constraint : Type where
      -- An unsolved constraint, noting two terms which need to be convertible
      -- in a particular environment
+     -- With the order of the two terms if it is known (the first is the
+     -- type an expression has, the second the type its context expects)
      MkConstraint : {vars : _} ->
                     FC ->
                     (withLazy : Bool) ->
+                    UnifyOrder ->
                     (env : Env Term vars) ->
                     (x : NF vars) -> (y : NF vars) ->
                     Constraint
@@ -135,6 +138,10 @@ record UState where
                 -- blocks and local functions of the clause are specialised
                 -- by them (see TTImp.Elab.Case and TTImp.Elab.Local).
   logging : Bool
+  solvedAt : IntMap FC
+                -- Where some metavariables were solved: those solved while
+                -- there were constraints left, which a constraint retried
+                -- later may fail because of (see `Core.Unify.retry`)
 
 export
 initUState : UState
@@ -153,6 +160,7 @@ initUState = MkUState
   , whereChecks = []
   , specVars = Nothing
   , logging = False
+  , solvedAt = empty
   }
 
 export
@@ -330,7 +338,7 @@ addDot fc env dotarg x reason y
     = do defs <- get Ctxt
          xnf <- nf defs env x
          ynf <- nf defs env y
-         update UST { dotConstraints $= ((dotarg, reason, MkConstraint fc False env xnf ynf) ::) }
+         update UST { dotConstraints $= ((dotarg, reason, MkConstraint fc False Unordered env xnf ynf) ::) }
 
 export
 addPolyConstraint : {vars : _} ->
@@ -611,21 +619,42 @@ checkValidHole base (idx, (fc, n))
                      Just ty <- lookupTyExact n (gamma defs)
                           | Nothing => pure ()
                      throw (CantSolveGoal fc (gamma defs) Env.empty ty Nothing)
-              Guess tm envb (con :: _) =>
+              Guess tm envb cons@(_ :: _) =>
                   do ust <- get UST
-                     let Just c = lookup con (constraints ust)
-                          | Nothing => pure ()
-                     case c of
-                          MkConstraint fc l env x y =>
+                     cleared <- clearDefs defs
+                     -- report all the constraints left, this guess's first,
+                     -- each where it was posted
+                     others <- traverse (guessConstraints defs)
+                                        (filter (/= idx) (keys (guesses ust)))
+                     errs <- traverse (unsolved defs cleared (constraints ust))
+                                      (nub (cons ++ concat others))
+                     case catMaybes errs of
+                          (CantSolveEq cfc gam env x y _ :: others) =>
                              do put UST ({ guesses := empty } ust)
-                                empty <- clearDefs defs
-                                xnf <- quote empty env x
-                                ynf <- quote empty env y
-                                throw (CantSolveEq fc (gamma defs) env xnf ynf)
+                                throw (CantSolveEq cfc gam env x y others)
                           _ => pure ()
               _ => traverse_ checkRef !(traverse getFullName
                                         ((keys (getRefs (Resolved (-1)) (type gdef)))))
   where
+    -- The constraints another guess is waiting for, which are reported
+    -- with these
+    guessConstraints : Defs -> Int -> Core (List Int)
+    guessConstraints defs i
+        = do Just gdef <- lookupCtxtExact (Resolved i) (gamma defs)
+               | Nothing => pure []
+             case definition gdef of
+                  Guess _ _ cs => pure cs
+                  _ => pure []
+
+    unsolved : Defs -> Defs -> IntMap Constraint -> Int -> Core (Maybe Error)
+    unsolved defs cleared cs con
+        = case lookup con cs of
+               Just (MkConstraint cfc _ _ env x y) =>
+                 do xnf <- quote cleared env x
+                    ynf <- quote cleared env y
+                    pure (Just (CantSolveEq cfc (gamma defs) env xnf ynf []))
+               _ => pure Nothing
+
     checkRef : Name -> Core ()
     checkRef (PV n f)
         = throw (GenericMsg fc
@@ -721,7 +750,7 @@ dumpHole s n hole
              case lookup cid (constraints ust) of
                   Nothing => pure ()
                   Just Resolved => logString s.topic n "\tResolved"
-                  Just (MkConstraint _ lazy env x y) =>
+                  Just (MkConstraint _ lazy _ env x y) =>
                     do logString s.topic n $
                          "\t  " ++ show !(toFullNames !(quote defs env x))
                                 ++ " =?= " ++ show !(toFullNames !(quote defs env y))

@@ -699,7 +699,7 @@ module Data.Bool.Xor
   export total notXor : (a : Prelude.Basics.Bool) -> (b : Prelude.Basics.Bool) -> Builtin.(===) {a = Prelude.Basics.Bool} (Prelude.Basics.not (a `Data.Bool.Xor.xor` b)) (Prelude.Basics.not a `Data.Bool.Xor.xor` b)
   export total notXorCancel : (a : Prelude.Basics.Bool) -> (b : Prelude.Basics.Bool) -> Builtin.(===) {a = Prelude.Basics.Bool} (Prelude.Basics.not a `Data.Bool.Xor.xor` Prelude.Basics.not b) (a `Data.Bool.Xor.xor` b)
   public export total xor : Prelude.Basics.Bool -> Prelude.Basics.Bool -> Prelude.Basics.Bool
-  export total xorAssociative : (a : Prelude.Basics.Bool) -> (b : Prelude.Basics.Bool) -> (c : Prelude.Basics.Bool) -> Builtin.(===) {a = Prelude.Basics.Bool} (a `Data.Bool.Xor.xor` (b `Data.Bool.Xor.xor` c)) ((a `Data.Bool.Xor.xor` b) `Data.Bool.Xor.xor` c)
+  export total xorAssociative : (a : Prelude.Basics.Bool) -> (b : Prelude.Basics.Bool) -> (c : Prelude.Basics.Bool) -> Builtin.(===) {a = Prelude.Basics.Bool} (a `Data.Bool.Xor.xor` (b `Data.Bool.Xor.xor` c)) (a `Data.Bool.Xor.xor` b `Data.Bool.Xor.xor` c)
   export total xorCommutative : (a : Prelude.Basics.Bool) -> (b : Prelude.Basics.Bool) -> Builtin.(===) {a = Prelude.Basics.Bool} (a `Data.Bool.Xor.xor` b) (b `Data.Bool.Xor.xor` a)
   export total xorFalseNeutral : (b : Prelude.Basics.Bool) -> Builtin.(===) {a = Prelude.Basics.Bool} (Prelude.Basics.False `Data.Bool.Xor.xor` b) b
   export total xorNotTrue : (a : Prelude.Basics.Bool) -> Builtin.(===) {a = Prelude.Basics.Bool} (a `Data.Bool.Xor.xor` Prelude.Basics.not a) Prelude.Basics.True
@@ -1122,9 +1122,15 @@ module Data.IOArray.Prims
 
 module Data.IORef
   export data IORef : Type -> Type
+  export data Ticket : Type -> Type
+  export total atomicModifyIORef : {0 b : Type} -> {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Data.IORef.IORef a -> (a -> (a, b)) -> io b
+  export total atomicModifyIORef_ : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Data.IORef.IORef a -> (a -> a) -> io Builtin.Unit
   export total atomically : {0 io : Type -> Type} -> Prelude.IO.HasIO io => System.Concurrency.Mutex -> io Builtin.Unit -> io Builtin.Unit
+  export total casIORef : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Data.IORef.IORef a -> Data.IORef.Ticket a -> a -> io Prelude.Basics.Bool
   export total modifyIORef : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Data.IORef.IORef a -> (a -> a) -> io Builtin.Unit
   export total newIORef : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => a -> io (Data.IORef.IORef a)
+  export total peekTicket : {0 a : Type} -> Data.IORef.Ticket a -> a
+  export total readForCAS : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Data.IORef.IORef a -> io (Data.IORef.Ticket a)
   export total readIORef : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Data.IORef.IORef a -> io a
   export total writeIORef : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Data.IORef.IORef a -> a -> io Builtin.Unit
 
@@ -3265,15 +3271,34 @@ module System.Concurrency
   export total getThreadData : {0 io : Type -> Type} -> Prelude.IO.HasIO io => (a : Type) -> io a
   export total getThreadId : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io Int
   export total makeBarrier : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> io System.Concurrency.Barrier
+  export total makeBufferedChannel : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Prelude.Types.Nat -> io (System.Concurrency.Channel a)
   export total makeChannel : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => io (System.Concurrency.Channel a)
   export total makeCondition : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io System.Concurrency.Condition
   export total makeMutex : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io System.Concurrency.Mutex
   export total makeSemaphore : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> io System.Concurrency.Semaphore
+  export total makeUnboundedChannel : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => io (System.Concurrency.Channel a)
   export total mutexAcquire : {0 io : Type -> Type} -> Prelude.IO.HasIO io => System.Concurrency.Mutex -> io Builtin.Unit
   export total mutexRelease : {0 io : Type -> Type} -> Prelude.IO.HasIO io => System.Concurrency.Mutex -> io Builtin.Unit
   export total semaphorePost : {0 io : Type -> Type} -> Prelude.IO.HasIO io => System.Concurrency.Semaphore -> io Builtin.Unit
   export total semaphoreWait : {0 io : Type -> Type} -> Prelude.IO.HasIO io => System.Concurrency.Semaphore -> io Builtin.Unit
   export total setThreadData : {0 io : Type -> Type} -> Prelude.IO.HasIO io => {a : Type} -> a -> io Builtin.Unit
+
+module System.Crash
+  public export record CrashInfo : Type
+    constructor MkCrashInfo : System.Crash.CrashKind -> String -> Prelude.Types.Maybe String -> System.Crash.CrashInfo
+    field backtrace : System.Crash.CrashInfo -> Prelude.Types.Maybe String
+    field kind : System.Crash.CrashInfo -> System.Crash.CrashKind
+    field message : System.Crash.CrashInfo -> String
+  public export data CrashKind : Type
+    constructor CrashCall : System.Crash.CrashKind
+    constructor MissingCase : System.Crash.CrashKind
+    constructor FailedCheck : System.Crash.CrashKind
+  export total catchCrash : {0 a : Type} -> {0 io : Type -> Type} -> Prelude.IO.HasIO io => Lazy (PrimIO.IO a) -> io (Prelude.Types.Either System.Crash.CrashInfo a)
+  export total crashBoundaries : Prelude.Basics.Bool
+  export total crashesCaught : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io Int
+  export implementation : Prelude.EqOrd.Eq System.Crash.CrashKind
+  export implementation : Prelude.Show.Show System.Crash.CrashInfo
+  export implementation : Prelude.Show.Show System.Crash.CrashKind
 
 module System.Directory
   import public System.File
@@ -3450,6 +3475,41 @@ module System.File.Virtual
   export total stderr : System.File.Types.File
   export total stdin : System.File.Types.File
   export total stdout : System.File.Types.File
+
+module System.IO.Fd
+  import public System.IO.Wait
+  export total eagain : Int
+  export total ebadf : Int
+  export total eintr : Int
+  export total einval : Int
+  export total ewouldblock : Int
+  export total pipe : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io (Prelude.Types.Either Int (Int, Int))
+  export total readFd : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> Data.Buffer.Buffer -> Int -> Int -> io Int
+  export covering readFdWait : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> Data.Buffer.Buffer -> Int -> Int -> io Int
+  export total setNonBlocking : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> io Int
+  export total wouldBlock : Int -> Prelude.Basics.Bool
+  export total writeFd : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> Data.Buffer.Buffer -> Int -> Int -> io Int
+  export covering writeFdWait : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> Data.Buffer.Buffer -> Int -> Int -> io Int
+
+module System.IO.Wait
+  public export data IOEvent : Type
+    constructor Readable : System.IO.Wait.IOEvent
+    constructor Writable : System.IO.Wait.IOEvent
+  public export data WaitResult : Type
+    constructor Ready : System.IO.Wait.WaitResult
+    constructor TimedOut : System.IO.Wait.WaitResult
+    constructor WaitError : Int -> System.IO.Wait.WaitResult
+  export total closeFd : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> io Int
+  export total deadlineIn : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> io Int
+  export total forgetFd : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> io Builtin.Unit
+  export total now : {0 io : Type -> Type} -> Prelude.IO.HasIO io => io Int
+  export total waitFd : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> System.IO.Wait.IOEvent -> Prelude.Types.Maybe Int -> io System.IO.Wait.WaitResult
+  export total waitReadable : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> Prelude.Types.Maybe Int -> io System.IO.Wait.WaitResult
+  export total waitWritable : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Int -> Prelude.Types.Maybe Int -> io System.IO.Wait.WaitResult
+  export implementation : Prelude.EqOrd.Eq System.IO.Wait.IOEvent
+  export implementation : Prelude.EqOrd.Eq System.IO.Wait.WaitResult
+  export implementation : Prelude.Show.Show System.IO.Wait.IOEvent
+  export implementation : Prelude.Show.Show System.IO.Wait.WaitResult
 
 module System.Info
   export total codegen : String

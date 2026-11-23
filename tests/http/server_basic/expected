@@ -1,0 +1,124 @@
+GET /hello: 200 cl=Just "6" te=Nothing body="hello\n"
+POST /echo bytes: 200 cl=Just "10" te=Nothing body="some bytes"
+POST /echo empty: 200 cl=Just "0" te=Nothing body=""
+POST /echo chunked: 200 cl=Just "13" te=Nothing body="chunk1,chunk2"
+POST /echo length: 200 cl=Just "6" te=Nothing body="length"
+POST /echo-stream: 200 cl=Nothing te=Just "chunked" body="1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19;20;"
+GET /stream: 200 cl=Nothing te=Just "chunked" body="one,two,three\n"
+GET /stream-len: 200 cl=Just "7" te=Nothing body="abcdefg"
+GET /builder: 200 cl=Just "11" te=Nothing body="built body\n"
+HEAD /hello: 200 cl=Just "6" te=Nothing body=""
+HEAD /stream: 200 cl=Nothing te=Nothing body=""
+HEAD /stream-len: 200 cl=Just "7" te=Nothing body=""
+GET /empty: 200 cl=Just "0" te=Nothing body=""
+GET /nocontent: 204 cl=Nothing te=Nothing body=""
+log: handler failed: boom
+GET /fail: 500 cl=Just "26" te=Nothing body="500 Internal Server Error\n"
+server error: response field not valid: "X-Bad"
+GET /badheader: 500 cl=Just "26" te=Nothing body="500 Internal Server Error\n"
+GET /query: 200 cl=Just "17" te=Nothing body="Just \"a=1&b=%20\"\n"
+GET /missing: 404 cl=Just "14" te=Nothing body="404 Not Found\n"
+client connections opened: 1
+GET /close: 200 cl=Just "4" te=Nothing body="bye\n"
+GET /hello after close: 200 cl=Just "6" te=Nothing body="hello\n"
+client connections opened: 2
+GET /stream-short: error unexpected end of stream
+--- pipelined, then the end of the stream
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+
+hello
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+
+4
+one,
+4
+two,
+6
+three
+
+0
+
+HTTP/1.1 200 OK
+Content-Type: application/octet-stream
+Content-Length: 3
+
+abcHTTP/1.1 200 OK
+Content-Type: application/octet-stream
+Content-Length: 2
+
+hiHTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+
+[closed by the server]
+--- Connection: close
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+Connection: close
+
+hello
+[closed by the server]
+--- HTTP/1.0
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+Connection: close
+
+hello
+[closed by the server]
+--- HTTP/1.0 keep-alive
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+Connection: keep-alive
+
+hello
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+Connection: close
+
+hello
+[closed by the server]
+--- HTTP/1.0 stream
+HTTP/1.1 200 OK
+Connection: close
+
+one,two,three
+[closed by the server]
+--- unread body is drained
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+
+hello
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+
+hello
+[closed by the server]
+--- 100-continue, interim response
+HTTP/1.1 100 Continue
+
+--- 100-continue, final response
+HTTP/1.1 200 OK
+Content-Type: application/octet-stream
+Content-Length: 5
+
+hello
+--- 100-continue, body not read
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 6
+Connection: close
+
+hello
+[closed by the server]
+handler calls: 35
+=== 4 workers
+same output

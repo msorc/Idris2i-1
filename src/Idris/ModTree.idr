@@ -168,11 +168,88 @@ checkTotalReq sourceFile ttcFile expected
               pure (got < expected))
           (\error => pure False)
 
+-- The interface hashes of the TTC files of the modules that a build imports,
+-- each read once: most modules import the same ones. The hash of a module
+-- that is built changes, so it is forgotten when the module is built (and it
+-- is read only after the module is up to date, as a module is looked at once
+-- its imports are built).
+export
+data IfaceHashes : Type where
+
+export
+initIfaceHashes : Core (Ref IfaceHashes (SortedMap ModuleIdent Int))
+initIfaceHashes = newRef IfaceHashes empty
+
+forgetIfaceHash : {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
+                  ModuleIdent -> Core ()
+forgetIfaceHash ns = update IfaceHashes (delete ns)
+
+-- The interface hash of the TTC file of an import, as `processMod` reads it,
+-- or Nothing if there is no such file
+importIfaceHash : {auto c : Ref Ctxt Defs} ->
+                  {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
+                  ModuleIdent -> Core (Maybe Int)
+importIfaceHash ns
+    = case lookup ns !(get IfaceHashes) of
+           Just hash => pure (Just hash)
+           Nothing =>
+             do Right ttcFile <- nsToPath EmptyFC ns
+                  | Left _ => pure Nothing
+                (_, hash) <- readHashes ttcFile
+                update IfaceHashes (insert ns hash)
+                pure (Just hash)
+
+-- Whether `processMod` would skip a module whose source file is older than
+-- its TTC file, but some of whose imports were written after it: when the
+-- interfaces of the imports did not change (see `unchangedModule`). The
+-- imports are those that the TTC file recorded, which are those of the
+-- source file when the key of the source file is the one it recorded; the
+-- interface hashes it recorded are in the same order, after the prelude when
+-- the prelude is imported implicitly, and tell the namespaces the imports
+-- are imported as. Otherwise (as for a literate file) the module is built.
+importsUnchanged : {auto c : Ref Ctxt Defs} ->
+                   {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
+                   (sourceFile, ttcFile : String) -> (origin : ModuleIdent) ->
+                   Core Bool
+importsUnchanged sourceFile ttcFile origin
+    = do Just (key, _) <- sourceKey sourceFile
+           | Nothing => pure False
+         Just (key', imps) <- readSourceHeader ttcFile
+           | Nothing => pure False
+         let True = key == key'
+           | False => pure False
+         session <- getSession
+         -- as processMod adds the prelude (a module whose header names
+         -- another module than `origin` does not get this far)
+         let preludeMod = nsAsModuleIdent preludeNS
+         let allImps = if session.noprelude || origin == preludeMod
+                             || elem preludeMod imps
+                          then imps
+                          else preludeMod :: imps
+         stored <- readImportHashes ttcFile
+         let True = length stored == length allImps
+           | False => pure False
+         Just hashes <- sequence <$> traverse importIfaceHash allImps
+           | Nothing => pure False
+         unchangedModule ttcFile True (zipWith (\(ns, _), hash => (ns, hash)) stored hashes)
+
 needsBuildingTime : {auto c : Ref Ctxt Defs} ->
+                    {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
                     (sourceFile : String) -> (ttcFile : String) ->
-                    (depFiles : List String) -> Core Bool
-needsBuildingTime sourceFile ttcFile depFiles
-  = isTTCOutdated ttcFile (sourceFile :: depFiles)
+                    (origin : ModuleIdent) -> (depFiles : List String) -> Core Bool
+needsBuildingTime sourceFile ttcFile origin depFiles
+  = do True <- isTTCOutdated ttcFile (sourceFile :: depFiles)
+         | False => pure False
+       -- a source file that was written again is built again, as
+       -- processMod does (it does not look at its content)
+       False <- isTTCOutdated ttcFile [sourceFile]
+         | True => pure True
+       -- only imports were written again: if none has another interface,
+       -- processMod would skip the module, so there is no need to start it
+       unchanged <- importsUnchanged sourceFile ttcFile origin
+       when unchanged $
+         log "import" 10 $ "Imports of " ++ sourceFile ++ " are newer, with the same interfaces"
+       pure (not unchanged)
 
 needsBuildingDepHash : {auto c : Ref Ctxt Defs} ->
                  String -> Core Bool
@@ -186,8 +263,8 @@ needsBuildingDepHash depFileName
 ||| have been modified from the stored hashes.
 needsBuildingHash : {auto c : Ref Ctxt Defs} ->
                     (sourceFile : String) -> (ttcFile : String) ->
-                    (depFiles : List String) -> Core Bool
-needsBuildingHash sourceFile ttcFile depFiles
+                    (origin : ModuleIdent) -> (depFiles : List String) -> Core Bool
+needsBuildingHash sourceFile ttcFile origin depFiles
   = do defs                <- get Ctxt
        sourceUnchanged <- unchangedHash defs.options.hashFn ttcFile sourceFile
        depFilesHashDiffers <- any id <$> traverse needsBuildingDepHash depFiles
@@ -197,8 +274,9 @@ export
 needsBuilding :
   {auto c : Ref Ctxt Defs} ->
   {auto o : Ref ROpts REPLOpts} ->
-  (sourceFile, ttcFile : String) -> List String -> Core Bool
-needsBuilding sourceFile ttcFile depFiles
+  {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
+  (sourceFile, ttcFile : String) -> (origin : ModuleIdent) -> List String -> Core Bool
+needsBuilding sourceFile ttcFile origin depFiles
   = do -- if the ttc file does not exist there is no point in asking
        -- whether we need to rebuild it
        True <- coreLift $ exists ttcFile
@@ -213,7 +291,7 @@ needsBuilding sourceFile ttcFile depFiles
        False <- ifThenElse checkHashesInsteadOfTime
                            needsBuildingHash
                            needsBuildingTime
-                  sourceFile ttcFile depFiles
+                  sourceFile ttcFile origin depFiles
          | True => pure True
 
        log "import" 20 $ "\{ifThenElse checkHashesInsteadOfTime "Hashes" "Mod Times"} still valid for " ++ sourceFile
@@ -269,6 +347,7 @@ resetForModule
 buildOrSkipMod : {auto c : Ref Ctxt Defs} ->
                  {auto s : Ref Syn SyntaxInfo} ->
                  {auto o : Ref ROpts REPLOpts} ->
+                 {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
                  {default True announce : Bool} -> -- print "Building" when building
                  FC -> Nat -> Nat -> BuildMod ->
                  Core (List Error, Bool)
@@ -287,7 +366,7 @@ buildOrSkipMod {announce} loc num len mod
           , "(" ++ ttcFile ++ ")"
           , "with dependencies:"
           ] ++ depFiles
-        rebuild <- needsBuilding sourceFile ttcFile depFiles
+        rebuild <- needsBuilding sourceFile ttcFile modNamespace depFiles
 
         if not rebuild
            then do -- what the context holds is not reported again (a
@@ -303,6 +382,7 @@ buildOrSkipMod {announce} loc num len mod
              let (msgPrefix, buildMsg) = buildMessage num len mod
              log "import.file" 10 $ "Processing " ++ sourceFile
              errs <- process {announce} {u} {m} msgPrefix buildMsg sourceFile modNamespace
+             forgetIfaceHash modNamespace
              ws <- emitWarningsAndErrors (if null errs then ferrs else errs)
              pure (ws ++ if null errs then ferrs else ferrs ++ errs, False)
 
@@ -314,7 +394,8 @@ buildMod : {auto c : Ref Ctxt Defs} ->
            FC -> Nat -> Nat -> BuildMod ->
            Core (List Error)
 buildMod {announce} loc num len mod
-   = do (errs, skipped) <- buildOrSkipMod {announce} loc num len mod
+   = do h <- initIfaceHashes
+        (errs, skipped) <- buildOrSkipMod {announce} loc num len mod
         -- the context is reset after a module, whether it was built or not
         when skipped resetForModule
         pure errs
@@ -323,6 +404,7 @@ export
 buildMods : {auto c : Ref Ctxt Defs} ->
             {auto s : Ref Syn SyntaxInfo} ->
             {auto o : Ref ROpts REPLOpts} ->
+            {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
             FC -> Nat -> Nat -> List BuildMod ->
             Core (List Error)
 buildMods fc num len [] = pure []
@@ -352,6 +434,7 @@ buildDeps : {auto c : Ref Ctxt Defs} ->
 buildDeps {reload} fname
     = do mods <- getBuildMods EmptyFC [] fname
          log "import" 20 $ "Needs to rebuild: " ++ show mods
+         h <- initIfaceHashes
          ok <- buildMods EmptyFC 1 (length mods) mods
          case ok of
               [] => if not reload then pure [] else
@@ -409,6 +492,7 @@ buildAll : {auto c : Ref Ctxt Defs} ->
 buildAll allFiles
     = do mods <- getAllBuildMods EmptyFC [] allFiles
          let mods' = dropLater mods
+         h <- initIfaceHashes
          buildMods EmptyFC 1 (length mods') mods'
 
 ||| Build one module of a package, whose imports are built already (in a
@@ -484,6 +568,7 @@ buildAllParallel jobs childCmd allFiles
          pid <- coreLift getPID
          let logPrefix = logDir </> "build-" ++ show pid ++ "-"
          jobsRef <- newRef RunningJobs []
+         h <- initIfaceHashes
          -- If this process stops on an error, it stops its processes too, and
          -- waits for them: they would go on writing TTC files once it is gone.
          catch (loop inBuild len logPrefix
@@ -570,6 +655,7 @@ buildAllParallel jobs childCmd allFiles
                     pure (Right path)
 
     needed : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+             {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
              BuildMod -> Core Bool
     needed mod
         = do ttcFile <- getTTCFileName mod.buildFile "ttc"
@@ -578,11 +664,12 @@ buildAllParallel jobs childCmd allFiles
              -- let the process report missing imports
              if not (null ferrs)
                 then pure True
-                else needsBuilding mod.buildFile ttcFile depFiles
+                else needsBuilding mod.buildFile ttcFile mod.buildNS depFiles
 
     -- Start what can be started, skip what is up to date.  Returns the
     -- pending, running and done modules, and whether anything changed.
     launch : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+             {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
              {auto jobsRef : Ref RunningJobs (List Job)} ->
              SortedSet ModuleIdent -> Nat -> String ->
              List (Nat, BuildMod) -> List Job -> SortedSet ModuleIdent ->
@@ -647,6 +734,7 @@ buildAllParallel jobs childCmd allFiles
                            else waitJob running -- not one of ours
 
     loop : {auto paths : Ref TTCPaths (SortedMap ModuleIdent String)} ->
+           {auto h : Ref IfaceHashes (SortedMap ModuleIdent Int)} ->
            {auto jobsRef : Ref RunningJobs (List Job)} ->
            SortedSet ModuleIdent -> Nat -> String ->
            List (Nat, BuildMod) -> List Job -> SortedSet ModuleIdent -> Bool ->
@@ -665,6 +753,8 @@ buildAllParallel jobs childCmd allFiles
                                   [] => pure []
                                   _ => throw (InternalError "Modules left that cannot be built")
                   _ => do (j, ok, running) <- waitJob running
+                          -- (the process wrote the TTC file again)
+                          forgetIfaceHash j.mod.buildNS
                           loop inBuild len logPrefix pending running
                                (if ok then SortedSet.insert j.mod.buildNS done else done)
                                (failed || not ok)

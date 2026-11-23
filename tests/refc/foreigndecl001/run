@@ -18,4 +18,4 @@ done
 IFS=$old_ifs
 libs=../../../libs
 sh ../../../support/refc/check-foreign.sh "$support/refc" "$support/c" \
-   "$libs/prelude" "$libs/base" "$libs/contrib" "$libs/network" "$libs/linear" | sed 's/^[0-9]* C functions/The C functions/'
+   "$libs/prelude" "$libs/base" "$libs/contrib" "$libs/network" "$libs/linear" "$libs/http" | sed 's/^[0-9]* C functions/The C functions/'

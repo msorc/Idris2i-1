@@ -17,6 +17,7 @@ Idris2_Value *Main_merge
 {
     Idris2_Value *idris2_trmc_result = NULL;
     Idris2_Value **idris2_trmc_hole = &idris2_trmc_result;
+    IDRIS2_SAFEPOINT();
     idris2_self_entry: ;
     Idris2_Value * tmp_0 = NULL;                             // Main:8:9--8:17
     if (NULL == var_0 /* _builtin.NIL [nil] */) {

@@ -24,7 +24,29 @@ unbracketApp : PTerm' nm -> PTerm' nm
 unbracketApp (PBracketed _ tm@(PApp {})) = tm
 unbracketApp tm = tm
 
--- TODO: Deal with precedences
+-- The fixity and precedence of an operator, if there is one declaration of it
+fixityOf : SyntaxInfo -> Name -> Maybe (Fixity, Nat)
+fixityOf syn n
+    = case lookupName (UN (Basic (nameRoot n))) (infixes syn) of
+           [(_, (_, f, p))] => Just (f, p)
+           _ => Nothing
+
+-- The operand of an operator application, without the brackets that
+-- `bracket` put round it when its own operator has the same precedence and
+-- associativity, and it is on the side they associate to: `x :: y :: ys`
+-- and `a + b + c` are printed so. Operators of different precedences keep
+-- their brackets, which are easier to read, and so does an operator with
+-- several fixity declarations.
+unbracketOperand : SyntaxInfo -> (isLeft : Bool) -> Maybe (Fixity, Nat) ->
+                   IPTerm -> IPTerm
+unbracketOperand syn isLeft (Just (f, p)) tm@(PBracketed _ inner@(POp _ (MkWithData _ (NoBinder _)) op2 _))
+    = case fixityOf syn (rawName op2.val.toName) of
+           Just (f2, p2) =>
+             if p2 == p && f == f2 && (if isLeft then f == InfixL else f == InfixR)
+                then inner else tm
+           Nothing => tm
+unbracketOperand syn isLeft _ tm = tm
+
 mkOp : {auto s : Ref Syn SyntaxInfo} ->
        IPTerm -> Core IPTerm
 mkOp tm@(PApp fc (PApp _ (PRef opFC kn) x) y)
@@ -39,8 +61,11 @@ mkOp tm@(PApp fc (PApp _ (PRef opFC kn) x) y)
        -- to know if the name is an operator or not, it's enough to check
        -- that the fixity context contains the name `(++)`
        let rootName = UN (Basic (nameRoot raw))
+       let fix = fixityOf syn raw
        let asOp = POp fc (MkFCVal opFC
-                $ NoBinder (unbracketApp x)) (MkFCVal opFC (pop kn)) (unbracketApp y)
+                $ NoBinder (unbracketOperand syn True fix (unbracketApp x)))
+                (MkFCVal opFC (pop kn))
+                (unbracketOperand syn False fix (unbracketApp y))
        if not (null (lookupName rootName (infixes syn)))
          then pure asOp
          else case dropNS raw of
@@ -302,7 +327,9 @@ mutual
       needsBind _ = False
   toPTerm p (IPi fc rig pt n arg ret)
       = do arg' <- toPTerm appPrec arg
-           ret' <- toPTerm tyPrec ret
+           ret' <- case pt of
+                        Explicit => toPTermScope ret
+                        _ => toPTerm tyPrec ret
            pt' <- traverse (toPTerm argPrec) pt
            bracket p tyPrec (PPi fc rig pt' n arg' ret')
   toPTerm p (ILam fc rig pt mn arg sc)
@@ -405,6 +432,25 @@ mutual
 
   toPTerm p (IWithUnambigNames fc ns rhs) =
     PWithUnambigNames fc ns <$> toPTerm startPrec rhs
+
+  -- The scope of an explicit binder. An anonymous implicit binder after an
+  -- explicit one is a part of the type that cannot be seen from the rest, so
+  -- it is printed (`Type -> {_ : Type} -> Type` is not `Type -> Type`); a
+  -- named one is left out as usual.
+  toPTermScope : {auto c : Ref Ctxt Defs} ->
+                 {auto s : Ref Syn SyntaxInfo} ->
+                 IRawImp -> Core IPTerm
+  toPTermScope (IPi fc rig Implicit n arg ret)
+      = if named n
+           then toPTerm tyPrec (IPi fc rig Implicit n arg ret)
+           else do arg' <- toPTerm tyPrec arg
+                   ret' <- toPTermScope ret
+                   pure (PPi fc rig Implicit n arg' ret')
+    where
+      named : Maybe Name -> Bool
+      named (Just n) = nameRoot n /= "_"
+      named Nothing = False
+  toPTermScope tm = toPTerm tyPrec tm
 
   mkApp : {auto c : Ref Ctxt Defs} ->
           {auto s : Ref Syn SyntaxInfo} ->
@@ -609,6 +655,20 @@ resugar : {vars : _} ->
 resugar env tm
     = do tti <- unelab env tm
          toCleanPTerm startPrec tti
+
+||| Like `resugar`, but run `hook` on every node of the term before machine
+||| generated names are tidied, while different variables still have
+||| different names.
+export
+resugarWith : {vars : _} ->
+              {auto c : Ref Ctxt Defs} ->
+              {auto s : Ref Syn SyntaxInfo} ->
+              (hook : IPTerm -> Core IPTerm) ->
+              Env Term vars -> Term vars -> Core IPTerm
+resugarWith hook env tm
+    = do tti <- unelab env tm
+         ptm <- toPTerm startPrec tti
+         cleanPTerm !(mapPTermM hook ptm)
 
 export
 resugarNoPatvars : {vars : _} ->

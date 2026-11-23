@@ -1,9 +1,8 @@
 1/1: Building DoBlockFC (DoBlockFC.idr)
-Error: While processing right hand side of foo. When unifying:
-    Maybe Int
-and:
-    Either ?_ ?_
-Mismatch between: Maybe Int and Either ?_ ?_.
+Error: While processing right hand side of foo. Mismatch between: Maybe Int and Either ?_{1} ?_{2}. [E0101]
+When unifying:
+    Expected: Either ?_{1} ?_{2}
+    Got:      Maybe Int
 
 DoBlockFC:6:3--6:10
  2 | bar : Maybe Int

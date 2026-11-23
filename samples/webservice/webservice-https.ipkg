@@ -1,0 +1,9 @@
+package webservice-https
+
+depends = contrib, network, http, tls, http-tls
+
+modules = Todos
+
+main = Https
+executable = webservice-https
+opts = "--cg refc"

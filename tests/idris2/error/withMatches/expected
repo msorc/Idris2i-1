@@ -1,5 +1,5 @@
 1/1: Building WithMatch (WithMatch.idr)
-Error: With clause does not match parent
+Error: With clause does not match parent [E0000]
 
 WithMatch:16:16--16:17
  12 |   f [_] | _ = 1
@@ -9,7 +9,7 @@ WithMatch:16:16--16:17
  16 |        else S (f (x::zs)) | r _ reflexive
                      ^
 
-Error: With clause does not match parent
+Error: With clause does not match parent [E0000]
 
 WithMatch:22:27--22:32
  18 | -- IAlternative case
@@ -19,7 +19,7 @@ WithMatch:22:27--22:32
  22 |   test () x | S k = test (Z = Z) x | k
                                 ^^^^^
 
-Error: With clause does not match parent
+Error: With clause does not match parent [E0000]
 
 WithMatch:28:32--28:33
  24 | -- IPrimVal case

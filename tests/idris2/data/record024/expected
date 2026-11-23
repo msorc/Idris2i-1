@@ -1,5 +1,5 @@
 1/1: Building Record (Record.idr)
-Error: While processing right hand side of D. Name Main.A.B is private.
+Error: While processing right hand side of D. Name Main.A.B is private. [E0202]
 
 Record:11:5--11:6
  07 |   record C where

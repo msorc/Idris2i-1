@@ -43,8 +43,7 @@ checkDot : {vars : _} ->
            FC -> DotReason -> RawImp -> Maybe (Glued vars) ->
            Core (Term vars, Glued vars)
 checkDot rig elabinfo nest env fc reason tm Nothing
-    = throw (GenericMsg fc ("Dot pattern not valid here (unknown type) "
-                            ++ show tm))
+    = throw (GenericMsg fc "Dot pattern not valid here: its type is not known.")
 checkDot rig elabinfo nest env fc reason tm (Just gexpty)
     = case elabMode elabinfo of
         InLHS _ =>
@@ -54,5 +53,4 @@ checkDot rig elabinfo nest env fc reason tm (Just gexpty)
                                               nest env
                                               tm (Just gexpty)
              registerDot rig env fc reason wantedTm gexpty
-        _ => throw (GenericMsg fc ("Dot pattern not valid here (Not LHS) "
-                                   ++ show tm))
+        _ => throw (GenericMsg fc "Dot pattern not valid here: it can only be on the left hand side of a clause.")

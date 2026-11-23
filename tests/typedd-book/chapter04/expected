@@ -1,5 +1,5 @@
  1/12: Building BSTree (BSTree.idr)
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -8,15 +8,17 @@ BSTree:2:6--2:37
  2 |      Empty : Ord elem => BSTree elem
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
 BSTree:3:6--4:61
  3 |      Node : Ord elem => (left : BSTree elem) -> (val : elem) ->
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
  4 |                         (right : BSTree elem) -> BSTree elem
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -35,7 +37,7 @@ BSTree:6:1--6:44
  6/12: Building Shape (Shape.idr)
  7/12: Building SumInputs (SumInputs.idr)
  8/12: Building Tree (Tree.idr)
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -43,7 +45,7 @@ Tree:1:18--1:23
  1 | data Tree elem = Empty
                       ^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -52,7 +54,7 @@ Tree:2:18--2:51
  2 |                | Node (Tree elem) elem (Tree elem)
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 
@@ -66,7 +68,7 @@ Tree:6:1--6:52
 
  9/12: Building TryIndex (TryIndex.idr)
 10/12: Building Vect (Vect.idr)
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   elem is shadowing Prelude.Types.elem
 

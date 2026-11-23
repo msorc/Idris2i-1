@@ -1,7 +1,7 @@
 1/1: Building Ambig1 (Ambig1.idr)
 Main> Bye for now!
 1/1: Building Ambig2 (Ambig2.idr)
-Error: While processing right hand side of keepUnique. Ambiguous elaboration. Possible results:
+Error: While processing right hand side of keepUnique. Ambiguous elaboration. Possible results: [E0301]
     Main.Set.toList (Main.Set.fromList xs)
     Main.Vect.toList (Main.Vect.fromList xs)
 

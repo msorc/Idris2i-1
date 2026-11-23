@@ -1,0 +1,12 @@
+package http-tls
+version = 0.8.0
+brief = "HTTPS: the HTTP server and client of the http library over the tls library"
+
+-- Built, tested and installed with the tls library only (see IDRIS2_TLS in
+-- the top-level Makefile).
+
+opts = "--ignore-missing-ipkg"
+
+depends = contrib, network, http, tls
+
+modules = Network.HTTP.TLS

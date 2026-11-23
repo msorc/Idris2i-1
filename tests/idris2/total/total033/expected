@@ -1,82 +1,79 @@
 1/1: Building CallSites (CallSites.idr)
-Error: loop is not total, possibly not terminating due to recursive path Main.loop
+Error: Main.loop is not total, possibly not terminating due to recursive path Main.loop [E0704]
 
-CallSites:4:1--4:18
+CallSites:5:10--5:14
  1 | %default total
  2 |
  3 | -- Direct recursion that doesn't decrease: the call site should be reported
  4 | loop : Nat -> Nat
-     ^^^^^^^^^^^^^^^^^
-
-Calls on the recursive path:
-    Main.loop called at CallSites:5:10--5:14
-
-Error: ping is not total, possibly not terminating due to call to Main.pong
-
-CallSites:9:3--9:21
  5 | loop n = loop (S n)
- 6 |
- 7 | -- Mutual recursion: each call on the path should be reported
- 8 | mutual
- 9 |   ping : Nat -> Bool
-       ^^^^^^^^^^^^^^^^^^
+              ^^^^
 
-Calls leading to the non-terminating function:
-    Main.pong called at CallSites:10:12--10:16
+No argument gets smaller: none is matched against a constructor.
 
-Error: pong is not total, possibly not terminating due to recursive path Main.ping -> Main.pong -> Main.ping -> Main.pong
+Error: ping is not total, possibly not terminating due to call to Main.pong [E0703]
 
-CallSites:12:3--12:21
+CallSites:10:12--10:16
+ 06 |
+ 07 | -- Mutual recursion: each call on the path should be reported
  08 | mutual
+ 09 |   ping : Nat -> Bool
+ 10 |   ping n = pong (S n)
+                 ^^^^
+
+Main.pong is not total, possibly not terminating due to recursive path Main.ping -> Main.pong.
+
+Error: Main.pong is not total, possibly not terminating due to recursive path Main.ping -> Main.pong [E0704]
+
+CallSites:13:12--13:16
  09 |   ping : Nat -> Bool
  10 |   ping n = pong (S n)
  11 |
  12 |   pong : Nat -> Bool
-        ^^^^^^^^^^^^^^^^^^
+ 13 |   pong n = ping n
+                 ^^^^
 
 Calls on the recursive path:
     Main.ping called at CallSites:13:12--13:16
     Main.pong called at CallSites:10:12--10:16
-    Main.ping called at CallSites:13:12--13:16
-    Main.pong called at CallSites:10:12--10:16
 
-Error: spin is not total, possibly not terminating due to recursive path Main.spin
+Error: Main.spin is not total, possibly not terminating due to recursive path Main.spin [E0704]
 
-CallSites:16:1--16:18
- 12 |   pong : Nat -> Bool
+CallSites:17:10--17:14
  13 |   pong n = ping n
  14 |
  15 | -- Calling a non-terminating function via an intermediate one
  16 | spin : Nat -> Nat
-      ^^^^^^^^^^^^^^^^^
+ 17 | spin n = spin n
+               ^^^^
 
-Calls on the recursive path:
-    Main.spin called at CallSites:17:10--17:14
+No argument gets smaller: none is matched against a constructor.
 
-Error: viaHelper is not total, possibly not terminating due to function Main.spin being reachable via Main.1:helper -> Main.spin
+Error: viaHelper is not total, possibly not terminating due to function Main.spin being reachable via Main.1:helper -> Main.spin [E0703]
 
-CallSites:19:1--19:23
- 15 | -- Calling a non-terminating function via an intermediate one
+CallSites:20:15--20:21
  16 | spin : Nat -> Nat
  17 | spin n = spin n
  18 |
  19 | viaHelper : Nat -> Nat
-      ^^^^^^^^^^^^^^^^^^^^^^
+ 20 | viaHelper n = helper n
+                    ^^^^^^
 
 Calls leading to the non-terminating function:
     viaHelper,helper called at CallSites:20:15--20:21
     Main.spin called at CallSites:23:16--23:20
 
-Error: viaHelper,helper is not total, possibly not terminating due to call to Main.spin
+Main.spin is not total, possibly not terminating due to recursive path Main.spin.
 
-CallSites:22:5--22:24
- 18 |
+Error: viaHelper,helper is not total, possibly not terminating due to call to Main.spin [E0703]
+
+CallSites:23:16--23:20
  19 | viaHelper : Nat -> Nat
  20 | viaHelper n = helper n
  21 |   where
  22 |     helper : Nat -> Nat
-          ^^^^^^^^^^^^^^^^^^^
+ 23 |     helper m = spin m
+                     ^^^^
 
-Calls leading to the non-terminating function:
-    Main.spin called at CallSites:23:16--23:20
+Main.spin is not total, possibly not terminating due to recursive path Main.spin.
 

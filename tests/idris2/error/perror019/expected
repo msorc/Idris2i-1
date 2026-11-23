@@ -1,5 +1,5 @@
 1/1: Building ImplError (ImplError.idr)
-Error: Implementation body can only contain definitions
+Error: Implementation body can only contain definitions [E0000]
 
 ImplError:5:3--5:4
  1 | data Foo = Bar

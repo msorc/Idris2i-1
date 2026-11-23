@@ -1,0 +1,36 @@
+package http
+version = 0.8.0
+
+opts = "--ignore-missing-ipkg"
+
+depends = contrib, network
+
+modules = Network.HTTP.Types,
+          Network.HTTP.Parser,
+          Network.HTTP.Chunked,
+          Network.HTTP.Render,
+          Network.HTTP.Internal.Bytes,
+
+          Network.HTTP.Transport,
+          Network.HTTP.Connection,
+          Network.HTTP.Server,
+          Network.HTTP.Router,
+          Network.HTTP.Client,
+
+          Network.URI,
+
+          Network.HTTP2.Internal,
+          Network.HTTP2.HPACK.Huffman,
+          Network.HTTP2.HPACK.Table,
+          Network.HTTP2.HPACK,
+          Network.HTTP2.Frame,
+          Network.HTTP2.Config,
+          Network.HTTP2.Connection,
+
+          Network.HTTP.SHA1,
+          Network.HTTP.Base64,
+
+          Network.WebSocket.UTF8,
+          Network.WebSocket.Frame,
+          Network.WebSocket.Handshake,
+          Network.WebSocket

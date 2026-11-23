@@ -1,0 +1,22 @@
+GET /health: 200 ok
+
+POST /todos: 201 {"id":1,"title":"write the docs","done":false}
+POST /todos: 201 {"id":2,"title":"run the benchmark","done":true}
+GET /todos: 200 [{"id":1,"title":"write the docs","done":false},{"id":2,"title":"run the benchmark","done":true}]
+PUT /todos/1: 200 {"id":1,"title":"write the docs","done":true}
+DELETE /todos/2: 204 
+GET /todos/2: 404 {"error":"no such item"}
+POST /todos: 400 {"error":"invalid JSON at byte 0: unexpected 'n', expected a value"}
+connections: 1
+service exit: 0
+listening on 127.0.0.1:PORT
+GET /health 200 3B
+POST /todos 201 46B
+POST /todos 201 48B
+GET /todos 200 97B
+PUT /todos/1 200 45B
+DELETE /todos/2 204 0B
+GET /todos/2 404 24B
+POST /todos 400 68B
+interrupted: stopping
+stopped

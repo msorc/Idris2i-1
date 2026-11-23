@@ -1,5 +1,5 @@
 1/1: Building Error1 (Error1.idr)
-Error: Can't use reserved symbol @.
+Error: Can't use reserved symbol @. [E1101]
 
 Error1:4:4--4:5
  1 |

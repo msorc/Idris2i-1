@@ -1,0 +1,6 @@
+package clib
+version = 0.1.0
+sourcedir = "src"
+modules = Answer
+-- puts the C library and its header in the `lib` directory of the package
+postinstall = "sh install-c.sh"

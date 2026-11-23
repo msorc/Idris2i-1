@@ -1,7 +1,7 @@
 1/3: Building A (A.idr)
 2/3: Building B (B.idr)
 3/3: Building C (C.idr)
-Error: While processing type of foo. Can't find an implementation for BFromInteger ?x.
+Error: While processing type of foo. Can't find an implementation for BFromInteger ?x. [E0401]
 
 C:5:7--5:14
  1 | module C
@@ -11,7 +11,7 @@ C:5:7--5:14
  5 | foo : BFunc x
            ^^^^^^^
 
-Possible cause: Undefined name A.BFromInteger. 
+Possible cause: Undefined name A.BFromInteger.
 
 C:5:7--5:14
  1 | module C
@@ -22,7 +22,7 @@ C:5:7--5:14
            ^^^^^^^
 Suggestion: A exports BFromInteger; add import A.
 Did you mean: fromInteger?
-Error: While processing type of foo1. Can't find an implementation for BFromInteger ?x.
+Error: While processing type of foo1. Can't find an implementation for BFromInteger ?x. [E0401]
 
 C:6:8--6:15
  2 |
@@ -32,7 +32,7 @@ C:6:8--6:15
  6 | foo1 : BFunc x
             ^^^^^^^
 
-Possible cause: Undefined name A.BFromInteger. 
+Possible cause: Undefined name A.BFromInteger.
 
 C:6:8--6:15
  2 |
@@ -43,7 +43,7 @@ C:6:8--6:15
             ^^^^^^^
 Suggestion: A exports BFromInteger; add import A.
 Did you mean: fromInteger?
-Error: While processing type of foo2. Can't find an implementation for BFromInteger ?x.
+Error: While processing type of foo2. Can't find an implementation for BFromInteger ?x. [E0401]
 
 C:7:8--7:15
  3 | import B
@@ -53,7 +53,7 @@ C:7:8--7:15
  7 | foo2 : BFunc x
             ^^^^^^^
 
-Possible cause: Undefined name A.BFromInteger. 
+Possible cause: Undefined name A.BFromInteger.
 
 C:7:8--7:15
  3 | import B
@@ -64,7 +64,7 @@ C:7:8--7:15
             ^^^^^^^
 Suggestion: A exports BFromInteger; add import A.
 Did you mean: fromInteger?
-Error: While processing type of foo3. Can't find an implementation for BFromInteger ?x.
+Error: While processing type of foo3. Can't find an implementation for BFromInteger ?x. [E0401]
 
 C:8:8--8:15
  4 |
@@ -74,7 +74,7 @@ C:8:8--8:15
  8 | foo3 : BFunc x
             ^^^^^^^
 
-Possible cause: Undefined name A.BFromInteger. 
+Possible cause: Undefined name A.BFromInteger.
 
 C:8:8--8:15
  4 |

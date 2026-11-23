@@ -26,11 +26,10 @@ help : Vect (S (plus {n:1} m)) a
 Main> 
 Bye for now!
 1/1: Building Issue35-2 (Issue35-2.idr)
-Error: While processing right hand side of f. When unifying:
-    Either b b
-and:
-    Either b b
-Mismatch between: b (implicitly bound at Issue35-2:2:1--2:2) and b.
+Error: While processing right hand side of f. When unifying: [E0101]
+    Expected: Either b{1} b
+    Got:      Either b b{1}
+Mismatch between: b{1} (implicitly bound at Issue35-2:2:1--2:2) and b.
 
 Issue35-2:2:13--2:14
  1 | f : { a, b : Type } -> Either a b -> Either b a
@@ -38,10 +37,9 @@ Issue35-2:2:13--2:14
                  ^
 
 1/1: Building Issue35-2 (Issue35-2.idr)
-Error: While processing right hand side of f. When unifying:
-    Either b {b:1}
-and:
-    Either {b:1} b
+Error: While processing right hand side of f. When unifying: [E0101]
+    Expected: Either {b:1} b
+    Got:      Either b {b:1}
 Mismatch between: {b:1} (implicitly bound at Issue35-2:2:1--2:2) and b.
 
 Issue35-2:2:13--2:14
@@ -50,10 +48,9 @@ Issue35-2:2:13--2:14
                  ^
 
 1/1: Building Issue35-2 (Issue35-2.idr)
-Error: While processing right hand side of f. When unifying:
-    Prelude.Either b {b:1}
-and:
-    Prelude.Either {b:1} b
+Error: While processing right hand side of f. When unifying: [E0101]
+    Expected: Prelude.Either {b:1} b
+    Got:      Prelude.Either b {b:1}
 Mismatch between: {b:1} (implicitly bound at Issue35-2:2:1--2:2) and b.
 
 Issue35-2:2:13--2:14

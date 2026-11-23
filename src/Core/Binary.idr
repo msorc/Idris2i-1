@@ -6,9 +6,11 @@ module Core.Binary
 import public Core.Binary.Prims
 import Core.Context.Log
 import Core.Options
+import Core.Profile
 import Core.TTC
 import Core.UnifyState
 
+import Data.Buffer
 import Data.String
 import Data.SortedSet
 
@@ -294,24 +296,49 @@ readTTCFile readall file as b
     replaceNS ns n@(NS _ _, d) = n
     replaceNS ns (n, d) = (NS ns n, d)
 
--- Pull out the list of GlobalDefs that we want to save
-getSaveDefs : Namespace -> List Name -> List (Name, Binary) -> Defs ->
-              Core (List (Name, Binary))
-getSaveDefs modns [] acc _ = pure acc
-getSaveDefs modns (n :: ns) acc defs
-    = do Just gdef <- lookupCtxtExact n (gamma defs)
-              | Nothing => getSaveDefs modns ns acc defs -- 'n' really should exist though!
-         -- No need to save builtins
-         case definition gdef of
-              Builtin _ => getSaveDefs modns ns acc defs
-              _ => do bin <- initBinaryS 16384
-                      toBuf (trimNS modns !(full (gamma defs) gdef))
-                      b <- get Bin
-                      getSaveDefs modns ns ((trimName (fullname gdef), b) :: acc) defs
+-- Pull out the list of GlobalDefs that we want to save. Each definition is
+-- encoded into one scratch buffer, which is reused (and grows as needed), and
+-- then copied out into a buffer of exactly its size: the encoded definitions
+-- are all kept until the file is written, and a fresh buffer for each one
+-- would be allocated (and cleared) at the size of the largest that might be
+-- needed.
+getSaveDefs : Namespace -> List Name -> Defs -> Core (List (Name, Binary))
+getSaveDefs modns ns defs
+    = do Just sbuf <- coreLift $ newBuffer scratchSize
+           | Nothing => throw (InternalError "Buffer creation failed")
+         scratch <- newRef Bin (newBinary sbuf scratchSize)
+         go scratch ns []
   where
+    scratchSize : Int
+    scratchSize = 65536
+
     trimName : Name -> Name
     trimName n@(NS defns d) = if defns == modns then d else n
     trimName n = n
+
+    -- A copy of what the scratch buffer holds, at its size
+    copyOut : Binary -> Core Binary
+    copyOut b
+        = do Just buf <- coreLift $ newBuffer b.used
+               | Nothing => throw (InternalError "Buffer creation failed")
+             coreLift $ copyData b.buf 0 b.used buf 0
+             pure (MkBin buf 0 b.used b.used)
+
+    go : Ref Bin Binary -> List Name -> List (Name, Binary) ->
+         Core (List (Name, Binary))
+    go scratch [] acc = pure acc
+    go scratch (n :: ns) acc
+        = do Just gdef <- lookupCtxtExact n (gamma defs)
+                  | Nothing => go scratch ns acc -- 'n' really should exist though!
+             -- No need to save builtins
+             case definition gdef of
+                  Builtin _ => go scratch ns acc
+                  _ => do update Bin { loc := 0, used := 0 }
+                          toBuf (trimNS modns !(full (gamma defs) gdef))
+                          b <- copyOut !(get Bin)
+                          whenJust defs.gamma.profiler $ \ p => coreLift $
+                            do profCount p "ttc.write.defs" 1; profCount p "ttc.write.def_bytes" b.used
+                          go scratch ns ((trimName (fullname gdef), b) :: acc)
 
 -- The cache of TTC files (`Defs.ttcCache`) --------------------------------
 
@@ -393,7 +420,7 @@ writeToTTC extradata sourceFileName ttcFileName
     = do bin <- initBinary
          defs <- get Ctxt
          ust <- get UST
-         gdefs <- getSaveDefs (currentNS defs) (keys (toSave defs)) [] defs
+         gdefs <- getSaveDefs (currentNS defs) (keys (toSave defs)) defs
          sourceHash <- hashFileWith defs.options.hashFn sourceFileName
          totalReq <- getDefaultTotalityOption
          log "ttc.write" 5 $ unwords
@@ -435,17 +462,25 @@ addGlobalDef : {auto c : Ref Ctxt Defs} ->
                (Name, Binary) -> Core ()
 addGlobalDef modns filens asm (n, def)
     = do defs <- get Ctxt
-         codedentry <- lookupContextEntry n (gamma defs)
-         case codedentry of
-              -- Already read from this module (which is read again when it
-              -- is imported again, say publicly this time), and not used
-              -- since: this is the same definition, nothing to do. (Decoding
-              -- it to look at it would cost more than all the rest.)
-              Just (_, Coded ns _) =>
-                  unless (ns == filens) $ addIfIncomplete codedentry
-              _ => addIfIncomplete codedentry
+         -- (the name is looked up once: a name that has no position yet,
+         -- most of them, gets one at once, and one that has is then known
+         -- by its position)
+         idx <- case getNameID n (gamma defs) of
+              Nothing => addNewContextEntry filens n def
+              Just idx =>
+                do codedentry <- lookupContextEntry (Resolved idx) (gamma defs)
+                   case codedentry of
+                        -- Already read from this module (which is read again
+                        -- when it is imported again, say publicly this
+                        -- time), and not used since: this is the same
+                        -- definition, nothing to do. (Decoding it to look at
+                        -- it would cost more than all the rest.)
+                        Just (_, Coded ns _) =>
+                            unless (ns == filens) $ addIfIncomplete idx codedentry
+                        _ => addIfIncomplete idx codedentry
+                   pure idx
 
-         whenJust asm $ \ as => addContextAlias (asName modns as n) n
+         whenJust asm $ \ as => addContextAliasAt (asName modns as n) n idx
 
   where
     -- If the definition already exists, don't overwrite it with an empty
@@ -459,8 +494,8 @@ addGlobalDef modns filens asm (n, def)
                Hole {} => False
                _ => True
 
-    addIfIncomplete : Maybe (Int, ContextEntry) -> Core ()
-    addIfIncomplete codedentry
+    addIfIncomplete : Int -> Maybe (Int, ContextEntry) -> Core ()
+    addIfIncomplete idx codedentry
         = do defs <- get Ctxt
              -- Don't update the coded entry because some names might not be
              -- resolved yet
@@ -469,7 +504,7 @@ addGlobalDef modns filens asm (n, def)
                                        pure (Just x))
                             codedentry
              unless (completeDef entry) $
-               ignore $ addContextEntry filens n def
+               ignore $ addContextEntry filens (Resolved idx) def
 
 addTypeHint : {auto c : Ref Ctxt Defs} ->
               FC -> (Name, Name, Bool) -> Core ()
@@ -655,13 +690,15 @@ readFromTTC {cacheAs} nestedns loc reexp fname modNS importAs
          -- interested in is returning which other modules to load.
          -- Otherwise, add the data
          if alreadyDone modNS importAs (allImported defs)
-            then do ttc <- readTTCContents cacheAs False fname as
+            then do ttc <- profile "import.read" $ readTTCContents cacheAs False fname as
                     let ex = extraData ttc
                     pure (Just (ex, ifaceHash ttc, imported ttc))
             else do
-               ttc <- readTTCContents cacheAs True fname as
+               ttc <- profile "import.read" $ readTTCContents cacheAs True fname as
                let ex = extraData ttc
-               traverse_ (addGlobalDef modNS (currentNS ttc) as) (context ttc)
+               profileCount "import.defs" (cast (length (context ttc)))
+               profile "import.register" $
+                 traverse_ (addGlobalDef modNS (currentNS ttc) as) (context ttc)
                traverse_ (addUserHole True) (userHoles ttc)
                setNS (currentNS ttc)
                when nestedns $ setNestedNS (nestedNS ttc)

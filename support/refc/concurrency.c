@@ -307,17 +307,108 @@ void refc_barrierWait(Idris2_Value *barrier) {
 // ---------------------------------------------------------------------------
 // Channels
 //
-// Like the channels of the Chez backend, a channel holds at most one value:
-// `channelPut` waits until the channel is empty, then stores the value and
-// returns without waiting for a receiver.
+// A channel is a queue of at most `capacity` values (see Idris2_Channel).
+// `channelPut` waits while the channel is full, then adds the value and
+// returns without waiting for a receiver; `channelGet` waits while it is
+// empty.  The channel of `makeChannel` holds at most one value, like the
+// channels of the Chez backend.  Every value added wakes up a waiting
+// reader, and every value taken a waiting writer; a woken thread looks
+// again, as another one may have come first.  The thread to wake up is
+// taken out of its queue under the lock, but made runnable once the lock is
+// released, which keeps the lock short when threads on several workers use
+// the channel at the same time (this is not possible for a reader that waits
+// with a deadline, which the queue of threads.c has to wake up itself).
 // ---------------------------------------------------------------------------
+
+// The slots that a buffered channel starts with (it grows as needed).
+#define CHANNEL_FIRST_SLOTS 16
+
+static Idris2_Channel *channel_new(int64_t capacity) {
+  Idris2_Channel *c =
+      (Idris2_Channel *)idris2_newZeroedValue(sizeof(Idris2_Channel));
+  c->header.tag = CHANNEL_TAG;
+  c->capacity = capacity < 1 ? 1 : capacity;
+  c->size = 1;
+  c->slots = &c->value;
+  return c;
+}
 
 void *refc_makeChannel(Idris2_Value *erased) {
   (void)erased;
-  Idris2_Channel *channel =
-      (Idris2_Channel *)idris2_newZeroedValue(sizeof(Idris2_Channel));
-  channel->header.tag = CHANNEL_TAG;
-  return channel;
+  return channel_new(1);
+}
+
+void *refc_makeBufferedChannel(Idris2_Value *erased, int64_t capacity) {
+  (void)erased;
+  return channel_new(capacity);
+}
+
+void *refc_makeUnboundedChannel(Idris2_Value *erased) {
+  (void)erased;
+  return channel_new(INT64_MAX);
+}
+
+// Make room for one more value in a full ring of a channel that can hold
+// more, whose lock is held.
+static void channel_grow(Idris2_Channel *c) {
+  int64_t size = c->size < CHANNEL_FIRST_SLOTS     ? CHANNEL_FIRST_SLOTS
+                 : c->size > INT64_MAX / 2          ? INT64_MAX
+                                                    : 2 * c->size;
+  if (size > c->capacity)
+    size = c->capacity;
+  if ((uint64_t)size > SIZE_MAX / sizeof(Idris2_Value *))
+    fatal("channelPut: out of memory");
+  Idris2_Value **slots =
+      (Idris2_Value **)malloc((size_t)size * sizeof(Idris2_Value *));
+  if (!slots)
+    fatal("channelPut: out of memory");
+  for (int64_t i = 0; i < c->count; i++)
+    slots[i] = c->slots[(c->head + i) % c->size];
+  if (c->slots != &c->value)
+    free(c->slots);
+  c->slots = slots;
+  c->size = size;
+  c->head = 0;
+}
+
+// Take the lock of a channel.  Threads on several workers that use a channel
+// at the same time contend for its lock, which is held for a few
+// instructions at a time: a thread that finds it held backs off for longer
+// and longer before it looks again, so that fewer threads fight for the
+// cache line of the lock each time it is released.
+#define CHANNEL_BACKOFF_MAX 256
+
+static void channel_lock_slow(Idris2_Channel *c) {
+#if IDRIS2_MULTICORE
+  for (unsigned pauses = 1; pauses <= CHANNEL_BACKOFF_MAX; pauses *= 2) {
+    for (unsigned i = 0; i < pauses; i++)
+      idris2_cpuRelax();
+    if (!__atomic_load_n(&c->lock, __ATOMIC_RELAXED) &&
+        !__atomic_exchange_n(&c->lock, 1, __ATOMIC_ACQUIRE))
+      return;
+  }
+#endif
+  idris2_spinLock(&c->lock);
+}
+
+static inline void channel_lock(Idris2_Channel *c) {
+#if IDRIS2_MULTICORE
+  if (__builtin_expect(__atomic_exchange_n(&c->lock, 1, __ATOMIC_ACQUIRE), 0))
+    channel_lock_slow(c);
+#endif
+}
+
+// Take the first thread out of a wait queue of a channel, whose lock is
+// held, for idris2_threadSchedule once the lock is released.  If the queue
+// may have threads that wait with a deadline, wake it up now instead.
+static Idris2_Thread *channel_wake(Idris2_WaitQueue *queue, int timed) {
+  if (!queue->head)
+    return NULL;
+  if (timed) {
+    idris2_threadWakeOne(queue);
+    return NULL;
+  }
+  return idris2_threadTakeWaiter(queue);
 }
 
 void refc_channelPut(Idris2_Value *erased, Idris2_Value *channel,
@@ -329,24 +420,32 @@ void refc_channelPut(Idris2_Value *erased, Idris2_Value *channel,
     idris2_markShared(value);
   }
   idris2_newReference(value);
-  idris2_spinLock(&c->lock);
-  while (c->full) {
+  channel_lock(c);
+  while (c->count >= c->capacity) {
     idris2_threadBlockOn(&c->writers, &c->lock);
-    idris2_spinLock(&c->lock);
+    channel_lock(c);
   }
-  c->value = value;
-  c->full = 1;
-  idris2_threadWakeOne(&c->readers);
+  if (c->count == c->size)
+    channel_grow(c);
+  int64_t tail = c->head + c->count;
+  c->slots[tail >= c->size ? tail - c->size : tail] = value;
+  c->count++;
+  Idris2_Thread *reader = channel_wake(&c->readers, c->timed_readers > 0);
   idris2_spinUnlock(&c->lock);
+  if (reader)
+    idris2_threadSchedule(reader);
 }
 
-// Take the value out of a full channel, whose lock is held.  The reference
-// is handed over to the caller.
-static Idris2_Value *channel_take(Idris2_Channel *c) {
-  Idris2_Value *value = c->value;
-  c->value = NULL;
-  c->full = 0;
-  idris2_threadWakeOne(&c->writers);
+// Take the first value out of a channel that is not empty, whose lock is
+// held.  The reference is handed over to the caller, who makes `*writer`
+// runnable once the lock is released.
+static Idris2_Value *channel_take(Idris2_Channel *c, Idris2_Thread **writer) {
+  Idris2_Value *value = c->slots[c->head];
+  c->slots[c->head] = NULL;
+  c->head = c->head + 1 == c->size ? 0 : c->head + 1;
+  c->count--;
+  // (the writers never wait with a deadline)
+  *writer = channel_wake(&c->writers, 0);
   return value;
 }
 
@@ -360,24 +459,30 @@ static Idris2_Value *make_just(Idris2_Value *value) {
 void *refc_channelGet(Idris2_Value *erased, Idris2_Value *channel) {
   (void)erased;
   Idris2_Channel *c = (Idris2_Channel *)channel;
-  idris2_spinLock(&c->lock);
+  channel_lock(c);
   // Another reader may get the value first, hence the loop.
-  while (!c->full) {
+  while (c->count == 0) {
     idris2_threadBlockOn(&c->readers, &c->lock);
-    idris2_spinLock(&c->lock);
+    channel_lock(c);
   }
-  Idris2_Value *value = channel_take(c);
+  Idris2_Thread *writer;
+  Idris2_Value *value = channel_take(c, &writer);
   idris2_spinUnlock(&c->lock);
+  if (writer)
+    idris2_threadSchedule(writer);
   return value;
 }
 
 void *refc_channelGetNonBlocking(Idris2_Value *erased, Idris2_Value *channel) {
   (void)erased;
   Idris2_Channel *c = (Idris2_Channel *)channel;
-  idris2_spinLock(&c->lock);
-  int full = c->full;
-  Idris2_Value *value = full ? channel_take(c) : NULL;
+  channel_lock(c);
+  int full = c->count > 0;
+  Idris2_Thread *writer = NULL;
+  Idris2_Value *value = full ? channel_take(c, &writer) : NULL;
   idris2_spinUnlock(&c->lock);
+  if (writer)
+    idris2_threadSchedule(writer);
   return full ? make_just(value) : NULL;
 }
 
@@ -387,18 +492,75 @@ void *refc_channelGetWithTimeout(Idris2_Value *erased, Idris2_Value *channel,
   Idris2_Channel *c = (Idris2_Channel *)channel;
   int64_t deadline = idris2_deadlineAfter(
       timeout_ms > INT64_MAX / 1000 ? INT64_MAX : timeout_ms * 1000);
-  idris2_spinLock(&c->lock);
-  while (!c->full) {
+  channel_lock(c);
+  while (c->count == 0) {
+    c->timed_readers++;
     int woken = idris2_threadBlockOnUntil(&c->readers, &c->lock, deadline);
-    idris2_spinLock(&c->lock);
+    channel_lock(c);
+    c->timed_readers--;
     if (!woken) {
       break; // timed out
     }
   }
-  int full = c->full;
-  Idris2_Value *value = full ? channel_take(c) : NULL;
+  int full = c->count > 0;
+  Idris2_Thread *writer = NULL;
+  Idris2_Value *value = full ? channel_take(c, &writer) : NULL;
   idris2_spinUnlock(&c->lock);
+  if (writer)
+    idris2_threadSchedule(writer);
   return full ? make_just(value) : NULL;
+}
+
+// ---------------------------------------------------------------------------
+// Compare-and-swap on IORefs (see Data.IORef)
+//
+// A ticket is the value that an IORef held when the ticket was read, with a
+// reference of its own: the value cannot be freed, so no other value can
+// get its address while the ticket lives, and comparing addresses tells
+// whether the IORef still holds that very value (or the same unboxed value,
+// or the same static one).  A shared IORef is read and written under its
+// lock (see prim.h), so the comparison and the write are done under it too.
+// ---------------------------------------------------------------------------
+
+void *refc_readForCAS(Idris2_Value *erased, Idris2_Value *ioref) {
+  (void)erased;
+  return idris2_readIORef(ioref);
+}
+
+void *refc_peekTicket(Idris2_Value *erased, Idris2_Value *ticket) {
+  (void)erased;
+  return idris2_newReference(ticket);
+}
+
+int64_t refc_casIORef(Idris2_Value *erased, Idris2_Value *ioref,
+                      Idris2_Value *ticket, Idris2_Value *value) {
+  (void)erased;
+  Idris2_IORef *r = (Idris2_IORef *)ioref;
+  Idris2_Value *old;
+  if (idris2_isShared(ioref)) {
+    // Other threads see the value from now on.  (Marking it before the lock
+    // is taken keeps the lock short; it is harmless if the swap fails.)
+    idris2_markShared(value);
+    idris2_spinLock(&r->lock);
+    old = r->v;
+    if (old == ticket) {
+      // The reference is taken before another thread can read the value.
+      idris2_newReference(value);
+      r->v = value;
+    }
+    idris2_spinUnlock(&r->lock);
+  } else {
+    old = r->v;
+    if (old == ticket) {
+      idris2_newReference(value);
+      r->v = value;
+    }
+  }
+  if (old != ticket)
+    return 0;
+  // (the ticket still holds a reference to the old value)
+  idris2_removeReference(old);
+  return 1;
 }
 
 // ---------------------------------------------------------------------------

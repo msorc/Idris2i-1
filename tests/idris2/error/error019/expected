@@ -1,5 +1,5 @@
 1/1: Building Error (Error.idr)
-Error: Unreachable clause: some False
+Error: Unreachable clause: some False [W0002]
 
 Error:4:1--4:11
  1 | some : Bool -> Bool
@@ -8,7 +8,7 @@ Error:4:1--4:11
  4 | some False = True
      ^^^^^^^^^^
 
-Error: Unreachable clause: some False
+Error: Unreachable clause: some False [W0002]
 
 Error:5:1--5:11
  1 | some : Bool -> Bool

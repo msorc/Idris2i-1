@@ -1,50 +1,64 @@
 1/1: Building Issue2868 (Issue2868.idr)
-Error: bar is not total, possibly not terminating due to call to Main.Foo.foo
+Error: bar is not total, possibly not terminating due to call to Main.Foo.foo [E0703]
 
-Issue2868:9:3--11:11
- 09 |   public export
+Issue2868:17:9--17:12
+ 13 | namespace Foo
+ 14 |   foo = bar
+ 15 |
+ 16 | namespace Bar
+ 17 |   bar = foo
+              ^^^
+
+Main.Foo.foo is not total, possibly not terminating due to recursive path Main.Bar.bar -> Main.Foo.foo.
+
+Error: Main.Foo.foo is not total, possibly not terminating due to recursive path Main.Bar.bar -> Main.Foo.foo [E0704]
+
+Issue2868:14:9--14:12
  10 |   total
  11 |   bar : ()
-
-Calls leading to the non-terminating function:
-    Main.Foo.foo called at Issue2868:17:9--17:12
-
-Error: foo is not total, possibly not terminating due to recursive path Main.Bar.bar -> Main.Foo.foo
-
-Issue2868:4:3--6:11
- 4 |   public export
- 5 |   total
- 6 |   foo : ()
+ 12 |
+ 13 | namespace Foo
+ 14 |   foo = bar
+              ^^^
 
 Calls on the recursive path:
     Main.Bar.bar called at Issue2868:14:9--14:12
     Main.Foo.foo called at Issue2868:17:9--17:12
 
 1/1: Building ProofOfFalse (ProofOfFalse.idr)
-Error: bar is not total, possibly not terminating due to call to Main.Foo.foo
+Error: bar is not total, possibly not terminating due to call to Main.Foo.foo [E0703]
 
-ProofOfFalse:8:3--9:13
- 8 |   public export
- 9 |   bar : Void
+ProofOfFalse:10:9--10:12
+ 06 |
+ 07 | namespace Bar
+ 08 |   public export
+ 09 |   bar : Void
+ 10 |   bar = foo
+              ^^^
 
-Calls leading to the non-terminating function:
-    Main.Foo.foo called at ProofOfFalse:10:9--10:12
+Main.Foo.foo is not total, possibly not terminating due to recursive path Main.Bar.bar -> Main.Foo.foo.
 
-Error: boom is not total, possibly not terminating due to call to Main.Foo.foo
+Error: boom is not total, possibly not terminating due to call to Main.Foo.foo [E0702]
 
-ProofOfFalse:15:1--15:12
- 11 |
+ProofOfFalse:16:8--16:11
  12 | namespace Foo
  13 |   foo = bar
  14 |
  15 | boom : Void
-      ^^^^^^^^^^^
+ 16 | boom = foo
+             ^^^
 
-Error: foo is not total, possibly not terminating due to recursive path Main.Bar.bar -> Main.Foo.foo
+Main.Foo.foo is not total, possibly not terminating due to recursive path Main.Bar.bar -> Main.Foo.foo.
 
-ProofOfFalse:4:3--5:13
- 4 |   public export
- 5 |   foo : Void
+Error: Main.Foo.foo is not total, possibly not terminating due to recursive path Main.Bar.bar -> Main.Foo.foo [E0704]
+
+ProofOfFalse:13:9--13:12
+ 09 |   bar : Void
+ 10 |   bar = foo
+ 11 |
+ 12 | namespace Foo
+ 13 |   foo = bar
+              ^^^
 
 Calls on the recursive path:
     Main.Bar.bar called at ProofOfFalse:13:9--13:12

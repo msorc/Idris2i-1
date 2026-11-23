@@ -158,28 +158,77 @@ renderPlain doc
             = let ls' = l :: go False rest in
                   if blank then "" :: ls' else ls'
 
-||| Print one diagnostic as a single-line JSON object on stdout
-export
-emitJSONDiagnostic : {auto c : Ref Ctxt Defs} ->
-                     {auto o : Ref ROpts REPLOpts} ->
-                     (severity : String) -> Maybe FC -> Doc IdrisAnn -> Core ()
-emitJSONDiagnostic severity mfc doc
-    = do msg <- renderPlain doc
-         let mnfc : Maybe NonEmptyFC = mfc >>= isNonEmptyFC
-         loc <- the (Core String) $ case mnfc of
-                     Nothing => pure "\"file\":null"
-                     Just nfc@(_, startPos, endPos) =>
-                       do file <- diagnosticFile nfc
-                          pure $ "\"file\":" ++ maybe "null" jsonString file
-                              ++ ",\"start\":" ++ jsonPos startPos
-                              ++ ",\"end\":" ++ jsonPos endPos
-         coreLift_ $ putStrLn $
-           "{\"severity\":" ++ jsonString severity ++ "," ++ loc
-             ++ ",\"message\":" ++ jsonString msg ++ "}"
-         coreLift_ $ fflush stdout
+||| The location fields of a JSON diagnostic: `"file"`, and `"start"` and
+||| `"end"` when the location is known
+jsonLocation : {auto c : Ref Ctxt Defs} -> Maybe FC -> Core String
+jsonLocation mfc
+    = case the (Maybe NonEmptyFC) (mfc >>= isNonEmptyFC) of
+           Nothing => pure "\"file\":null"
+           Just nfc@(o, startPos, endPos) =>
+             do file <- diagnosticFile nfc
+                -- (a module whose source is not at hand, as a library's)
+                let mod = case (file, o) of
+                            (Nothing, PhysicalIdrSrc m) => ",\"module\":" ++ jsonString (show m)
+                            _ => ""
+                pure $ "\"file\":" ++ maybe "null" jsonString file ++ mod
+                    ++ ",\"start\":" ++ jsonPos startPos
+                    ++ ",\"end\":" ++ jsonPos endPos
   where
     jsonPos : FilePos -> String
     jsonPos (l, c) = "{\"line\":" ++ show (l + 1) ++ ",\"col\":" ++ show (c + 1) ++ "}"
+
+jsonList : List String -> String
+jsonList xs = "[" ++ joinBy "," xs ++ "]"
+
+||| The fields of a JSON diagnostic after its message
+jsonInfo : {auto c : Ref Ctxt Defs} -> DiagnosticInfo -> Core String
+jsonInfo inf
+    = do cands <- traverse candidate inf.candidates
+         rel <- traverse related inf.related
+         pure $ ",\"code\":" ++ jsonString inf.code
+           ++ ",\"headline\":" ++ jsonString inf.headline
+           ++ ",\"context\":" ++ jsonList (map jsonString inf.context)
+           ++ maybe "" (\ e => ",\"expected\":" ++ jsonString e) inf.expected
+           ++ maybe "" (\ g => ",\"got\":" ++ jsonString g) inf.got
+           ++ ",\"candidates\":" ++ jsonList cands
+           ++ ",\"related\":" ++ jsonList rel
+           ++ ",\"suggestions\":" ++ jsonList (map suggestion inf.suggestions)
+           ++ ",\"notes\":" ++ jsonList (map jsonString inf.notes)
+  where
+    candidate : (Maybe String, FC, String) -> Core String
+    candidate (n, fc, reason)
+        = pure $ "{\"name\":" ++ maybe "null" jsonString n ++ "," ++ !(jsonLocation (Just fc))
+            ++ ",\"reason\":" ++ jsonString reason ++ "}"
+
+    related : (FC, String) -> Core String
+    related (fc, label)
+        = pure $ "{" ++ !(jsonLocation (Just fc)) ++ ",\"label\":" ++ jsonString label ++ "}"
+
+    suggestion : Either String (String, String) -> String
+    suggestion (Left n) = "{\"name\":" ++ jsonString n ++ "}"
+    suggestion (Right (m, imp))
+        = "{\"module\":" ++ jsonString m ++ ",\"import\":" ++ jsonString imp ++ "}"
+
+||| Print one diagnostic as a single-line JSON object on stdout: its
+||| severity, location and message, then what else is known about it
+export
+emitJSONDiagnostic : {auto c : Ref Ctxt Defs} ->
+                     {auto o : Ref ROpts REPLOpts} ->
+                     (severity : String) -> Maybe FC -> Doc IdrisAnn ->
+                     Maybe DiagnosticInfo -> Core ()
+emitJSONDiagnostic severity mfc doc minfo
+    = do msg <- renderPlain doc
+         loc <- jsonLocation mfc
+         extra <- case minfo of
+                    Just inf => jsonInfo inf
+                    Nothing => -- a message without an error: only its headline
+                               jsonInfo (MkDiagnosticInfo "E0000"
+                                           (fst (break (== '\n') msg)) [] Nothing Nothing
+                                           [] [] [] [])
+         coreLift_ $ putStrLn $
+           "{\"severity\":" ++ jsonString severity ++ "," ++ loc
+             ++ ",\"message\":" ++ jsonString msg ++ extra ++ "}"
+         coreLift_ $ fflush stdout
 
 ||| Are diagnostics to be reported as JSON?
 export
@@ -198,15 +247,16 @@ printErrorDiagnostic msg
          then do REPL lvl <- getOutput
                    | IDEMode {} => printError msg
                  when (doPrint MsgStatusError lvl) $
-                   emitJSONDiagnostic "error" Nothing msg
+                   emitJSONDiagnostic "error" Nothing msg Nothing
          else printError msg
 
 export
 emitProblem : {auto c : Ref Ctxt Defs} ->
             {auto o : Ref ROpts REPLOpts} ->
             {auto s : Ref Syn SyntaxInfo} ->
-            a -> (DocCreator a) -> (DocCreator a) -> (a -> Maybe FC) -> MsgStatus -> Core ()
-emitProblem a replDocCreator idemodeDocCreator getFC status
+            a -> (DocCreator a) -> (DocCreator a) -> (a -> Maybe FC) ->
+            (a -> Core DiagnosticInfo) -> MsgStatus -> Core ()
+emitProblem a replDocCreator idemodeDocCreator getFC getInfo status
     = do opts <- get ROpts
          case idemode opts of
               REPL lvl =>
@@ -218,6 +268,7 @@ emitProblem a replDocCreator idemodeDocCreator getFC status
                     when (doPrint status lvl) $
                       do msg <- idemodeDocCreator a
                          emitJSONDiagnostic (severity status) (getFC a) msg
+                                            (Just !(getInfo a))
               IDEMode i _ f =>
                   do msg <- idemodeDocCreator a
                      -- TODO: Display a better message when the error doesn't contain a location
@@ -249,14 +300,14 @@ emitError : {auto c : Ref Ctxt Defs} ->
             {auto o : Ref ROpts REPLOpts} ->
             {auto s : Ref Syn SyntaxInfo} ->
             Error -> Core ()
-emitError e = emitProblem e display perror getErrorLoc MsgStatusError
+emitError e = emitProblem e display perror getErrorLoc diagnosticInfo MsgStatusError
 
 export
 emitWarning : {auto c : Ref Ctxt Defs} ->
               {auto o : Ref ROpts REPLOpts} ->
               {auto s : Ref Syn SyntaxInfo} ->
               Warning -> Core ()
-emitWarning w = emitProblem w displayWarning pwarning (Just . getWarningLoc) MsgStatusInfo
+emitWarning w = emitProblem w displayWarning pwarning (Just . getWarningLoc) warningDiagnosticInfo MsgStatusInfo
 
 export
 emitWarnings : {auto c : Ref Ctxt Defs} ->
@@ -302,7 +353,9 @@ resetContext origin
          put Ctxt ({ options := clearNames (options defs),
                      ttcExports := ttcExports defs,
                      ttcDirs := ttcDirs defs,
-                     ttcCache := ttcCache defs } !initDefs)
+                     ttcCache := ttcCache defs,
+                     primDefs := primDefs defs,
+                     gamma->profiler := defs.gamma.profiler } !initDefs)
          addPrimitives
          put UST initUState
          put Syn initSyntax

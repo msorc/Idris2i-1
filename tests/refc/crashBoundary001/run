@@ -1,0 +1,15 @@
+. ../../testutils.sh
+
+ulimit -c 0
+idris2 -o crash Main.idr > /dev/null
+./build/exec/crash
+echo "exit code: $?"
+# `exit` inside a boundary exits
+./build/exec/crash exit
+echo "exit code: $?"
+# no boundary around the crash: the message and the exit code of before
+./build/exec/crash none
+echo "exit code: $?"
+./build/exec/crash "none buffer" 2>&1 | sed 's/buffer\.c:[0-9]*/buffer.c/'
+./build/exec/crash "none buffer" > /dev/null 2>&1
+echo "exit code: $?"

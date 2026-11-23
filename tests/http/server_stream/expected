@@ -1,0 +1,6 @@
+upload chunked: 200 33554432 bytes, checksum ok: True
+upload with a length: 200 33554432 bytes, checksum ok: True
+download /download: 200 te=Just "chunked" 33554432 bytes, checksum ok: True
+download /download-length: 200 te=Nothing 33554432 bytes, checksum ok: True
+connections: 1
+peak RSS below 48 MB: True

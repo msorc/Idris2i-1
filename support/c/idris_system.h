@@ -21,3 +21,9 @@ int idris2_spawnShell(const char *command);
 // idris2_lastChildExitStatus (-1 when it did not exit normally).
 int idris2_waitAnyChild(void);
 int idris2_lastChildExitStatus(void);
+
+// The processor time used by the process so far, in nanoseconds (0 on
+// Windows), and its peak resident set size so far, in KiB (0 on Windows).
+// They are cheap enough to be read often, by the compiler's profiler.
+long long idris2_processCPUTimeNs(void);
+long long idris2_peakRSSKiB(void);

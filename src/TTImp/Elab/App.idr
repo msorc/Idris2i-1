@@ -16,6 +16,7 @@ import Data.List
 import Data.Maybe
 
 import Libraries.Data.List.Extra
+import Libraries.Data.NameMap
 import Libraries.Data.NatSet
 import Libraries.Data.VarSet
 import Libraries.Data.WithDefault
@@ -510,7 +511,7 @@ mutual
              -- If there's a constraint, make a constant, but otherwise
              -- just return the term as expected
              tm <- if not ok
-                      then do res <- convert fc elabinfo env
+                      then do res <- convertUnordered fc elabinfo env
                                                  (gnf env metaval)
                                                  (gnf env argv)
                               let [] = constraints res
@@ -842,18 +843,51 @@ checkApp rig elabinfo nest env fc (IVar fc' n) expargs autoargs namedargs exp
 
     -- If the term is an application of a primitive conversion (fromInteger etc)
     -- and it's applied to a constant, fully normalise the term.
-    normalisePrims : {vs : _} ->
-                     List Name -> Env Term vs ->
-                     (Term vs, Glued vs) ->
-                     Core (Term vs, Glued vs)
+    normalisePrims : List Name -> Env Term vars ->
+                     (Term vars, Glued vars) ->
+                     Core (Term vars, Glued vars)
     normalisePrims prims env res
         = do tm <- Normalise.normalisePrims (`boundSafe` elabMode elabinfo)
                                             isIPrimVal
                                             (onLHS (elabMode elabinfo))
                                             prims n expargs (fst res) env
+             whenJust tm $ \ tm' => checkMatchable tm' (snd res)
              pure (fromMaybe (fst res) tm, snd res)
 
       where
+        -- A literal pattern is matched on the normal form of its conversion:
+        -- `fromInteger 3` at `Fin 5` on `FS (FS (FS FZ))`. If that is stuck
+        -- on a function (an opaque or foreign definition, as in
+        -- `fromString` for a byte string), at the top or under constructors,
+        -- there is nothing to match on there: the case tree builder would
+        -- treat it as unmatchable, which matches anything (and refers to
+        -- definitions the module may not see).
+        stuck : Term ws -> Bool
+        stuck tm
+            = case getFnArgs tm of
+                   (Ref _ Func _, _) => True
+                   (Ref _ (DataCon {}) _, args) => any stuck args
+                   _ => False
+
+        -- Unless it is only stuck because a metavariable (the
+        -- implementation, say) is not solved yet, which is for later, or on
+        -- a variable (an implementation of `Num a` for a type variable `a`),
+        -- which leads to other errors.
+        checkMatchable : Term vars -> Glued vars -> Core ()
+        checkMatchable tm gty
+            = when (onLHS (elabMode elabinfo) && stuck tm
+                      && NameMap.null (getMetas tm)
+                      && VarSet.isEmpty (findUsedLocs env tm)) $
+                do let Just lit = last' expargs >>= isIPrimVal
+                         | Nothing => pure ()
+                   defs <- get Ctxt
+                   ty <- normaliseHoles defs env !(getTerm gty)
+                   -- the type of the application may not be unified with
+                   -- the expected type yet
+                   ty <- case (ty, exp) of
+                              (Meta {}, Just ety) => normaliseHoles defs env !(getTerm ety)
+                              _ => pure ty
+                   throw (LiteralNotMatchable fc env lit !(getFullName n) ty)
 
         boundSafe : Constant -> ElabMode -> Bool
         boundSafe _ (InLHS _) = True -- always need to expand on LHS

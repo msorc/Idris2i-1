@@ -14,6 +14,7 @@ import Idris.Syntax
 import TTImp.TTImp
 
 import Data.Either
+import Data.List
 import Libraries.Data.IntMap
 import Libraries.Data.NameMap
 import Libraries.Data.UserNameMap
@@ -533,7 +534,7 @@ successful : {vars : _} ->
              {auto e : Ref EST (EState vars)} ->
              Bool -> -- constraints allowed
              List (Maybe Name, Core a) ->
-             Core (List (Either (Maybe Name, Error)
+             Core (List (Either (Int, Maybe Name, Error)
                                 (Nat, a, Defs, UState, EState vars, Metadata)))
 successful allowCons [] = pure []
 successful allowCons ((tm, elab) :: elabs)
@@ -575,13 +576,18 @@ successful allowCons ((tm, elab) :: elabs)
                    -- Record success, and the state we ended at
                    pure (Right (minus ncons' ncons,
                                 res, defs', ust', est', md') :: elabs'))
-               (\err => do put UST ust
+               (\err => do -- How far the attempt got before failing: the
+                           -- number of names it generated (for implicit
+                           -- arguments, holes, ...), read before the state
+                           -- is restored. Used to rank the failures.
+                           progress <- (\u => nextName u - nextName ust) <$> get UST
+                           put UST ust
                            put EST est
                            put MD md
                            put Ctxt defs
                            when (abandon err) $ throw err
                            elabs' <- successful allowCons elabs
-                           pure (Left (tm, err) :: elabs'))
+                           pure (Left (progress, tm, err) :: elabs'))
   where
     -- Some errors, it's not worth trying all the possibilities because
     -- something serious has gone wrong, so just give up immediately.
@@ -591,8 +597,89 @@ successful allowCons ((tm, elab) :: elabs)
     abandon (InCon _ err) = abandon err
     abandon (InLHS _ _ err) = abandon err
     abandon (InRHS _ _ err) = abandon err
-    abandon (AllFailed errs) = any (abandon . snd) errs
+    abandon (AllFailed _ errs) = any (abandon . snd) errs
+    abandon (MaybeMisspelling err _) = abandon err
     abandon _ = False
+
+-- The counters of --timing-summary for an ambiguous term: the sites, the
+-- alternatives elaborated, those that succeeded, and the sites where more
+-- than one succeeded
+ambigCounts : Nat -> Nat -> List (String, Int)
+ambigCounts alts oks
+    = [("ambig.sites", 1), ("ambig.alts", cast alts), ("ambig.alts.ok", cast oks),
+       ("ambig.sites.several_ok", if oks > 1 then 1 else 0)]
+
+||| How promising a failed candidate looks, judging by its error: lower is
+||| closer to working. A failed search or constraint means the candidate
+||| itself fit; a mismatch between two types with the same head means it was
+||| the right kind of thing; a mismatch of heads means it was not; a wrong
+||| number of arguments is the furthest from what was meant.
+failureClass : Error -> Nat
+failureClass (WhenUnifying _ _ _ _ _ _ _ err) = failureClass err
+failureClass (Fatal err) = failureClass err
+failureClass (CantSolveGoal {}) = 0
+failureClass (CantSolveEq {}) = 0
+failureClass (DeterminingArg {}) = 0
+failureClass (CantConvert _ _ _ l r)
+    = case (isPi l, isPi r) of
+           (True, False) => 3
+           (False, True) => 3
+           _ => if sameHead (getFn l) (getFn r) then 1 else 2
+  where
+    isPi : Term vs -> Bool
+    isPi (Bind _ _ (Pi {}) _) = True
+    isPi _ = False
+
+    -- A metavariable could become anything, so it counts as the same head
+    sameHead : Term vs -> Term vs' -> Bool
+    sameHead (Meta {}) _ = True
+    sameHead _ (Meta {}) = True
+    sameHead (Ref _ _ x) (Ref _ _ y) = x == y
+    sameHead (TType {}) (TType {}) = True
+    sameHead (PrimVal _ x) (PrimVal _ y) = x == y
+    sameHead (Bind _ _ (Pi {}) _) (Bind _ _ (Pi {}) _) = True
+    sameHead _ _ = False
+failureClass (InvalidArgs {}) = 3
+failureClass (NotFunctionType {}) = 3
+failureClass _ = 2
+
+||| Order the failures of the candidates of an ambiguous name so that the most
+||| promising comes first: the one whose attempt got furthest (whose error is
+||| furthest into the expression, since arguments are checked from left to
+||| right, and then which generated more names), then by the kind of error
+||| (see `failureClass`), then those defined in the current namespace, then
+||| in the order the candidates were tried.
+rankFailures : {auto c : Ref Ctxt Defs} ->
+               List (Int, Maybe Name, Error) -> Core (List (Maybe Name, Error))
+rankFailures fs
+    = do ns <- getNS
+         keyed <- traverse (key ns) (zip [0 .. length fs] fs)
+         pure $ map snd $ sortBy (compare `on` fst) keyed
+  where
+    elsewhere : Namespace -> Maybe Name -> Core Nat
+    elsewhere ns Nothing = pure 1
+    elsewhere ns (Just n)
+        = do n' <- getFullName n
+             pure $ case n' of
+                         NS ns' _ => if ns' == ns then 0 else 1
+                         _ => 0
+
+    innermost : Error -> Error
+    innermost (WhenUnifying _ _ _ _ _ _ _ err) = innermost err
+    innermost (Fatal err) = innermost err
+    innermost err = err
+
+    -- where the error is, the later the further
+    position : Error -> (Int, Int)
+    position err
+        = fromMaybe (0, 0) $ do fc <- getErrorLoc (innermost err)
+                                (_, (l, c), _) <- isNonEmptyFC fc
+                                pure (negate l, negate c)
+
+    key : Namespace -> (Nat, Int, Maybe Name, Error) ->
+          Core (((Int, Int), Int, Nat, Nat, Nat), (Maybe Name, Error))
+    key ns (i, progress, mn, err)
+        = pure ((position err, negate progress, failureClass err, !(elsewhere ns mn), i), (mn, err))
 
 export
 exactlyOne' : {vars : _} ->
@@ -605,7 +692,9 @@ exactlyOne' : {vars : _} ->
               Core (Term vars, Glued vars)
 exactlyOne' allowCons fc env [(tm, elab)] = elab
 exactlyOne' {vars} allowCons fc env all
-    = do elabs <- successful allowCons all
+    = profile "ambig" $
+      do elabs <- successful allowCons all
+         profileCounts (ambigCounts (length all) (length (rights elabs)))
          case getRight elabs of
               Right (res, defs, ust, est, md) =>
                     do put UST ust
@@ -614,7 +703,7 @@ exactlyOne' {vars} allowCons fc env all
                        put Ctxt defs
                        commit
                        pure res
-              Left rs => throw (altError (lefts elabs) rs)
+              Left rs => throw (altError !(rankFailures (lefts elabs)) rs)
   where
     getRight : List (Either err (Nat, res)) -> Either (List res) res
     getRight es
@@ -643,7 +732,7 @@ exactlyOne' {vars} allowCons fc env all
                Error
     altError ls []
         = case depthError ls of
-               Nothing => AllFailed ls
+               Nothing => AllFailed fc ls
                Just err => err
     altError ls rs = AmbiguousElab fc env (map getRes rs)
 
@@ -666,12 +755,12 @@ anyOne : {vars : _} ->
          {auto e : Ref EST (EState vars)} ->
          FC -> List (Maybe Name, Core (Term vars, Glued vars)) ->
          Core (Term vars, Glued vars)
-anyOne fc es = anyOneErrs es [<] where
+anyOne fc es = profile "ambig" $ profileCount "ambig.first.sites" 1 *> anyOneErrs es [<] where
   anyOneErrs : List (Maybe Name, Core a) -> SnocList (Maybe Name, Error) -> Core a
   anyOneErrs [] [<]        = throw $ GenericMsg fc "No elaborators provided"
   anyOneErrs [] [<(tm, e)] = throw e
-  anyOneErrs [] errs       = throw $ AllFailed $ errs <>> []
-  anyOneErrs ((tm, elab) :: es) errs = case !(tryError elab) of
+  anyOneErrs [] errs       = throw $ AllFailed fc $ errs <>> []
+  anyOneErrs ((tm, elab) :: es) errs = case !(profileCount "ambig.first.alts" 1 *> tryError elab) of
     Right res => pure res
     Left err  => anyOneErrs es $ errs :< (tm, err)
 
@@ -722,12 +811,12 @@ convertWithLazy
         : {vars : _} ->
           {auto c : Ref Ctxt Defs} ->
           {auto u : Ref UST UState} ->
-          (withLazy : Bool) ->
+          (withLazy : Bool) -> UnifyOrder ->
           FC -> ElabInfo -> Env Term vars -> Glued vars -> Glued vars ->
           Core UnifyResult
-convertWithLazy withLazy fc elabinfo env x y
+convertWithLazy withLazy order fc elabinfo env x y
     = let umode : UnifyInfo
-                = case elabMode elabinfo of
+                = { termOrder := order } $ case elabMode elabinfo of
                        InLHS _ => inLHS
                        _ => inTerm in
           catch
@@ -760,15 +849,26 @@ convertWithLazy withLazy fc elabinfo env x y
                   -- throwing because they may no longer be known
                   -- by the time we look at the error
                   defs <- get Ctxt
-                  throw (WhenUnifying fc (gamma defs) env xtm ytm err))
+                  throw (WhenUnifying fc order (gamma defs) env xtm ytm [] err))
 
+||| Check that the type an expression has (the first) converts with the type
+||| its context expects (the second).
 export
 convert : {vars : _} ->
           {auto c : Ref Ctxt Defs} ->
           {auto u : Ref UST UState} ->
           FC -> ElabInfo -> Env Term vars -> Glued vars -> Glued vars ->
           Core UnifyResult
-convert = convertWithLazy False
+convert = convertWithLazy False GotExpected
+
+||| Check that two terms convert, when neither is the expected one.
+export
+convertUnordered : {vars : _} ->
+                   {auto c : Ref Ctxt Defs} ->
+                   {auto u : Ref UST UState} ->
+                   FC -> ElabInfo -> Env Term vars -> Glued vars -> Glued vars ->
+                   Core UnifyResult
+convertUnordered = convertWithLazy False Unordered
 
 -- Check whether the type we got for the given type matches the expected
 -- type.
@@ -784,7 +884,7 @@ checkExp : {vars : _} ->
            (got : Glued vars) -> (expected : Maybe (Glued vars)) ->
            Core (Term vars, Glued vars)
 checkExp rig elabinfo env fc tm got (Just exp)
-    = do vs <- convertWithLazy True fc elabinfo env got exp
+    = do vs <- convertWithLazy True GotExpected fc elabinfo env got exp
          case (constraints vs) of
               [] => case addLazy vs of
                          NoLazy => do logTerm "elab" 5 "Solved" tm

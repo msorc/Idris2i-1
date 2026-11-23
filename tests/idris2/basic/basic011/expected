@@ -1,6 +1,6 @@
 1/1: Building Dots1 (Dots1.idr)
 1/1: Building Dots2 (Dots2.idr)
-Error: While processing left hand side of foo. Can't match on ?x [no locals in scope] (Non linear pattern variable).
+Error: While processing left hand side of foo. Can't match on ?x [no locals in scope] (Non linear pattern variable). [E0606]
 
 Dots2:2:7--2:8
  1 | foo : Int -> Int -> Int
@@ -8,7 +8,7 @@ Dots2:2:7--2:8
            ^
 
 1/1: Building Dots3 (Dots3.idr)
-Error: While processing left hand side of addBaz. Pattern variable z unifies with: ?y [no locals in scope].
+Error: While processing left hand side of addBaz. Pattern variable z unifies with: ?y [no locals in scope]. [E0103]
 
 Dots3:5:13--5:30
    |

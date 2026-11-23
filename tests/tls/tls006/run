@@ -1,0 +1,7 @@
+. ../../testutils.sh
+. ../gencerts.sh
+
+idris2 -p network -p tls -o main Main.idr
+IDRIS2_WORKERS=1 $VALGRIND ./build/exec/main "$certs"
+
+rm -rf certs

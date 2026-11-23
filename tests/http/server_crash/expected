@@ -1,0 +1,51 @@
+--- a missing case, and a request after it on the same connection
+HTTP/1.1 500 Internal Server Error
+Content-Type: text/plain; charset=utf-8
+Connection: close
+Content-Length: 26
+
+500 Internal Server Error
+[closed by the server]
+  error log: handler crashed: missing case: Unhandled input for Main.pick at Main:28:1--28:19
+  access log: /pick/c 500
+--- a buffer read out of range
+HTTP/1.1 500 Internal Server Error
+Content-Type: text/plain; charset=utf-8
+Connection: close
+Content-Length: 26
+
+500 Internal Server Error
+[closed by the server]
+  error log: handler crashed: failed check: Buffer access out of range: offset (100) + len (4) > buf.size (8)
+  access log: /buffer 500
+--- a stream body that crashes: the last chunk is not sent
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+
+7
+partial
+[closed by the server]
+  error log: response body function crashed: missing case: Unhandled input for Main.pick at Main:28:1--28:19
+  access log: /stream 200
+a route that does not crash: 200 "first\n"
+then one that does: 500 "500 Internal Server Error\n"
+then on a new connection: 200 "hello\n"
+connections opened: 2
+  error log: handler crashed: missing case: Unhandled input for Main.pick at Main:28:1--28:19
+  access log: /pick/a 200
+  access log: /pick/c 500
+  access log: /hello 200
+1,000 crashing requests, answered with 500: 1000
+errors logged: 1000
+and then: 200 "hello\n"
+HTTP/2, a crash while 10 streams wait: 500 "500 Internal Server Error\n"
+the 10 other streams: 10 answered with 200
+HTTP/2, a stream body that crashes: error
+HTTP/2, then: 200 "hello\n"
+connections opened: 1
+errors logged: ["handler crashed: missing case: Unhandled input for Main.pick at Main:28:1--28:19", "response body function crashed: missing case: Unhandled input for Main.pick at Main:28:1--28:19"]
+WebSocket session crashed: closed with 1011 "internal error"
+  error log: response body function crashed: crash call: WebSocket session: missing case: Unhandled input for Main.pick at Main:28:1--28:19
+crashes caught: 1008
+=== 4 workers
+same output

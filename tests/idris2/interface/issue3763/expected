@@ -1,7 +1,7 @@
 1/3: Building Alias (Alias.idr)
 2/3: Building Source (Source.idr)
 3/3: Building Issue3763 (Issue3763.idr)
-Error: While processing right hand side of main. Can't find an implementation for Show (List MyNat).
+Error: While processing right hand side of main. Can't find an implementation for Show (List MyNat). [E0401]
 
 Issue3763:7:18--7:38
  3 | import Data.Vect
@@ -11,5 +11,6 @@ Issue3763:7:18--7:38
  7 | main = putStrLn (show (toList values))
                       ^^^^^^^^^^^^^^^^^^^^
 
-Possible cause: Can't find an implementation for Show MyNat, which is needed by a matching implementation.
+The implementation Show a => Show (List a) (in Prelude.Show) matches, but needs Show MyNat.
+    MyNat does not reduce here, so I can't tell which type it is.
 

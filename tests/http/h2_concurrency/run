@@ -1,0 +1,9 @@
+. ../../testutils.sh
+
+mkdir -p build/src && cp ../common/H2Raw.idr ../common/HttpTest.idr Main.idr build/src/ && cd build/src
+idris2 -p contrib -p network -p http -o main Main.idr
+IDRIS2_WORKERS=1 timeout 120 ./build/exec/main
+echo "=== 4 workers"
+IDRIS2_WORKERS=4 timeout 120 ./build/exec/main > output.4
+IDRIS2_WORKERS=1 timeout 120 ./build/exec/main > output.1
+if cmp -s output.1 output.4; then echo "same output"; else echo "different output"; diff output.1 output.4; fi

@@ -1,0 +1,59 @@
+== valid
+simple: End data="hello world" trailers=[] rest=""
+  same in 28 splits
+with rest: End data="hello" trailers=[] rest="GET / HTTP/1.1\r\n"
+  same in 33 splits
+hex sizes: End data="0123456789abcdefghij" trailers=[] rest=""
+  same in 39 splits
+extensions: End data="hello world" trailers=[] rest=""
+  same in 56 splits
+trailers: End data="hello" trailers=[X-Checksum: abc, X-Other: 1] rest="NEXT"
+  same in 50 splits
+no chunks: End data="" trailers=[] rest=""
+  same in 7 splits
+unfinished data: More data="hel" decoded=3
+  same in 8 splits
+unfinished trailer: More data="" decoded=0
+  same in 13 splits
+== invalid
+no digits: Failed BadChunkSize
+  same in 16 splits
+not hex: Failed BadChunkSize
+  same in 17 splits
+sign: Failed BadChunkSize
+  same in 18 splits
+junk after size: Failed BadChunkSize
+  same in 18 splits
+space then junk: Failed BadChunkSize
+  same in 19 splits
+bare LF after size: Failed BadLineEnd
+  same in 16 splits
+CR without LF: Failed BadLineEnd
+  same in 16 splits
+data too long: Failed MissingChunkCRLF
+  same in 18 splits
+data without CRLF: Failed MissingChunkCRLF
+  same in 25 splits
+data with LF only: Failed MissingChunkCRLF
+  same in 16 splits
+size of 2^60: Failed ChunkSizeTooLarge
+  same in 20 splits
+size of 2^60 - 1: More data="" decoded=0
+  same in 19 splits
+control in extension: Failed BadChunkExt
+  same in 21 splits
+extension at the limit: End data="hello" trailers=[] rest=""
+  same in 25 splits
+extension too long: Failed BadChunkExt
+  same in 26 splits
+bad trailer: Failed BadTrailer SpaceBeforeColon
+  same in 16 splits
+obs-fold in trailer: Failed BadTrailer ObsFold
+  same in 19 splits
+trailer too large: Failed BadTrailer HeadTooLarge
+  same in 50 splits
+== encoding
+"5\r\nhello\r\n6\r\n world\r\n1a\r\naaaaaaaaaaaaaaaaaaaaaaaaaa\r\n0\r\nX-T: 1\r\n\r\n"
+decoded: End data="hello worldaaaaaaaaaaaaaaaaaaaaaaaaaa" trailers=[X-T: 1] rest=""
+"" "0\r\n\r\n"
+round trips: True

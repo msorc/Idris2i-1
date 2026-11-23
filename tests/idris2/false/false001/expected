@@ -1,9 +1,8 @@
 1/1: Building Y (Y.idr)
-Error: While processing right hand side of t. When unifying:
-    Void
-and:
-    Nat
-Mismatch between: Void and Nat.
+Error: While processing right hand side of t. Mismatch between: Void and Nat. [E0101]
+When unifying:
+    Expected: Nat
+    Got:      Void
 
 Y:8:22--8:23
  4 |   a : Pair Type Type

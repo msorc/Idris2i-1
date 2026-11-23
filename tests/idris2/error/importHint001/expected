@@ -1,5 +1,5 @@
 1/1: Building Hint (Hint.idr)
-Error: While processing right hand side of sorted. Undefined name sortBy. 
+Error: While processing right hand side of sorted. Undefined name sortBy. [E0201]
 
 Hint:7:13--7:19
  3 | import Data.Vect
@@ -9,8 +9,8 @@ Hint:7:13--7:19
  7 | sorted xs = sortBy compare xs
                  ^^^^^^
 Suggestion: Data.List exports sortBy; add import Data.List.
-Did you mean: sorted?
-Error: While processing right hand side of infix_. Undefined name isInfixOf. 
+
+Error: While processing right hand side of infix_. Undefined name isInfixOf. [E0201]
 
 Hint:11:14--11:23
  07 | sorted xs = sortBy compare xs
@@ -20,8 +20,8 @@ Hint:11:14--11:23
  11 | infix_ s t = isInfixOf s t
                    ^^^^^^^^^
 Suggestion: isInfixOf is exported by Data.List, Data.String; import one of them.
-Did you mean any of: isPrefixOf, or isSuffixOf?
-Error: While processing right hand side of nowhere. Undefined name definitelyNotDefinedAnywhere. 
+Did you mean: isPrefixOf or isSuffixOf?
+Error: While processing right hand side of nowhere. Undefined name definitelyNotDefinedAnywhere. [E0201]
 
 Hint:15:11--15:39
  11 | infix_ s t = isInfixOf s t

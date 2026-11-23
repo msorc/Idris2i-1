@@ -4,7 +4,7 @@ Main> Main.lookup: All cases covered
 Main> Main.zip: All cases covered
 Main> Bye for now!
 1/1: Building Vect2 (Vect2.idr)
-Error: zip [] [] is not a valid impossible case.
+Error: zip [] [] is not a valid impossible case. [E0603]
 
 Vect2:8:1--8:21
  4 |      Nil  : Vect Z a
@@ -15,7 +15,7 @@ Vect2:8:1--8:21
      ^^^^^^^^^^^^^^^^^^^^
 
 1/1: Building Vect3 (Vect3.idr)
-Warning: Vect3:9:8--9:9:Z does not match expected type
+Warning: Z does not match the expected type Vect imp imp [E0000]
 
 Vect3:9:8--9:9
  5 |      Nil  : Vect Z a

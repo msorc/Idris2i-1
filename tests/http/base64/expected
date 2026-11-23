@@ -1,0 +1,46 @@
+RFC 4648 section 10:
+  "" -> "" -> Just ""
+  "f" -> "Zg==" -> Just "f"
+  "fo" -> "Zm8=" -> Just "fo"
+  "foo" -> "Zm9v" -> Just "foo"
+  "foob" -> "Zm9vYg==" -> Just "foob"
+  "fooba" -> "Zm9vYmE=" -> Just "fooba"
+  "foobar" -> "Zm9vYmFy" -> Just "foobar"
+Alphabets:
+  standard "+/+//g=="
+  url "-_-__g=="
+  url unpadded "-_-__g"
+  url decoded Just [251, 255, 191, 250]
+  standard rejects url Nothing
+  url rejects standard Nothing
+  round trips 0..40: True
+Strict decoding (standard, padded):
+  "Z" Nothing
+  "Zg" Nothing
+  "Zg=" Nothing
+  "Zm9" Nothing
+  "Zh==" Nothing
+  "Zm9=" Nothing
+  "Zm8=" Just "fo"
+  "Z===" Nothing
+  "====" Nothing
+  "=Zg=" Nothing
+  "Zm9v\n" Nothing
+  "Zm9v " Nothing
+  " Zm9v" Nothing
+  "Zm 9" Nothing
+  "Zm9vYg=a" Nothing
+  "Zm=vYg==" Nothing
+  "Zm9v====" Nothing
+  "Zm9vYg==Zg==" Nothing
+  "Zm9-" Nothing
+  "Zm9_" Nothing
+  "Zm9\NUL" Nothing
+Strict decoding (url, unpadded):
+  "Z" Nothing
+  "Zg==" Nothing
+  "Zh" Nothing
+  "Zm9" Nothing
+  "Zm8" Just "fo"
+  "Zm9v+" Nothing
+  "Zm9vY" Nothing

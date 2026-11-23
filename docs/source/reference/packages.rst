@@ -150,6 +150,15 @@ module is built by a process of its own once the modules it imports are built.
 The output of each process is shown when it ends.  This is not available on
 Windows, where the modules are built one after the other.
 
+A module is built again when its source file is newer than its TTC file, or
+when the TTC file was written by another version of the compiler.  When only
+TTC files of the modules it imports are newer, it is built again only if the
+interface of one of them changed (what it exports, with the bodies of its
+``public export`` definitions, and the interfaces of the modules it imports
+with ``import public``): after a change to a comment or to a private
+definition, the modules that import the changed one are neither built nor
+started again, in this build or the next ones, with or without ``--jobs``.
+
 When the package has an ``executable``, ``--build`` compiles it after the
 modules, which is a compilation of the whole program: it takes as long when
 nothing changed as after a change.  So, with the RefC and Chez backends (when

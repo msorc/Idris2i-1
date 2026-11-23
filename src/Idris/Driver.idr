@@ -190,7 +190,7 @@ stMain cgs opts
 
          -- If there's a --build or --install, just do that then quit
          Continue <- flip catch quitWithError $ processPackageOpts opts
-            | Abort => pure ()
+            | Abort => showTimeRecord
 
          flip catch quitWithError $
             do when (checkVerbose opts) $ -- override Quiet if implicitly set

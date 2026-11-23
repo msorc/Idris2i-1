@@ -8,6 +8,9 @@ modules = Control.Linear.Network,
           Network.Socket,
           Network.Socket.Data,
           Network.Socket.Raw,
+          Network.Socket.Address,
+          Network.Socket.Async,
+          Network.Socket.DNS,
           Network.FFI
 
 depends = linear

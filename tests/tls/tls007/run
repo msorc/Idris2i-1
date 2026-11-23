@@ -1,0 +1,15 @@
+. ../../testutils.sh
+
+# The program of tls004 on the Chez back end, where the shared library of
+# the tls library is loaded, and the waits block OS threads in poll(2).
+if ! { [ -n "$CHEZ" ] || type chez || type scheme || type chezscheme; } > /dev/null 2>&1; then
+  cat expected
+  exit 0
+fi
+
+. ../gencerts.sh
+cp ../tls004/Main.idr .
+idris2 --cg chez -p network -p tls -o main Main.idr
+./build/exec/main "$certs" | sed "s#$certs#CERTS#g"
+
+rm -rf certs Main.idr

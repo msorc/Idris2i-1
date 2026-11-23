@@ -1,0 +1,14 @@
+100 requests at once, 200 kB each way, bodies and checksums right: 100
+connections opened: 1
+a handler that reads 1 MB late: 200 "1000000 bytes"
+a client that reads 2 MB slowly: Right 2000000
+connections opened: 1
+an HTTP/1.1 client on the same port: 200 "hello 1"
+HTTP/2 to a server without h2c fails: True
+and HTTP/1.1 works there: 200 "hello 1"
+after a GOAWAY that did not process it: 200 "second"
+connections opened: 2
+streams in progress at the shutdown: ["200 slow 2", "200 slow 2", "200 slow 2", "200 slow 2", "200 slow 2"]
+after the shutdown, a request fails: True
+=== 4 workers
+same output

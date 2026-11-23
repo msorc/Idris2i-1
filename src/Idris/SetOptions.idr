@@ -10,6 +10,7 @@ import Libraries.Utils.Path
 import Libraries.Data.List.Extra
 
 import Idris.CommandLine
+import Idris.ErrorCode
 import Idris.Package.Types
 import Idris.Parser
 import Idris.Pretty
@@ -475,6 +476,9 @@ preOptions (ListPackages :: opts)
 preOptions (Timing tm :: opts)
     = do setLogTimings (fromMaybe 10 tm)
          preOptions opts
+preOptions (TimingSummary :: opts)
+    = do startProfiler
+         preOptions opts
 preOptions (DebugElabCheck :: opts)
     = do setDebugElabCheck True
          preOptions opts
@@ -483,6 +487,9 @@ preOptions (DebugSpecCollide :: opts)
          preOptions opts
 preOptions (AltErrorCount c :: opts)
     = do setSession ({ logErrorCount := c } !getSession)
+         preOptions opts
+preOptions (CandidateErrorCount c :: opts)
+    = do setSession ({ candidateErrorCount := c } !getSession)
          preOptions opts
 preOptions (RunREPL expr :: opts)
     = do setOutput (REPL VerbosityLvl.ErrorLvl)
@@ -535,6 +542,18 @@ preOptions (IgnoreShadowingWarnings :: opts)
 preOptions (SetErrorFormat fmt :: opts)
     = do updateSession ({ errorFormat := fmt })
          preOptions opts
+preOptions (ErrorCodes b :: opts)
+    = do updateSession ({ errorCodes := b })
+         preOptions opts
+preOptions (Explain code :: _)
+    = do case lookupCode code of
+           Just k => coreLift $ putStr (explainText k)
+           Nothing => coreLift $ putStrLn ("Unknown error code: " ++ code
+                        ++ ". The codes are listed in the reference page of error codes (idris2 --list-error-codes).")
+         pure Abort
+preOptions (ListErrorCodes :: _)
+    = do coreLift $ putStr codesRST
+         pure Abort
 preOptions (WarnWhereRecompute :: opts)
     = do updateSession ({ warnWhereRecompute := True })
          preOptions opts
@@ -591,8 +610,13 @@ postOptions : {auto c : Ref Ctxt Defs} ->
 postOptions res (MkPostSession check out ex runRepl)
     = -- In case of error loading the input file, there is nothing to
       -- compile, execute or check, so we abort immediately without doing
-      -- anything
+      -- anything. Nor is there anything to compile or execute when the file
+      -- or one of its imports had errors: what was elaborated is incomplete
+      -- (the modules after the error were not loaded at all), and the code
+      -- generator would only add confusing errors of its own to the real
+      -- ones. (A program with holes and no errors still compiles.)
       if notLoaded res && (check || isJust out || isCons ex)
+           || isFailure res && (isJust out || isCons ex)
          then pure (Abort, 1)
          -- otherwise, we compile the file and
          -- either :

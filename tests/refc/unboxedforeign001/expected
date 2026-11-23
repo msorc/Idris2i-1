@@ -1,0 +1,11 @@
+126444
+1190997417223700159
+([5, 0, 140737488355327, 4294967296], [7, 7])
+[3, 10, 84]
+prim__peek8: static inline uint8_t idris2_raw_Main_prim__peek8
+prim__peek64: static inline uint64_t idris2_raw_Main_prim__peek64
+prim__poke8: static inline Idris2_Value *idris2_raw_Main_prim__poke8
+cabs: int64_t idris2_raw_Main_cabs
+cabs32: int32_t idris2_raw_Main_cabs32
+sumBytes: 1 reads, values made: 0
+mixWords: 1 reads, values made: 0

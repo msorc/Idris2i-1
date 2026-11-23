@@ -10,6 +10,7 @@ import public Core.Name
 import        Core.Options
 import public Core.Options.Log
 import public Core.TT
+import        Core.Profile
 
 import Libraries.Utils.Binary
 import Libraries.Utils.Path
@@ -54,9 +55,6 @@ decode : Context -> Int -> (update : Bool) -> ContextEntry -> Core GlobalDef
 initSize : Int
 initSize = 10000
 
-Grow : Int
-Grow = initSize
-
 export
 initCtxtS : Int -> Core Context
 initCtxtS s
@@ -75,6 +73,7 @@ initCtxtS s
             , inlineOnly = False
             , hidden = empty
             , uconstraints = []
+            , profiler = Nothing
             }
 
 export
@@ -86,20 +85,14 @@ addPossible : Name -> Int ->
 addPossible n i ps
     = case userNameRoot n of
            Nothing => ps
-           Just nr =>
-              case lookup nr ps of
-                   Nothing => insert nr [Direct n i] ps
-                   Just nis => insert nr (Direct n i :: nis) ps
+           Just nr => upsert nr (\ nis => Direct n i :: fromMaybe [] nis) ps
 
 addAlias : Name -> Name -> Int ->
            UserNameMap (List PossibleName) -> UserNameMap (List PossibleName)
 addAlias alias full i ps
     = case userNameRoot alias of
            Nothing => ps
-           Just nr =>
-              case lookup nr ps of
-                   Nothing => insert nr [Alias alias full i] ps
-                   Just nis => insert nr (Alias alias full i :: nis) ps
+           Just nr => upsert nr (\ nis => Alias alias full i :: fromMaybe [] nis) ps
 
 export
 newEntry : Name -> Context -> Core (Int, Context)
@@ -107,8 +100,10 @@ newEntry n ctxt
     = do let idx = nextEntry ctxt
          let a = content ctxt
          arr <- get Arr
+         -- (the array is copied when it grows, so it doubles: the context
+         -- of a module holds the definitions of all that it imports)
          when (idx >= max arr) $
-                 do arr' <- coreLift $ newArrayCopy (max arr + Grow) arr
+                 do arr' <- coreLift $ newArrayCopy (max arr * 2 + initSize) arr
                     put Arr arr'
          pure (idx, { nextEntry := idx + 1,
                       resolvedAs $= insert n idx,
@@ -163,6 +158,18 @@ addEntry n entry ctxt_in
                  pure (idx, ctxt)
          else do (idx, ctxt) <- getPosition n ctxt_in
                  pure (idx, { staging $= insert idx entry } ctxt)
+
+||| As `addEntry`, for a name that has no position in the context yet (which
+||| `getNameID` says): it is not looked up again.
+export
+addNewEntry : Name -> ContextEntry -> Context -> Core (Int, Context)
+addNewEntry n entry ctxt_in
+    = do (idx, ctxt) <- newEntry n ctxt_in
+         if branchDepth ctxt == 0
+            then do arr <- get Arr @{content ctxt}
+                    coreLift_ $ writeArray arr idx entry
+                    pure (idx, ctxt)
+            else pure (idx, { staging $= insert idx entry } ctxt)
 
 returnDef : Bool -> Int -> GlobalDef -> Maybe (Int, GlobalDef)
 returnDef False idx def = Just (idx, def)
@@ -254,6 +261,8 @@ lookupCtxtName' allowHidden n ctxt
       then Nothing
       else lookup fulln hiddens
 
+    -- (a definition is decoded from its TTC data when it is looked up, so
+    -- only the candidates whose names match are looked up)
     lookupPossibles : List (Name, Int, GlobalDef) -> -- accumulator
                       List PossibleName ->
                       Core (List (Name, Int, GlobalDef))
@@ -261,20 +270,20 @@ lookupCtxtName' allowHidden n ctxt
     lookupPossibles acc (Direct fulln i :: ps)
        = case (hlookup fulln (hidden ctxt)) of
               Nothing =>
-                do Just res <- lookupCtxtExact (Resolved i) ctxt
-                        | Nothing => lookupPossibles acc ps
-                   if matches n fulln && not (i `elem` map resn acc)
-                      then lookupPossibles ((fulln, i, res) :: acc) ps
-                      else lookupPossibles acc ps
+                if matches n fulln && not (i `elem` map resn acc)
+                   then do Just res <- lookupCtxtExact (Resolved i) ctxt
+                                | Nothing => lookupPossibles acc ps
+                           lookupPossibles ((fulln, i, res) :: acc) ps
+                   else lookupPossibles acc ps
               _ => lookupPossibles acc ps
     lookupPossibles acc (Alias asn fulln i :: ps)
        = case (hlookup fulln (hidden ctxt)) of
               Nothing =>
-                do Just res <- lookupCtxtExact (Resolved i) ctxt
-                        | Nothing => lookupPossibles acc ps
-                   if (matches n asn) && not (i `elem` map resn acc)
-                      then lookupPossibles ((fulln, i, res) :: acc) ps
-                      else lookupPossibles acc ps
+                if matches n asn && not (i `elem` map resn acc)
+                   then do Just res <- lookupCtxtExact (Resolved i) ctxt
+                                | Nothing => lookupPossibles acc ps
+                           lookupPossibles ((fulln, i, res) :: acc) ps
+                   else lookupPossibles acc ps
               _ => lookupPossibles acc ps
 
 ||| Look up a name in the context, ignoring names hidden by `%hide`.
@@ -727,6 +736,8 @@ HasNames Warning where
   full gam (Deprecated fc x y) = Deprecated fc x <$> traverseOpt (traversePair (full gam)) y
   full gam (WhereRecompute fc x y z) = WhereRecompute fc x <$> full gam y <*> pure z
   full gam (GenericWarn fc x) = pure (GenericWarn fc x)
+  -- the names of the error are made full when it is printed
+  full gam (ErrorWarning err) = pure (ErrorWarning err)
 
   resolved gam (ParserWarning fc x) = pure (ParserWarning fc x)
   resolved gam (UnreachableClause fc rho s) = UnreachableClause fc <$> resolved gam rho <*> resolved gam s
@@ -737,20 +748,23 @@ HasNames Warning where
   resolved gam (Deprecated fc x y) = Deprecated fc x <$> traverseOpt (traversePair (resolved gam)) y
   resolved gam (WhereRecompute fc x y z) = WhereRecompute fc x <$> resolved gam y <*> pure z
   resolved gam (GenericWarn fc x) = pure (GenericWarn fc x)
+  resolved gam (ErrorWarning err) = pure (ErrorWarning err)
 
 export
 HasNames Error where
   full gam (Fatal err) = Fatal <$> full gam err
   full _ (CantConvert fc gam rho s t)
     = CantConvert fc gam <$> full gam rho <*> full gam s <*> full gam t
-  full _ (CantSolveEq fc gam rho s t)
-    = CantSolveEq fc gam <$> full gam rho <*> full gam s <*> full gam t
+  full _ (CantSolveEq fc gam rho s t os)
+    = CantSolveEq fc gam <$> full gam rho <*> full gam s <*> full gam t <*> traverse (full gam) os
   full gam (PatternVariableUnifies fc fct rho n s)
     = PatternVariableUnifies fc fct <$> full gam rho <*> full gam n <*> full gam s
   full gam (CyclicMeta fc rho n s)
     = CyclicMeta fc <$> full gam rho <*> full gam n <*> full gam s
-  full _ (WhenUnifying fc gam rho s t err)
-    = WhenUnifying fc gam <$> full gam rho <*> full gam s <*> full gam t <*> full gam err
+  full _ (WhenUnifying fc o gam rho s t i err)
+    = WhenUnifying fc o gam <$> full gam rho <*> full gam s <*> full gam t
+                            <*> traverse (\ (n, sfc, v) => (,sfc,) <$> full gam n <*> full gam v) i
+                            <*> full gam err
   full gam (ValidCase fc rho x)
     = ValidCase fc <$> full gam rho <*> either (map Left . full gam) (map Right . full gam) x
   full gam (UndefinedName fc n) = UndefinedName fc <$> full gam n
@@ -770,8 +784,8 @@ HasNames Error where
   full gam (AmbiguousSearch fc rho s xs)
     = AmbiguousSearch fc <$> full gam rho <*> full gam s <*> traverse (full gam) xs
   full gam (AmbiguityTooDeep fc n xs) = AmbiguityTooDeep fc <$> full gam n <*> traverse (full gam) xs
-  full gam (AllFailed xs)
-     = map AllFailed $ for xs $ \ (mn, err) =>
+  full gam (AllFailed fc xs)
+     = map (AllFailed fc) $ for xs $ \ (mn, err) =>
          (,) <$> traverseOpt (full gam) mn <*> full gam err
   full gam (RecordTypeNeeded fc rho) = RecordTypeNeeded fc <$> full gam rho
   full gam (DuplicatedRecordUpdatePath fc xs) = pure (DuplicatedRecordUpdatePath fc xs)
@@ -785,6 +799,9 @@ HasNames Error where
   full gam (BadUnboundImplicit fc rho n s) = BadUnboundImplicit fc <$> full gam rho <*> full gam n <*> full gam s
   full _ (CantSolveGoal fc gam rho s merr)
     = CantSolveGoal fc gam <$> full gam rho <*> full gam s <*> traverseOpt (full gam) merr
+  full _ (SearchNeeds fc gam n l rho s merr)
+    = SearchNeeds fc gam <$> full gam n <*> pure l <*> full gam rho <*> full gam s
+                         <*> traverseOpt (full gam) merr
   full gam (DeterminingArg fc n x rho s)
     = DeterminingArg fc <$> full gam n <*> pure x <*> full gam rho <*> full gam s
   full gam (UnsolvedHoles xs) = UnsolvedHoles <$> traverse (traversePair (full gam)) xs
@@ -801,6 +818,8 @@ HasNames Error where
   full gam (NotRewriteRule fc rho s) = NotRewriteRule fc <$> full gam rho <*> full gam s
   full gam (CaseCompile fc n x) = CaseCompile fc <$> full gam n <*> full gam x
   full gam (MatchTooSpecific fc rho s) = MatchTooSpecific fc <$> full gam rho <*> full gam s
+  full gam (LiteralNotMatchable fc rho l n s)
+    = LiteralNotMatchable fc <$> full gam rho <*> pure l <*> full gam n <*> full gam s
   full gam (BadDotPattern fc rho x s t)
     = BadDotPattern fc <$> full gam rho <*> pure x <*> full gam s <*> full gam t
   full gam (BadImplicit fc x) = pure (BadImplicit fc x)
@@ -808,6 +827,7 @@ HasNames Error where
   full gam (RunElabFail e) = RunElabFail <$> full gam e
   full gam (GenericMsg fc x) = pure (GenericMsg fc x)
   full gam (GenericMsgSol fc x y z) = pure (GenericMsgSol fc x y z)
+  full gam (GenericMsgTerm fc env x tm y) = GenericMsgTerm fc <$> full gam env <*> pure x <*> full gam tm <*> pure y
   full gam (TTCError x) = pure (TTCError x)
   full gam (FileErr x y) = pure (FileErr x y)
   full gam (CantFindPackage x) = pure (CantFindPackage x)
@@ -842,14 +862,16 @@ HasNames Error where
   resolved gam (Fatal err) = Fatal <$> resolved gam err
   resolved _ (CantConvert fc gam rho s t)
     = CantConvert fc gam <$> resolved gam rho <*> resolved gam s <*> resolved gam t
-  resolved _ (CantSolveEq fc gam rho s t)
-    = CantSolveEq fc gam <$> resolved gam rho <*> resolved gam s <*> resolved gam t
+  resolved _ (CantSolveEq fc gam rho s t os)
+    = CantSolveEq fc gam <$> resolved gam rho <*> resolved gam s <*> resolved gam t <*> traverse (resolved gam) os
   resolved gam (PatternVariableUnifies fc fct rho n s)
     = PatternVariableUnifies fc fct <$> resolved gam rho <*> resolved gam n <*> resolved gam s
   resolved gam (CyclicMeta fc rho n s)
     = CyclicMeta fc <$> resolved gam rho <*> resolved gam n <*> resolved gam s
-  resolved _ (WhenUnifying fc gam rho s t err)
-    = WhenUnifying fc gam <$> resolved gam rho <*> resolved gam s <*> resolved gam t <*> resolved gam err
+  resolved _ (WhenUnifying fc o gam rho s t i err)
+    = WhenUnifying fc o gam <$> resolved gam rho <*> resolved gam s <*> resolved gam t
+                            <*> traverse (\ (n, sfc, v) => (,sfc,) <$> resolved gam n <*> resolved gam v) i
+                            <*> resolved gam err
   resolved gam (ValidCase fc rho x)
     = ValidCase fc <$> resolved gam rho <*> either (map Left . resolved gam) (map Right . resolved gam) x
   resolved gam (UndefinedName fc n) = UndefinedName fc <$> resolved gam n
@@ -869,8 +891,8 @@ HasNames Error where
   resolved gam (AmbiguousSearch fc rho s xs)
     = AmbiguousSearch fc <$> resolved gam rho <*> resolved gam s <*> traverse (resolved gam) xs
   resolved gam (AmbiguityTooDeep fc n xs) = AmbiguityTooDeep fc <$> resolved gam n <*> traverse (resolved gam) xs
-  resolved gam (AllFailed xs)
-     = map AllFailed $ for xs $ \ (mn, err) =>
+  resolved gam (AllFailed fc xs)
+     = map (AllFailed fc) $ for xs $ \ (mn, err) =>
          (,) <$> traverseOpt (resolved gam) mn <*> resolved gam err
   resolved gam (RecordTypeNeeded fc rho) = RecordTypeNeeded fc <$> resolved gam rho
   resolved gam (DuplicatedRecordUpdatePath fc xs) = pure (DuplicatedRecordUpdatePath fc xs)
@@ -884,6 +906,9 @@ HasNames Error where
   resolved gam (BadUnboundImplicit fc rho n s) = BadUnboundImplicit fc <$> resolved gam rho <*> resolved gam n <*> resolved gam s
   resolved _ (CantSolveGoal fc gam rho s merr)
     = CantSolveGoal fc gam <$> resolved gam rho <*> resolved gam s <*> traverseOpt (resolved gam) merr
+  resolved _ (SearchNeeds fc gam n l rho s merr)
+    = SearchNeeds fc gam <$> resolved gam n <*> pure l <*> resolved gam rho <*> resolved gam s
+                         <*> traverseOpt (resolved gam) merr
   resolved gam (DeterminingArg fc n x rho s)
     = DeterminingArg fc <$> resolved gam n <*> pure x <*> resolved gam rho <*> resolved gam s
   resolved gam (UnsolvedHoles xs) = UnsolvedHoles <$> traverse (traversePair (resolved gam)) xs
@@ -900,6 +925,8 @@ HasNames Error where
   resolved gam (NotRewriteRule fc rho s) = NotRewriteRule fc <$> resolved gam rho <*> resolved gam s
   resolved gam (CaseCompile fc n x) = CaseCompile fc <$> resolved gam n <*> resolved gam x
   resolved gam (MatchTooSpecific fc rho s) = MatchTooSpecific fc <$> resolved gam rho <*> resolved gam s
+  resolved gam (LiteralNotMatchable fc rho l n s)
+    = LiteralNotMatchable fc <$> resolved gam rho <*> pure l <*> resolved gam n <*> resolved gam s
   resolved gam (BadDotPattern fc rho x s t)
     = BadDotPattern fc <$> resolved gam rho <*> pure x <*> resolved gam s <*> resolved gam t
   resolved gam (BadImplicit fc x) = pure (BadImplicit fc x)
@@ -907,6 +934,7 @@ HasNames Error where
   resolved gam (RunElabFail e) = RunElabFail <$> resolved gam e
   resolved gam (GenericMsg fc x) = pure (GenericMsg fc x)
   resolved gam (GenericMsgSol fc x y z) = pure (GenericMsgSol fc x y z)
+  resolved gam (GenericMsgTerm fc env x tm y) = GenericMsgTerm fc <$> resolved gam env <*> pure x <*> resolved gam tm <*> pure y
   resolved gam (TTCError x) = pure (TTCError x)
   resolved gam (FileErr x y) = pure (FileErr x y)
   resolved gam (CantFindPackage x) = pure (CantFindPackage x)
@@ -1166,7 +1194,8 @@ record Defs where
   specStack : List Name
      -- ^ The same, for the copies made by `%spec`
   timings : StringMap (Bool, Integer)
-     -- ^ record of timings from logTimeRecord
+     -- ^ timings by category, which `showTimeRecord` prints (nothing
+     -- records any at the moment)
   timer : Maybe (Integer, String)
      -- ^ for timing and checking timeouts; the maximum time after which a
      -- timeout should be thrown
@@ -1189,6 +1218,11 @@ record Defs where
   ttcCache : TTCCache
      -- ^ The TTC files read so far, kept when the context is cleared, so that
      -- the next module imports them without reading them again
+  primDefs : List (Name, GlobalDef)
+     -- ^ The definitions of the primitives as `addPrimitives` adds them to a
+     -- new context (empty until it has once), kept when the context is
+     -- cleared: they are the same each time, and compiling them again costs
+     -- more than adding them
 
 
 -- Label for context references
@@ -1249,6 +1283,7 @@ initDefs
            , ttcExports = empty
            , ttcDirs = empty
            , ttcCache = MkTTCCache empty 0 ttcCacheLimit 0 empty
+           , primDefs = []
            }
 
 -- Reset the context, except for the options
@@ -1259,9 +1294,11 @@ clearCtxt
     = do defs <- get Ctxt
          put Ctxt ({ options := resetElab (options defs),
                      timings := timings defs,
+                     gamma->profiler := defs.gamma.profiler,
                      ttcExports := ttcExports defs,
                      ttcDirs := ttcDirs defs,
-                     ttcCache := ttcCache defs } !initDefs)
+                     ttcCache := ttcCache defs,
+                     primDefs := primDefs defs } !initDefs)
   where
     resetElab : Options -> Options
     resetElab opts =
@@ -1478,6 +1515,16 @@ addContextEntry ns n def
          put Ctxt ({ gamma := gam' } defs)
          pure idx
 
+||| As `addContextEntry`, for a name that has no position in the context yet
+export
+addNewContextEntry : {auto c : Ref Ctxt Defs} ->
+                     Namespace -> Name -> Binary -> Core Int
+addNewContextEntry ns n def
+    = do defs <- get Ctxt
+         (idx, gam') <- addNewEntry n (Coded ns def) (gamma defs)
+         put Ctxt ({ gamma := gam' } defs)
+         pure idx
+
 export
 addContextAlias : {auto c : Ref Ctxt Defs} ->
                   Name -> Name -> Core ()
@@ -1487,6 +1534,16 @@ addContextAlias alias full
              | _ => pure () -- Don't add the alias if the name exists already
          gam' <- newAlias alias full (gamma defs)
          put Ctxt ({ gamma := gam' } defs)
+
+||| As `addContextAlias`, for a name whose position is known
+export
+addContextAliasAt : {auto c : Ref Ctxt Defs} ->
+                    Name -> Name -> Int -> Core ()
+addContextAliasAt alias full idx
+    = do defs <- get Ctxt
+         Nothing <- lookupCtxtExact alias (gamma defs)
+             | _ => pure () -- Don't add the alias if the name exists already
+         put Ctxt ({ gamma->possibles $= addAlias alias full idx } defs)
 
 export
 addBuiltin : {arity : _} ->
@@ -2745,6 +2802,8 @@ export
 setDebugElabCheck : {auto c : Ref Ctxt Defs} -> Bool -> Core ()
 setDebugElabCheck b = update Ctxt { options->session->debugElabCheck := b }
 
+-- (inlined: it is asked by every call of `log`, to see if it logs)
+%inline
 export
 getSession : {auto c : Ref Ctxt Defs} ->
              Core Session

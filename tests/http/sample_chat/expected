@@ -1,0 +1,20 @@
+=== 1 workers
+chat exit: 0
+200 people: every one got the 200 messages
+a message of 5000 bytes: closed 1009 "message too big", sent 1009, by the peer
+GET /: 200 Just "text/html; charset=utf-8"
+waiting
+when the server stops: closed 1001 "server stopping", sent 1001, by the peer
+listening on 127.0.0.1:PORT
+interrupted: stopping
+stopped
+=== 4 workers
+chat exit: 0
+200 people: every one got the 200 messages
+a message of 5000 bytes: closed 1009 "message too big", sent 1009, by the peer
+GET /: 200 Just "text/html; charset=utf-8"
+waiting
+when the server stops: closed 1001 "server stopping", sent 1001, by the peer
+listening on 127.0.0.1:PORT
+interrupted: stopping
+stopped

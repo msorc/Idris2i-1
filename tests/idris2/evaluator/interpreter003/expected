@@ -1,4 +1,4 @@
-Main> Error: Undefined name fromMaybe. 
+Main> Error: Undefined name fromMaybe. [E0201]
 
 (Interactive):1:1--1:10
  1 | fromMaybe "test" Nothing

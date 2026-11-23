@@ -1,5 +1,5 @@
 1/1: Building EmptyFailing (EmptyFailing.idr)
-Error: Expected an indented non-empty block.
+Error: Expected an indented non-empty block. [E1101]
 
 EmptyFailing:5:1--5:2
  1 | module EmptyFailing
@@ -10,7 +10,7 @@ EmptyFailing:5:1--5:2
      ^
 
 1/1: Building EmptyMutual (EmptyMutual.idr)
-Error: Expected an indented non-empty block.
+Error: Expected an indented non-empty block. [E1101]
 
 EmptyMutual:5:1--5:2
  1 | module EmptyMutual
@@ -21,7 +21,7 @@ EmptyMutual:5:1--5:2
      ^
 
 1/1: Building EmptyUsing (EmptyUsing.idr)
-Error: Expected an indented non-empty block.
+Error: Expected an indented non-empty block. [E1101]
 
 EmptyUsing:5:1--5:2
  1 | module EmptyUsing
@@ -32,7 +32,7 @@ EmptyUsing:5:1--5:2
      ^
 
 1/1: Building EmptyParameters (EmptyParameters.idr)
-Error: Expected an indented non-empty block.
+Error: Expected an indented non-empty block. [E1101]
 
 EmptyParameters:5:1--5:2
  1 | module EmptyParameters

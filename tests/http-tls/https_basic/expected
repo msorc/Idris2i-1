@@ -1,0 +1,29 @@
+GET: 200 "hello"
+POST: 200 "echo over TLS"
+connection: 200 "secure=True remote=True"
+30 more requests: True
+connections opened by the client: 1
+large response: 3000000 bytes, hash 320165818, the same: True
+large request: 200 "chunked=False 3000000 bytes, hash 320165818"
+expected: 3000000 bytes, hash 320165818
+chunked response: 200 lines, chunked: True
+chunked request: 200 "chunked=True 3000000 bytes, hash 320165818"
+connections opened by the client: 1
+IP address: 200 "hello"
+8 threads, 5 requests each: True
+handshakes: 0 failed, True that at least 3 succeeded
+=== 4 workers
+GET: 200 "hello"
+POST: 200 "echo over TLS"
+connection: 200 "secure=True remote=True"
+30 more requests: True
+connections opened by the client: 1
+large response: 3000000 bytes, hash 320165818, the same: True
+large request: 200 "chunked=False 3000000 bytes, hash 320165818"
+expected: 3000000 bytes, hash 320165818
+chunked response: 200 lines, chunked: True
+chunked request: 200 "chunked=True 3000000 bytes, hash 320165818"
+connections opened by the client: 1
+IP address: 200 "hello"
+8 threads, 5 requests each: True
+handshakes: 0 failed, True that at least 3 succeeded

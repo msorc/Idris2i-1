@@ -566,28 +566,43 @@ Idris2_Value *idris2_makeConstant(Idris2_Constant *c,
   // maker, and evaluate a copy of its own: another IORef, say, than the one
   // that the other threads get.)
   int64_t me = idris2_threadId(idris2_currentThread()) + 1;
-  int64_t maker = 0;
-  if (__atomic_compare_exchange_n(&c->maker, &maker, me, 0, __ATOMIC_ACQ_REL,
-                                  __ATOMIC_ACQUIRE)) {
-    Idris2_Value *v = idris2_makeImmortal(idris2_trampoline(make()));
-    publish_constant(v);
-    c->value = v;
-    __atomic_store_n(&c->state, 2, __ATOMIC_RELEASE);
-    return v;
+  for (;;) {
+    int64_t maker = 0;
+    if (__atomic_compare_exchange_n(&c->maker, &maker, me, 0,
+                                    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+      // The claim is given back if the evaluation crashes into a crash
+      // boundary (see crash.c).
+      Idris2_CrashState *cs = idris2_crashState();
+      Idris2_ConstantClaim claim = {NULL, &c->maker};
+      if (cs) {
+        claim.prev = cs->constants;
+        cs->constants = &claim;
+      }
+      Idris2_Value *v = idris2_makeImmortal(idris2_trampoline(make()));
+      if (cs)
+        cs->constants = claim.prev;
+      publish_constant(v);
+      c->value = v;
+      __atomic_store_n(&c->state, 2, __ATOMIC_RELEASE);
+      return v;
+    }
+    if (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) == 2)
+      return c->value;
+    if (maker == me) {
+      // The constant needs itself: evaluate it again, as when constants
+      // were not kept.  This value is an ordinary one, owned by the caller
+      // (as any result), which releases it once it is done with it: only
+      // the value of the outer evaluation is kept.
+      return idris2_trampoline(make());
+    }
+    // Another thread evaluates it (until it is done, or until its
+    // evaluation crashed and it gave it back).
+    while (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) != 2 &&
+           __atomic_load_n(&c->maker, __ATOMIC_ACQUIRE) != 0) {
+      idris2_threadYield();
+      idris2_cpuRelax();
+    }
+    if (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) == 2)
+      return c->value;
   }
-  if (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) == 2)
-    return c->value;
-  if (maker == me) {
-    // The constant needs itself: evaluate it again, as when constants were
-    // not kept.  This value is an ordinary one, owned by the caller (as any
-    // result), which releases it once it is done with it: only the value of
-    // the outer evaluation is kept.
-    return idris2_trampoline(make());
-  }
-  // Another thread evaluates it.
-  while (__atomic_load_n(&c->state, __ATOMIC_ACQUIRE) != 2) {
-    idris2_threadYield();
-    idris2_cpuRelax();
-  }
-  return c->value;
 }

@@ -1,0 +1,30 @@
+. ../../../testutils.sh
+
+# An undefined name (with similar names to suggest) near the end of a long
+# `do` block, with pattern matching binds: reporting it must not retry the
+# failure at every level of the nested binds (which took time exponential in
+# the number of binds)
+gen() {
+  echo "main : IO ()"
+  echo "main = do"
+  i=0
+  while [ $i -lt 300 ]; do
+    case $((i % 4)) in
+      0) echo "  x$i <- pure (the Int $i + 1)" ;;
+      1) echo "  putStrLn (show x$((i - 1)))" ;;
+      2) echo "  let y$i = x$((i - 2)) * 2" ;;
+      3) echo "  Just z$i <- pure (Just y$((i - 1)))"
+         echo "    | Nothing => putStrLn \"none\"" ;;
+    esac
+    if [ $i -eq 290 ]; then
+      echo "  putStrLn (show (isNothing (the (Maybe Int) Nothing)))"
+    fi
+    i=$((i + 1))
+  done
+  echo "  pure ()"
+}
+gen > Long.idr
+
+check Long.idr
+
+rm -f Long.idr

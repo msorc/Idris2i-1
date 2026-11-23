@@ -1,0 +1,139 @@
+package tls
+
+module Network.TLS
+  import public Network.Socket.Async
+  import public Network.TLS.Codes
+  public export record CertificateInfo : Type
+    constructor MkCertificateInfo : String -> String -> String -> String -> Prelude.Basics.List String -> String -> Network.TLS.CertificateInfo
+    field altNames : Network.TLS.CertificateInfo -> Prelude.Basics.List String
+    field issuer : Network.TLS.CertificateInfo -> String
+    field notAfter : Network.TLS.CertificateInfo -> String
+    field notBefore : Network.TLS.CertificateInfo -> String
+    field serial : Network.TLS.CertificateInfo -> String
+    field subject : Network.TLS.CertificateInfo -> String
+  public export data ClientAuth : Type
+    constructor NoClientCertificate : Network.TLS.ClientAuth
+    constructor OptionalClientCertificate : Network.TLS.ClientAuth
+    constructor RequiredClientCertificate : Network.TLS.ClientAuth
+  public export record ClientConfig : Type
+    constructor MkClientConfig : Network.TLS.TLSVersion -> Prelude.Basics.List Network.TLS.Trust -> Prelude.Basics.Bool -> Prelude.Basics.Bool -> Prelude.Basics.List String -> Prelude.Types.Maybe Network.TLS.Credentials -> Network.TLS.ClientConfig
+    field alpn : Network.TLS.ClientConfig -> Prelude.Basics.List String
+    field certificate : Network.TLS.ClientConfig -> Prelude.Types.Maybe Network.TLS.Credentials
+    field minVersion : Network.TLS.ClientConfig -> Network.TLS.TLSVersion
+    field trust : Network.TLS.ClientConfig -> Prelude.Basics.List Network.TLS.Trust
+    field verifyHostname : Network.TLS.ClientConfig -> Prelude.Basics.Bool
+    field verifyPeer : Network.TLS.ClientConfig -> Prelude.Basics.Bool
+  export data ClientContext : Type
+  public export record Credentials : Type
+    constructor MkCredentials : Network.TLS.PEM -> Network.TLS.PEM -> Network.TLS.Credentials
+    field certificateChain : Network.TLS.Credentials -> Network.TLS.PEM
+    field privateKey : Network.TLS.Credentials -> Network.TLS.PEM
+  public export data PEM : Type
+    constructor PEMFile : String -> Network.TLS.PEM
+    constructor PEMText : String -> Network.TLS.PEM
+  public export record ServerConfig : Type
+    constructor MkServerConfig : Network.TLS.TLSVersion -> Network.TLS.Credentials -> Prelude.Basics.List (String, Network.TLS.Credentials) -> Prelude.Basics.List String -> Prelude.Basics.Bool -> Network.TLS.ClientAuth -> Prelude.Basics.List Network.TLS.Trust -> Network.TLS.ServerConfig
+    field alpn : Network.TLS.ServerConfig -> Prelude.Basics.List String
+    field alpnRequired : Network.TLS.ServerConfig -> Prelude.Basics.Bool
+    field clientAuth : Network.TLS.ServerConfig -> Network.TLS.ClientAuth
+    field clientTrust : Network.TLS.ServerConfig -> Prelude.Basics.List Network.TLS.Trust
+    field credentials : Network.TLS.ServerConfig -> Network.TLS.Credentials
+    field minVersion : Network.TLS.ServerConfig -> Network.TLS.TLSVersion
+    field sniCredentials : Network.TLS.ServerConfig -> Prelude.Basics.List (String, Network.TLS.Credentials)
+  export data ServerContext : Type
+  public export data TLSError : Type
+    constructor Timeout : Network.TLS.TLSError
+    constructor Closed : Network.TLS.TLSError
+    constructor SysError : Int -> String -> Network.TLS.TLSError
+    constructor ResolveError : String -> Network.TLS.TLSError
+    constructor PeerClosed : Network.TLS.TLSError
+    constructor UnexpectedEOF : Network.TLS.TLSError
+    constructor ProtocolError : String -> Network.TLS.TLSError
+    constructor VerifyError : Int -> String -> Network.TLS.TLSError
+    constructor ConfigError : String -> Network.TLS.TLSError
+  export data TLSSocket : Type
+  public export data TLSVersion : Type
+    constructor TLS12 : Network.TLS.TLSVersion
+    constructor TLS13 : Network.TLS.TLSVersion
+  public export data Trust : Type
+    constructor SystemTrust : Network.TLS.Trust
+    constructor CAFile : String -> Network.TLS.Trust
+    constructor CADirectory : String -> Network.TLS.Trust
+    constructor CAText : String -> Network.TLS.Trust
+  export total abort : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> io Builtin.Unit
+  export covering accept : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.ServerContext -> Network.Socket.Async.AsyncSocket -> Prelude.Types.Maybe Int -> io (Prelude.Types.Either Network.TLS.TLSError Network.TLS.TLSSocket)
+  export total alpnSelected : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> io (Prelude.Types.Maybe String)
+  export total cipherName : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> io String
+  export covering close : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> io (Prelude.Types.Either Network.TLS.TLSError Builtin.Unit)
+  export covering closeCode : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> io Int
+  export covering closeCodeWithin : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Int -> io Int
+  export covering closeNotifyCode : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Int -> io Int
+  export total codeError : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Int -> io Network.TLS.TLSError
+  export total codeMessage : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Int -> io String
+  export covering connect : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.ClientContext -> String -> Network.Socket.Async.AsyncSocket -> Prelude.Types.Maybe Int -> io (Prelude.Types.Either Network.TLS.TLSError Network.TLS.TLSSocket)
+  export covering connectHost : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.ClientContext -> String -> Int -> Prelude.Types.Maybe Int -> io (Prelude.Types.Either Network.TLS.TLSError Network.TLS.TLSSocket)
+  export total credentialFiles : String -> String -> Network.TLS.Credentials
+  export total defaultClientConfig : Network.TLS.ClientConfig
+  export total fromNetError : Network.Socket.Async.NetError -> Network.TLS.TLSError
+  export total insecureNoVerification : Network.TLS.ClientConfig -> Network.TLS.ClientConfig
+  export total newClientContext : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.ClientConfig -> io (Prelude.Types.Either Network.TLS.TLSError Network.TLS.ClientContext)
+  export total newServerContext : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.ServerConfig -> io (Prelude.Types.Either Network.TLS.TLSError Network.TLS.ServerContext)
+  export total openSSLVersion : String
+  export total peerCertificate : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> io (Prelude.Types.Maybe Network.TLS.CertificateInfo)
+  export covering recv : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Prelude.Types.Maybe Int -> io (Prelude.Types.Either Network.TLS.TLSError Int)
+  export covering recvCode : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Int -> io Int
+  export covering recvExactly : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Prelude.Types.Maybe Int -> io (Prelude.Types.Either Network.TLS.TLSError Int)
+  export covering recvExactlyCode : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Int -> io Int
+  export covering send : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Prelude.Types.Maybe Int -> io (Prelude.Types.Either Network.TLS.TLSError Int)
+  export covering sendAll : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Prelude.Types.Maybe Int -> io (Prelude.Types.Either Network.TLS.TLSError Builtin.Unit)
+  export covering sendAll2 : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Data.Buffer.Buffer -> Int -> Int -> Prelude.Types.Maybe Int -> io (Prelude.Types.Either Network.TLS.TLSError Builtin.Unit)
+  export covering sendAll2Code : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Data.Buffer.Buffer -> Int -> Int -> Int -> io Int
+  export covering sendAllCode : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Int -> io Int
+  export covering sendCode : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> Data.Buffer.Buffer -> Int -> Int -> Int -> io Int
+  export total serverConfig : Network.TLS.Credentials -> Network.TLS.ServerConfig
+  export total serverName : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> io (Prelude.Types.Maybe String)
+  export total socketOf : Network.TLS.TLSSocket -> Network.Socket.Async.AsyncSocket
+  export total staticCodeMessage : Int -> String
+  export total tlsVersion : {0 io : Type -> Type} -> Prelude.IO.HasIO io => Network.TLS.TLSSocket -> io String
+  export implementation : Prelude.EqOrd.Eq Network.TLS.TLSError
+  export implementation : Prelude.Show.Show Network.TLS.CertificateInfo
+  export implementation : Prelude.Show.Show Network.TLS.TLSError
+  export implementation : Prelude.Show.Show Network.TLS.TLSSocket
+
+module Network.TLS.Codes
+  public export total codeClosed : Int
+  public export total codeConfigError : Int
+  public export total codeProtocolError : Int
+  public export total codeUnexpectedEOF : Int
+  public export total codeVerifyError : Int
+  public export total codeWantRead : Int
+  public export total codeWantWrite : Int
+  public export total isTLSCode : Int -> Prelude.Basics.Bool
+
+module Network.TLS.FFI
+  export total prim__codeMessage : Int -> PrimIO.PrimIO String
+  export total prim__connError : PrimIO.GCAnyPtr -> PrimIO.PrimIO String
+  export total prim__connFree : PrimIO.AnyPtr -> PrimIO.PrimIO Builtin.Unit
+  export total prim__connNew : PrimIO.GCAnyPtr -> Int -> String -> Int -> PrimIO.PrimIO PrimIO.AnyPtr
+  export total prim__connRelease : PrimIO.GCAnyPtr -> PrimIO.PrimIO Int
+  export total prim__connStatus : PrimIO.GCAnyPtr -> PrimIO.PrimIO Int
+  export total prim__ctxAddSNICert : PrimIO.GCAnyPtr -> String -> String -> String -> Int -> PrimIO.PrimIO Int
+  export total prim__ctxError : PrimIO.GCAnyPtr -> PrimIO.PrimIO String
+  export total prim__ctxFree : PrimIO.AnyPtr -> PrimIO.PrimIO Builtin.Unit
+  export total prim__ctxNew : Int -> Int -> PrimIO.PrimIO PrimIO.AnyPtr
+  export total prim__ctxSetALPN : PrimIO.GCAnyPtr -> String -> Int -> PrimIO.PrimIO Int
+  export total prim__ctxSetVerify : PrimIO.GCAnyPtr -> Int -> PrimIO.PrimIO Int
+  export total prim__ctxTrust : PrimIO.GCAnyPtr -> String -> String -> PrimIO.PrimIO Int
+  export total prim__ctxTrustPEM : PrimIO.GCAnyPtr -> String -> PrimIO.PrimIO Int
+  export total prim__ctxUseCert : PrimIO.GCAnyPtr -> String -> String -> Int -> PrimIO.PrimIO Int
+  export total prim__ctxUseSystemTrust : PrimIO.GCAnyPtr -> PrimIO.PrimIO Int
+  export total prim__handshake : PrimIO.GCAnyPtr -> PrimIO.PrimIO Int
+  export total prim__info : PrimIO.GCAnyPtr -> Int -> PrimIO.PrimIO String
+  export total prim__opensslVersion : PrimIO.PrimIO String
+  export total prim__peerCert : PrimIO.GCAnyPtr -> Int -> PrimIO.PrimIO String
+  export total prim__read : PrimIO.GCAnyPtr -> Data.Buffer.Buffer -> Int -> Int -> PrimIO.PrimIO Int
+  export total prim__shutdown : PrimIO.GCAnyPtr -> PrimIO.PrimIO Int
+  export total prim__verifyResult : PrimIO.GCAnyPtr -> PrimIO.PrimIO Int
+  export total prim__wait : Int -> Int -> Int64 -> PrimIO.PrimIO Int
+  export total prim__write : PrimIO.GCAnyPtr -> Data.Buffer.Buffer -> Int -> Int -> PrimIO.PrimIO Int
+  export total prim__write2 : PrimIO.GCAnyPtr -> Data.Buffer.Buffer -> Int -> Int -> Data.Buffer.Buffer -> Int -> Int -> PrimIO.PrimIO Int

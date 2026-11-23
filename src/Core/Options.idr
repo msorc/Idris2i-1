@@ -227,12 +227,16 @@ record Session where
   profile : Bool -- generate profiling information, if supported
   logErrorCount : Nat -- when parsing alternatives fails, how many errors
                       -- should be shown.
+  candidateErrorCount : Nat -- when every candidate of an ambiguous name
+                            -- fails, how many of their errors should be
+                            -- shown (0 for all)
   noCSE : Bool -- disable common subexpression elimination
 
   -- Warnings
   warningsAsErrors : Bool
   showShadowingWarning : Bool
   errorFormat : ErrorFormat -- how to report errors and warnings
+  errorCodes : Bool -- print the code of an error or warning after its first line
   warnWhereRecompute : Bool -- warn about local constants recomputed at each use
   methodTotality : Bool -- a function using an implementation is not covering
                         -- when one of the implementation's methods is not
@@ -319,8 +323,8 @@ export
 defaultSession : Session
 defaultSession = MkSessionOpts False CoveringOnly False False RefC [] 1000 False False
                                defaultLogLevel Nothing False Nothing Nothing
-                               Nothing Nothing False 1 False False True
-                               HumanErrors False False False [] False False False
+                               Nothing Nothing False 1 5 False False True
+                               HumanErrors True False False False [] False False False
                                False
 
 export

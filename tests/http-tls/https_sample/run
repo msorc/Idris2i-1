@@ -1,0 +1,21 @@
+. ../../testutils.sh
+. ../../tls/gencerts.sh
+
+# Build the HTTPS sample web service, drive it with the client of the
+# library, and stop it with SIGINT.
+s=../../../samples/webservice
+mkdir -p build/sample build/client
+cp $s/Main.idr $s/Todos.idr $s/Https.idr $s/webservice-https.ipkg build/sample/
+cp ../common/HttpsTest.idr Client.idr build/client/
+(cd build/sample && idris2 --build webservice-https.ipkg | grep -v 'Building\|compiling')
+(cd build/client && idris2 -p contrib -p network -p http -p tls -p http-tls -o client Client.idr)
+build/sample/build/exec/webservice-https 0 "$certs/chain.pem" "$certs/server.key" > build/service.log 2>&1 &
+pid=$!
+for i in $(seq 1 100); do grep -q listening build/service.log && break; sleep 0.1; done
+port=$(sed -n 's/listening on .*:\([0-9]*\)/\1/p' build/service.log)
+timeout 60 build/client/build/exec/client "$certs" "$port"
+kill -INT $pid
+wait $pid
+echo "service exit: $?"
+sed -e 's/ [0-9]*us$//' -e 's/on 127.0.0.1:[0-9]*/on 127.0.0.1:PORT/' build/service.log
+rm -rf certs build

@@ -125,6 +125,64 @@ The fields of an object are:
 * ``message``: the message as plain text, without the ``Error:`` prefix and
   without the excerpt of the source code that the usual messages show.
 
+and then, about what the message says (fields are only ever added to this
+list; a field that does not apply to a message is left out or empty, as
+said below):
+
+.. list-table::
+   :header-rows: 1
+
+   * - Field
+     - Contents
+   * - ``code``
+     - The code of the kind of error or warning (``"E0101"``; see
+       :ref:`sect-error-codes`). ``idris2 --explain CODE`` explains it.
+   * - ``headline``
+     - The first line of the message, without the context it was found in
+       (``"Mismatch between: String and Nat."``).
+   * - ``context``
+     - Where the error was found, outermost first, as a list of strings
+       (``["While processing right hand side of f"]``); empty when the
+       message has no context.
+   * - ``expected``, ``got``
+     - For a mismatch between the type an expression has (``got``) and the
+       type its context expects (``expected``), the two types. Left out for
+       other messages, and for a mismatch whose order is not known.
+   * - ``candidates``
+     - For an overloaded name of which no meaning works, each meaning, and
+       for a search that found several implementations, each of them, as
+       objects with a ``name`` (a string, or ``null`` for an implementation
+       without a name), a location (``file``, ``start``, ``end``, as above)
+       and a ``reason``: why it failed, or what it is. Empty for other
+       messages.
+   * - ``related``
+     - Other places the message is about, as objects with a location and a
+       ``label``: the calls of a definition that is not total or not
+       covering, where a metavariable of a postponed constraint was solved,
+       where a variable that the compiler bound is bound, the
+       implementations of a chain of constraints that failed, the
+       definition of a deprecated name.
+   * - ``suggestions``
+     - Names that were maybe meant (``{"name": "length"}``), and modules
+       that export an undefined name, with the line to add
+       (``{"module": "Data.List", "import": "import Data.List"}``).
+   * - ``notes``
+     - The lines of the message after the headline, each a string.
+
+The location of a candidate or of a related place is in a module whose
+source file may not be at hand (a library): then its ``file`` is ``null``
+and a ``module`` field names the module (``"Prelude.Show"``).
+
+For example, a mismatch:
+
+::
+
+    {"severity":"error","file":"Mismatch.idr","start":{"line":4,"col":5},"end":{"line":4,"col":31},"message":"While processing right hand side of f. Mismatch between: String and Nat.\nWhen unifying:\n    Expected: Nat\n    Got:      String","code":"E0101","headline":"Mismatch between: String and Nat.","context":["While processing right hand side of f"],"expected":"Nat","got":"String","candidates":[],"related":[],"suggestions":[],"notes":["When unifying:","Expected: Nat","Got:      String"]}
+
+The IDE mode (``--ide-mode``) reports errors and warnings as it did, as
+``:warning`` replies without a code or a severity: the protocol has no way
+to add fields to a reply that existing clients would ignore.
+
 Editing Commands
 ================
 

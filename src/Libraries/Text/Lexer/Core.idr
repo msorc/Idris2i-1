@@ -22,6 +22,9 @@ data Recognise : (consumes : Bool) -> Type where
      SeqEmpty : Recognise e1 -> Recognise e2 -> Recognise (e1 || e2)
      SeqSame : Recognise e -> Recognise e -> Recognise e
      Alt : Recognise e1 -> Recognise e2 -> Recognise (e1 && e2)
+     -- The longest run of characters that satisfy the predicate (what
+     -- `many (pred f)` recognises, one character at a time)
+     PredMany : (Char -> Bool) -> Recognise False
 
 ||| A token recogniser. Guaranteed to consume at least one character.
 public export
@@ -72,6 +75,19 @@ export %inline
 reject : Recognise c -> Recognise False
 reject = Lookahead False
 
+||| Recognise the longest run of characters (maybe none) that satisfy a
+||| predicate: the same as `many (pred f)`, without making the recogniser of
+||| the rest of the run at each character.
+export %inline
+predMany : (Char -> Bool) -> Recognise False
+predMany = PredMany
+
+||| The predicate of a recogniser of one character, if it is one
+export
+isPred : Recognise c -> Maybe (Char -> Bool)
+isPred (Pred f) = Just f
+isPred _ = Nothing
+
 ||| Sequence the recognisers resulting from applying a function to each element
 ||| of a list. The resulting recogniser will consume input if the produced
 ||| recognisers consume and the list is non-empty.
@@ -101,15 +117,17 @@ strTail start (MkStrLen str len)
 
 -- If the string is recognised, returns the index at which the token
 -- ends
+-- (written with `case` rather than in the `Maybe` monad: a bind makes a
+-- closure for its continuation, at each step of each recogniser)
 export
 scan : Recognise c -> SnocList Char -> List Char -> Maybe (SnocList Char, List Char)
-scan Empty tok str = pure (tok, str)
+scan Empty tok str = Just (tok, str)
 scan Fail tok str = Nothing
 scan EOF tok [] = Just (tok,[])
 scan EOF tok (_::_) = Nothing
 scan (Lookahead positive r) tok str
     = if isJust (scan r tok str) == positive
-         then pure (tok, str)
+         then Just (tok, str)
          else Nothing
 scan (Pred f) tok [] = Nothing
 scan (Pred f) tok (c :: str)
@@ -117,17 +135,65 @@ scan (Pred f) tok (c :: str)
          then Just (tok :< c, str)
          else Nothing
 scan (SeqEat r1 r2) tok str
-    = do (tok', rest) <- scan r1 tok str
-         -- TODO: Can we prove totality instead by showing idx has increased?
-         assert_total (scan r2 tok' rest)
+    = case scan r1 tok str of
+        Nothing => Nothing
+        -- TODO: Can we prove totality instead by showing idx has increased?
+        Just (tok', rest) => assert_total (scan r2 tok' rest)
 scan (SeqEmpty r1 r2) tok str
-    = do (tok', rest) <- scan r1 tok str
-         scan r2 tok' rest
+    = case scan r1 tok str of
+        Nothing => Nothing
+        Just (tok', rest) => scan r2 tok' rest
 scan (SeqSame r1 r2) tok str
-    = do (tok', rest) <- scan r1 tok str
-         scan r2 tok' rest
+    = case scan r1 tok str of
+        Nothing => Nothing
+        Just (tok', rest) => scan r2 tok' rest
 scan (Alt r1 r2) tok str
-    = maybe (scan r2 tok str) Just (scan r1 tok str)
+    = case scan r1 tok str of
+        Nothing => scan r2 tok str
+        res => res
+scan (PredMany f) tok str = Just (spanPred tok str)
+  where
+    spanPred : SnocList Char -> List Char -> (SnocList Char, List Char)
+    spanPred tok [] = (tok, [])
+    spanPred tok (c :: cs) = if f c then spanPred (tok :< c) cs else (tok, c :: cs)
+
+-- Whether a recogniser can succeed on an input that starts with the given
+-- character, by consuming it (first) or without consuming anything
+-- (second). The answers err on the side of `True`: when one is `False`,
+-- `scan` cannot succeed that way. The rest of a `SeqEat` is only looked at
+-- when its first part can succeed without consuming anything, which it
+-- cannot (it consumes, by its type), so the recursive recognisers, whose
+-- recursive calls are under a `SeqEat`, are never unfolded.
+startsWith : Recognise c -> Char -> (Bool, Bool)
+startsWith Empty c = (False, True)
+startsWith Fail c = (False, False)
+startsWith EOF c = (False, False) -- the input is not empty
+startsWith (Lookahead _ _) c = (False, True)
+startsWith (Pred f) c = (f c, False)
+startsWith (SeqEat r1 r2) c
+    = let (eat1, empty1) = startsWith r1 c in
+          (eat1 || (empty1 && fst (startsWith (assert_smaller r1 r2) c)),
+           empty1 && snd (startsWith (assert_smaller r1 r2) c))
+startsWith (SeqEmpty r1 r2) c
+    = let (eat1, empty1) = startsWith r1 c in
+          (eat1 || (empty1 && fst (startsWith r2 c)),
+           empty1 && snd (startsWith r2 c))
+startsWith (SeqSame r1 r2) c
+    = let (eat1, empty1) = startsWith r1 c in
+          (eat1 || (empty1 && fst (startsWith r2 c)),
+           empty1 && snd (startsWith r2 c))
+startsWith (Alt r1 r2) c
+    = let (eat1, empty1) = startsWith r1 c
+          (eat2, empty2) = startsWith r2 c in
+          (eat1 || eat2, empty1 || empty2)
+startsWith (PredMany f) c = (f c, True)
+
+||| Whether a recogniser may succeed on an input that starts with the given
+||| character. When this is `False`, `scan` fails on every such input; when it
+||| is `True`, it may fail too.
+export
+mayStartWith : Recognise c -> Char -> Bool
+mayStartWith r c = let (eat, empty) = startsWith r c in eat || empty
 
 -- we don't actually care about the list, so may as well just return the Nat
 locate : (a -> Bool) -> SnocList a -> (SnocList a, Nat)
@@ -156,6 +222,22 @@ getCols x c
       ([<], incol) => c + cast incol
       (_, incol) => cast incol
 
+||| The line and column after a token, given those of its start: the
+||| result of `countNLs` and `getCols`, in one pass over the token.
+export
+advance : SnocList Char -> (line, col : Int) -> (Int, Int)
+advance tok line col = inLine tok 0
+  where
+    newlines : SnocList Char -> Int -> Int
+    newlines [<] n = n
+    newlines (sx :< '\n') n = newlines sx (n + 1)
+    newlines (sx :< _) n = newlines sx n
+
+    -- the characters after the last newline
+    inLine : SnocList Char -> Int -> (Int, Int)
+    inLine [<] n = (line, col + n)
+    inLine (sx :< '\n') n = (newlines sx (line + 1), n)
+    inLine (sx :< _) n = inLine sx (n + 1)
 
 tokenise : (a -> Bool) ->
            (line : Int) -> (col : Int) ->
@@ -177,8 +259,7 @@ tokenise pred line col acc tmap str
     getFirstToken ((lex, fn) :: ts) str
         = case scan lex [<] str of
                Just (tok, rest) =>
-                 let line' = line + cast (countNLs tok)
-                     col' = getCols tok col in
+                 let (line', col') = advance tok line col in
                      Just (MkBounded (fn (fastPack (tok <>> []))) False (MkBounds line col line' col'),
                            line', col', rest)
                Nothing => getFirstToken ts str

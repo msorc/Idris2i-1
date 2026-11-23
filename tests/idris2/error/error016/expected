@@ -1,5 +1,5 @@
 1/1: Building Issue1230 (Issue1230.idr)
-Error: No type declaration for Main.myRec2.
+Error: No type declaration for Main.myRec2. [E0205]
 
 Issue1230:9:1--9:15
  5 | myRec1 : R
@@ -9,13 +9,13 @@ Issue1230:9:1--9:15
  9 | myRec2 = MkR 3
      ^^^^^^^^^^^^^^
 Did you mean: mkRec2?
-Main> Error: Undefined name nap. 
+Main> Error: Undefined name nap. [E0201]
 
 (Interactive):1:4--1:7
  1 | :t nap
         ^^^
 Did you mean: map?
-Main> Error: Undefined name lentgh. 
+Main> Error: Undefined name lentgh. [E0201]
 
 (Interactive):1:4--1:10
  1 | :t lentgh

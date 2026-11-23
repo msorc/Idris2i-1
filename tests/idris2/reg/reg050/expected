@@ -1,5 +1,5 @@
 1/1: Building loopy (loopy.idr)
-Error: While processing right hand side of eatBinary. While processing right hand side of eatBinary,firstDigit. Patterns for eatBinary,firstDigit,f require matching on different types.
+Error: While processing right hand side of eatBinary. While processing right hand side of eatBinary,firstDigit. Patterns for eatBinary,firstDigit,f require matching on different types. [E0607]
 
 loopy:24:5--24:18
  20 |   firstDigit : List Char -> i

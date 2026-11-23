@@ -1,0 +1,101 @@
+--- verification
+a trusted server
+  client: ok, TLSv1.3
+  server: ok, TLSv1.3
+by IP address
+  client: ok, TLSv1.3
+  server: SNI Nothing
+an unknown authority
+  client: certificate verify failed: unable to get local issuer certificate
+  server: TLS error: tlsv1 alert unknown ca
+only the trust of the system
+  client: certificate verify failed: unable to get local issuer certificate
+  server: TLS error: tlsv1 alert unknown ca
+another name
+  client: certificate verify failed: hostname mismatch
+  server: TLS error: ssl/tls alert bad certificate
+expired
+  client: certificate verify failed: certificate has expired
+  server: TLS error: ssl/tls alert certificate expired
+--- turning verification off
+no verification, unknown authority
+  client: ok, TLSv1.3
+  server: ok, TLSv1.3
+no verification, expired
+  client: ok, TLSv1.3
+  server: ok, TLSv1.3
+no name check, another name
+  client: ok, TLSv1.3
+  server: ok, TLSv1.3
+no name check, unknown authority
+  client: certificate verify failed: unable to get local issuer certificate
+  server: TLS error: tlsv1 alert unknown ca
+--- ALPN
+the server's preference
+  client: ALPN Just "http/1.1"
+  server: ALPN Just "http/1.1"
+the only common one
+  client: ALPN Just "h2"
+  server: ALPN Just "h2"
+no common protocol
+  client: TLS error: tlsv1 alert no application protocol
+  server: TLS error: no application protocol
+the client offers none
+  client: ALPN Nothing
+  server: ALPN Nothing
+the server takes none
+  client: ALPN Nothing
+  server: ALPN Nothing
+a bad ALPN name: TLS configuration error: an ALPN protocol name must be 1 to 255 bytes, without a comma
+--- SNI
+the default certificate
+  client: peer O=Idris tests,CN=localhost ["DNS:localhost", "IP:127.0.0.1"]
+  server: SNI Just "localhost"
+a wildcard
+  client: peer CN=other.example ["DNS:other.example", "DNS:*.other.example"]
+  server: SNI Just "www.other.example"
+no match
+  client: peer O=Idris tests,CN=localhost ["DNS:localhost", "IP:127.0.0.1"]
+  server: SNI Just "other.example"
+--- client certificates
+required, sent
+  client: read 2 bytes: hi
+  server: peer CN=test client ["email:client@example.com"]
+required, not sent
+  client: read: TLS error: tlsv13 alert certificate required
+  server: TLS error: peer did not return a certificate
+optional, sent
+  client: read 2 bytes: hi
+  server: peer CN=test client ["email:client@example.com"]
+optional, not sent
+  client: read 2 bytes: hi
+  server: no certificate from the peer
+required, by a certificate of SNI
+  client: read 2 bytes: hi
+  server: peer CN=test client ["email:client@example.com"]
+required, by a certificate of SNI, not sent
+  client: read: TLS error: tlsv13 alert certificate required
+  server: TLS error: peer did not return a certificate
+--- the end of the stream
+close_notify
+  client: read "bye", then Right 0
+  server: sent bye, closed
+no close_notify
+  client: read "bye", then Left the connection ended without a TLS close_notify
+  server: sent bye, closed without close_notify
+--- deadlines
+a client against a silent server: timed out, after 0.3 s: True
+a server against a silent client: timed out, after 0.3 s: True
+--- configurations
+no host name: TLS configuration error: no host name to verify the server for
+PEM text
+  client: ok, TLSv1.3
+  server: ok, TLSv1.3
+TLS 1.3 at least
+  client: ok, TLSv1.3
+  server: ok, TLSv1.3
+TLS configuration error: cannot use the certificate chain of CERTS/missing.pem: No such file or directory
+TLS configuration error: the private key does not match the certificate
+TLS configuration error: cannot use the certificate of the PEM text: no start line
+TLS configuration error: a certificate chain and its key must both be files or both be text
+TLS configuration error: cannot load the trusted certificates of CERTS/missing.pem: No such file or directory

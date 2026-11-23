@@ -10,6 +10,30 @@ The compiler has the ``--timing`` flag to dump timing information collected duri
 The output documents, in reverse chronological order, the cumulative time taken for the operation (and sub operations) to complete.
 Sub levels are indicated by successive repetitions of ``+``.
 
+The ``--timing-summary`` flag adds up, instead, the processor time spent in a
+few parts of the compiler over the whole run, and prints it as the compiler
+exits, in lines that start with ``PROFILE``: parsing (``parse``), reading
+imports (``import``, with ``import.read`` for reading the TTC files and
+``import.register`` for adding their definitions to the context), decoding the
+definitions of imported modules when they are first used (``decode``), each
+top-level declaration (``decl``), constraint solving (``solve``), the delayed
+elaborators run again (``delay``), ambiguous names (``ambig``), auto implicit
+search (``search``), case trees (``casetree``), coverage (``coverage``),
+totality (``totality``), compiling and inlining (``compile``) and writing TTC
+files (``ttc.write``). Timers nest: a timer's ``incl`` time includes the
+timers run inside it (constraint solving inside a declaration, decoding inside
+anything), its ``self`` time does not, so the self times add up to the time
+spent under some timer, and the rest of the run is ``untimed`` (start-up and
+the build driver). Counters say how often things happened: constraint scans
+and the guesses they looked at, alternatives of ambiguous names elaborated and
+how many succeeded, definitions decoded and their bytes (and those of their
+compiled code), and so on. For each module that it builds, the compiler also
+prints a line with its time, the self times and counters of the module, and
+lines for its ten most expensive declarations. The peak resident set size of
+the process is given too. With ``--jobs``, each process prints its own
+summary; ``benchmark/typecheck/sum-profile.sh`` adds them up. The timers cost
+nothing measurable when the flag is not given.
+
 .. _sect-logging:
 
 Logging

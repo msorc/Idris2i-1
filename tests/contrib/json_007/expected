@@ -1,0 +1,62 @@
+unit: null True
+bool: true True
+string: "café \"\n😀" True
+char: "z" True
+double: -0.0025 True
+int: -9007199254740991 True
+integer: 123456789012345 True
+nat: 42 True
+bits8: 255 True
+bits16: 65535 True
+bits32: 4294967295 True
+bits64: 9007199254740992 True
+int8: -128 True
+int16: -32768 True
+int32: -2147483648 True
+int64: -9007199254740992 True
+maybe: [1,null,3] True
+list: [[1,2],[],[3]] True
+snoclist: ["a","b"] True
+list1: [1,2,3] True
+vect: [true,false,true] True
+pair: [1,["two",true]] True
+either: [{"Left":"e"},{"Right":5}] True
+json: {"a":[null,1]} True
+{"a":1,"b":2}
+Right [("x", 3), ("y", 2)]
+Right [("p", True), ("q", False)]
+1.5 => at $: expected an integer (Int), got 1.5
+1e19 => at $: number out of the range of Int: 10000000000000000000
+-1 => at $: number out of the range of Nat: -1
+256 => at $: number out of the range of Bits8: 256
+-129 => at $: number out of the range of Int8: -129
+18446744073709551616 => at $: number out of the range of Bits64: 18446744073709551616
+"ab" => at $: expected a string of one character
+[1, 2, "3"] => at $[2]: expected an integer (Int), got a string
+[1, 2, 3] => at $: expected an array of length 2, got one of length 3
+[] => at $: expected a non-empty array, got an empty one
+[1] => at $: expected an array of length 2, got one of length 1
+{"Middle": 1} => at $: expected {"Left": ...} or {"Right": ...}, got an object
+[true, null, 0] => at $[2]: expected a boolean, got a number
+[1, => invalid JSON at byte 3: unexpected end of input, expected a value
+{"name":"Ann","age":41,"address":{"street":"Main St","zip":null},"nicknames":["A","Annie"]}
+person: {"name":"Ann","age":41,"address":{"street":"Main St","zip":null},"nicknames":["A","Annie"]} True
+colours: ["Red","Green","Blue"] True
+shapes: [{"tag":"Circle","contents":1.5},{"tag":"Rect","contents":[1,2]},{"tag":"Dot"},{"tag":"Labelled","label":"x","size":3}] True
+tree: {"tag":"Node","contents":[{"tag":"Node","contents":[{"tag":"Leaf"},1,{"tag":"Leaf"}]},2,{"tag":"Node","contents":[{"tag":"Leaf"},3,{"tag":"Leaf"}]}]} True
+rose: ["r",[["a",[]],["b",[["c",[]]]]]] True
+config: {"max_connections":10,"host_name":"localhost"} True
+point: {"x":1.5,"y":-2} True
+{"max_connections":10,"host_name":"localhost"}
+{"kind":"circle","value":1.5}
+{"kind":"dot"}
+{"kind":"labelled","label":"x","size":3}
+{"name":"Bob","age":7,"address":{"street":"High St"},"nicknames":[],"extra":1} => MkPerson "Bob" 7 (MkAddress "High St" Nothing) []
+{"name":"Bob","age":7,"address":{"street":"High St","zip":"x"},"nicknames":[]} => at $.address.zip: expected an integer (Int), got a string
+{"name":"Bob","address":{"street":"High St"},"nicknames":[]} => at $.age: missing member
+{"name":"Bob","age":7,"address":{"street":"High St"},"nicknames":["a", 2]} => at $.nicknames[1]: expected a string, got a number
+{"x": 1, "y": true} => at $.y: expected a number, got a boolean
+Left at $: unknown constructor of Colour: "Purple" (expected one of Red, Green, Blue)
+Left at $[0].contents: expected an array of length 2 (Shape), got one of length 1
+Left at $.tag: missing member (the constructor of Shape)
+Left at $.contents[2].contents[1]: expected an integer (Int), got a string

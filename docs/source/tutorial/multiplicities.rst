@@ -555,7 +555,7 @@ hold a function over types is not: given
 ``J`` undoes ``I``, so ``Type -> Bool`` fits inside ``Type``, and the diagonal
 argument then gives a closed proof of ``Void``. Idris therefore reports::
 
-  Error: J is not total, since matching on a type gives it f, which can hold a function over types
+  Error: J is not total, since matching on a type gives it f, which can hold a function over types [E0705]
 
 The same holds for the codomain of a function type whose domain is not a
 small type (``(Type -> p)``, or ``(a -> p)`` for an unknown ``a``), and for a

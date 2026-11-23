@@ -1,0 +1,9 @@
+package webservice
+
+depends = contrib, network, http
+
+modules = Todos
+
+main = Main
+executable = webservice
+opts = "--cg refc"

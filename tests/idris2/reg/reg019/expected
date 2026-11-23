@@ -1,5 +1,5 @@
 1/1: Building lazybug (lazybug.idr)
-Error: While processing right hand side of main. Can't solve constraint between: Bool and Lazy Bool.
+Error: While processing right hand side of main. Can't solve constraint between: Bool and Lazy Bool. [E0102]
 
 lazybug:5:22--5:34
  1 | bools : List Bool
@@ -9,7 +9,7 @@ lazybug:5:22--5:34
  5 | main = printLn $ or (map id bools)
                           ^^^^^^^^^^^^
 
-Error: While processing right hand side of main2. Can't solve constraint between: Bool and Lazy Bool.
+Error: While processing right hand side of main2. Can't solve constraint between: Bool and Lazy Bool. [E0102]
 
 lazybug:8:23--8:42
  4 | main : IO ()
@@ -19,7 +19,7 @@ lazybug:8:23--8:42
  8 | main2 = printLn $ or (map (\x => x) bools)
                            ^^^^^^^^^^^^^^^^^^^
 
-Error: While processing right hand side of main4. Can't solve constraint between: Bool and Lazy Bool.
+Error: While processing right hand side of main4. Can't solve constraint between: Bool and Lazy Bool. [E0102]
 
 lazybug:14:22--14:27
  10 | main3 : IO ()

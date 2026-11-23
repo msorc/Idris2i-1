@@ -1,0 +1,6 @@
+. ../../testutils.sh
+
+mkdir -p build/src && cp ../common/HttpTest.idr Main.idr build/src/ && cd build/src
+idris2 -p contrib -p network -p http -o main Main.idr
+IDRIS2_WORKERS=1 timeout 60 ./build/exec/main
+IDRIS2_WORKERS=4 timeout 60 ./build/exec/main

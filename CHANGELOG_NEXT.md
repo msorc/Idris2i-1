@@ -63,6 +63,185 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Compiler changes
 
+* "Can't find an implementation for G." says why.  When an implementation
+  matched but needs a constraint that fails, the message names it by its
+  type and where it is defined, and gives the chain of constraints down to
+  the one that fails (at most 4 levels).  It replaces the line "Possible
+  cause: Can't find an implementation for S, which is needed by a matching
+  implementation.":
+
+  ```
+  Error: While processing right hand side of nested. Can't find an implementation for Show (List (Box Foo)).
+  ...
+  The implementation Show a => Show (List a) (in Prelude.Show) matches, but needs Show (Box Foo).
+      The implementation Show a => Show (Box a) (at Why:11:1--12:26) matches that, but needs Show Foo.
+          There is no implementation of Show for Foo in scope.
+  ```
+
+  The message also says when no implementation of the interface matches the
+  type at all, when the one that would match is not visible, when a local
+  implementation (a constraint or an `auto` argument) is in scope for other
+  types, when a parent interface would give it, when the type is a type
+  variable (with a suggestion to add the constraint), and when the type is
+  not known yet (`?a is not known, so I can't choose an implementation of
+  Show.`, with the default of the interface if it has one).  "Multiple
+  solutions found in search of" lists the implementations by type and
+  location, named ones by name, and suggests `@{name}`.  The headline is
+  unchanged.  The extra work is only done when a search fails (and the
+  analysis when the message is printed): type checking the compiler and
+  `base` runs 0.01% more instructions.
+
+* Every kind of error and warning has a code (`E0101` for a type mismatch,
+  `E0401` for a failed search, `W0002` for an unreachable clause, ...),
+  printed in brackets at the end of the first line of its message.
+  `--no-error-codes` leaves the codes out.  `idris2 --explain E0101`, or
+  `:explain E0101` at the REPL, explains a code, with an example of the
+  mistake and the usual fixes; `idris2 --list-error-codes` prints the
+  reference page of all of them (`docs/source/reference/error-codes.rst`).
+  `failing` blocks match the message without the code.
+
+* JSON diagnostics (`--error-format json`) have new fields after `message`:
+  `code`, `headline` (the first line, without the context), `context`,
+  `expected` and `got` (for a labelled mismatch), `candidates` (the
+  meanings of a failed overloaded name, the implementations of an ambiguous
+  search), `related` (other locations: the calls of a totality error, where
+  a postponed constraint's metavariable was solved, where a variable the
+  compiler bound is bound, the implementations of a failed chain of
+  constraints), `suggestions` (names, and modules to import with the import
+  line) and `notes` (the other lines of the message).  The existing fields
+  are unchanged.  See `docs/source/tutorial/interactive.rst`.
+
+* A coverage error that comes from a call to a case or with block that is
+  not covering says where the block is, instead of printing its machine
+  name: "Calls non covering function a case block in main (at
+  casetot:19:3--22:66)" for "Calls non covering function Main.case block
+  in case block in main".
+
+* Terms in messages (and in the output of the REPL and the interactive
+  editing commands) leave out the brackets of a nested application of an
+  operator of the same precedence on the side it associates to:
+  `x :: x :: xs` for `x :: (x :: xs)`, `a + b + c` for `(a + b) + c`.
+
+* A mismatch between the type of an expression and the type its context
+  expects labels the two types `Expected:` and `Got:`.  When the mismatch is
+  about the same two types, the line "Mismatch between: ..." comes first and
+  the labelled pair after it, instead of printing the pair twice:
+
+  ```
+  Error: While processing right hand side of wrong. Mismatch between: a and Vect ?k ?a.
+  When unifying:
+      Expected: Vect ?k ?a
+      Got:      a
+  ```
+
+  A failed constraint that was postponed, where neither type is the
+  expected one, is printed as before ("When unifying: X and: Y").  The
+  phrases of the messages are the same, so `failing` blocks still match.
+
+* When every candidate of an overloaded name fails, the errors of the
+  candidates are ranked, the most promising first (the attempt that got
+  furthest, then a failed search before a mismatch, then the names of the
+  current namespace); candidates that fail in the same way at the same place
+  are printed one line each under a single source excerpt, with a summary
+  line when they all fail on an expression of the same type; and at most 5
+  candidates are shown.  The new option `--candidate-error-count N` shows N
+  of them (0 for all).  The 53 lines printed for `length x` with `x : Nat`
+  are now 14:
+
+  ```
+  Error: While processing right hand side of wrong. Sorry, I can't find any elaboration which works. All errors:
+  All 4 candidates for length fail on the same expression, of type Nat:
+      If Main.length: Mismatch between: Nat and Vect ?n ?a.
+      If Prelude.List.length: Mismatch between: Nat and List ?a.
+      If Prelude.SnocList.length: Mismatch between: Nat and SnocList ?a.
+      If Prelude.String.length: Mismatch between: Nat and String.
+
+  Error:12:18--12:19
+  ...
+  ```
+
+* When two different variables of one message would print with the same
+  name (a variable bound by the compiler is printed by the root of its name),
+  the one the user named keeps its name and the others are numbered in
+  braces, in that message only: `Either b b{1}` instead of `Either b b`.
+  Different unsolved metavariables that would print alike are all numbered:
+  `Either ?_{1} ?_{2}`.  A message where no names clash is printed as
+  before, and so is everything with `--show-machine-names`.
+
+* A problem with an `impossible` clause, which does not stop the
+  elaboration, is printed like the error it is, with its location once
+  instead of twice, and "... does not match expected type" says which type
+  was expected (`Z does not match the expected type Foo`).
+
+* "Did you mean" no longer suggests the definition the error is in, and
+  reads "Did you mean: x or y?" for two names.  A totality error whose path
+  of calls names the function in full names it in full in the headline too
+  (`Main.loop is not total, possibly not terminating due to recursive path
+  Main.loop`), so that a message names a definition in one form.
+
+* A chain of `rewrite`s over arithmetic no longer takes time and memory
+  exponential in its length: `multOneSoleNeutral` in `Data.Nat.Factor`
+  (contrib, eleven rewrites) took more than three minutes and 4 GB to check,
+  now a fifth of a second.  An implementation that search found below a
+  `rewrite` was a definition under the lets that the rewrite binds (its
+  predicate and its rule), which the implementation does not use, and the
+  transformation rules of the methods (`+`, `*`) normalised such definitions
+  with their lets kept, quoting the values of the lets, which refer to the
+  implementations found before them.  The lets that a solution found by search
+  does not use are now dropped from it, as they already were from the
+  solutions that unification finds.  Test `idris2/perf/perf017`.
+
+* A totality error shows the call that is the problem instead of the type
+  of the definition (the location of the error is still the definition's).
+  For a function that calls itself it says how each argument matched
+  against a constructor compares to its pattern; for a call to a function
+  that is not total, it says why that function is not total; and a cycle of
+  calls is printed once round (`f -> g`, not `f -> g -> f -> g`):
+
+  ```
+  Error: Main.same is not total, possibly not terminating due to recursive path Main.same
+
+  Args:8:14--8:18
+   ...
+   8 | same (S k) = same (S k)
+                    ^^^^
+
+  Argument 1: passed S k, which is not smaller than the pattern S k.
+  ```
+
+  The excerpt of "Calls non covering function" is the call too.
+
+* Missing cases are printed so that they can be pasted as clauses: a
+  variable that occurs once is `_` (`empty (Snoc _ _ _)`, not `empty (Snoc m
+  m{1} m{2})`), and at most 10 cases are printed, followed by "... and N
+  more".
+
+* A source excerpt of several lines marks where the range starts on its
+  first line and where it ends on its last, and leaves out the middle of a
+  range longer than 6 lines.  Excerpts of one line are as before.
+
+* A postponed constraint that fails when it is retried keeps the order of
+  its two types, so it is labelled `Expected:`/`Got:` when it was posted
+  while checking an expression against its expected type, and the message
+  names the metavariables solved since, which made it fail: "This was
+  postponed, and failed after inferring ?f = \arg => String (at
+  File:6:7--6:35)."  A constraint left unsolved at the end of a definition
+  is reported with the others left with it ("Also left unsolved:"), each
+  with its location.
+
+* "Ambiguous name Z, which could be Main.Z or Prelude.Types.Z." instead of
+  "Ambiguous name [Main.Z, Prelude.Types.Z]"; "Cannot match on a partially
+  applied constructor: MkX" instead of "(Main.MkX {imp:1})"; the names of
+  `where` functions in coverage errors are printed as written.
+
+* An anonymous implicit binder after an explicit one is printed: `Type ->
+  {_ : Type} -> Type` was printed as `Type -> Type`.
+
+* When every candidate of an overloaded name fails, the location of the
+  error (in JSON diagnostics and the IDE mode) is where the name is used,
+  not where the first candidate failed.  The candidates of a macro are
+  named.
+
 * The casts of integer literals to `Double` are folded when the `Double` is
   exact (up to 2^53): `x < 0` at the type `Double` in a `let` without a type,
   where the elaborator leaves `fromInteger 0`, converted an `Integer` at run
@@ -464,6 +643,26 @@ should target this file (`CHANGELOG_NEXT`).
   nested parenthesised terms took 2 seconds to parse, and each level more
   twice as long.  A binder is now only tried when there is a `:` or a `<-`
   directly inside the parentheses.
+* Lexing and parsing take 3.5 to 4 times fewer instructions (a quarter of
+  the time: 1.9 s instead of 7.5 s for libs/base, 11.8 s instead of 43.5 s
+  for the compiler), so a clean build of libs/base takes 13% fewer
+  instructions and one of the compiler 10%; the parse results and the
+  errors are the same.
+
+* Searches for implementations and `auto` arguments reject a candidate (an
+  implementation, a hint or a local variable) whose type clashes with the
+  goal without unifying it with the goal: when the type constructor of the
+  candidate's result, or the head of one of its arguments (a type or data
+  constructor, a constant, `Type`), differs from that of the goal, as with
+  `Show Int` for the goal `Show Name`, or a local of type `Nat`.  Before,
+  each candidate made metavariables for its arguments and ran the unifier,
+  and 93% of the hints and 95% of the local variables tried failed there.
+  Type checking the compiler runs 10% fewer instructions (the time spent in
+  search itself is about 40% lower), `base` 4%.  The solutions and the errors are the same: the
+  TTC files of the compiler and of the libraries are byte for byte
+  identical.  The test `idris2/perf/perf018` has 200 implementations of an
+  interface.
+
 * Elaborating deeply nested binders is faster: 400 nested `let`s took 13
   seconds to check and now take 0.7, and a `do` block of 400 binds 44
   seconds instead of 8 (it is still about cubic: each search for an
@@ -600,7 +799,48 @@ should target this file (`CHANGELOG_NEXT`).
   same instructions.  See the test `codegen/intrinsic001` and
   `docs/source/backends/refc-flat-layout.rst`.
 
+* After an error in the files being loaded, `-o` and `--exec` no longer go
+  on to compile or run what was elaborated: the errors are the only output,
+  and the exit code is 1.  Before, the code generator was given the
+  incomplete program and added "Warning: compiling hole" and, on RefC, pages
+  of C compiler errors about functions of modules that were never loaded.  A
+  program with holes and no errors still compiles, with the warning.  The
+  executable of a package is not compiled either if loading its main module
+  fails.  See the test `idris2/error/exitcode003`.
+
+* A literal pattern of a type whose `fromString` or `fromInteger` does not
+  reduce to a constructor form (such as `ByteString`, whose `fromString`
+  copies the bytes into a buffer) is rejected where it is written:
+
+  ```
+  Error: While processing left hand side of f. Can't match on the string literal "abc" of type ByteString: fromString for this type does not reduce to a constructor form.
+  ...
+  Suggestion: match a variable and compare it with == instead.
+  ```
+
+  Before, the pattern was kept as an unmatchable term, which matched any
+  value (the clauses after it were reported unreachable), and the module then
+  failed with "Undefined name Data.ByteString.Internal.unsafeCreate".
+  Literals whose conversion reduces to constructors (`fromInteger` at `Fin`
+  or at a record that reduces the number, `fromString` that wraps the string
+  in a constructor) are matched as before.  See the test
+  `idris2/error/perror037`.
+
+* An undefined name for which there are similar names to suggest ("Did you
+  mean: ...?") is no longer retried as if it could be fixed later.  In a
+  `do` block with pattern matching binds (`Just x <- e | Nothing => ...`)
+  each bind is a delayed elaborator, and the failure was retried twice at
+  every level, so the time to report the error doubled with every bind: a
+  50-statement block took 616 billion instructions, now 1.5 billion, the
+  same as checking the block without the error.  The message is unchanged.
+  See the test `idris2/perf/perf019`.
+
 ### Building/Packaging changes
+
+* `idris2 --install` runs the `postinstall` script of a package with
+  `IDRIS2_PACKAGE_INSTALL_DIR` set to the directory where the package was
+  installed, so that it can put files of its own there (a C library and its
+  header in `lib`, for the RefC back end).
 
 * `idris2 --dump-api pkg.ipkg` builds a package and prints its public API in a
   stable text form, one declaration per line, meant to be compared with
@@ -652,6 +892,17 @@ should target this file (`CHANGELOG_NEXT`).
   billion instead of 3.2 billion (0.19 billion instead of 1.1 billion with
   `--jobs`), and `idris2 --typecheck idris2.ipkg` 0.75 billion instead of 14.2
   billion.
+* `idris2 --timing-summary` prints, at the end, the processor time spent in the
+  phases of the compiler (parsing, reading imports, decoding imported
+  definitions, elaborating declarations, constraint solving, delayed
+  elaborators, ambiguity, auto search, case trees, coverage, totality,
+  compiling, writing TTC files; inclusive and self times), counters of what it
+  did, the peak RSS, and the cost of each module built with its ten most
+  expensive declarations. `benchmark/typecheck/tc-perf.sh` measures the
+  instructions and peak RSS of type checking the compiler, `base`, `contrib`
+  and the `perf` tests, in a clean build and in rebuilds after typical edits;
+  `benchmark/typecheck/sum-profile.sh` adds up the profiles of a build. See
+  `benchmark/typecheck/README.md`.
 * `make help` lists the targets of the top-level `Makefile` and the variables
   that change the build, with their current values.
 * `make` rebuilds the support libraries (`support/c`, `support/refc`) whenever
@@ -803,10 +1054,121 @@ should target this file (`CHANGELOG_NEXT`).
   of it did not link) until it was installed.  The RefC runtime
   (`support/refc`) is still the one of `IDRIS2_BOOT`, which matches the C
   that it writes.
+* A module whose imports were built again with the same interface (after a
+  change to a comment or a private definition of one of them) is no longer
+  started again by the build, in that build and in each later one: the
+  driver now compares the interface hashes of the imports with those that the
+  TTC file of the module records, as the module itself did once it was
+  started, when the TTC files of the imports are newer than its own.  It
+  used to be started by every later build, only to find that it was up to
+  date, and with `--jobs` a process was started for it (and "Building" was
+  printed).  On the compiler with `--jobs 6`, after a comment is added to
+  `Core.Name`, the build checks one module and starts one process (it
+  started 21) in 5.8 billion instructions instead of 8.2 billion, and each
+  build after it starts none (20) in 0.69 billion instead of 3.0 billion,
+  as when nothing changed.
 
 ### Backend changes
 
 #### RefC Backend
+
+* Crash boundaries (`System.Crash.catchCrash`): a crash of a green thread
+  inside one jumps back to it (`sigsetjmp`/`siglongjmp` on the stack of the
+  thread, `support/refc/crash.c`) instead of exiting.  The crash sites that
+  may be caught are those raised by the code of the thread itself
+  (`idris2_crash`, `idris2_crashMsg`, the new `idris2_crashCheck` of the
+  failed checks of the support code, the range checks of buffers), never
+  under a lock of the runtime; a constant whose evaluation crashed is given
+  back to the other threads.  With backtraces on, the boundary gets the
+  backtrace as text.  A program without boundaries behaves as before.  See
+  "Crash boundaries" in the RefC documentation.
+
+* The worker of a foreign function that takes or gives C numbers is `static
+  inline` in every part of a program compiled in parts that calls it, when
+  the function is one of the runtime (`RefC:`) or of a C library with a
+  header: a read of a byte of a `Data.ByteString` in a loop of another
+  module (`unsafeIndex`, which calls the `static inline` `getBufferUInt8`)
+  is a load and a bounds check rather than a call of the worker, which was
+  compiled in another part.  With `--directive refc-backtrace` the worker
+  stays a function of its own.  This takes the HTTP benchmark of
+  `benchmark/http` from 14,062 to 13,207 instructions per `GET /hello` and
+  from 72,809 to 68,010 per `POST /json`.  The test `refc/inlineforeign001`.
+* A thread that computed in functions that call each other in tail position
+  (`ping` and `pong`), or in a deep recursion that is not a tail call, was
+  never preempted: the only safepoints were at the back edges of the loops
+  that a call of a function to itself in tail position makes, and in the
+  calls of closures in tail position.  The functions in a cycle of direct
+  calls (a strongly connected component of more than one function of the
+  call graph), and those that call themselves other than in tail position,
+  start with a safepoint.  This costs 0.4% more instructions to type check
+  base with the compiler, 0.2% to mergeInt and 0.3% to treeInt;
+  `--directive refc-no-cycle-safepoints` turns it off.  The test
+  `refc/preempt003`.
+* With several workers, a program whose threads wait for file descriptors
+  could hang for good: an idle worker that once found nothing to watch kept
+  the part of the watcher, waiting without a timeout, and nothing woke it
+  up when threads started to wait for descriptors again, so nobody polled.
+  The watcher now gives the part up when there is nothing to watch, the
+  first thread that waits for a descriptor wakes an idle worker up, and the
+  monitor wakes one up when nobody polled for a millisecond.  The tests
+  `refc/reactor005` and `refc/reactor006`; `refc/netasync003` runs with 2
+  and 4 workers too.
+* A worker that polls the reactor for itself (as it parks, or finds its run
+  queue empty) makes the first thread that the poll wakes up its next
+  thread, without waking up another worker for it, and the busy workers do
+  not poll while another worker waits in the poller.  An echo over one
+  loopback connection with 4 workers takes 8.2 system calls and 4,070
+  instructions per round trip instead of 22 and 7,000, and a third of the
+  CPU time; with 100 connections and with a channel ping-pong nothing
+  changes.
+* The foreign functions of C (`C:` and `RefC:`) that take or give fixed width
+  integers (`Int`, `Int8` to `Int64`, `Bits8` to `Bits64`) are called with C
+  integers, as those of `Double` were: a call by name passes the integers of
+  the arguments and gets the integer of the result, with no value made on
+  either side and no reference count changed (a `Bits64`, or an `Int` beyond
+  32 bits, was allocated).  The fixed-width reads and writes of `Data.Buffer`
+  (`getBufferUInt8`, `getBufferUInt32LE`, `setBufferUInt8`, ... in
+  `support/refc/buffer.h`) are inline functions with a bounds check that
+  calls an out-of-line error function (the same message as before), instead
+  of a call of a generic byte loop.  Together they take the HTTP/1.1
+  request-head parser of `libs/http` from 35,000 to 16,200 instructions for a
+  typical browser request (5,600 to 3,000 for a minimal one), the HPACK
+  decoder from 36,800 to 24,000 for the requests of RFC 7541 C.4, and the
+  JSON parser of `contrib` from 2.15 G to 1.28 G instructions for a document
+  of 10 MB.  New in `buffer.h`: `idris2_bufferCompare` (`memcmp` of two ranges),
+  `idris2_bufferFindByte` (`memchr`) and `idris2_bufferHashFNV31`, checked
+  like `copyBuffer`.  With `--directive refc-backtrace`, the frame of such a
+  foreign function is kept (`IDRIS2_BT_KEEP_FRAME`).  The tests
+  `refc/unboxedforeign001` and `contrib/bytestring_ranges`.
+
+* A library that wraps a C library can tell what to link: the directives
+  `refc-lib=<names>` (`-l<name>`), `refc-archive=<files>` (a static archive,
+  found in the `lib` directories of the packages, linked by its path) and
+  `refc-pkg-config=<names>` (the flags of `pkg-config --cflags` and `--libs`),
+  given with `%cg refc` in a module, reach every program that imports it, so
+  that its users need no `IDRIS2_LDLIBS`.  The `lib` directories of the
+  packages are also include directories, for the headers that a package ships
+  with its C code.  An unknown `refc-` directive, or one with a value that
+  cannot be, is now an error that names it (it was ignored).  The stamp of an
+  executable covers the archives and the output of pkg-config.  See "Linking C
+  libraries" in `docs/source/ffi/ffi.rst`.  The tests `refc/linkArchive001`,
+  `refc/linkLib001`, `refc/linkPkgConfig001` and `refc/linkDirectives001`.
+
+* A green thread can wait for a file descriptor without blocking its
+  worker: the runtime has a reactor (`support/refc/reactor.c`; epoll on
+  Linux, kqueue on macOS and the BSDs, poll(2) elsewhere or with
+  `-DIDRIS2_REACTOR_POLL`), which the idle workers wait in and the busy ones
+  look at now and then.  Its C API (`reactor.h`): `idris2_ioWait`,
+  `idris2_ioClose`, `idris2_ioForget`.  The deadlock report does not fire
+  while a thread waits for a descriptor.  See `System.IO.Wait` in base.
+  The tests `refc/reactor001` to `refc/reactor004`.
+* The threads with a deadline are kept in a 4-ary heap instead of a sorted
+  list: 10000 sleeping threads (the test `refc/timers002`) take 80% fewer
+  instructions.
+* `idris2_blockingCall(fn, arg)` (`reactor.h`), for C code, runs a call that
+  blocks on a pool of OS threads (at most `IDRIS2_BLOCKING_THREADS`, 64 by
+  default) while the green thread that makes it parks.  The test
+  `refc/blocking001`.
 
 * A function that matches a borrowed constructor with fields stored raw (an
   `Int` or a `Double`, see below) and passes one of them back to itself in
@@ -1473,6 +1835,11 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Chez Backend
 
+* Crash boundaries (`System.Crash.catchCrash`): inside one, a crash
+  (`blodwen-error-quit`) raises a condition, which the boundary catches with
+  the serious conditions that Chez raises (as `FailedCheck`), in the thread of
+  the boundary only.  Racket does the same with its `exn:fail` exceptions.
+
 * Backtraces: a program that dies of a fatal error (`idris_crash`, a missing
   case in `partial` code, or an error that Chez raises and nothing handles)
   can print the Idris
@@ -1554,6 +1921,10 @@ should target this file (`CHANGELOG_NEXT`).
   or on the thread that dies getting the CPU within two seconds.
 
 #### JavaScript Backends
+
+* Crash boundaries (`System.Crash.catchCrash`) catch the crashes of Idris code
+  and the errors that JavaScript raises (as `FailedCheck`, with the stack of
+  the error as the backtrace).
 
 * Deep recursion and loops through monads no longer overflow the small stack
   of JavaScript (about 1MB) at a few thousand iterations; see the section
@@ -1656,6 +2027,21 @@ should target this file (`CHANGELOG_NEXT`).
   hanging.  See the section on threads in the documentation of the backends.
 
 ### Library changes
+
+* `System.IO.Fd.writeFd` to a pipe or a socket whose reader is gone
+  returns `-EPIPE` instead of the program being killed by SIGPIPE: the
+  signal is blocked in the calling thread for the write (and the one that
+  it raised is discarded), so the disposition of SIGPIPE in the process is
+  left alone.  The tests `refc/fd001` and `chez/fd001`.
+
+* New modules `System.IO.Wait` (wait for a file descriptor to become
+  readable or writable, with an optional deadline; close and forget a
+  descriptor; `now` on the clock of the deadlines) and `System.IO.Fd`
+  (non-blocking reads and writes between a descriptor and a `Buffer`, which
+  return minus the errno code on error, and `pipe`) in base.  With RefC a
+  waiting thread parks in the scheduler; with Chez and Racket it blocks its
+  OS thread in poll(2); the JavaScript backends do not support them.  The
+  test `chez/reactor001`.
 
 * Ranges (`[x..y]`, `[x,y..z]`) are built by loops instead of `takeUntil`
   and `takeBefore` on a `Stream`, and `traverse_`, `for_` and `sequence_` on
@@ -1824,6 +2210,41 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Base
 
+* `System.Crash` runs an action in a crash boundary: `catchCrash act` gives
+  `Left` a `CrashInfo` (the kind: `CrashCall`, `MissingCase` or
+  `FailedCheck`, the message, and the backtrace when backtraces are on) if
+  `act` crashed (`idris_crash`, a missing case of a `partial` function, an
+  access out of a `Buffer`, a division by zero), instead of exiting the
+  program; `crashesCaught` counts the crashes caught.  It is meant for
+  isolation at the boundary of a service, and the module says plainly what a
+  caught crash leaves behind: the memory that the crashed code held is
+  leaked, a `Mutex` that it held stays held, its effects stay done.  Stack
+  overflows, signals, crashes in finalisers, `exit` and failures of the
+  runtime stay fatal.  On RefC, Chez, Racket and JavaScript; on Gambit the
+  action runs without a boundary (`crashBoundaries` is `False`).
+
+* `Data.IORef` has atomic operations: `atomicModifyIORef` and
+  `atomicModifyIORef_` update an `IORef` with a function, without losing
+  updates when threads update it at the same time (the function may run more
+  than once, and runs with no lock held), and `readForCAS`, `peekTicket` and
+  `casIORef` are a compare-and-swap that compares the value the `IORef` holds
+  with the very value of a ticket (not with an equal one).  On the RefC,
+  Chez, Racket and JavaScript back ends.
+
+* `System.Concurrency` has channels that hold more than one value:
+  `makeBufferedChannel n` makes a `Channel` that holds up to `n` values
+  (`channelPut` waits while it is full), and `makeUnboundedChannel` one
+  without a limit.  The other functions on channels work on them as on the
+  channels of `makeChannel`, which hold one value.  On the RefC, Chez, Racket
+  and JavaScript back ends.  The Racket back end now also has
+  `channelGetNonBlocking` and `channelGetWithTimeout`.
+
+* On the Chez back end, `channelGetNonBlocking` and `channelGetWithTimeout`
+  no longer take a channel that holds `[]` or `Nothing` for an empty one,
+  no longer give `Nothing` when another thread holds the lock of a channel
+  that holds a value, and `channelGetWithTimeout` waits on a condition
+  variable instead of polling every 10 microseconds.
+
 * `Data.IOArray` has `newFlatIO`, `readFlatIO` and `writeFlatIO`,
   `newFlatArray`, `readFlatArray` and `writeFlatArray` at `IO`.
 
@@ -1866,6 +2287,27 @@ should target this file (`CHANGELOG_NEXT`).
   on an error of `stdin` too.
 
 #### Contrib
+
+* `Language.JSON.Typed`: `FromJSON` has a new method, `fromJSONAt`, which
+  decodes a value from the text in place (an `Input` of
+  `Language.JSON.Parse`, which has the functions that read values, strings,
+  numbers, keys and punctuation there), and `ToJSON` a new method,
+  `toWriter`, which writes the text directly (a `JSONWriter` of
+  `Language.JSON.Encode`, with `writeValue`, `writeString`, `writeNumber`,
+  `writeInt`, `writeRaw`, `writeByte`, `writeBool` and `runWriter`).  Their
+  defaults go through a `JSON` value.  The instances of `Bool`, `String`,
+  `Double`, `Int`, `Maybe` and `List`, and the instances of records derived
+  by `Language.JSON.Derive`, read and write in place: a derived decoder
+  expects the members in the order of the fields, once each and with no
+  other member, and otherwise fails, so that `fromJSONBytes`, which tries
+  it first, decodes the `JSON` value with `fromJSON`, which stays the
+  reference and gives the errors.  `toJSONBytes` uses the writer.  With the
+  HTTP benchmark (decode a record of seven fields, change it, encode it):
+  68,010 -> 45,032 instructions per request.  The test `contrib/json_009`
+  compares both ways on generated documents.
+* `Data.ByteString.Internal.unsafeCreate` (and so `Builder.toByteString`)
+  allocates its buffer with the primitive in `IO`: through
+  `Data.Buffer.newBuffer` and `HasIO IO`, every call made a closure.
 
 * `Data.Linear.Array.Flat`: linear arrays laid out by the `Flat` of their
   elements (see `Data.IOArray.Flat`), `FlatArray` and `FlatIArray`, with the
@@ -1912,6 +2354,51 @@ should target this file (`CHANGELOG_NEXT`).
   nested, and with one allocation.
 * Added `System.File.ByteString`: `readFile`, `writeFile`, `appendFile`,
   `hGet` (up to `n` bytes), `hGetContents` and `hPut`.
+* JSON for web services:
+  + `Language.JSON.Parse`: a strict RFC 8259 parser of bytes,
+    `parseBytes : ByteString -> Either JSONError JSON` (and `parseBytesWith`,
+    `parseText`, `parseTextWith`).  A `JSONError` has the byte offset and the
+    reason (`TrailingComma`, `LeadingZero`, `InvalidUtf8`, `LoneSurrogate`,
+    `TooDeep`...); `errorLocation` and `showErrorIn` give the line and
+    column.  It rejects trailing commas, leading zeros, unescaped control
+    characters, invalid UTF-8, `\u` escapes of lone surrogates (a pair is
+    one character) and data after the value, and limits the nesting to
+    `maxDepth` of `ParseOptions` (512 by default).  Numbers are correctly
+    rounded `Double`s (exact arithmetic for up to 15 digits and exponents up
+    to 22, `cast` of the text otherwise), so integers beyond 2^53 lose
+    precision.  With RefC it takes about 45 times fewer instructions than the
+    old parser on a 12 MB document, and 7 times less memory.
+  + `Language.JSON.parse` keeps its type and is now this parser: on valid
+    input it gives the old results, except that `\u` escapes in lower case
+    hexadecimal and surrogate pairs are now decoded correctly, and
+    U+007F..U+009F are accepted unescaped (as RFC 8259 says); it rejects
+    whitespace other than space, tab, line feed and carriage return.
+    `Language.JSON` also has `parseEither : String -> Either JSONError JSON`
+    and `parseByteString`.
+  + `Language.JSON.Encode`: `encode : JSON -> ByteString`, `encodeBuilder`,
+    `encodeText`, `encodeString` and `encodeNumber`, compact, with the
+    escapes that JSON requires (UTF-8 written as it is), integers without
+    `.0`, other numbers with the shortest digits that read back, and NaN and
+    infinities as `null`.  `Show JSON` is unchanged.
+  + `Language.JSON.Typed`: the interfaces `ToJSON` (`toJSON`, and
+    `toEncoding` into a `Builder`) and `FromJSON` (`fromJSON : JSON -> Either
+    DecodeError a`, with the path to the part that does not fit, as in
+    `at $.users[3].name: expected a string, got a number`), with instances
+    for `()`, `Bool`, `Char`, `String`, `Double`, `Int`, `Integer`, `Nat`,
+    the fixed-width integers (range checked), `Maybe`, `List`, `SnocList`,
+    `List1`, `Vect n`, pairs, `Either`, `SortedMap String`,
+    `HashMap String` and `JSON`; `toJSONBytes`, `fromJSONBytes` and helpers
+    for writing instances (`withObject`, `field`, `optionalField`...).
+  + `Language.JSON.Derive`: `deriveToJSON` and `deriveFromJSON` derive these
+    for records (objects), enumerations (strings) and sums (objects with a
+    `"tag"`, as Haskell's `aeson` does), with `Options` to rename keys and
+    tags.  A missing `Maybe` field decodes as `Nothing`.  Indexed families,
+    existential, erased and lazy fields are rejected with a message.
+* `Data.ByteString.fromString` and `toString` copy the bytes instead of
+  going through a list of characters, and `Data.ByteString.Internal` has
+  pure reads of a buffer (`unsafeBufferByte`, `unsafeBufferWord32LE`,
+  `unsafeBufferString`), which `unsafeIndex` uses: with RefC a read made a
+  closure before.
 * Added hash maps and hash sets to `contrib`:
   `Data.Hashable` (an interface `Hashable` with `hashWithSalt` and `hash`,
   with instances for the fixed-width integers, `Int`, `Integer`, `Nat`, `Char`,
@@ -1939,3 +2426,290 @@ should target this file (`CHANGELOG_NEXT`).
   (`2^bits - 1`, big numbers for 64 bits) when the result of an operation on
   61 bits or more is a fixnum, nor for the cast of a non-negative fixnum to
   `Bits64`: an addition of `Int`s took 400 instructions and takes 40.
+
+* `Data.ByteString` compares, hashes and searches with operations on ranges
+  of bytes instead of reading one byte at a time: `==` and `compare`
+  (`memcmp` with RefC), `hash` (the same values as before),
+  `elem`/`notElem`/`elemIndex`/`split` (`memchr`), `isPrefixOf`,
+  `isSuffixOf` and `isInfixOf`; the other loops over the bytes count with
+  `Int` instead of `Nat`.  `Data.ByteString.Internal` has the primitives,
+  with Scheme and Node variants (`unsafeCompareRange`, `unsafeFindByte`,
+  `unsafeHashRange`), and functions on byte strings that the parsers of
+  `libs/http` used to define for themselves: `unsafeIndexWord32LE`,
+  `findByteFrom`, `compareBytes`, `sameBytes`, `unsafeMatchesAt`.  With
+  RefC, the equality of two byte strings of 1 KB takes 250 instead of
+  135,000 instructions, and the hash of one 7,300 instead of 79,000 (with
+  Chez, 40,000 instead of 64,000 and 41,000 instead of 76,000).  The pure
+  reads that `libs/http` declared for itself are gone from its internal
+  modules, which use these.
+
+#### Network
+
+* New modules `Network.Socket.Async`, `Network.Socket.Address` and
+  `Network.Socket.DNS` in `network`: non-blocking sockets whose `accept`,
+  `connect`, `recv`, `send`, `recvFrom` and `sendTo` wait for the socket
+  with the reactor of RefC (the green thread parks; on Chez and Racket the
+  OS thread blocks in poll(2)), with an optional deadline, between a socket
+  and a `Buffer` at an offset; `Either NetError a` results, and `Int` codes
+  for inner loops; `sendAll`, `recvExactly`, `sendAll2` (two ranges with one
+  `sendmsg`), `shutdown`, socket options, `listenOn`, `localAddress` and
+  `peerAddress`; numeric IPv4, IPv6 and Unix addresses; `resolve`, which runs
+  getaddrinfo(3) on the pool of blocking calls of RefC, and `connectHost`.
+  See "Non-blocking sockets" in the documentation of the RefC backend.  The
+  tests `refc/netasync001` to `refc/netasync003` and `chez/netasync001`.
+
+* `Network.Socket`: a write to a socket whose peer closed fails with `EPIPE`
+  instead of raising SIGPIPE, which ended RefC programs (`MSG_NOSIGNAL`, or
+  `SO_NOSIGPIPE` on macOS).  `prim__idrnet_send_bytes` passes its flags on.
+  `prim__idrnet_fdopen` makes the socket blocking again and makes the RefC
+  reactor forget it first.
+
+#### HTTP
+
+* The server runs every handler, and the functions of `StreamBody` and
+  `UpgradeBody`, in a crash boundary (`System.Crash`): a crash of a handler no
+  longer ends the process.  The error log gets the crash (with its backtrace
+  when backtraces are on) and the access log the entry; over HTTP/1.1 the
+  request is answered with 500 if nothing of the response was sent (else the
+  response is cut short) and the connection is closed; over HTTP/2 the stream
+  gets 500, or a reset with `INTERNAL_ERROR` if its response had started, and
+  the other streams go on.  A crash of the error log, the access log or the
+  server itself closes the connection only.  A WebSocket session that
+  crashes is closed with 1011.
+
+* Faster HTTP/1.1 serving.  A response head is written in one pass over the
+  fields of the handler, which checks them and finds the fields that the
+  server writes itself at the same time; the usual statuses have a
+  precomputed status line; the clock is read once per request; the parser
+  of the server is made once; a target in the origin form is split without
+  `parseRequestTarget`, and the router matches a path without `%` against
+  literal segments without allocating; a body of known length that came
+  with the head is read without the state of a body reader.  Several `IO`
+  functions on the way were compiled into functions that return closures.
+  With `benchmark/http` (64 connections, one worker; Go's `net/http` takes
+  36,813 and 77,519): `GET /hello` 20,220 -> 13,243 instructions per
+  request, `POST /json` 78,656 -> 45,035 (with the JSON changes of
+  `contrib`); with four workers 23,211 -> 15,670 and 82,095 -> 48,488.
+* HTTP/2: the static table of HPACK is looked up by a case on the length of
+  the name, and lower-casing a field name no longer makes a closure per
+  byte.  `GET /hello` over h2c (one connection, 64 streams): 120,375 ->
+  87,247 instructions per request with one worker, 162,626 -> 121,547 with
+  four.
+* WebSocket: a message is sent with a timeout rather than a deadline, made
+  only if it must wait (`transportSendAllWithin` and
+  `transportSendAll2Within` of `Network.HTTP.Transport` read the clock only
+  if the socket cannot take the bytes at once), and the keep-alive and idle
+  timers are no longer moved at every read and every message: a timer that
+  comes after something came starts again from then, so a ping (or the
+  close of an idle connection) comes after between once and twice the time
+  of quiet.  A 64-byte echo: 8,377 -> 7,847 instructions per message.
+
+* A new library, `http` (`libs/http`, `-p http`), with the parts of an HTTP
+  stack that are pure functions of bytes: no sockets and no I/O, so that a
+  connection loop can feed them the buffers it reads.  All of them work on
+  `Data.ByteString` (parsed names and values are slices of the input) and the
+  serialisers produce `Data.ByteString.Builder`.
+
+  + `Network.HTTP.Types`: methods, status codes with the reason phrases of
+    RFC 9110, versions, an ordered collection of header fields with duplicates
+    and case-insensitive lookup that does not allocate, request and response
+    heads.
+  + `Network.HTTP.Parser`: incremental parsers of HTTP/1.1 request and
+    response heads (RFC 9112) that are fed the input in pieces of any size
+    and examine each byte at most twice, with limits on the start line, field
+    lines, number of fields and size of the head, and errors that say which
+    status a server answers with (400, 413, 414, 431, 501, 505).  They reject
+    the shapes used to smuggle requests: whitespace before a colon, obsolete
+    line folding, bare CR or LF, NUL and other controls, bytes that are not
+    token characters in a method or field name, a missing or duplicated
+    `Host`.  `requestFraming` and `responseFraming` decide how the body is
+    delimited, and reject both `Content-Length` and `Transfer-Encoding`,
+    transfer codings that do not end with `chunked`, and different
+    `Content-Length` values.
+  + `Network.HTTP.Chunked`: an incremental decoder of the chunked coding
+    (with limits on extensions and trailers) and an encoder.
+  + `Network.HTTP.Render`: request and response heads as bytes.
+  + `Network.URI`: URIs and references (RFC 3986) with IPv6 literals,
+    request targets in their four forms, percent-encoding for each component,
+    form data (`application/x-www-form-urlencoded`), dot-segment removal and
+    reference resolution.
+  + `Network.HTTP2.HPACK` (with `.Huffman` and `.Table`): header
+    compression of HTTP/2 (RFC 7541), with a table-driven Huffman decoder
+    that rejects invalid padding and EOS, the static and dynamic tables, an
+    encoder that never indexes credentials, and a decoder that enforces the
+    table size updates and a limit on the size of the header list.  Their
+    states are immutable values.
+  + `Network.HTTP2.Frame`: the frames of HTTP/2 (RFC 9113), encoded and
+    decoded with the checks that apply to a single frame and their error
+    codes, the settings and their defaults, and the connection preface.
+  + `Network.WebSocket.Frame`, `Network.WebSocket.Handshake` and
+    `Network.WebSocket.UTF8`: WebSocket frame headers (RFC 6455) with the
+    rules of control frames, masking eight bytes at a time and in pieces,
+    close codes, an incremental UTF-8 validator, and `Sec-WebSocket-Accept`.
+  + `Network.HTTP.SHA1` (for the WebSocket handshake only, not for security)
+    and `Network.HTTP.Base64` (standard and URL-safe alphabets, strict
+    decoding).
+
+  Tests are in the new pool `tests/http`, and the API in `libs/api/http.api`.
+
+* An HTTP/1.1 server and client in `http`, on the non-blocking sockets of
+  `network` (a green thread per connection on RefC, an OS thread on Chez
+  and Racket):
+
+  + `Network.HTTP.Transport`: the byte stream under a connection, a socket
+    (whose operations call the system with no allocation) or a record of
+    operations `TransportOps` that another library (TLS) provides, with the
+    shapes of the `Int`-code layer of `Network.Socket.Async`.
+  + `Network.HTTP.Connection`: heads and bodies read from a scratch buffer
+    per connection (strict, or a piece at a time; by length, chunked, or
+    until the end), and a head with a small body written with one system
+    call; `BodyReader` and `BodyWriter`.
+  + `Network.HTTP.Server`: `startServer`, `serve`, `stopServer` (graceful),
+    `ServerConfig` with limits and timeouts (head, body, idle, write),
+    maximum connections and body size; persistent connections, pipelining,
+    `100-continue`, HTTP/1.0, `HEAD`, unread bodies drained, `Date` and
+    framing added, response fields checked against injection, malformed
+    requests answered with the status of the parser and closed; bodies as
+    bytes, a `Builder`, a stream, or a connection handed over after `101`;
+    an access log hook; `fromEither` for handlers that fail.
+  + `Network.HTTP.Router`: routes by method and path pattern (`:name`,
+    `*rest`), 404 and 405 with `Allow`, queries, and `jsonBody` and
+    `jsonResponse` over `Language.JSON.Typed`.
+  + `Network.HTTP.Client`: `request` over any connection, and a `Client`
+    that fetches `http://` URLs with a pool of persistent connections, an
+    idle timeout, redirects up to a limit, connect and request timeouts and
+    a limit on the response size; `https://` needs a TLS connector
+    (`tlsConnect`).  No cookies, proxies or compression.
+
+  A sample service is in `samples/webservice`, described in "Writing a web
+  service" in the cookbook of the documentation, and `benchmark/http`
+  compares the server with Go's `net/http`.  A `ByteString` literal cannot
+  be a pattern (the compiler rejects it): compare with `==`.
+
+* WebSocket connections (RFC 6455) in `http`: `Network.WebSocket`.
+
+  + Server side: `acceptWebSocket` checks an upgrade request (method,
+    `Upgrade` and `Connection`, `Sec-WebSocket-Version: 13`, the key, an
+    `Origin` hook) and answers with the `101` that runs a session on the
+    connection, or with 405, 400, 403 or 426 (with `Upgrade` or
+    `Sec-WebSocket-Version`); the subprotocol is selected from a preference
+    list.  `websocketRoute` makes a route of `Network.HTTP.Router`, and
+    `checkHandshake` and `upgradeResponse` are the two halves.
+  + Client side: `connectWebSocket` for `ws://` URLs (and `wss://` with a
+    TLS connector), with a random key from `getentropy`, checking the
+    response (101, `Sec-WebSocket-Accept`, the subprotocol, no extension);
+    `clientHandshake` over a connection made by hand.
+  + `receive` and `receiveBefore` give whole messages (text as checked UTF-8
+    bytes, `messageString` for a `String`), with fragments put together up
+    to `maxMessageSize`, pings answered, pongs counted, and the closing
+    handshake; protocol errors are closed with 1002, 1007 or 1009, and the
+    end is reported as a `CloseInfo` (1006 when no close frame came).
+    `sendText`, `sendBinary`, `sendMessage` (with optional fragmentation),
+    `ping`, `closeWebSocket` (with a timeout) and `abort`.  Client frames are
+    masked with keys from the random source of the system.
+  + Threads: one receiver and any number of senders at once; a message is
+    sent whole under a lock, nothing is queued (a slow peer makes senders
+    wait, up to `sendTimeout`), and the automatic pongs never wait for a
+    sender.  `closeWebSocket` from another thread wakes a blocked receiver.
+  + Keep-alive pings with a pong deadline, an idle timeout, and limits on
+    frames and messages (`WSConfig`).
+  + No extension is negotiated (`permessage-deflate` is ignored).
+
+  `Network.HTTP.Connection` exports `connScratch`, the buffer of a
+  connection, for protocols that take one over.  A chat room is in
+  `samples/chat`, described in "WebSocket connections" in the cookbook, and
+  `benchmark/websocket` measures an echo server.
+
+* HTTP/2 (RFC 9113) in the server and the client of `http`, with the same
+  handlers and the same request and response types (`Request.version` is
+  `http2`):
+
+  + The server serves HTTP/2 on TLS connections for which ALPN selected
+    `h2`, and on plain ones whose client starts with the preface (h2c with
+    prior knowledge; `http2.cleartext` of `ServerConfig` turns it off).
+    `Upgrade: h2c` is not implemented.  A thread per stream runs the
+    handler; a reader and a writer thread per connection do the framing
+    and HPACK.  Flow control both ways (windows opened as the handler
+    reads; DATA within the peer's windows and frame size, the writer of a
+    body waiting with the write timeout), stream concurrency
+    (REFUSED_STREAM), request validation (pseudo-header fields, lower case
+    names, connection-specific fields, `te`, `content-length`), trailers,
+    PING, RST_STREAM, GOAWAY on `stopServer` and on connection errors.
+  + Limits against abusive clients (`H2Config`, `defaultH2Config`, in the
+    new module `Network.HTTP2.Config`): header list size (431), header
+    block and CONTINUATION frames, queued control frames (PING and
+    SETTINGS floods), resets per second and handler threads per
+    connection (the rapid reset of CVE-2023-44487), empty and padding-only
+    frames, window overflows, the settings timeout, and bounded outbound
+    buffers.
+  + The client speaks HTTP/2 when ALPN selects `h2`, or to `http://` URLs
+    with `http2PriorKnowledge`; requests to a host share one connection,
+    and a request that a GOAWAY or REFUSED_STREAM left unprocessed is sent
+    again on a new connection when that is safe.
+  + `Network.HTTP2.Connection` has the connection machinery;
+    `Network.HTTP.Connection` gets `BodySource`/`sourceReader` and
+    `sinkWriter` (bodies that do not come from or go to a `Conn`).
+
+  Tests in `tests/http` (`h2_*`: validation and abuse limits with raw
+  frames, the HTTP/1.1 client tests run again over HTTP/2, 100 streams at
+  once, flow control, shutdown, curl with prior knowledge, Valgrind) and
+  `tests/http-tls/h2_alpn`; `benchmark/http/run.sh` measures h2c (with
+  the client of the library as the load generator, `H2Load.idr`) and h2
+  over TLS (Go's net/http as the load generator).
+
+#### TLS
+
+* A new, optional library, `tls` (`libs/tls`, `-p tls`): TLS client and
+  server connections over the non-blocking sockets of
+  `Network.Socket.Async`, with OpenSSL 3, used from green threads without
+  blocking a worker.  It is built, tested and installed only when
+  `pkg-config` finds OpenSSL 3 (`make IDRIS2_TLS=1` builds it anyway,
+  `IDRIS2_TLS=0` leaves it out); otherwise `make` says once that it is
+  skipped.  Its C part (`libs/tls/c`) is installed in the `lib` directory of
+  the package, and linked by itself into the programs that import it, on
+  RefC (a static archive, and OpenSSL through `pkg-config`) and on Chez (a
+  shared library).
+
+  + `Network.TLS`: contexts from `ClientConfig` (`defaultClientConfig`: the
+    trusted certificates of the system, the certificate and host name of the
+    server verified, TLS 1.2 at least) and `ServerConfig` (`serverConfig`:
+    a certificate chain and key from PEM files or text, other certificates
+    chosen by the SNI name, ALPN by the server's preference, optional or
+    required client certificates); `connect`, `connectHost` and `accept`
+    run the handshake on a socket with a deadline; `recv`, `send`,
+    `sendAll`, `sendAll2` and `recvExactly` return `Either TLSError a`, and
+    `recvCode`, `sendCode`, `sendAllCode`, `sendAll2Code` and
+    `recvExactlyCode` have the types of their namesakes for sockets, with
+    `Int` codes that `codeError` and `codeMessage` explain; `close` sends
+    close_notify and waits a little for the peer's, `abort` does not;
+    `tlsVersion`, `cipherName`, `alpnSelected`, `serverName` and
+    `peerCertificate`.  A reader tells a clean end of the stream
+    (close_notify) from a truncated one (`UnexpectedEOF`), and the errors of
+    verification say why (unknown issuer, wrong name, expired).  One thread
+    may read a connection while another writes it.
+  + `Network.TLS.Codes`: the negative codes of TLS, all at -1000 or below,
+    apart from minus the errno codes of the sockets.
+
+  See the page of the library in the documentation.  Tests are in the new
+  pool `tests/tls` (with certificates made by the `openssl` tool at test
+  time; skipped without the library or the tool), and the API in
+  `libs/api/tls.api` (checked by `make api-check` when the library is built).
+  `closeNotifyCode` sends close_notify without waiting for the peer's, for
+  a connection that is still read afterwards.
+
+* A new, optional library, `http-tls` (`libs/http-tls`, `-p http-tls`,
+  module `Network.HTTP.TLS`): HTTPS for the server and the client of
+  `http`, built, tested and installed exactly when `tls` is.
+  `tlsTransport` is a `Transport` over a `TLSSocket`; `httpsServerConfig`
+  makes a server run the TLS handshake in the thread of each connection
+  within its `headTimeout` (failed handshakes are logged to `errorLog` and
+  counted by `handshakeCounts`, and never stop the accept loop);
+  `httpsClientConfig` and `defaultHTTPSClientConfig` make a client fetch
+  `https://` URLs, with SNI and the certificate verified for the host of the
+  URL (an IP address against the addresses of the certificate).  The
+  protocol that ALPN selected is the new `transportProtocol` of the
+  transport (`customTransportWithProtocol` in `Network.HTTP.Transport`).
+  `samples/webservice/Https.idr` is the sample service over HTTPS, and
+  `benchmark/http/run.sh` measures HTTPS too.  Tests are in the new pool
+  `tests/http-tls` (skipped without the library), the API in
+  `libs/api/http-tls.api`.

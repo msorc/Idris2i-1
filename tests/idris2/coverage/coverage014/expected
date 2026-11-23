@@ -1,6 +1,6 @@
 1/1: Building Issue794 (Issue794.idr)
-Error: Impossible pattern gives an error:
-Can't solve constraint between: ?_ ++ [?_] and ?x :: ?xs.
+Error: Impossible pattern gives an error: [E0603]
+Can't solve constraint between: ?_{1} ++ [?_{2}] and ?x :: ?xs.
 
 Issue794:15:7--15:17
  11 | empty Empty impossible
@@ -10,7 +10,7 @@ Issue794:15:7--15:17
  15 | snoc (Snoc _ _ _) impossible
             ^^^^^^^^^^
 
-Error: empty is not covering.
+Error: empty is not covering. [E0601]
 
 Issue794:10:1--10:32
  06 |      Empty : SnocList []
@@ -21,5 +21,5 @@ Issue794:10:1--10:32
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Missing cases:
-    empty (Snoc m m m)
+    empty (Snoc _ _ _)
 

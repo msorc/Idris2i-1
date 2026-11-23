@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+check Capped.idr
+check --candidate-error-count 0 Capped.idr
+check --candidate-error-count 2 Capped.idr

@@ -91,6 +91,34 @@ C, you will need to arrange for them to be accessible via ``LD_LIBRARY_PATH``
 when running the executable. The default Idris 2 support libraries are
 statically linked.
 
+Directives
+==========
+
+The directives of the RefC back end, given with ``--directive`` or with
+``%cg refc`` in a module (whose directives every program that imports it
+gets), are:
+
+- ``refc-lib=<names>``, ``refc-archive=<files>`` and
+  ``refc-pkg-config=<names>``: what the program is linked with, see
+  :ref:`sect-ffi-linking`.
+- ``refc-backtrace``: backtraces, see "Backtraces" below.
+- ``refc-split-size=<bytes>``: the size of C from which a program is compiled
+  in units, see "Big programs".
+- ``refc-no-...``, ``refc-size-reuse``, ``refc-check-layout`` and
+  ``refc-no-flat-arrays``: see "Optimisations" below.
+
+A directive that starts with ``refc-`` and is not one of these, or whose value
+cannot be, is an error.  The headers of a ``%foreign "C:fn,,header.h"`` are
+looked for in the support directories of the run time, in the ``lib``
+directories of the packages that the program depends on, and where the flags of
+the user (``IDRIS2_CFLAGS``, ``IDRIS2_CPPFLAGS``) and of
+``refc-pkg-config`` tell.
+
+The stamp of the executable of a package (which skips its compilation when
+nothing changed, see ``--log package.stamp:5``) covers the directives, the
+archives of ``refc-archive`` and the output of pkg-config: the executable is
+linked again when one of them changes.
+
 Big programs
 ============
 
@@ -270,7 +298,14 @@ The code generator does the following, each of which a directive turns off
   acc else loop ...``), which the compiler gives the world as a parameter
   when what the body computes before its action is cheap.  (When it is not,
   ``f x = let y = expensive x in pure y``, the function gives an action: its
-  worker takes the integers but gives the action.)
+  worker takes the integers but gives the action.)  A foreign function of
+  C (``C:`` or ``RefC:``) that takes or gives fixed width integers has a
+  worker too, which passes the C integers to the C function and gives its
+  result as it is: a pure foreign read such as ``getBufferUInt8`` in a loop
+  is a call of the C function (an inline one for the reads of a ``Buffer``,
+  see ``buffer.h``), with no value made for the index or the byte, and no
+  reference count changed.  Its other arguments are borrowed.  (This is not
+  turned off by the directive, which is about the Idris functions.)
 - ``refc-no-unbox-double``: the ``Double`` values that the primitives compute
   (arithmetic, comparisons, ``sqrt``, ``exp`` and the other functions of
   ``Double``, the casts to and from the integer types) are C doubles while
@@ -283,6 +318,11 @@ The code generator does the following, each of which a directive turns off
   The results are those of the values: the arithmetic of C on doubles, with
   each result rounded to a double (on a 32 bit x86 without SSE2 too, see
   ``IDRIS2_DOUBLE`` in ``mathFunctions.h``), and the casts of the runtime.
+- ``refc-no-cycle-safepoints``: the functions that call each other in a
+  cycle, or call themselves other than in tail position, have no safepoint
+  at their start (see `Green threads`_); a thread that computes in them
+  cannot be preempted then.  For measurements: the safepoints cost about
+  0.4% more instructions to the compiler.
 - ``refc-no-trmc``: a function that makes a cell of a call to itself
   (``map f (x :: xs) = f x :: map f xs``) loops instead of recursing: it makes
   the cell first, with a hole for the result of the call, so that it needs no
@@ -450,6 +490,10 @@ backtrace does not show:
 - where in a function the call is: only the line where the function is
   defined.
 
+Inside a crash boundary (see `Crash boundaries`_), the backtrace of a crash
+that the boundary catches is not printed: the boundary gets it as text, from
+the crash down to the boundary.
+
 The frames of foreign C functions show their C names, and those of shared
 libraries the name of the library (``malloc [libc.so.6]``); the frames of the
 runtime are left out.  A deep stack (that of a stack overflow) shows its 48
@@ -598,9 +642,24 @@ The ``fork`` and ``threadWait`` functions of ``Prelude.IO``, as well as the
 whole of ``System.Concurrency`` (mutexes, condition variables, semaphores,
 barriers, channels and thread local data), are implemented in terms of green
 threads.  The synchronisation objects behave like their counterparts in the
-Chez backend (mutexes are recursive, a channel holds at most one value, and
-a forked thread inherits the thread local data of its parent), but they are
-implemented by the RefC scheduler rather than by the operating system.
+Chez backend (mutexes are recursive, a channel of ``makeChannel`` holds at
+most one value, and a forked thread inherits the thread local data of its
+parent), but they are implemented by the RefC scheduler rather than by the
+operating system.  The channels of ``makeBufferedChannel n`` hold up to
+``n`` values, and the ones of ``makeUnboundedChannel`` any number; they are
+the same ``Channel`` type, and a thread that waits for one of them gives up
+its worker like a thread that waits for a channel of one value.
+
+The atomic operations of ``Data.IORef`` (``atomicModifyIORef``,
+``atomicModifyIORef_`` and the compare-and-swap ``casIORef``) are made of a
+compare-and-swap of the value in the ``IORef``, under the lock that guards a
+shared ``IORef`` (see below).  A ticket of ``readForCAS`` holds a reference
+to the value that it read, so that value cannot be freed while the ticket
+lives, and the swap compares addresses: it succeeds when the ``IORef``
+holds that very value (or, for the values that are not allocated, such as
+small integers, the same one).  ``atomicModifyIORef`` runs its function with
+no lock held, and runs it again when another thread wrote the ``IORef`` in
+the meantime.
 
 A program has a single worker until it forks its first thread.  Then there
 is one worker per processor, or as many as the ``IDRIS2_WORKERS``
@@ -615,17 +674,28 @@ Within a worker, scheduling is mostly *cooperative*: a green thread runs
 until it blocks on a synchronisation object, sleeps, forks a thread, or
 finishes.  A thread that has run for more than 10ms while other threads wait
 for its worker yields at its next safepoint (the end of an iteration of a
-loop).  So does a thread that runs while the sleep or the timed wait of
+loop, or the start of a function that is in a cycle of calls: functions
+that call each other, or a function that calls itself other than in tail
+position).  So does a thread that runs while the sleep or the timed wait of
 another one is over and every worker is busy, so that the other one wakes
 up in time.  ``IDRIS2_PREEMPT=0`` turns both off.  With a single worker,
 threads are only preempted for the threads whose sleep or timed wait is
 over, which then run first.  This has a few consequences:
 
-* A thread that computes without looping (deep recursion, say) keeps the
-  other threads of its worker waiting, until an idle worker takes them over.
+* A thread that computes in a cycle made only of calls of closures that
+  are not in tail position (a recursion through the methods of an
+  interface, say) has no safepoint, and keeps the other threads of its
+  worker waiting until an idle worker takes them over.
+
+* A program built with ``-DIDRIS2_SINGLE_WORKER`` has no safepoints at all
+  (nor a monitor): its threads are never preempted, so a thread that
+  computes keeps every other one waiting, a server's among them.  Run a
+  server with ``IDRIS2_WORKERS=1`` instead, which preempts.
 
 * A blocking system call, such as reading from standard input, blocks the
-  worker that makes it, but not the others.  The ``sleep`` and ``usleep``
+  worker that makes it, but not the others.  A thread can wait for a file
+  descriptor without blocking its worker instead (see `Waiting for file
+  descriptors`_).  The ``sleep`` and ``usleep``
   functions of ``System`` are implemented in terms of the scheduler, so the
   other green threads keep running while a thread sleeps.
 
@@ -656,7 +726,10 @@ counted with plain increments and decrements; once a value is handed over to
 another thread (it is captured by the action of ``fork``, put in a channel,
 or written to an ``IORef`` or an array that other threads can see), it and
 everything it refers to become *shared*, and their counts are updated
-atomically.  Shared values are never updated in place.  Every worker
+atomically.  Shared values are never updated in place.  A shared ``IORef``
+is read and written under a spin lock of its own: a reader takes a
+reference to the value while the lock keeps a writer from replacing and
+dropping it in the meantime.  Every worker
 allocates from memory of its own, without locks.
 
 Much of the library is not tail recursive (``map``, ``++``, ``sort``, ...),
@@ -673,3 +746,202 @@ defaults to 8MB, which matches the stack of a typical process, and can be
 changed with the ``IDRIS2_THREAD_STACK_SIZE`` environment variable (in bytes,
 at least 65536).  Every stack is followed by a guard page, so that a stack
 overflow crashes the program rather than corrupting its memory.
+
+Crash boundaries
+----------------
+
+``System.Crash.catchCrash act`` (in ``base``) runs ``act`` in a *crash
+boundary*: a crash of the green thread inside it ends the action instead of
+the program, and ``catchCrash`` returns what happened, a ``CrashInfo`` with
+the kind, the message and, when backtraces are on, the backtrace as text
+(down to the boundary).  ``crashesCaught`` counts the crashes caught.  The
+HTTP server of the ``http`` library runs every handler in one.
+
+What is caught, and why:
+
+- ``idris_crash`` and a missing case of compiled code (``Unhandled input
+  for``, from ``idris2_crash``), a hole or an impossible case (from
+  ``idris2_crashMsg``): raised by the code of the thread, never under a lock
+  of the runtime.
+- An access out of a ``Buffer`` (``idris2_bufferRangeError``): the check comes
+  before the access.
+- The failed checks of the support code (``idris2_crashCheck``): a division by
+  zero, an invalid length of an array or a buffer, an ``Integer`` shifted too
+  far, a mismatch found by ``--directive refc-check-layout`` (found when the
+  value is matched, before its fields are read).
+
+What stays fatal inside a boundary, and why:
+
+- A crash in a finaliser (``onCollect``): a finaliser runs at any release,
+  those of the runtime under its spin locks included.
+- A crash of another thread, one forked inside the boundary say: a boundary is
+  for its own thread.
+- A stack overflow (``SIGSEGV`` on the guard page) and the other signals
+  (``SIGSEGV``, ``SIGBUS``, ``SIGFPE``, ``SIGILL``, ``SIGABRT``): they may come
+  in the allocator, in ``malloc`` or under a lock, and nothing says that what
+  they interrupt can be abandoned.
+- Out of memory, a broken invariant of the runtime (``IDRIS2_REFC_VERIFY``), a
+  failure of the scheduler, a deadlock, a missing foreign function: the state
+  of the runtime may be wrong.
+- A ``Mutex`` released by a thread that does not hold it, a ``conditionWait``
+  without the mutex: the synchronisation of the program is broken.
+- ``exit`` and ``exitWith`` exit, as asked.
+
+The boundary is a ``sigsetjmp`` on the stack of the thread (in
+``support/refc/crash.c``), and a crash that it catches jumps back to it with
+``siglongjmp``: the C frames in between are abandoned.  This is sound because
+a crash is a call made by the thread itself: the thread is running (not
+parked, not waiting for a descriptor or a deadline), holds no lock of the
+runtime and is not in the allocator, and it goes on after the boundary, so its
+state in the scheduler stays consistent (it may have moved to another worker
+since the boundary started: it is the same stack).  A constant (a definition
+without arguments, which the first thread that needs it evaluates while the
+others wait) whose evaluation crashed is given back to the other threads,
+which evaluate it themselves.
+
+What a caught crash leaves behind:
+
+- the values that the abandoned code held are never released: the closure of
+  the action (about 50 bytes), and what the code still needed when it
+  crashed (a handler of the HTTP server that crashes while it still needs its
+  request leaks it: about 400 bytes for a small request, measured with
+  10,000 crashes; one that is done with it leaks about 50 bytes).  Nothing
+  reclaims them; a long-running program can watch ``crashesCaught``;
+- a ``Mutex`` that the code held stays held, by the thread of the boundary
+  (which may release it); other threads that wait for it wait on;
+- what the code wrote to ``IORef``\ s, arrays, buffers and files stays
+  written.  A value updated in place had one reference, that of the code that
+  updated it, so nothing outside the boundary sees it half done;
+- a crash in an Idris callback of a C library abandons the frames of the
+  library too.
+
+A program that does not use ``catchCrash`` runs as before: a crash prints its
+message and exits with the same code.  The cost of a boundary is a
+``sigsetjmp`` (which does not save the signal mask) and a few stores in C,
+plus the closure that runs the action and the ``Right`` of its result: about
+400 instructions in a loop that does nothing else, and 90 per request (0.4%)
+for the ``hello`` route of ``benchmark/http`` (HTTP/1.1, one worker), whose
+handler was a closure call already.  Nothing changes for code that does not
+use it (the channel ping-pong runs the same instructions).
+
+Waiting for file descriptors
+============================
+
+``System.IO.Wait`` (in ``base``) waits for a file descriptor to become
+readable or writable, with an optional deadline, and ``System.IO.Fd`` reads
+and writes non-blocking descriptors (into a ``Buffer``) and makes pipes.  A
+green thread that waits parks in the scheduler, like one that waits for a
+channel: the other threads of its worker keep running.
+
+The runtime has a *reactor* (``support/refc/reactor.c``), which asks the
+operating system which descriptors are ready: epoll on Linux, kqueue on
+macOS and the BSDs (not tested yet), and ``poll(2)`` elsewhere, or when the
+support library is built with ``-DIDRIS2_REACTOR_POLL``.  A descriptor is
+registered the first time that a thread waits for it, and the readiness is
+*edge triggered*: the reactor learns when a descriptor becomes ready, not
+that it still is.  So:
+
+* Wait only after a read or a write failed with ``EAGAIN`` (the
+  ``wouldBlock`` result of ``readFd`` and ``writeFd``) on a descriptor made
+  non-blocking with ``setNonBlocking``.  ``readFdWait`` and ``writeFdWait``
+  do that loop.
+* A wait may say ``Ready`` while the descriptor is not ready (another
+  thread took the data first, or the readiness was reported earlier): try
+  again, and wait again on ``EAGAIN``.  Several threads waiting for one
+  descriptor are all woken up.
+* Close a descriptor that a thread waited for with ``closeFd``: the threads
+  that wait for it are woken up, their wait returning ``WaitError EBADF``,
+  and the reactor forgets it.  Before handing such a descriptor over to
+  code that closes it (``fdopen``, a C library), call ``forgetFd``.  A
+  descriptor closed otherwise stays registered, and a new descriptor with
+  the same number may never be reported ready.
+* A regular file is always ready.
+* ``writeFd`` to a pipe or a socket whose reader is gone returns
+  ``-EPIPE`` instead of killing the program with ``SIGPIPE``: the signal is
+  blocked in the calling thread for the call, and the one that the write
+  raised is discarded.  The disposition of ``SIGPIPE`` in the process is
+  left alone, so ``prog | head`` still ends ``prog`` when it writes to
+  standard output with ``putStr``.
+
+While threads wait for descriptors, the idle worker that looks after the
+deadlines (the watcher) waits in the poller of the operating system instead
+of sleeping, the busy workers look at the descriptors without blocking when
+they have nothing queued and every 64 switches (unless a worker waits in
+the poller), and when no worker looked
+for a millisecond, the monitor asks a worker to: it wakes an idle one up
+(the watcher may have left to run the threads that it woke up), or, when
+every worker runs a thread, asks one of them to yield at its next safepoint
+(not with ``IDRIS2_PREEMPT=0``).  So a descriptor that is ready waits about
+a millisecond at most, or up to about 11ms when the workers have just
+become busy (the monitor looks every 10ms otherwise).  A worker that finds
+threads ready as it polls runs the first one itself, without waking up
+another worker for it.  A
+program whose threads all wait, some of them for a descriptor, is not
+reported as deadlocked: data may still come.  The waits work before the
+first ``fork``, with ``IDRIS2_WORKERS=1``, and in a program built with
+``-DIDRIS2_SINGLE_WORKER`` (which has no preemption: a thread that computes
+keeps the others waiting until it blocks).
+
+C code that has to make a call that blocks (a DNS lookup, say) can run it
+with ``idris2_blockingCall(fn, arg)`` (``reactor.h``): ``fn(arg)`` runs on a
+thread of a pool of plain OS threads, while the green thread that called it
+parks.  ``fn`` must not touch Idris values nor call the runtime.  The pool
+starts threads as the calls need them, up to ``IDRIS2_BLOCKING_THREADS``
+(64 by default); more calls wait for a thread.  Without several workers the
+call runs in the calling thread.
+
+On the Chez and Racket backends, whose threads are OS threads, a wait
+blocks its thread in ``poll(2)``, and closing a descriptor does not wake up
+a thread that waits for it.  On Windows and WebAssembly, which have no green
+threads, a wait blocks the program (on Windows it returns at once, as the
+descriptors of the C library cannot be polled there).  The JavaScript
+backends do not support these modules.
+
+Non-blocking sockets
+--------------------
+
+``Network.Socket.Async`` (in ``network``) has sockets for programs that hold
+many connections, a green thread each.  Its sockets are non-blocking and
+closed when the program runs another one, and every operation that cannot
+go on at once waits for the socket as above: ``accept``, ``connect``,
+``recv`` and ``send`` (into and from a ``Buffer`` at an offset),
+``sendAll``, ``recvExactly``, ``sendAll2`` (two ranges with one
+``sendmsg(2)``), ``recvFrom`` and ``sendTo`` for datagrams.  Each takes an
+optional deadline on the clock of ``System.IO.Wait.now`` and returns
+``Either NetError a``, where an error is ``Timeout``, ``Closed`` (the socket
+was closed, maybe by another thread while this one waited), ``SysError``
+(an errno code and its message) or ``ResolveError``.  For inner loops, the
+same operations return a plain ``Int`` (``recvCode``, ``sendCode``,
+``sendAllCode``, ...): a count or minus an errno code, ``-ETIMEDOUT`` at the
+deadline, with no allocation on the way; ``tryRecv`` and ``trySend`` do not
+wait at all.  There are also ``listenOn`` (a socket bound with
+``SO_REUSEADDR`` and listening), ``shutdown``, ``localAddress`` and
+``peerAddress``, and ``setOption`` and ``getOption`` for ``SO_REUSEADDR``,
+``SO_REUSEPORT``, ``TCP_NODELAY``, ``SO_KEEPALIVE``, ``SO_RCVBUF``,
+``SO_SNDBUF``, ``SO_LINGER``, ``IPV6_V6ONLY`` and ``SO_BROADCAST``.
+
+Addresses (``Network.Socket.Address``) are numeric, IPv4, IPv6 or the path
+of a Unix socket, so that no call looks a name up behind the caller's back.
+``Network.Socket.DNS.resolve`` looks a name up with ``getaddrinfo(3)``,
+which runs on the pool of blocking calls on RefC (see
+``idris2_blockingCall`` above), and ``connectHost`` resolves a name and
+connects to its addresses in turn.
+
+A socket of this module must be closed with its ``close``, which goes
+through ``closeFd``.  Before handing one over to code that blocks, call
+``makeBlocking``, which also makes the reactor forget it; ``fdopen``-ing a
+socket (as the IDE mode of the compiler does with ``--ide-mode-socket``)
+does that by itself.  A write to a socket whose peer is gone fails with
+``EPIPE`` instead of raising ``SIGPIPE``, in this module and in
+``Network.Socket`` (``MSG_NOSIGNAL`` on each call, or ``SO_NOSIGPIPE`` on
+each socket on macOS): the RefC runtime does not ignore ``SIGPIPE``, which
+would end the program, and ignoring it for the whole program would change
+what a program writing to a closed pipe does.
+
+On the Chez and Racket backends the same module works, a wait blocking its
+OS thread in ``poll(2)``; the name lookup blocks the calling thread there.
+It does not work on Windows yet (every operation fails with ``ENOSYS``), nor
+on the JavaScript backends.
+
+TLS connections over these sockets, with OpenSSL 3, are in the optional
+``tls`` library: see :doc:`../libraries/tls`.

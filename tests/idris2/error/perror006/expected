@@ -1,5 +1,5 @@
 1/1: Building PError (PError.idr)
-Error: Expected 'else'.
+Error: Expected 'else'. [E1101]
 
 PError:7:1--7:4
  3 |

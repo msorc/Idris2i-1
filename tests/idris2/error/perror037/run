@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+check -p contrib ByteStringLit.idr
+check -p contrib ByteStringCase.idr
+check Opaque.idr
+run Reduces.idr

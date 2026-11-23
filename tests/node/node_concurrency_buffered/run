@@ -1,0 +1,5 @@
+. ../../testutils.sh
+
+idris2 -o single Single.idr
+./build/exec/single 2>&1
+echo "exit code $?"

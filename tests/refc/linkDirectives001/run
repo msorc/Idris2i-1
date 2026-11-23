@@ -1,0 +1,22 @@
+. ../../testutils.sh
+
+# A RefC directive that is not known, or whose value cannot be, is an error
+# that names it, before anything is compiled.
+
+for d in refc-lib= refc-lib=-lssl "refc-lib=ssl;rm" refc-libs=ssl refc-archive \
+         refc-archive=libnothere.a refc-backtrace=1 refc-split-size=big \
+         refc-no-such-thing; do
+  echo "--- $d"
+  idris2 --directive "$d" -o prog Main.idr | sed 's/directories: .*/directories: .../'
+  test -e build/exec/prog && echo "compiled"
+done
+
+# (the libraries keep the order of the directives, and a library given twice
+# is linked once, at its last place)
+echo "--- several names, given twice, and directives of other backends"
+idris2 --directive "refc-lib=m c" --directive refc-lib=m --directive extraRuntime=x.ss \
+  --log compiler.refc.cc:10 -o prog Main.idr \
+  | grep -- "-lidris2_refc" | sed 's/ "-o".*//; s/.*"build\/exec\/prog.o" *//'
+./build/exec/prog
+
+rm -rf build

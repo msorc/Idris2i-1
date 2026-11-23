@@ -1,33 +1,33 @@
 1/1: Building NamedReturn1 (NamedReturn1.idr)
-Error: Cannot return a named argument.
+Error: Cannot return a named argument. [E1101]
 
 NamedReturn1:1:24--1:37
  1 | not : (arg1 : Bool) -> (arg2 : Bool)
                             ^^^^^^^^^^^^^
 
 1/1: Building NamedReturn2 (NamedReturn2.idr)
-Error: Cannot return an implicit argument.
+Error: Cannot return an implicit argument. [E1101]
 
 NamedReturn2:1:24--1:37
  1 | not : (arg1 : Bool) -> {arg2 : Bool}
                             ^^^^^^^^^^^^^
 
 1/1: Building NamedReturn3 (NamedReturn3.idr)
-Error: Cannot return an auto implicit argument.
+Error: Cannot return an auto implicit argument. [E1101]
 
 NamedReturn3:1:24--1:42
  1 | not : (arg1 : Bool) -> {auto arg2 : Bool}
                             ^^^^^^^^^^^^^^^^^^
 
 1/1: Building NamedReturn4 (NamedReturn4.idr)
-Error: Cannot return a default implicit argument.
+Error: Cannot return a default implicit argument. [E1101]
 
 NamedReturn4:1:24--1:50
  1 | not : (arg1 : Bool) -> {default arg2 True : Bool}
                             ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1/1: Building TrailingLam (TrailingLam.idr)
-Warning: DEPRECATED: trailing lambda. Use a $ or parens
+Warning: DEPRECATED: trailing lambda. Use a $ or parens [W0001]
 
 TrailingLam:3:9--3:22
  1 |

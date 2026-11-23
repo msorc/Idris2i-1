@@ -1,12 +1,12 @@
 1/1: Building ParseRecord (ParseRecord.idr)
-Error: Expected 'where'.
+Error: Expected 'where'. [E1101]
 
 ParseRecord:1:10--1:11
  1 | record R : Type where
               ^
 
 1/1: Building ParseRecord2 (ParseRecord2.idr)
-Error: Fields have to be named.
+Error: Fields have to be named. [E1101]
 
 ParseRecord2:4:3--4:4
  1 | record R where
@@ -16,7 +16,7 @@ ParseRecord2:4:3--4:4
        ^
 
 1/1: Building ParseRecord3 (ParseRecord3.idr)
-Error: Fields have to be named.
+Error: Fields have to be named. [E1101]
 
 ParseRecord3:4:9--4:10
  1 | record R where

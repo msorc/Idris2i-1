@@ -1,5 +1,5 @@
 1/1: Building IfErr (IfErr.idr)
-Error: While processing right hand side of test. Can't find an implementation for Eq Foo.
+Error: While processing right hand side of test. Can't find an implementation for Eq Foo. [E0401]
 
 IfErr:15:10--15:30
  11 | -- hard to achieve and this way is better than displaying the whole
@@ -9,9 +9,11 @@ IfErr:15:10--15:30
  15 | test x = showIfEq MkFoo MkBar
                ^^^^^^^^^^^^^^^^^^^^
 
-Possible cause: Can't find an implementation for Ord Foo, which is needed by a matching implementation.
+There is no implementation of Eq for Foo in scope.
+Ord Foo would give it, as Eq is a parent of Ord.
+    There is no implementation of Ord for Foo in scope.
 
-Error: While processing right hand side of test2. Can't find an implementation for Show Foo.
+Error: While processing right hand side of test2. Can't find an implementation for Show Foo. [E0401]
 
 IfErr:23:9--23:29
  19 |   MkBar == MkBar = True
@@ -21,5 +23,5 @@ IfErr:23:9--23:29
  23 | test2 = showIfEq MkFoo MkBar
               ^^^^^^^^^^^^^^^^^^^^
 
-Possible cause: Can't find an implementation for Show Foo, which is needed by a matching implementation.
+There is no implementation of Show for Foo in scope.
 

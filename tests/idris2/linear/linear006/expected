@@ -1,5 +1,5 @@
 1/1: Building ZFun (ZFun.idr)
-Error: While processing right hand side of bar. Main.test is not accessible in this context.
+Error: While processing right hand side of bar. Main.test is not accessible in this context. [E0802]
 
 ZFun:13:7--13:11
  09 | 0 baz : Nat

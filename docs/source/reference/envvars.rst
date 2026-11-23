@@ -121,6 +121,9 @@ runs; see :doc:`../backends/refc` for the details:
 * ``IDRIS2_PREEMPT`` - ``0`` turns off the preemption of a green thread that
   has run for more than 10ms while others wait, or that runs when the sleep
   or the timed wait of another one is over.
+* ``IDRIS2_BLOCKING_THREADS`` - How many OS threads may run the blocking
+  calls of ``idris2_blockingCall`` at once (default: 64; they are started as
+  needed).
 * ``IDRIS2_MAIN_STACK_SIZE`` - The size in bytes of the stack of the main
   expression (default: 4GB on 64-bit systems, 64MB on the others; the memory
   is only used as the stack grows).

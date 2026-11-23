@@ -1,20 +1,18 @@
 1/1: Building Error (Error.idr)
-Error: While processing right hand side of unnamed. When unifying:
-    Type
-and:
-    ()
-Mismatch between: Type and ().
+Error: While processing right hand side of unnamed. Mismatch between: Type and (). [E0101]
+When unifying:
+    Expected: ()
+    Got:      Type
 
 Error:2:11--2:23
  1 | unnamed : ()
  2 | unnamed = (Nat) -> Nat
                ^^^^^^^^^^^^
 
-Error: While processing right hand side of named. When unifying:
-    Type
-and:
-    ()
-Mismatch between: Type and ().
+Error: While processing right hand side of named. Mismatch between: Type and (). [E0101]
+When unifying:
+    Expected: ()
+    Got:      Type
 
 Error:5:9--5:27
  1 | unnamed : ()

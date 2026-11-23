@@ -1,5 +1,5 @@
 1/1: Building PError (PError.idr)
-Error: Wrong number of 'with' arguments: expected 2 but got 3.
+Error: Wrong number of 'with' arguments: expected 2 but got 3. [E1101]
 
 PError:4:33--4:34
  1 | foo : Nat -> Nat -> Bool

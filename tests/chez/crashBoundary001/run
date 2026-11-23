@@ -1,0 +1,11 @@
+. ../../testutils.sh
+
+idris2 -o crash Main.idr > /dev/null
+./build/exec/crash
+echo "exit code: $?"
+./build/exec/crash exit
+echo "exit code: $?"
+./build/exec/crash none
+echo "exit code: $?"
+./build/exec/crash "other thread"
+echo "exit code: $?"

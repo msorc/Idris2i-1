@@ -1,5 +1,5 @@
 1/1: Building Test (Test.idr)
-Error: Non-erased argument is not a 'Nat'-like type.
+Error: Non-erased argument is not a 'Nat'-like type. [E0000]
 
 Test:9:1--9:35
  5 | natToInt : MyNat -> Integer

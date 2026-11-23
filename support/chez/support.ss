@@ -216,8 +216,72 @@
   (lambda (x)
     (vector 1 x)))
 
+;; Crash boundaries (System.Crash): inside one, blodwen-error-quit raises a
+;; blodwen-crash condition, which blodwen-crash-catch catches, as it does
+;; the serious conditions that Chez raises.  `blodwen-crash-thread` is the
+;; thread that runs in a boundary (a thread forked in one inherits the
+;; parameter, and has no boundary).
+(define blodwen-crash-thread (make-thread-parameter #f))
+(define-record-type blodwen-crash (fields kind message backtrace))
+(define blodwen-crash-count (box 0))
+(define blodwen-crash-count-mutex (make-mutex))
+
+(define (blodwen-crash-bt k)
+  (and k (blodwen-bt-on?)
+       (call-with-string-output-port (lambda (p) (blodwen-bt-print k p)))))
+
+;; The record of a crash: #(kind message backtrace), the kind
+;; as in System.Crash.CrashKind.
+(define (blodwen-crash-info e)
+  (cond
+    [(blodwen-crash? e)
+     (vector (blodwen-crash-kind e) (blodwen-crash-message e)
+             (blodwen-crash-backtrace e))]
+    [else
+     (vector 2
+             (if (condition? e)
+                 (call-with-string-output-port
+                   (lambda (p) (display-condition e p)))
+                 (call-with-string-output-port
+                   (lambda (p) (display "non-condition raised: " p) (write e p))))
+             (blodwen-crash-bt
+               (and (continuation-condition? e) (condition-continuation e))))]))
+
+;; The result of the action, or #f if it crashed: then blodwen-crash-last
+;; is the record of the crash (until it is read).
+(define blodwen-crash-last (make-thread-parameter #f))
+
+(define (blodwen-crash-catch ty act)
+  (guard (e [(or (blodwen-crash? e) (serious-condition? e)
+                 (not (condition? e)))
+             (with-mutex blodwen-crash-count-mutex
+               (set-box! blodwen-crash-count (+ 1 (unbox blodwen-crash-count))))
+             (blodwen-crash-last (blodwen-crash-info e))
+             #f])
+    (parameterize ([blodwen-crash-thread (get-thread-id)])
+      (act (vector 0)))))
+
+(define (blodwen-crash-caught) (if (blodwen-crash-last) 1 0))
+
+(define (blodwen-crashes-caught)
+  (with-mutex blodwen-crash-count-mutex (unbox blodwen-crash-count)))
+
+(define (blodwen-crash-boundaries) 1)
+
 (define blodwen-error-quit
   (lambda (msg)
+    (when (eqv? (blodwen-crash-thread) (get-thread-id))
+      (let* ([n (string-length msg)]
+             [call? (and (>= n 7) (string=? (substring msg 0 7) "ERROR: "))]
+             [text (if call? (substring msg 7 n) msg)]
+             ;; (the clause added to a function that does not cover every
+             ;; input crashes with this message)
+             [missing? (or (not call?)
+                           (and (>= (string-length text) 20)
+                                (string=? (substring text 0 20) "Unhandled input for ")))])
+        (raise (make-blodwen-crash (if missing? 1 0)
+                                   text
+                                   (call/cc (lambda (k) (blodwen-crash-bt k)))))))
     (display msg)
     (newline)
     (call/cc (lambda (k) (blodwen-backtrace k)))
@@ -421,123 +485,94 @@
       ))))
 
 ;; Channel
-; With thanks to Alain Zscheile (@zseri) for help with understanding condition
-; variables, and figuring out where the problems were and how to solve them.
+;; A channel is a queue of at most `capacity` values (#f: no limit), guarded
+;; by `mutex`: a put waits on `not-full` while the channel is full, a get on
+;; `not-empty` while it is empty.  Every value added signals `not-empty`, every
+;; value taken `not-full`.  The values are the list `front` followed by the
+;; reverse of the list `back`; `count` is their number.
 
-(define-record channel (read-mut read-cv read-box val-cv val-box))
+(define-record channel (mutex not-empty not-full capacity count front back))
+
+(define (channel-new capacity)
+  (make-channel (make-mutex) (make-condition) (make-condition) capacity 0 '() '()))
 
 (define (blodwen-make-channel ty)
-  (make-channel
-    (make-mutex)
-    (make-condition)
-    (box #t)
-    (make-condition)
-    (box '())
-    ))
+  (channel-new 1))
 
-; block on the read status using read-cv until the value has been read
-(define (channel-put-while-helper chan)
-  (let ([read-mut (channel-read-mut chan)]
-        [read-box (channel-read-box chan)]
-        [read-cv  (channel-read-cv  chan)]
-        )
-    (if (unbox read-box)
-      (void)    ; val has been read, so everything is fine
-      (begin    ; otherwise, block/spin with cv
-        (condition-wait read-cv read-mut)
-        (channel-put-while-helper chan)
-        )
-      )))
+(define (blodwen-make-buffered-channel ty capacity)
+  (channel-new (max capacity 1)))
+
+(define (blodwen-make-unbounded-channel ty)
+  (channel-new #f))
+
+(define (channel-full? chan)
+  (let ([capacity (channel-capacity chan)])
+    (and capacity (>= (channel-count chan) capacity))))
 
 (define (blodwen-channel-put ty chan val)
-  (with-mutex (channel-read-mut chan)
-    (channel-put-while-helper chan)
-    (let ([read-box (channel-read-box chan)]
-          [val-box  (channel-val-box  chan)]
-          )
-      (set-box! val-box val)
-      (set-box! read-box #f)
-      ))
-  (condition-signal (channel-val-cv chan))
-  )
+  (with-mutex (channel-mutex chan)
+    (let loop ()
+      (when (channel-full? chan)
+        (condition-wait (channel-not-full chan) (channel-mutex chan))
+        (loop)))
+    (set-channel-back! chan (cons val (channel-back chan)))
+    (set-channel-count! chan (+ (channel-count chan) 1))
+    (condition-signal (channel-not-empty chan))))
 
-; block on the value until it has been set
-(define (channel-get-while-helper chan)
-  (let ([read-mut (channel-read-mut chan)]
-        [read-box (channel-read-box chan)]
-        [val-cv   (channel-val-cv   chan)]
-        )
-    (if (unbox read-box)
-      (begin
-        (condition-wait val-cv read-mut)
-        (channel-get-while-helper chan)
-        )
-      (void)
-      )))
+; Take the first value out of a channel that is not empty, whose mutex is held.
+(define (channel-take! chan)
+  (when (null? (channel-front chan))
+    (set-channel-front! chan (reverse (channel-back chan)))
+    (set-channel-back! chan '()))
+  (let ([val (car (channel-front chan))])
+    (set-channel-front! chan (cdr (channel-front chan)))
+    (set-channel-count! chan (- (channel-count chan) 1))
+    (condition-signal (channel-not-full chan))
+    val))
 
 (define (blodwen-channel-get ty chan)
-  (mutex-acquire (channel-read-mut chan))
-  (channel-get-while-helper chan)
-  (let* ([val-box  (channel-val-box  chan)]
-         [read-box (channel-read-box chan)]
-         [read-cv  (channel-read-cv  chan)]
-         [the-val  (unbox val-box)]
-         )
-    (set-box! val-box '())
-    (set-box! read-box #t)
-    (mutex-release (channel-read-mut chan))
-    (condition-signal read-cv)
-    the-val))
+  (with-mutex (channel-mutex chan)
+    (let loop ()
+      (when (= (channel-count chan) 0)
+        (condition-wait (channel-not-empty chan) (channel-mutex chan))
+        (loop)))
+    (channel-take! chan)))
 
+; A `Maybe`: Nothing is '(), Just x is (box x).
 (define (blodwen-channel-get-non-blocking ty chan)
-  (if (mutex-acquire (channel-read-mut chan) #f)
-    (let* ([val-box  (channel-val-box  chan)]
-           [read-box (channel-read-box chan)]
-           [read-cv  (channel-read-cv  chan)]
-           [the-val  (unbox val-box)]
-          )
-      (if (null? the-val)
-          (begin
-           (mutex-release (channel-read-mut chan))
-           '())
-          (begin
-            (set-box! val-box '())
-            (set-box! read-box #t)
-            (mutex-release (channel-read-mut chan))
-            (condition-signal read-cv)
-            (box the-val))
-      ))
-  '()))
+  (with-mutex (channel-mutex chan)
+    (if (= (channel-count chan) 0)
+        '()
+        (box (channel-take! chan)))))
 
+; The timeout is in milliseconds.
 (define (blodwen-channel-get-with-timeout ty chan timeout)
-  ;; timeout is in milliseconds, convert to nanoseconds
-  (let* ([timeout-ns (* timeout 1000000)]
-         [sleep-ns 10000] ; 10 us step
-         [sleep-time (make-time 'time-duration (mod sleep-ns 1000000000)
-                                                (div sleep-ns 1000000000))])
-    (let loop ([elapsed 0])
-      (if (mutex-acquire (channel-read-mut chan) #f)
-          (let* ([val-box  (channel-val-box chan)]
-                 [the-val  (unbox val-box)])
-            (if (null? the-val)
-                (if (>= elapsed timeout-ns)
-                    (begin
-                      (mutex-release (channel-read-mut chan))
-                      '())
-                    (begin
-                      (mutex-release (channel-read-mut chan))
-                      (sleep sleep-time)
-                      (loop (+ elapsed sleep-ns))))
-                (let* ([read-box (channel-read-box chan)]
-                       [read-cv  (channel-read-cv chan)])
-                  (set-box! val-box '())
-                  (set-box! read-box #t)
-                  (mutex-release (channel-read-mut chan))
-                  (condition-signal read-cv)
-                  (box the-val))))
-          (begin
-            (sleep sleep-time)
-            (loop (+ elapsed sleep-ns)))))))
+  (let ([deadline (add-duration (current-time 'time-monotonic)
+                                (make-time 'time-duration
+                                           (* (mod timeout 1000) 1000000)
+                                           (div timeout 1000)))])
+    (with-mutex (channel-mutex chan)
+      (let loop ()
+        (if (> (channel-count chan) 0)
+            (box (channel-take! chan))
+            (let ([now (current-time 'time-monotonic)])
+              (if (time>=? now deadline)
+                  '()
+                  (begin
+                    (condition-wait (channel-not-empty chan) (channel-mutex chan)
+                                    (time-difference deadline now))
+                    (loop)))))))))
+
+;; Compare-and-swap on IORefs (see Data.IORef): 1 if `new` was written into
+;; the box, which held `old` (by `eq?`), and 0 if it held something else.
+;; `box-cas!` may fail spuriously, so it is tried again while the box holds
+;; `old`.
+
+(define (blodwen-box-cas ty b old new)
+  (let loop ()
+    (cond [(box-cas! b old new) 1]
+          [(eq? (unbox b) old) (loop)]
+          [else 0])))
 
 ;; Mutex
 

@@ -86,8 +86,23 @@ TEST_IDRIS2_SUPPORT_DIR ?= ${TEST_PREFIX}/${NAME_VERSION}/lib
 # Library and data paths for bootstrap-test
 IDRIS2_BOOT_PREFIX := ${IDRIS2_CURDIR}/bootstrap-build
 
+# The tls library (libs/tls) is optional: it is built, tested and installed
+# only with OpenSSL 3 or later, as pkg-config finds it.  IDRIS2_TLS=1 builds
+# it anyway (and fails without OpenSSL), IDRIS2_TLS=0 leaves it out.
+PKG_CONFIG ?= pkg-config
+ifndef IDRIS2_TLS
+IDRIS2_TLS := $(shell ${PKG_CONFIG} --exists 'openssl >= 3' 2>/dev/null && echo 1 || echo 0)
+TLS_SKIPPED_MSG = The tls library is skipped: ${PKG_CONFIG} does not find OpenSSL 3 (IDRIS2_TLS=1 builds it anyway)
+else
+TLS_SKIPPED_MSG = The tls library is skipped: IDRIS2_TLS=${IDRIS2_TLS}
+endif
+TLS_LIB := $(if $(filter 1,${IDRIS2_TLS}),tls)
+# The http-tls library (libs/http-tls: HTTPS for the http library) goes with
+# the tls library: built, tested and installed when it is.
+HTTP_TLS_LIB := $(if ${TLS_LIB},http-tls)
+
 # These are the library path in the build dir to be used during build
-IDRIS2_LIBRARIES = prelude base linear network contrib test
+IDRIS2_LIBRARIES = prelude base linear network contrib test http ${TLS_LIB} ${HTTP_TLS_LIB}
 
 IDRIS2_BOOT_PATH =
 $(foreach library,$(IDRIS2_LIBRARIES),$(eval IDRIS2_BOOT_PATH := $(IDRIS2_BOOT_PATH)$(IDRIS2_CURDIR)/libs/$(library)/build/ttc$(SEP)))
@@ -96,7 +111,7 @@ export IDRIS2_BOOT_PATH := "$(IDRIS2_BOOT_PATH)"
 export SCHEME
 
 .PHONY: all idris2-exec libdocs testenv testenv-clean support clean-support clean FORCE
-.PHONY: libs libs-core libs-rest prelude base linear contrib network test-lib papers
+.PHONY: libs libs-core libs-rest prelude base linear contrib network test-lib papers http tls tls-skipped http-tls
 .PHONY: api-snapshots api-check
 
 all:
@@ -176,6 +191,9 @@ FORCE:
 #   network: base linear
 #   test:    base contrib
 #   papers:  base linear contrib
+#   http:    base contrib network
+#   tls:     base network (optional: see IDRIS2_TLS)
+#   http-tls: base contrib network http tls (with tls only)
 #
 # The libraries that do not depend on each other are built at the same time,
 # LIBS_PARALLEL of them at most (1 builds them one after the other).  This is
@@ -224,12 +242,24 @@ test-lib: ${LIBS_CORE} contrib
 papers: ${LIBS_CORE} linear contrib
 	${LIBS_JOBS_ENV} ${MAKE} -C libs/papers IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 
+http: ${LIBS_CORE} contrib network
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/http IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+
+tls: ${LIBS_CORE} network
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/tls IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+
+tls-skipped:
+	@echo "${TLS_SKIPPED_MSG}"
+
+http-tls: ${LIBS_CORE} contrib network http tls
+	${LIBS_JOBS_ENV} ${MAKE} -C libs/http-tls IDRIS2=${TARGET} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+
 bootstrap-libs: prelude base linear network
 
 # prelude and base first, one after the other, as everything depends on them;
 # then the others, in this order when they are built one after the other.
 libs-core: prelude base
-libs-rest: contrib linear network test-lib papers
+libs-rest: contrib linear network test-lib papers http $(if ${TLS_LIB},tls http-tls,tls-skipped)
 
 libs:
 	${MAKE} libs-core
@@ -242,13 +272,18 @@ libdocs:
 	${JOBS_ENV} ${MAKE} -C libs/network docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 	${JOBS_ENV} ${MAKE} -C libs/test docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
 	${JOBS_ENV} ${MAKE} -C libs/linear docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${JOBS_ENV} ${MAKE} -C libs/http docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+ifneq (${TLS_LIB},)
+	${JOBS_ENV} ${MAKE} -C libs/tls docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+	${JOBS_ENV} ${MAKE} -C libs/http-tls docs IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH}
+endif
 
 # The public API of the libraries in API_LIBS, as printed by `idris2
 # --dump-api`, is committed in libs/api/<lib>.api.  `api-snapshots` writes
 # these files again from the libraries as they are now (built by `make libs`);
 # `api-check` fails, showing the difference, when a library's API is no longer
 # the one of its file.
-API_LIBS ?= prelude base contrib
+API_LIBS ?= prelude base contrib http ${TLS_LIB} ${HTTP_TLS_LIB}
 API_DIR = ${IDRIS2_CURDIR}/libs/api
 API_BUILD_DIR = ${IDRIS2_CURDIR}/build/api
 
@@ -282,6 +317,15 @@ ${TEST_PREFIX}/${NAME_VERSION} :
 	${LINK_CMD} ${IDRIS2_CURDIR}/libs/network/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/network-${IDRIS2_VERSION}
 	${LINK_CMD} ${IDRIS2_CURDIR}/libs/contrib/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/contrib-${IDRIS2_VERSION}
 	${LINK_CMD} ${IDRIS2_CURDIR}/libs/test/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/test-${IDRIS2_VERSION}
+	${LINK_CMD} ${IDRIS2_CURDIR}/libs/http/build/ttc    ${TEST_PREFIX}/${NAME_VERSION}/http-${IDRIS2_VERSION}
+ifneq (${TLS_LIB},)
+	${LINK_CMD} ${IDRIS2_CURDIR}/libs/tls/build/ttc     ${TEST_PREFIX}/${NAME_VERSION}/tls-${IDRIS2_VERSION}
+	${LINK_CMD} ${IDRIS2_CURDIR}/libs/http-tls/build/ttc ${TEST_PREFIX}/${NAME_VERSION}/http-tls-${IDRIS2_VERSION}
+else
+	@$(RM) ${TEST_PREFIX}/${NAME_VERSION}/tls-${IDRIS2_VERSION}
+	@$(RM) ${TEST_PREFIX}/${NAME_VERSION}/http-tls-${IDRIS2_VERSION}
+	@echo "${TLS_SKIPPED_MSG}"
+endif
 
 .PHONY: ${TEST_PREFIX}/${NAME_VERSION}
 
@@ -364,6 +408,9 @@ clean-libs:
 	${JOBS_ENV} ${MAKE} -C libs/test clean
 	${JOBS_ENV} ${MAKE} -C libs/linear clean
 	${JOBS_ENV} ${MAKE} -C libs/papers clean
+	${JOBS_ENV} ${MAKE} -C libs/http clean
+	${JOBS_ENV} ${MAKE} -C libs/tls clean
+	${JOBS_ENV} ${MAKE} -C libs/http-tls clean
 
 clean: clean-libs clean-support testenv-clean
 	-${IDRIS2_BOOT} --clean ${IDRIS2_APP_IPKG}
@@ -406,6 +453,13 @@ install-bootstrap-libs:
 install-libs: install-bootstrap-libs
 	${JOBS_ENV} ${MAKE} -C libs/contrib install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
 	${JOBS_ENV} ${MAKE} -C libs/test install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	${JOBS_ENV} ${MAKE} -C libs/http install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+ifneq (${TLS_LIB},)
+	${JOBS_ENV} ${MAKE} -C libs/tls install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+	${JOBS_ENV} ${MAKE} -C libs/http-tls install IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS} IDRIS2_PREFIX=${IDRIS2_PREFIX}
+else
+	@echo "${TLS_SKIPPED_MSG}"
+endif
 
 install-with-src-libs:
 	${JOBS_ENV} ${MAKE} -C libs/prelude install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
@@ -414,6 +468,11 @@ install-with-src-libs:
 	${JOBS_ENV} ${MAKE} -C libs/network install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
 	${JOBS_ENV} ${MAKE} -C libs/test install-with-src    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
 	${JOBS_ENV} ${MAKE} -C libs/linear install-with-src  IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+	${JOBS_ENV} ${MAKE} -C libs/http install-with-src    IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+ifneq (${TLS_LIB},)
+	${JOBS_ENV} ${MAKE} -C libs/tls install-with-src     IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+	${JOBS_ENV} ${MAKE} -C libs/http-tls install-with-src IDRIS2=${TARGET} IDRIS2_PATH=${IDRIS2_BOOT_PATH} IDRIS2_INC_CGS=${LIBS_INC_CGS}
+endif
 
 install-libdocs: libdocs
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/prelude
@@ -422,12 +481,20 @@ install-libdocs: libdocs
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/network
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/test
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/linear
+	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/http
 	cp -r libs/prelude/build/docs/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/prelude
 	cp -r libs/base/build/docs/*    ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/base
 	cp -r libs/contrib/build/docs/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/contrib
 	cp -r libs/network/build/docs/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/network
 	cp -r libs/test/build/docs/*    ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/test
 	cp -r libs/linear/build/docs/*  ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/linear
+	cp -r libs/http/build/docs/*    ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/http
+ifneq (${TLS_LIB},)
+	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/tls
+	cp -r libs/tls/build/docs/*     ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/tls
+	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/http-tls
+	cp -r libs/http-tls/build/docs/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs/http-tls
+endif
 	install -m 644 support/docs/*   ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs
 
 
@@ -569,6 +636,9 @@ Variables (current value)
   BOOT_PARTS             Parts that BOOT_JOBS compile (environment, default 16 or BOOT_JOBS)
   API_LIBS=${API_LIBS}
                          The libraries whose API api-snapshots and api-check compare
+  IDRIS2_TLS=${IDRIS2_TLS}
+                         1 builds, tests and installs the tls and http-tls libraries (they need OpenSSL 3),
+                         0 leaves them out (by default 1 when pkg-config finds OpenSSL 3)
   only=, except=         Limit the tests, e.g. make test only=refc except=refc/doubles
 endef
 

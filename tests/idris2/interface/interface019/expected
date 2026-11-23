@@ -1,5 +1,5 @@
 1/1: Building LocalHints (LocalHints.idr)
-Error: While processing right hand side of bug. Can't find an implementation for Gnu.
+Error: While processing right hand side of bug. Can't find an implementation for Gnu. [E0401]
 
 LocalHints:48:17--48:22
  44 | bug {a} x = let M : More
@@ -8,4 +8,6 @@ LocalHints:48:17--48:22
  47 |                 arg = MkGnat (const B)
  48 |             in (findB ** Refl)
                       ^^^^^
+
+There is no implementation of Gnu in scope.
 

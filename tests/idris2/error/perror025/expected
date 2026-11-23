@@ -1,5 +1,5 @@
 1/1: Building DataWhere (DataWhere.idr)
-Error: Expected 'where'.
+Error: Expected 'where'. [E1101]
 
 DataWhere:2:7--2:8
  1 | data Foo : Type

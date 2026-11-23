@@ -1,5 +1,5 @@
 1/1: Building Issue1169 (Issue1169.idr)
-Error: test is not covering.
+Error: test is not covering. [E0601]
 
 Issue1169:3:1--3:26
  1 | %default total
@@ -10,7 +10,7 @@ Issue1169:3:1--3:26
 Missing cases:
     test (_, _)
 
-Error: test' is not covering.
+Error: test' is not covering. [E0601]
 
 Issue1169:6:1--6:24
  2 |
@@ -23,7 +23,7 @@ Issue1169:6:1--6:24
 Missing cases:
     test' (_, _)
 
-Error: test'' is not covering.
+Error: test'' is not covering. [E0601]
 
 Issue1169:9:1--9:22
  5 |
@@ -37,7 +37,7 @@ Missing cases:
     test'' _
 
 1/1: Building Issue1366 (Issue1366.idr)
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   f is shadowing Main.f
 
@@ -49,7 +49,7 @@ Issue1366:30:3--30:33
  30 |   A : List a -> f a -> Funny a f
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   f is shadowing Main.f
 
@@ -61,7 +61,7 @@ Issue1366:31:3--31:16
  31 |   B : Funny a f
         ^^^^^^^^^^^^^
 
-Warning: We are about to implicitly bind the following lowercase names.
+Warning: We are about to implicitly bind the following lowercase names. [W0003]
 You may be unintentionally shadowing the associated global definitions:
   f is shadowing Main.f
 
@@ -73,7 +73,7 @@ Issue1366:33:1--33:45
  33 | decode : NS [[List a, f a], []] -> Funny a f
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Error: decode is not covering.
+Error: decode is not covering. [E0601]
 
 Issue1366:33:1--33:45
  29 | data Funny : (a : Type) -> (f : Type -> Type) -> Type where

@@ -1,0 +1,4 @@
+client 1: echoes True, text after a ping, closed 1000, sent 1000, by this side
+client 2: echoes True, text after a ping, closed 4001 "as asked", sent 4001, by the peer
+client 3: echoes True, text after a ping, closed 4001 "as asked", sent 4001, by the peer
+invalid text: closed 1007 "invalid UTF-8", sent 1007, by the peer

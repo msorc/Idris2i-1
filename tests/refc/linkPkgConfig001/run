@@ -1,0 +1,27 @@
+. ../../testutils.sh
+
+# `refc-pkg-config=bar` compiles the C of the program with the flags of
+# `pkg-config --cflags bar` (the header is found), and links it with those
+# of `pkg-config --libs bar` (a static archive, here).  A module that
+# pkg-config does not know is an error that says so.
+
+# Without pkg-config (it is optional) there is nothing to test: print the
+# expected output.
+if ! type "${PKG_CONFIG:-pkg-config}" > /dev/null 2>&1; then
+  cat expected
+  exit 0
+fi
+
+cc="${IDRIS2_CC:-${CC:-cc}}"
+(cd bar && "$cc" -Iinclude -c bar.c -o bar.o && ar rcs libbar.a bar.o)
+
+unset IDRIS2_LDLIBS LDLIBS
+export PKG_CONFIG_PATH="$test_dir/bar"
+
+idris2 -o prog Main.idr > /dev/null
+./build/exec/prog
+
+echo "--- an unknown module"
+idris2 --directive refc-pkg-config=no-such-module -o prog2 Main.idr
+
+rm -rf build bar/bar.o bar/libbar.a

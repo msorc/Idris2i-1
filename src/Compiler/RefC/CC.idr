@@ -13,6 +13,8 @@ import Idris.Env
 import Data.List
 import Data.String
 
+import Libraries.Utils.Path
+
 %default total
 
 ||| The C compiler: `IDRIS2_CC`, `CC` or `cc`.  It is a single program (a
@@ -67,6 +69,232 @@ findLDLIBS
 clibdirs : List String -> List String
 clibdirs ds = map (\d => "-L" ++ d) ds
 
+------------------------------------------------------------------------
+-- What the directives of a program add to the C compiler and the linker
+
+%default covering
+--
+-- A library that wraps a C library tells what to link with directives,
+-- which `%cg refc <directive>` in a module stores in its TTC file, so that
+-- every program that imports the module gets them (`--directive` gives them
+-- on the command line, or in the `opts` of a package):
+--
+--   refc-lib=<names>        `-l<name>` for each name
+--   refc-archive=<files>    a static archive (or an object file) of the
+--                           package, found in the `lib` directories (see
+--                           `findLibraryFile`), passed by its path
+--   refc-pkg-config=<names> the output of `pkg-config --cflags` on the C
+--                           compiler's command line, and of `--libs` on the
+--                           linker's
+--
+-- A directive may give several names, separated by spaces, which keep their
+-- order.  The archives come first, then the libraries, then the flags of
+-- pkg-config, all after the object files of the program and before the
+-- support libraries of the runtime (an archive may call the runtime).  The
+-- directives of the command line come first, in their order, then those of
+-- the modules, sorted by their text (they are a set); a name that comes more
+-- than once is kept at its last place, so that a library stays after those
+-- that need it.
+
+||| The RefC directives without a value.
+refcFlagDirectives : List String
+refcFlagDirectives
+    = [ "refc-backtrace", "refc-check-layout", "refc-flat-arrays"
+      , "refc-no-borrow", "refc-no-cycle-safepoints", "refc-no-direct-results"
+      , "refc-no-flat-arrays"
+      , "refc-no-lazy-constants", "refc-no-local-closures"
+      , "refc-no-multi-reuse", "refc-no-raw-fields", "refc-no-reuse-copy"
+      , "refc-no-static", "refc-no-trmc", "refc-no-unbox-double"
+      , "refc-no-workers", "refc-size-reuse" ]
+
+||| The RefC directives with a value, `name=value`.
+refcValueDirectives : List String
+refcValueDirectives
+    = [ "refc-archive", "refc-lib", "refc-pkg-config", "refc-split-size" ]
+
+-- A directive split at its first `=`: the value is Nothing without one.
+splitDirective : String -> (String, Maybe String)
+splitDirective d
+    = case break (== '=') (unpack (trim d)) of
+           (key, []) => (pack key, Nothing)
+           (key, _ :: value) => (pack key, Just (pack value))
+
+-- Names of libraries and pkg-config modules: no options, no shell syntax.
+nameChar : Char -> Bool
+nameChar ch = isAlphaNum ch || elem ch (unpack "_.+-:")
+
+directiveError : String -> String -> Core a
+directiveError d why
+    = throw (GenericMsg emptyFC "The RefC directive \{show (trim d)} \{why}")
+
+-- The names of the value of a directive.
+directiveNames : (d : String) -> (key : String) -> (value : String) ->
+                 Core (List String)
+directiveNames d key value
+    = do let ns = words value
+         when (null ns) $ directiveError d "gives no name"
+         for_ ns $ \n =>
+           do when (isPrefixOf "-" n) $
+                directiveError d $ case key of
+                  "refc-lib" => "gives \{show n}: the names of the libraries come without -l (refc-lib=ssl for -lssl)"
+                  _ => "gives \{show n}, which is an option and not a name"
+              when (key /= "refc-archive" && not (all nameChar (unpack n))) $
+                directiveError d "gives \{show n}, which is not the name of a library"
+         pure ns
+
+-- Keep the last place of every element.
+nubLast : Eq a => List a -> List a
+nubLast = reverse . nub . reverse
+
+-- The names that the directives `key=...` give, in order (see above).
+directiveValues : {auto c : Ref Ctxt Defs} -> (key : String) -> Core (List String)
+directiveValues key
+    = do -- (`getDirectives` gives those of the command line last first)
+         defs <- get Ctxt
+         let n = length defs.options.session.directives
+         ds <- map (\ds => reverse (take n ds) ++ drop n ds) (getDirectives RefC)
+         names <- traverse (\d => case splitDirective d of
+                                       (k, Just v) => if k == key
+                                                         then directiveNames d key v
+                                                         else pure []
+                                       _ => pure []) ds
+         pure (nubLast (concat names))
+
+||| The archives of `refc-archive` directives, as they are found in the
+||| library directories (see `findLibraryFile`), in the order of the link.
+export
+refcArchives : {auto c : Ref Ctxt Defs} -> Core (List String)
+refcArchives
+    = do names <- directiveValues "refc-archive"
+         paths <- traverse find names
+         pure (nubLast paths)
+  where
+    find : String -> Core String
+    find n = catch (findLibraryFile n)
+                   (\_ => do d <- getDirs
+                             let dirs = lib_dirs d ++ map (</> "lib") (package_dirs d ++ extra_dirs d)
+                             directiveError ("refc-archive=" ++ n) $
+                               "names a file that is not in any of the library directories: "
+                                 ++ joinBy ", " dirs)
+
+||| The libraries of `refc-lib` directives, in the order of the link.
+export
+refcLibs : {auto c : Ref Ctxt Defs} -> Core (List String)
+refcLibs = directiveValues "refc-lib"
+
+||| The modules of `refc-pkg-config` directives.
+export
+refcPkgConfigs : {auto c : Ref Ctxt Defs} -> Core (List String)
+refcPkgConfigs = directiveValues "refc-pkg-config"
+
+-- The output of a command, when it succeeds.
+commandOutput : String -> IO (Maybe String)
+commandOutput cmd
+    = do Right f <- popen cmd Read
+           | Left _ => pure Nothing
+         Right out <- fRead f
+           | Left _ => do _ <- pclose f
+                          pure Nothing
+         status <- pclose f
+         pure (if status == 0 then Just out else Nothing)
+
+||| The pkg-config program: `PKG_CONFIG`, or `pkg-config`.
+findPkgConfig : IO String
+findPkgConfig = map (fromMaybe "pkg-config") (getEnv "PKG_CONFIG")
+
+||| What `pkg-config <what> <module>` prints (on one line), or Nothing when it
+||| fails (it is not installed, or does not know the module).
+export
+pkgConfigOutput : (what : String) -> (module_ : String) -> IO (Maybe String)
+pkgConfigOutput what m
+    = do pc <- findPkgConfig
+         map (map (unwords . words)) $
+           commandOutput (escapeCmd [pc, what, m] ++ " 2>/dev/null")
+
+-- The flags that pkg-config gives for the modules of the program.
+pkgConfigFlags : {auto c : Ref Ctxt Defs} -> (what : String) -> Core String
+pkgConfigFlags what
+    = do ms <- refcPkgConfigs
+         flags <- traverse one ms
+         pure (unwords flags)
+  where
+    one : String -> Core String
+    one m = do Just out <- coreLift $ pkgConfigOutput what m
+                 | Nothing => do pc <- coreLift findPkgConfig
+                                 directiveError ("refc-pkg-config=" ++ m) $
+                                   "cannot be used: `\{pc} \{what} \{m}` fails "
+                                     ++ "(is pkg-config installed, and does it know \{show m}? "
+                                     ++ "PKG_CONFIG_PATH tells it where to look)"
+               pure out
+
+||| Check the RefC directives of a program (those that start with `refc-`):
+||| an unknown one, or one with a value that cannot be, is an error, rather
+||| than something that is silently ignored or that makes the C compiler
+||| fail later.
+export
+checkRefCDirectives : {auto c : Ref Ctxt Defs} -> Core ()
+checkRefCDirectives
+    = do traverse_ check !(getDirectives RefC)
+         -- (the archives must be there, and pkg-config must know the modules)
+         ignore refcArchives
+         ignore (pkgConfigFlags "--libs")
+  where
+    check : String -> Core ()
+    check d
+        = do let (key, value) = splitDirective d
+             when (isPrefixOf "refc-" key) $ case value of
+               Nothing =>
+                 unless (key `elem` refcFlagDirectives) $
+                   directiveError d $
+                     if key `elem` refcValueDirectives
+                        then "needs a value (\{key}=...)"
+                        else "is not known"
+               Just v =>
+                 if key == "refc-split-size"
+                    then when (isNothing (parsePositive {a = Nat} (trim v))) $
+                           directiveError d "needs a number"
+                    else if key `elem` refcValueDirectives
+                       then ignore (directiveNames d key v)
+                       else directiveError d $
+                              if key `elem` refcFlagDirectives
+                                 then "takes no value"
+                                 else "is not known"
+
+||| The `lib` directories of the packages (and of the `IDRIS2_PATH`), where
+||| the headers that a package ships with its C code are looked for.
+packageLibDirs : {auto c : Ref Ctxt Defs} -> Core (List String)
+packageLibDirs
+    = do d <- getDirs
+         pure (map (</> "lib") (package_dirs d ++ extra_dirs d))
+
+-- The flags of the C compiler that do not depend on the file: the include
+-- directories of the runtime and of the packages, the flags of
+-- `refc-pkg-config` directives and those of the user.
+ccFlags : {auto c : Ref Ctxt Defs} -> Core String
+ccFlags =
+  do cFlags <- coreLift findCFLAGS
+     cppFlags <- coreLift findCPPFLAGS
+     refcDir <- findDataFile "refc"
+     cDir <- findDataFile "c"
+     pkgDirs <- packageLibDirs
+     pkgConfig <- pkgConfigFlags "--cflags"
+     pure $ escapeCmd (["-I" ++ refcDir, "-I" ++ cDir] ++ map ("-I" ++) pkgDirs)
+              ++ " " ++ pkgConfig ++ " " ++ cppFlags ++ " " ++ cFlags
+
+-- The command that runs the C compiler on `sourceFile`, writing `outFile`,
+-- with the flags `mode` (what to make) and `flags` (see `ccFlags`).
+ccCommandWith : (cc : String)
+             -> (flags : String)
+             -> (mode : List String)
+             -> (asLibrary : Bool)
+             -> (sourceFile : String)
+             -> (outFile : String)
+             -> String
+ccCommandWith cc flags mode asLibrary sourceFile outFile =
+  let libraryFlag = if asLibrary then ["-fpic"] else [] in
+  escapeCmd ([cc] ++ mode ++ libraryFlag ++ [sourceFile, "-o", outFile])
+    ++ " " ++ flags
+
 -- The command that runs the C compiler on `sourceFile`, writing `outFile`,
 -- with the flags `mode` (what to make), the include directories of the
 -- runtime and the flags of the user.
@@ -78,20 +306,8 @@ ccCommand : {auto c : Ref Ctxt Defs}
          -> Core String
 ccCommand mode asLibrary sourceFile outFile =
   do cc <- coreLift findCC
-     cFlags <- coreLift findCFLAGS
-     cppFlags <- coreLift findCPPFLAGS
-
-     refcDir <- findDataFile "refc"
-     cDir <- findDataFile "c"
-
-     let libraryFlag = if asLibrary then ["-fpic"] else []
-
-     pure $ (escapeCmd $
-         [cc] ++ mode ++ libraryFlag ++ [sourceFile,
-              "-o", outFile,
-              "-I" ++ refcDir,
-              "-I" ++ cDir])
-              ++ " " ++ cppFlags ++ " " ++ cFlags
+     flags <- ccFlags
+     pure (ccCommandWith cc flags mode asLibrary sourceFile outFile)
 
 -- The command that compiles `sourceFile` to `objectFile`.
 ccObjectCommand : {auto c : Ref Ctxt Defs}
@@ -418,10 +634,13 @@ compileUnits u present todo =
      if null todo
         then pure (Just objs)
         else do
-          cmds <- traverse (\(k, _) => do
+          -- (the flags are found once: pkg-config may have to be run)
+          cc <- coreLift findCC
+          flags <- ccFlags
+          let cmds = map (\(k, _) =>
                     let tmp = unitObject u k ++ ".tmp"
-                    cmd <- ccObjectCommand u.asLib (unitSource u k) tmp
-                    pure (k, cmd ++ " && " ++ escapeCmd ["mv", "-f", tmp, unitObject u k]))
+                        cmd = ccCommandWith cc flags ["-Werror", "-c"] u.asLib (unitSource u k) tmp
+                    in (k, cmd ++ " && " ++ escapeCmd ["mv", "-f", tmp, unitObject u k]))
                     (sortBy (\a, b => compare (snd b) (snd a)) todo)
           -- A POSIX shell script: workers that take the units one by one
           -- (a unit is claimed by making a directory for it).
@@ -468,8 +687,15 @@ compileCFiles {asShared} objectFiles outFile =
 
      let sharedFlag = if asShared then ["-shared"] else []
 
+     -- what the directives of the program link (see above)
+     archives <- refcArchives
+     libs <- refcLibs
+     pkgConfig <- pkgConfigFlags "--libs"
+
      let runcc = (escapeCmd $
-         [cc, "-Werror"] ++ sharedFlag ++ objectFiles ++ [
+         [cc, "-Werror"] ++ sharedFlag ++ objectFiles ++ archives
+           ++ map ("-l" ++) libs)
+           ++ " " ++ pkgConfig ++ " " ++ (escapeCmd $ [
               "-o", outFile,
               supportFile,
               "-lidris2_refc",

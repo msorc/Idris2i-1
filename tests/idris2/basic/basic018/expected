@@ -1,5 +1,5 @@
 1/1: Building Fin (Fin.idr)
-Error: While processing right hand side of bar. Can't find an implementation for IsJust (integerToFin 8 5).
+Error: While processing right hand side of bar. Can't find an implementation for IsJust (integerToFin 8 5). [E0401]
 
 Fin:34:7--34:8
  30 | foo : Fin 5
@@ -8,4 +8,6 @@ Fin:34:7--34:8
  33 | bar : Fin 5
  34 | bar = 8
             ^
+
+integerToFin 8 5 does not reduce here, so I can't tell which type it is.
 

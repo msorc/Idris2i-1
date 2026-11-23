@@ -340,6 +340,21 @@ Ord UserName where
   compare Underscore Underscore = EQ
   compare x y = compare (usernameTag x) (usernameTag y)
 
+  -- (the default methods compare the result of `compare` with `==` of
+  -- Ordering, a call more for each of them: the maps of names use these)
+  x < y = case compare x y of
+               LT => True
+               _ => False
+  x > y = case compare x y of
+               GT => True
+               _ => False
+  x <= y = case compare x y of
+                GT => False
+                _ => True
+  x >= y = case compare x y of
+                LT => False
+                _ => True
+
 nameTag : Name -> Int
 nameTag (NS {}) = 0
 nameTag (UN {}) = 1
@@ -353,6 +368,14 @@ nameTag (Resolved {}) = 9
 
 export
 Ord Name where
+    -- (most names in the maps of the context are user names in a
+    -- namespace: this is the next clause, with the comparison of the user
+    -- names written out)
+    compare (NS x (UN (Basic y))) (NS x' (UN (Basic y')))
+        = case compare y y' of
+               EQ => compare x x'
+               GT => GT
+               LT => LT
     compare (NS x y) (NS x' y')
         = case compare y y' of -- Compare base name first (more likely to differ)
                EQ => compare x x'
@@ -390,6 +413,21 @@ Ord Name where
     compare (Resolved x) (Resolved y) = compare x y
 
     compare x y = compare (nameTag x) (nameTag y)
+
+    -- (the default methods compare the result of `compare` with `==` of
+    -- Ordering, a call more for each of them: the maps of names use these)
+    x < y = case compare x y of
+                 LT => True
+                 _ => False
+    x > y = case compare x y of
+                 GT => True
+                 _ => False
+    x <= y = case compare x y of
+                  GT => False
+                  _ => True
+    x >= y = case compare x y of
+                  LT => False
+                  _ => True
 
 
 export

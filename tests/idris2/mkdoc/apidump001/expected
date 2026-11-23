@@ -49,7 +49,7 @@ module ApiFix.Shapes
   export implementation : Prelude.Show.Show ApiFix.Shapes.Shape
   export implementation [loud] : Prelude.Show.Show ApiFix.Shapes.Token
 same output from the second build
-Error: While processing right hand side of x. Can't find an implementation for FromString Nat.
+Error: While processing right hand side of x. Can't find an implementation for FromString Nat. [E0401]
 
 Broken:5:5--5:9
  1 | module Broken
@@ -58,5 +58,7 @@ Broken:5:5--5:9
  4 | x : Nat
  5 | x = "no"
          ^^^^
+
+There is no implementation of FromString for Nat in scope.
 
 exit status 1

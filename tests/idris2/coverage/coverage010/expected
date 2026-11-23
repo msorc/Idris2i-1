@@ -1,12 +1,12 @@
 1/1: Building casetot (casetot.idr)
-Error: main is not covering.
+Error: main is not covering. [E0602]
 
-casetot:12:1--12:13
- 08 |
- 09 | ints : Vect 4 Int
- 10 | ints = [1, 2, 3, 4]
- 11 |
- 12 | main : IO ()
-      ^^^^^^^^^^^^
+casetot:19:3--22:66
+ 19 |   case natToFin n (length ints + 1) of
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 20 |        Nothing => do putStrLn "Invalid number."
+ 21 |                      exitFailure
+ 22 |        Just (FS i) => putStrLn $ "Value: " ++ show (index i ints)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Calls non covering function Main.case block in case block in main
+Calls non covering function a case block in main (at casetot:19:3--22:66)

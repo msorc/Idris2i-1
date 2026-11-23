@@ -11,8 +11,7 @@ double idris2_flonumNaN(void) { return NAN; }
 double idris2_flonumInf(void) { return INFINITY; }
 
 void idris2_divideByZero(void) {
-  idris2_crashMsg("ERROR: Division by zero");
-  abort();
+  idris2_crashCheck("ERROR: Division by zero");
 }
 
 /* Integers (see idris2_integerMpz) */
@@ -93,7 +92,7 @@ static void idris2_shiftInteger(mpz_ptr dst, mpz_srcptr x, mpz_srcptr n,
     else if (mpz_sgn(x) == 0)
       mpz_set_ui(dst, 0);
     else
-      idris2_crashMsg("ERROR: Integer shifted left by too many bits");
+      idris2_crashCheck("ERROR: Integer shifted left by too many bits");
     return;
   }
   if (up)

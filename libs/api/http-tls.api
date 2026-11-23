@@ -1,0 +1,18 @@
+package http-tls
+
+module Network.HTTP.TLS
+  public export record HandshakeCounts : Type
+    constructor MkHandshakeCounts : Int -> Int -> Int -> Network.HTTP.TLS.HandshakeCounts
+    field failed : Network.HTTP.TLS.HandshakeCounts -> Int
+    field succeeded : Network.HTTP.TLS.HandshakeCounts -> Int
+    field timedOut : Network.HTTP.TLS.HandshakeCounts -> Int
+  export data HandshakeStats : Type
+  export covering closeWaitMs : Int
+  export covering defaultHTTPSClientConfig : PrimIO.IO (Prelude.Types.Either Network.TLS.TLSError Network.HTTP.Client.ClientConfig)
+  export covering handshakeCounts : Network.HTTP.TLS.HandshakeStats -> PrimIO.IO Network.HTTP.TLS.HandshakeCounts
+  export covering httpsClientConfig : Network.TLS.ClientContext -> Network.HTTP.Client.ClientConfig -> Network.HTTP.Client.ClientConfig
+  export covering httpsServerConfig : Network.TLS.ServerContext -> Network.HTTP.Server.ServerConfig -> PrimIO.IO (Network.HTTP.Server.ServerConfig, Network.HTTP.TLS.HandshakeStats)
+  export covering newHandshakeStats : PrimIO.IO Network.HTTP.TLS.HandshakeStats
+  export covering tlsConnector : Network.TLS.ClientContext -> Network.HTTP.Client.TLSConnector
+  export covering tlsMakeTransport : Network.TLS.ServerContext -> Int -> Network.HTTP.TLS.HandshakeStats -> Network.Socket.Async.AsyncSocket -> Network.Socket.Address.SockAddr -> PrimIO.IO (Prelude.Types.Either String Network.HTTP.Transport.Transport)
+  export covering tlsTransport : Network.TLS.TLSSocket -> Prelude.Types.Maybe Network.Socket.Address.SockAddr -> PrimIO.IO Network.HTTP.Transport.Transport
