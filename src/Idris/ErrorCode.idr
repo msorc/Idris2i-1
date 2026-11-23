@@ -109,6 +109,7 @@ errorCode (BadImplicit {}) = "E0304"
 errorCode (BadRunElab {}) = "E1003"
 errorCode (RunElabFail err) = errorCode err
 errorCode (GenericMsg {}) = "E0000"
+errorCode (UniverseInconsistency {}) = "E0107"
 errorCode (GenericMsgSol {}) = "E0000"
 errorCode (GenericMsgTerm {}) = "E0000"
 errorCode (OperatorBindingMismatch {}) = "E0308"
@@ -147,6 +148,8 @@ warningCode (ShadowingLocalBindings {}) = "W0004"
 warningCode (IncompatibleVisibility {}) = "W0005"
 warningCode (Deprecated {}) = "W0006"
 warningCode (WhereRecompute {}) = "W0007"
+warningCode (UniverseIncomplete {}) = "W0008"
+warningCode (UniverseUncheckedImports {}) = "W0009"
 warningCode (GenericWarn {}) = "W0000"
 warningCode (ErrorWarning err) = errorCode err
 
@@ -189,6 +192,17 @@ registry =
   , stub "E0104" "A metavariable would have to contain itself (a cyclic solution)"
   , stub "E0105" "A term that is not a function is applied to arguments"
   , stub "E0106" "The type of an argument can't be inferred"
+  , explained "E0107" "Universe inconsistency"
+      [ "Only with `--check-universes`. Each `Type` stands for a universe, and the universes must be ordered: `Type : Type` is not allowed, a type is in a universe above those of its parts, and the fields of a constructor are in a universe no bigger than that of their data type. The definitions checked so far need a universe to be strictly bigger than itself, through the chain of constraints that the message lists, with the place of each `Type` involved and the definition each constraint comes from. Without the check such a program can prove `Void` (Girard's paradox)."
+      , "See the reference page on universe checking for what is checked." ]
+      [ "data U : Type where"
+      , "  MkU : Type -> U       -- a U holds a type of the universe of U"
+      , ""
+      , "u : U"
+      , "u = MkU U               -- U itself is not in a smaller universe" ]
+      [ "Read the cycle: one of its steps is usually a type stored in a data type (or interface) of its own universe, or a type used at itself."
+      , "Make the data type a parameter of what it stores (`data U : Type -> Type`) instead of storing a `Type` in it."
+      , "A definition is universe polymorphic only in the universes which evaluation can't produce; give a second copy of the definition if it is needed at two universes." ]
 
   -- Names
   , explained "E0201" "Undefined name"
@@ -540,6 +554,14 @@ registry =
       , "xs = SortedSet.toList (fromList [1])" ]
       [ "Use what the documentation of the definition suggests instead." ]
   , stub "W0007" "A local definition without arguments is recomputed at each use"
+  , explained "W0008" "The universe checker could not check some definitions completely"
+      [ "Only with `--check-universes`. The universe checker checks the elaborated definitions again. Some elaborated terms are not well typed as far as it can tell (the motive of a `rewrite`, for instance, is built without being checked), so it checks what it can of them, but can't claim that they are consistent, and does not make them universe polymorphic. The warning lists them; `--log universe:1` says what was not checked in each." ]
+      []
+      [ "Nothing needs to be done; the definitions are checked as far as possible." ]
+  , explained "W0009" "Imported modules were built without the universe check"
+      [ "Only with `--check-universes`. The universe constraints of a module are saved in its TTC file when it is built with the option. Modules built without it contribute no constraints, so only the definitions of the modules built with it are checked." ]
+      []
+      [ "Build the imported modules (and the libraries they come from) with `--check-universes` too, for instance by adding it to the `opts` of their packages." ]
   ]
 
 ||| The entry of a code, if it is one (the letter can be in either case)

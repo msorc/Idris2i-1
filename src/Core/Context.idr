@@ -719,6 +719,8 @@ HasNames Warning where
   full gam w@(ShadowingLocalBindings {}) = pure w
   full gam (Deprecated fc x y) = Deprecated fc x <$> traverseOpt (traversePair (full gam)) y
   full gam (WhereRecompute fc x y z) = WhereRecompute fc x <$> full gam y <*> pure z
+  full gam (UniverseIncomplete fc x) = UniverseIncomplete fc <$> traverse (full gam) x
+  full gam (UniverseUncheckedImports fc x) = pure (UniverseUncheckedImports fc x)
   full gam (GenericWarn fc x) = pure (GenericWarn fc x)
   -- the names of the error are made full when it is printed
   full gam (ErrorWarning err) = pure (ErrorWarning err)
@@ -731,6 +733,8 @@ HasNames Warning where
   resolved gam w@(ShadowingLocalBindings {}) = pure w
   resolved gam (Deprecated fc x y) = Deprecated fc x <$> traverseOpt (traversePair (resolved gam)) y
   resolved gam (WhereRecompute fc x y z) = WhereRecompute fc x <$> resolved gam y <*> pure z
+  resolved gam (UniverseIncomplete fc x) = UniverseIncomplete fc <$> traverse (resolved gam) x
+  resolved gam (UniverseUncheckedImports fc x) = pure (UniverseUncheckedImports fc x)
   resolved gam (GenericWarn fc x) = pure (GenericWarn fc x)
   resolved gam (ErrorWarning err) = pure (ErrorWarning err)
 
@@ -810,6 +814,7 @@ HasNames Error where
   full gam (BadRunElab fc rho s desc) = BadRunElab fc <$> full gam rho <*> full gam s <*> pure desc
   full gam (RunElabFail e) = RunElabFail <$> full gam e
   full gam (GenericMsg fc x) = pure (GenericMsg fc x)
+  full gam (UniverseInconsistency fc x) = pure (UniverseInconsistency fc x)
   full gam (GenericMsgSol fc x y z) = pure (GenericMsgSol fc x y z)
   full gam (GenericMsgTerm fc env x tm y) = GenericMsgTerm fc <$> full gam env <*> pure x <*> full gam tm <*> pure y
   full gam (TTCError x) = pure (TTCError x)
@@ -918,6 +923,7 @@ HasNames Error where
   resolved gam (BadRunElab fc rho s desc) = BadRunElab fc <$> resolved gam rho <*> resolved gam s <*> pure desc
   resolved gam (RunElabFail e) = RunElabFail <$> resolved gam e
   resolved gam (GenericMsg fc x) = pure (GenericMsg fc x)
+  resolved gam (UniverseInconsistency fc x) = pure (UniverseInconsistency fc x)
   resolved gam (GenericMsgSol fc x y z) = pure (GenericMsgSol fc x y z)
   resolved gam (GenericMsgTerm fc env x tm y) = GenericMsgTerm fc <$> resolved gam env <*> pure x <*> resolved gam tm <*> pure y
   resolved gam (TTCError x) = pure (TTCError x)

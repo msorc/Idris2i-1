@@ -30,7 +30,7 @@ inconsistent exactly when they contain a cycle with a strict step, which is
 then reported, naming the ``Type`` occurrences and the definitions involved,
 for instance::
 
-    Error: Universe inconsistency: these constraints form a cycle with a strict step:
+    Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
         the universe of `Type` at Hurkens:15:5--15:9 <= the universe of `Type` at Hurkens:16:10--16:14 (from Hurkens.sigma)
         the universe of `Type` at Hurkens:16:10--16:14 < the universe of `Type` at Hurkens:15:5--15:9 (from Hurkens.U)
 
@@ -107,10 +107,10 @@ What is not covered
   checked completely, and does not make it polymorphic.
 * Definitions which do not go through the declaration processor are not
   checked: terms built by the REPL and by interactive editing.
-* The check is about universes only: an inconsistency from elsewhere, such as
-  matching on ``Type`` (upstream issue #1326), is not caught. Since the
-  check evaluates types, it may not terminate on such a program (the
-  compiler can then run out of stack).
+* The check is about universes only. Matching on types in a way that makes a
+  type constructor invertible (upstream issues #1116 and #1326) is a
+  separate source of inconsistency, which the totality checker rejects
+  (error ``E0705``), with or without this option.
 * ``believe_me``, ``assert_total``, ``%unsafe`` and foreign functions can
   prove anything and are out of the scope of the check.
 * Where the elaborator leaves a part of a term erased, no constraints come

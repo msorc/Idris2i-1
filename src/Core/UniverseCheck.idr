@@ -535,12 +535,12 @@ showLevel n
               | Nothing => pure (show n)
          pure ("the universe of `Type` at " ++ show (location gdef))
 
+||| The error for a cycle with a strict edge
 export
-showCycle : {auto c : Ref Ctxt Defs} -> List UEdge -> Core String
-showCycle es
+cycleError : {auto c : Ref Ctxt Defs} -> FC -> List UEdge -> Core Error
+cycleError fc es
     = do ls <- traverse showEdge es
-         pure ("Universe inconsistency: these constraints form a cycle with a strict step:\n"
-               ++ unlines (map ("    " ++) ls))
+         pure (UniverseInconsistency fc ls)
   where
     showEdge : UEdge -> Core String
     showEdge e
@@ -555,8 +555,7 @@ addUConstraints : {auto c : Ref Ctxt Defs} ->
 addUConstraints fc keep es
     = do defs <- get Ctxt
          case addUEdges es (graph (universes defs)) of
-              Left cycle => do msg <- showCycle cycle
-                               throw (GenericMsg fc msg)
+              Left cycle => throw !(cycleError fc cycle)
               Right g => put Ctxt (newInfo g defs)
   where
     newInfo : UGraph -> Defs -> Defs
@@ -591,8 +590,7 @@ runCheck fc origin act
          -- Check with every edge, to have the whole cycle in an error
          defs <- get Ctxt
          case addUEdges (edges st) (graph (universes defs)) of
-              Left cycle => do msg <- showCycle cycle
-                               throw (GenericMsg fc msg)
+              Left cycle => throw !(cycleError fc cycle)
               Right _ => pure ()
          let es = projectUEdges isLocalU origin (edges st)
          addUConstraints fc True es
@@ -856,23 +854,10 @@ finishModuleUniverses fc
            defs <- get Ctxt
            let ics = nub (incompleteDefs (universes defs))
            unless (null ics) $
-             recordWarning (GenericWarn fc
-               ("Universe check: " ++ show (length ics)
-                ++ " definitions could not be checked completely ("
-                ++ showSome (map show ics)
-                ++ "): their elaborated terms are not well typed as far as the universe checker can tell (see --log universe:1)"))
+             recordWarning (UniverseIncomplete fc ics)
            let ms = nub (uncheckedImports (universes defs))
            unless (null ms) $
-             recordWarning (GenericWarn fc
-               ("Universe check: " ++ show (length ms)
-                ++ " imported modules were built without --check-universes ("
-                ++ showSome ms
-                ++ "), so the universe constraints of their definitions are unknown and only this module's definitions are checked"))
-  where
-    showSome : List String -> String
-    showSome ms
-        = let shown = take 3 (sort ms) in
-              joinBy ", " shown ++ (if length ms > 3 then ", ..." else "")
+             recordWarning (UniverseUncheckedImports fc ms)
 
 ||| When checking universes, give the universes in the type of a global a
 ||| fresh name at each use the elaborator makes of it. The elaborator does not

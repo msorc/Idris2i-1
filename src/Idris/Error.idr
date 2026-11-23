@@ -45,6 +45,8 @@ Eq Warning where
   IncompatibleVisibility fc1 x1 y1 n1 == IncompatibleVisibility fc2 x2 y2 n2
     = fc1 == fc2 && x1 == x2 && y1 == y2 && n1 == n2
   Deprecated fc1 x1 y1 == Deprecated fc2 x2 y2 = fc1 == fc2 && x1 == x2 && y1 == y2
+  UniverseIncomplete fc1 x1 == UniverseIncomplete fc2 x2 = fc1 == fc2 && x1 == x2
+  UniverseUncheckedImports fc1 x1 == UniverseUncheckedImports fc2 x2 = fc1 == fc2 && x1 == x2
   GenericWarn fc1 x1 == GenericWarn fc2 x2 = fc1 == fc2 && x1 == x2
   ErrorWarning err1 == ErrorWarning err2 = getErrorLoc err1 == getErrorLoc err2
   _ == _ = False
@@ -123,6 +125,7 @@ Eq Error where
   BadRunElab fc1 rho1 s1 d1 == BadRunElab fc2 rho2 s2 d2 = fc1 == fc2 && d1 == d2
   RunElabFail e1 == RunElabFail e2 = e1 == e2
   GenericMsg fc1 x1 == GenericMsg fc2 x2 = fc1 == fc2 && x1 == x2
+  UniverseInconsistency fc1 x1 == UniverseInconsistency fc2 x2 = fc1 == fc2 && x1 == x2
   GenericMsgSol fc1 x1 y1 z1 == GenericMsgSol fc2 x2 y2 z2 = fc1 == fc2 && x1 == x2 && y1 == y2 && z1 == z2
   GenericMsgTerm fc1 _ x1 _ y1 == GenericMsgTerm fc2 _ x2 _ y2 = fc1 == fc2 && x1 == x2 && y1 == y2
   TTCError x1 == TTCError x2 = x1 == x2
@@ -597,6 +600,32 @@ pwarningRaw (WhereRecompute fc n outer deps)
     localName nm = case dropNS nm of
       Nested _ nm' => localName nm'
       nm' => sugarName nm'
+pwarningRaw (UniverseIncomplete fc ns)
+    = pure $ vcat
+    [ reflow "Universe check:" <++> pretty0 (show (length ns))
+        <++> reflow "definitions could not be checked completely"
+        <++> parens (showSome (map show ns))
+        <+> reflow ": their elaborated terms are not well typed as far as the universe checker can tell (see"
+        <++> code "--log universe:1" <+> pretty0 ")."
+    , !(ploc fc)
+    ]
+  where
+    showSome : List String -> Doc IdrisAnn
+    showSome ms = let shown = take 3 (sort ms) in
+                      pretty0 (joinBy ", " shown ++ (if length ms > 3 then ", ..." else ""))
+pwarningRaw (UniverseUncheckedImports fc ms)
+    = pure $ vcat
+    [ reflow "Universe check:" <++> pretty0 (show (length ms))
+        <++> reflow "imported modules were built without"
+        <++> code "--check-universes"
+        <++> parens (showSome ms)
+        <+> reflow ", so the universe constraints of their definitions are unknown and only this module's definitions are checked."
+    , !(ploc fc)
+    ]
+  where
+    showSome : List String -> Doc IdrisAnn
+    showSome ms = let shown = take 3 (sort ms) in
+                      pretty0 (joinBy ", " shown ++ (if length ms > 3 then ", ..." else ""))
 pwarningRaw (GenericWarn fc s)
     = pure $ vcat [pretty0 s, !(ploc fc)]
 pwarningRaw (ErrorWarning err)
@@ -1988,6 +2017,10 @@ perrorRaw (BadRunElab fc env script desc)
 perrorRaw (RunElabFail e)
     = pure $ reflow "Error during reflection" <+> colon <++> !(perrorRaw e)
 perrorRaw (GenericMsg fc str) = pure $ pretty0 str <+> line <+> !(ploc fc)
+perrorRaw (UniverseInconsistency fc steps)
+    = pure $ errorDesc (reflow "Universe inconsistency: these constraints form a cycle with a strict step:")
+        <+> line <+> indent 4 (vsep (map pretty0 steps))
+        <+> line <+> !(ploc fc)
 perrorRaw (GenericMsgTerm fc env before tm after)
     = pure $ errorDesc (reflow before <++> code !(pshow env tm) <+> pretty0 after)
         <+> line <+> !(ploc fc)

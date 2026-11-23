@@ -43,6 +43,8 @@ Summary
      - A term that is not a function is applied to arguments
    * - E0106
      - The type of an argument can't be inferred
+   * - E0107
+     - Universe inconsistency
    * - E0201
      - Undefined name
    * - E0202
@@ -183,6 +185,10 @@ Summary
      - Deprecated definition
    * - W0007
      - A local definition without arguments is recomputed at each use
+   * - W0008
+     - The universe checker could not check some definitions completely
+   * - W0009
+     - Imported modules were built without the universe check
 
 Explanations
 ============
@@ -227,6 +233,27 @@ Usual fixes:
 
 * Write the value that the variable must have (`f {n = Z} [] = 0`), or leave the argument out of the pattern.
 * Use a dot pattern (`.(Z)`) to say that the argument is forced by the others.
+
+E0107: Universe inconsistency
+-----------------------------
+
+Only with `--check-universes`. Each `Type` stands for a universe, and the universes must be ordered: `Type : Type` is not allowed, a type is in a universe above those of its parts, and the fields of a constructor are in a universe no bigger than that of their data type. The definitions checked so far need a universe to be strictly bigger than itself, through the chain of constraints that the message lists, with the place of each `Type` involved and the definition each constraint comes from. Without the check such a program can prove `Void` (Girard's paradox).
+
+See the reference page on universe checking for what is checked.
+
+.. code-block:: idris
+
+    data U : Type where
+      MkU : Type -> U       -- a U holds a type of the universe of U
+
+    u : U
+    u = MkU U               -- U itself is not in a smaller universe
+
+Usual fixes:
+
+* Read the cycle: one of its steps is usually a type stored in a data type (or interface) of its own universe, or a type used at itself.
+* Make the data type a parameter of what it stores (`data U : Type -> Type`) instead of storing a `Type` in it.
+* A definition is universe polymorphic only in the universes which evaluation can't produce; give a second copy of the definition if it is needed at two universes.
 
 E0201: Undefined name
 ---------------------
@@ -792,4 +819,22 @@ A definition marked `%deprecate` is used. It will be removed in a later version;
 Usual fixes:
 
 * Use what the documentation of the definition suggests instead.
+
+W0008: The universe checker could not check some definitions completely
+-----------------------------------------------------------------------
+
+Only with `--check-universes`. The universe checker checks the elaborated definitions again. Some elaborated terms are not well typed as far as it can tell (the motive of a `rewrite`, for instance, is built without being checked), so it checks what it can of them, but can't claim that they are consistent, and does not make them universe polymorphic. The warning lists them; `--log universe:1` says what was not checked in each.
+
+Usual fixes:
+
+* Nothing needs to be done; the definitions are checked as far as possible.
+
+W0009: Imported modules were built without the universe check
+-------------------------------------------------------------
+
+Only with `--check-universes`. The universe constraints of a module are saved in its TTC file when it is built with the option. Modules built without it contribute no constraints, so only the definitions of the modules built with it are checked.
+
+Usual fixes:
+
+* Build the imported modules (and the libraries they come from) with `--check-universes` too, for instance by adding it to the `opts` of their packages.
 

@@ -983,7 +983,10 @@ processDef opts nest env fc n_in cs_in
                                      hashit nidx opts nest env) cs_in
 
          let pats = map toPats (rights cs)
-         checkClauseUniverses fc n pats
+         -- The copies made by partial evaluation are only used at run time
+         -- (see applySpecialise), and their types are not checked either
+         unless (InPartialEval `elem` opts) $
+           checkClauseUniverses fc n pats
 
          (cargs ** (tree_ct, unreachable)) <-
              logTime 3 ("Building compile time case tree for " ++ show n) $ profile "casetree" $

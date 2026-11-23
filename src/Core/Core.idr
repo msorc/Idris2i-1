@@ -125,6 +125,12 @@ data Warning : Type where
      ||| @ deps  the enclosing variables it uses
      WhereRecompute : FC -> (local : Name) -> (outer : Name) ->
                       (deps : List1 Name) -> Warning
+     ||| With --check-universes: definitions whose elaborated terms the
+     ||| universe checker could not check completely (see Core.UniverseCheck)
+     UniverseIncomplete : FC -> (defs : List Name) -> Warning
+     ||| With --check-universes: imported modules that were built without it,
+     ||| so that the universe constraints of their definitions are unknown
+     UniverseUncheckedImports : FC -> (modules : List String) -> Warning
      GenericWarn : FC -> String -> Warning
      ||| An error that is reported, but does not stop the elaboration
      ErrorWarning : Error -> Warning
@@ -247,6 +253,10 @@ data Error : Type where
                   FC -> Env Term vars -> Term vars -> (description : String) -> Error
      RunElabFail : Error -> Error
      GenericMsg : FC -> String -> Error
+     ||| With --check-universes: the universe constraints form a cycle with a
+     ||| strict step (see Core.UniverseCheck)
+     ||| @ steps the constraints of the cycle, as they are printed
+     UniverseInconsistency : FC -> (steps : List String) -> Error
      GenericMsgSol : FC -> (message : String) ->
                            (solutionHeader : String) -> (solutions : List String) -> Error
      ||| A message about a term: the text before it, the term (printed as
@@ -315,6 +325,8 @@ Show Warning where
     show (ShadowingLocalBindings fc _) = show fc ++ ":Shadowing names"
     show (Deprecated fc name _) = show fc ++ ":Deprecated " ++ name
     show (WhereRecompute fc n _ _) = show fc ++ ":Local definition recomputed at each use " ++ show n
+    show (UniverseIncomplete fc ns) = show fc ++ ":Universe check incomplete for " ++ show ns
+    show (UniverseUncheckedImports fc ms) = show fc ++ ":Imports without universe check " ++ show ms
     show (GenericWarn fc msg) = show fc ++ msg
     show (ErrorWarning err) = showError err
 
@@ -462,6 +474,8 @@ Show Error where
   show (BadRunElab fc env script desc) = show fc ++ ":Bad elaborator script " ++ show script ++ " (" ++ desc ++ ")"
   show (RunElabFail e) = "Error during reflection: " ++ show e
   show (GenericMsg fc str) = show fc ++ ":" ++ str
+  show (UniverseInconsistency fc steps)
+      = show fc ++ ":Universe inconsistency: " ++ show steps
   show (GenericMsgSol fc msg solutionHeader sols) = show fc ++ ":" ++ msg ++ " \{solutionHeader}: " ++ show sols
   show (GenericMsgTerm fc _ before tm after) = show fc ++ ":" ++ before ++ " " ++ show tm ++ after
   show (TTCError msg) = "Error in TTC file: " ++ show msg
@@ -530,6 +544,8 @@ getWarningLoc (IncompatibleVisibility loc _ _ _) = loc
 getWarningLoc (ShadowingLocalBindings fc _) = fc
 getWarningLoc (Deprecated fc _ fcAndName) = fromMaybe fc (fst <$> fcAndName)
 getWarningLoc (WhereRecompute fc _ _ _) = fc
+getWarningLoc (UniverseIncomplete fc _) = fc
+getWarningLoc (UniverseUncheckedImports fc _) = fc
 getWarningLoc (GenericWarn fc _) = fc
 getWarningLoc (ErrorWarning err) = fromMaybe emptyFC (getErrorLoc err)
 
@@ -590,6 +606,7 @@ getErrorLoc (BadImplicit loc _) = Just loc
 getErrorLoc (BadRunElab loc _ _ _) = Just loc
 getErrorLoc (RunElabFail e) = getErrorLoc e
 getErrorLoc (GenericMsg loc _) = Just loc
+getErrorLoc (UniverseInconsistency loc _) = Just loc
 getErrorLoc (GenericMsgSol loc _ _ _) = Just loc
 getErrorLoc (GenericMsgTerm loc _ _ _ _) = Just loc
 getErrorLoc (TTCError _) = Nothing
@@ -632,6 +649,8 @@ killWarningLoc (ShadowingLocalBindings fc xs) =
     ShadowingLocalBindings emptyFC $ (\(n, _, _) => (n, emptyFC, emptyFC)) <$> xs
 killWarningLoc (Deprecated fc x y) = Deprecated emptyFC x (map ((emptyFC,) . snd) y)
 killWarningLoc (WhereRecompute fc x y z) = WhereRecompute emptyFC x y z
+killWarningLoc (UniverseIncomplete fc x) = UniverseIncomplete emptyFC x
+killWarningLoc (UniverseUncheckedImports fc x) = UniverseUncheckedImports emptyFC x
 killWarningLoc (GenericWarn fc x) = GenericWarn emptyFC x
 killWarningLoc (ErrorWarning err) = ErrorWarning (killErrorLoc err)
 
@@ -688,6 +707,7 @@ killErrorLoc (BadImplicit fc x) = BadImplicit emptyFC x
 killErrorLoc (BadRunElab fc x y description) = BadRunElab emptyFC x y description
 killErrorLoc (RunElabFail e) = RunElabFail $ killErrorLoc e
 killErrorLoc (GenericMsg fc x) = GenericMsg emptyFC x
+killErrorLoc (UniverseInconsistency fc x) = UniverseInconsistency emptyFC x
 killErrorLoc (GenericMsgSol fc x y z) = GenericMsgSol emptyFC x y z
 killErrorLoc (GenericMsgTerm fc env x tm y) = GenericMsgTerm emptyFC env x tm y
 killErrorLoc (TTCError x) = TTCError x

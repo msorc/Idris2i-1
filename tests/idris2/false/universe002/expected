@@ -1,5 +1,5 @@
 1/1: Building Fixed (Fixed.idr)
-Error: Universe inconsistency: these constraints form a cycle with a strict step:
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
     the universe of `Type` at Fixed:7:5--7:9 < an inferred universe (from Fixed.T)
     an inferred universe <= the universe of `Type` at Fixed:7:5--7:9 (from Fixed.selfT)
 
@@ -12,7 +12,7 @@ Fixed:10:1--10:10
       ^^^^^^^^^
 
 1/1: Building Russell (Russell.idr)
-Error: Universe inconsistency: these constraints form a cycle with a strict step:
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
     the universe of `Type` at Russell:5:14--5:18 < an inferred universe (from Russell.Set)
     an inferred universe <= the universe of `Type` at Russell:5:14--5:18 (from Russell.setOfAll)
 
@@ -25,7 +25,7 @@ Russell:9:1--9:22
      ^^^^^^^^^^^^^^^^^^^^^
 
 1/1: Building Box (Box.idr)
-Error: Universe inconsistency: these constraints form a cycle with a strict step:
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
     the universe of `Type` at Box:7:18--7:22 < an inferred universe (from Box.Wrap)
     an inferred universe <= the universe of `Type` at Box:7:18--7:22 (from Box.wrapSmall)
 
@@ -38,7 +38,7 @@ Box:18:1--18:37
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1/1: Building Delta (Delta.idr)
-Error: Universe inconsistency: these constraints form a cycle with a strict step:
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
     the universe of `Type` at Delta:6:34--6:40 < an inferred universe (from Delta.Delta)
     an inferred universe <= Delta.{uf:1} (from Delta.absurd)
     Delta.{uf:1} <= the universe of `Type` at Delta:6:34--6:40 (from Delta.absurd)
