@@ -56,8 +56,8 @@ Idris2_Value *Main_merge
                     Idris2_Value *var_4 = constructor_5->args[0];
                     Idris2_Value *var_5 = constructor_5->args[1];
                     int64_t primVar_6 = ((idris2_vp_to_Int64(var_2)) < (idris2_vp_to_Int64(var_4)));
-                    int64_t int_10 = primVar_6;              // Prelude.Basics:210:13--210:16
-                    Idris2_Value *tmp_7 = NULL;              // Prelude.Basics:210:13--210:16
+                    int64_t int_10 = primVar_6;              // Prelude.Basics:212:13--212:16
+                    Idris2_Value *tmp_7 = NULL;              // Prelude.Basics:212:13--212:16
                     switch (int_10) {
                     case INT64_C(0): {
                          // constructor _builtin.CONS        // Main:13:35--13:37

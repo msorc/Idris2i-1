@@ -75,7 +75,7 @@ module Prelude.Basics
   export infixl 0 on
   public export total ($) : {0 a : Type} -> {0 b : a -> Type} -> ((x : a) -> b x) -> (x : a) -> b x
   public export total (&&) : Prelude.Basics.Bool -> Lazy Prelude.Basics.Bool -> Prelude.Basics.Bool
-  public export total (.) : {0 a : Type} -> {0 c : Type} -> {0 b : Type} -> (b -> c) -> (a -> b) -> a -> c
+  public export total (.) : {0 a : Type} -> {0 c : Type} -> {0 b : Type} -> (%q _ : ((%q _ : b) -> c)) -> (%q _ : ((%q _ : a) -> b)) -> (%q _ : a) -> c
   public export total (.:) : {0 b : Type} -> {0 a : Type} -> {0 d : Type} -> {0 c : Type} -> (c -> d) -> (a -> b -> c) -> a -> b -> d
   public export total (<|) : {0 b : Type} -> {0 a : Type} -> (a -> b) -> a -> b
   public export total (|>) : {0 b : Type} -> {0 a : Type} -> a -> (a -> b) -> b
@@ -90,16 +90,16 @@ module Prelude.Basics
   public export data SnocList : Type -> Type
     constructor Lin : {0 a : Type} -> Prelude.Basics.SnocList a
     constructor (:<) : {0 a : Type} -> Prelude.Basics.SnocList a -> a -> Prelude.Basics.SnocList a
-  public export total apply : {0 b : Type} -> {0 a : Type} -> (a -> b) -> a -> b
+  public export total apply : {0 b : Type} -> {0 a : Type} -> (%p _ : ((%q _ : a) -> b)) -> (%q _ : a) -> b
   public export total cong : {0 t : Type} -> {0 a : t} -> {0 b : t} -> {0 u : Type} -> (0 f : (t -> u)) -> (0 _ : Builtin.(===) {a = t} a b) -> Builtin.(===) {a = u} (f a) (f b)
   export total cong2 : {0 t2 : Type} -> {0 c : t2} -> {0 d : t2} -> {0 t1 : Type} -> {0 a : t1} -> {0 b : t1} -> {0 u : Type} -> (0 f : (t1 -> t2 -> u)) -> (0 _ : Builtin.(===) {a = t1} a b) -> (0 _ : Builtin.(===) {a = t2} c d) -> Builtin.(===) {a = u} (f a c) (f b d)
-  public export total const : {0 b : Type} -> {0 a : Type} -> a -> b -> a
+  public export total const : {0 b : Type} -> {0 a : Type} -> (%q _ : a) -> b -> a
   public export total curry : {0 c : Type} -> {0 b : Type} -> {0 a : Type} -> ((a, b) -> c) -> a -> b -> c
   public export total depCong : {0 a : Type} -> {0 p : a -> Type} -> (0 f : ((x : a) -> p x)) -> {0 x1 : a} -> {0 x2 : a} -> Builtin.(===) {a} x1 x2 -> Builtin.(~=~) {b = p x2} {a = p x1} (f x1) (f x2)
   public export total depCong2 : {0 a : Type} -> {0 p : a -> Type} -> {0 q : (x : a) -> p x -> Type} -> (0 f : ((x : a) -> (y : p x) -> q x y)) -> {0 x1 : a} -> {0 x2 : a} -> Builtin.(===) {a} x1 x2 -> {0 y1 : p x1} -> {y2 : p x2} -> Builtin.(~=~) {b = p x2} {a = p x1} y1 y2 -> Builtin.(~=~) {b = q x2 y2} {a = q x1 y1} (f x1 y1) (f x2 y2)
   public export total dup : {0 a : Type} -> a -> (a, a)
-  public export total flip : {0 c : Type} -> {0 b : Type} -> {0 a : Type} -> (a -> b -> c) -> b -> a -> c
-  public export total id : {0 a : Type} -> a -> a
+  public export total flip : {0 c : Type} -> {0 b : Type} -> {0 a : Type} -> (%p _ : ((%q _ : a) -> (%r _ : b) -> c)) -> (%r _ : b) -> (%q _ : a) -> c
+  public export total id : {0 a : Type} -> (%q _ : a) -> a
   public export total ifThenElse : {0 a : Type} -> Prelude.Basics.Bool -> Lazy a -> Lazy a -> a
   public export total intToBool : Int -> Prelude.Basics.Bool
   export total irrelevantEq : {0 b : Type} -> {0 a : Type} -> {0 a : a} -> {0 b : b} -> (0 _ : Builtin.(~=~) {b} {a} a b) -> Builtin.(~=~) {b} {a} a b

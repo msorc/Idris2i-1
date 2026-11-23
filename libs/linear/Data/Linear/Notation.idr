@@ -8,15 +8,8 @@ public export
 (-@) : Type -> Type -> Type
 a -@ b = (1 _ : a) -> b
 
-||| Linear identity function
-public export
-id : a -@ a
-id x = x
-
-||| Linear function composition
-public export
-(.) : (b -@ c) -@ (a -@ b) -@ (a -@ c)
-(.) f g v = f (g v)
+-- The linear identity and composition are the Prelude's `id` and `(.)`,
+-- whose quantity is chosen where they are used.
 
 export prefix 5 !*
 ||| Prefix notation for the linear unrestricted modality

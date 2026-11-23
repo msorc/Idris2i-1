@@ -2106,6 +2106,15 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Library changes
 
+* (Experimental) The Prelude's `id`, `const`, `(.)`, `flip` and `apply`
+  have quantity variables: `id : (%q x : a) -> a`,
+  `(.) : (%q f : (%q _ : b) -> c) -> (%q g : (%q _ : a) -> b) -> (%q _ : a) -> c`,
+  `const : (%q x : a) -> b -> a`, `flip` and `apply` with one variable for
+  each argument.  So they are linear where linear functions are expected
+  (`id : a -@ a`, the composition of two linear functions), and as before
+  elsewhere.  `id` and `(.)` of `Data.Linear.Notation` (linear) are gone:
+  the Prelude's are used instead.
+
 * `System.IO.Fd.writeFd` to a pipe or a socket whose reader is gone
   returns `-EPIPE` instead of the program being killed by SIGPIPE: the
   signal is blocked in the calling thread for the write (and the one that

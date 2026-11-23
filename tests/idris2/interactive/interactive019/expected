@@ -7,7 +7,7 @@ Data.String.singleton : Char -> String
   Visibility: public export
 Prelude.Show.show : Char -> String
 Prelude.Cast.cast : Char -> String
-Main> Prelude.const : a -> b -> a
+Main> Prelude.const : (%q _ : a) -> b -> a
   Constant function.  Ignores its second argument.
   Totality: total
   Visibility: public export

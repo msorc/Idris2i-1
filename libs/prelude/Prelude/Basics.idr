@@ -25,9 +25,10 @@ public export %inline
 the : (0 a : Type) -> (1 x : a) -> a
 the _ x = x
 
-||| Identity function.
+||| Identity function.  Linear or unrestricted (`%q`, see "Quantity
+||| variables" in the implementation notes): `id : a -@ a` too.
 public export %inline
-id : (x : a) -> a
+id : (%q x : a) -> a
 id x = x
 
 ||| Function that duplicates its input
@@ -37,12 +38,13 @@ dup x = (x, x)
 
 ||| Constant function.  Ignores its second argument.
 public export %inline
-const : a -> b -> a
+const : (%q x : a) -> b -> a
 const x = \value => x
 
-||| Function composition.
+||| Function composition.  Of two linear functions, linearly, or of two
+||| unrestricted ones (`%q`).
 public export %inline %tcinline
-(.) : (b -> c) -> (a -> b) -> a -> c
+(.) : (%q f : (%q _ : b) -> c) -> (%q g : (%q _ : a) -> b) -> (%q _ : a) -> c
 (.) f g = \x => f (g x)
 
 ||| Composition of a two-argument function with a single-argument one.
@@ -74,12 +76,12 @@ export infixl 0 `on`
 ||| Takes in the first two arguments in reverse order.
 ||| @ f the function to flip
 public export %tcinline
-flip : (f : a -> b -> c) -> b -> a -> c
+flip : (%p f : (%q _ : a) -> (%r _ : b) -> c) -> (%r _ : b) -> (%q _ : a) -> c
 flip f = \x, y => f y x
 
 ||| Function application.
 public export %tcinline
-apply : (a -> b) -> a -> b
+apply : (%p f : (%q _ : a) -> b) -> (%q _ : a) -> b
 apply f = \a => f a
 
 ||| Convert a function on pairs to a curried function that takes arguments separately.
