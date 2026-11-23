@@ -841,6 +841,42 @@ module Data.Nat.Properties
   export total unfoldDouble : {0 n : Prelude.Types.Nat} -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} (Prelude.Num.fromInteger {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} 2) n) (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} n n)
   export total unfoldDoubleS : {0 n : Prelude.Types.Nat} -> Builtin.(===) {a = Prelude.Types.Nat} (Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} (Prelude.Num.fromInteger {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} 2) (Prelude.Types.S n)) (Prelude.Num.(+) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} (Prelude.Num.fromInteger {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} 2) (Prelude.Num.(*) {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} (Prelude.Num.fromInteger {ty = Prelude.Types.Nat} {__con = Prelude.Types.__Impl_Num_Nat} 2) n))
 
+module Data.Nat.Solver
+  import public Language.Reflection
+  public export data Expr : Type
+    constructor Var : Prelude.Types.Nat -> Data.Nat.Solver.Expr
+    constructor Lit : Prelude.Types.Nat -> Data.Nat.Solver.Expr
+    constructor Plus : Data.Nat.Solver.Expr -> Data.Nat.Solver.Expr -> Data.Nat.Solver.Expr
+    constructor Mult : Data.Nat.Solver.Expr -> Data.Nat.Solver.Expr -> Data.Nat.Solver.Expr
+  public export total Mono : Type
+  public export total Poly : Type
+  public export total addPoly : Data.Nat.Solver.Poly -> Data.Nat.Solver.Poly -> Data.Nat.Solver.Poly
+  public export total atomIndex : Prelude.Basics.List Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> (Prelude.Basics.List Language.Reflection.TTImp.TTImp, Prelude.Types.Nat)
+  public export total consEq : {0 i : Prelude.Types.Nat} -> {0 j : Prelude.Types.Nat} -> {0 is : Prelude.Basics.List Prelude.Types.Nat} -> {0 js : Prelude.Basics.List Prelude.Types.Nat} -> Prelude.Types.Maybe (Builtin.(===) {a = Prelude.Types.Nat} i j) -> Prelude.Types.Maybe (Builtin.(===) {a = Prelude.Basics.List Prelude.Types.Nat} is js) -> Prelude.Types.Maybe (Builtin.(===) {a = Prelude.Basics.List Prelude.Types.Nat} (Prelude.Basics.the (Prelude.Basics.List Prelude.Types.Nat) (Prelude.Basics.(::) {a = Prelude.Types.Nat} i is)) (Prelude.Basics.(::) {a = Prelude.Types.Nat} j js))
+  public export total eqMono : (m : Data.Nat.Solver.Mono) -> (m' : Data.Nat.Solver.Mono) -> Prelude.Types.Maybe (Builtin.(===) {a = Prelude.Basics.List Prelude.Types.Nat} m m')
+  public export total eqNat : (i : Prelude.Types.Nat) -> (j : Prelude.Types.Nat) -> Prelude.Types.Maybe (Builtin.(===) {a = Prelude.Types.Nat} i j)
+  public export total eval : Prelude.Basics.List Prelude.Types.Nat -> Data.Nat.Solver.Expr -> Prelude.Types.Nat
+  public export total evalMono : Prelude.Basics.List Prelude.Types.Nat -> Data.Nat.Solver.Mono -> Prelude.Types.Nat
+  public export total evalPoly : Prelude.Basics.List Prelude.Types.Nat -> Data.Nat.Solver.Poly -> Prelude.Types.Nat
+  public export total exprTTImp : Data.Nat.Solver.Expr -> Language.Reflection.TTImp.TTImp
+  public export total insert : Prelude.Types.Nat -> Data.Nat.Solver.Mono -> Data.Nat.Solver.Poly -> Data.Nat.Solver.Poly
+  public export total insertAt : Prelude.Types.Nat -> (m : Data.Nat.Solver.Mono) -> Prelude.Types.Nat -> (m' : Data.Nat.Solver.Mono) -> Data.Nat.Solver.Poly -> Prelude.Types.Maybe (Builtin.(===) {a = Prelude.Basics.List Prelude.Types.Nat} m m') -> Prelude.Basics.Bool -> Data.Nat.Solver.Poly
+  public export total insertVar : Prelude.Types.Nat -> Data.Nat.Solver.Mono -> Data.Nat.Solver.Mono
+  public export total insertVarAt : Prelude.Types.Nat -> Prelude.Types.Nat -> Data.Nat.Solver.Mono -> Prelude.Basics.Bool -> Data.Nat.Solver.Mono
+  public export total lookupVar : Prelude.Basics.List Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Nat
+  public export total ltMono : Data.Nat.Solver.Mono -> Data.Nat.Solver.Mono -> Prelude.Basics.Bool
+  public export total ltNat : Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Basics.Bool
+  public export total mulMono : Data.Nat.Solver.Mono -> Data.Nat.Solver.Mono -> Data.Nat.Solver.Mono
+  public export total mulPoly : Data.Nat.Solver.Poly -> Data.Nat.Solver.Poly -> Data.Nat.Solver.Poly
+  public export total mulTerm : Prelude.Types.Nat -> Data.Nat.Solver.Mono -> Data.Nat.Solver.Poly -> Data.Nat.Solver.Poly
+  public export total natEquality : Language.Reflection.TTImp.TTImp -> Prelude.Types.Maybe (Language.Reflection.TTImp.TTImp, Language.Reflection.TTImp.TTImp)
+  public export total norm : Data.Nat.Solver.Expr -> Data.Nat.Solver.Poly
+  export total normSound : (env : Prelude.Basics.List Prelude.Types.Nat) -> (e : Data.Nat.Solver.Expr) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.Solver.evalPoly env (Data.Nat.Solver.norm e)) (Data.Nat.Solver.eval env e)
+  export total prove : (env : Prelude.Basics.List Prelude.Types.Nat) -> (lhs : Data.Nat.Solver.Expr) -> (rhs : Data.Nat.Solver.Expr) -> Builtin.(===) {a = Prelude.Basics.List (Prelude.Types.Nat, Data.Nat.Solver.Mono)} (Data.Nat.Solver.norm lhs) (Data.Nat.Solver.norm rhs) -> Builtin.(===) {a = Prelude.Types.Nat} (Data.Nat.Solver.eval env lhs) (Data.Nat.Solver.eval env rhs)
+  public export total reify : Prelude.Basics.List Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> (Prelude.Basics.List Language.Reflection.TTImp.TTImp, Data.Nat.Solver.Expr)
+  public export total showPoly : Prelude.Basics.List String -> Data.Nat.Solver.Poly -> String
+  export total solveNat : {0 a : Type} -> Language.Reflection.Elab a
+
 module Data.Order
   public export data Trichotomous : {0 a : Type} -> (a -> a -> Type) -> (a -> a -> Type) -> (a -> a -> Type) -> a -> a -> Type
     constructor MkLT : {0 a : Type} -> {0 v : a} -> {0 w : a} -> {0 lt : a -> a -> Type} -> {0 eq : a -> a -> Type} -> {0 gt : a -> a -> Type} -> lt v w -> Prelude.Basics.Not (eq v w) -> Prelude.Basics.Not (gt v w) -> Data.Order.Trichotomous {a} lt eq gt v w

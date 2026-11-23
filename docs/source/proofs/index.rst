@@ -23,3 +23,4 @@ A tutorial on theorem proving in Idris 2.
    inductive
    patterns
    propositional
+   automation

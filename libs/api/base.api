@@ -2611,6 +2611,15 @@ module Decidable.Equality.Core
   export total negEqSym : {0 a : Type} -> {0 a : a} -> {0 b : a} -> Prelude.Basics.Not (Builtin.(===) {a} a b) -> Prelude.Basics.Not (Builtin.(===) {a} b a)
 
 module Deriving.Common
+  public export record ComparableCon : Type
+    constructor MkComparableCon : Language.Reflection.TT.Name -> Prelude.Basics.List Deriving.Common.ConField -> Prelude.Basics.List Prelude.Types.Nat -> Deriving.Common.ComparableCon
+    field conName : Deriving.Common.ComparableCon -> Language.Reflection.TT.Name
+    field fields : Deriving.Common.ComparableCon -> Prelude.Basics.List Deriving.Common.ConField
+    field usedTypeArgs : Deriving.Common.ComparableCon -> Prelude.Basics.List Prelude.Types.Nat
+  public export record ConField : Type
+    constructor MkConField : Language.Reflection.TT.Count -> Language.Reflection.TTImp.TTImp -> Deriving.Common.ConField
+    field rig : Deriving.Common.ConField -> Language.Reflection.TT.Count
+    field type : Deriving.Common.ConField -> Language.Reflection.TTImp.TTImp
   public export record ConstructorView : Type
     constructor MkConstructorView : Prelude.Basics.SnocList (Language.Reflection.TT.Name, Prelude.Types.Nat) -> Prelude.Basics.List (Language.Reflection.TT.Count, Language.Reflection.TTImp.Argument Language.Reflection.TTImp.TTImp) -> Deriving.Common.ConstructorView
     field conArgTypes : Deriving.Common.ConstructorView -> Prelude.Basics.List (Language.Reflection.TT.Count, Language.Reflection.TTImp.Argument Language.Reflection.TTImp.TTImp)
@@ -2633,16 +2642,45 @@ module Deriving.Common
   export total assert_IsFreeOf : {0 ty : Language.Reflection.TTImp.TTImp} -> {0 x : Language.Reflection.TT.Name} -> Deriving.Common.IsFreeOf x ty
   export total assert_hasImplementation : {0 a : Type} -> {0 t : Language.Reflection.TTImp.TTImp} -> {0 intf : a -> Type} -> Deriving.Common.HasImplementation {a} intf t
   export total cleanup : Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp
+  public export total comparableCon : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => String -> Language.Reflection.TT.Name -> Language.Reflection.TT.Name -> Language.Reflection.TTImp.TTImp -> m Deriving.Common.ComparableCon
+  public export total compareFields : (Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp) -> Prelude.Basics.List Deriving.Common.ConField -> Prelude.Basics.List Language.Reflection.TT.Name -> Prelude.Basics.List Language.Reflection.TT.Name -> Prelude.Basics.List Language.Reflection.TTImp.TTImp
+  public export total constraintOn : Language.Reflection.TT.Name -> Prelude.Basics.List Prelude.Types.Nat -> Prelude.Types.Nat -> Prelude.Types.Maybe Language.Reflection.TTImp.TTImp
   export total constructorView : Language.Reflection.TTImp.TTImp -> Prelude.Types.Maybe Deriving.Common.ConstructorView
+  public export total distinctConPairs : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TT.Name -> Prelude.Basics.List Language.Reflection.TT.Name -> m (Prelude.Basics.List (Language.Reflection.TT.Name, Language.Reflection.TT.Name))
+  public export total fieldNames : String -> Prelude.Types.Nat -> Prelude.Basics.List Language.Reflection.TT.Name
   export total freshName : Prelude.Basics.List Deriving.Common.TypeParameter -> String -> String
   export total hasImplementation : {0 a : Type} -> {0 m : Type -> Type} -> Language.Reflection.Elaboration m => (intf : (a -> Type)) -> (t : Language.Reflection.TTImp.TTImp) -> m (Prelude.Types.Maybe (Deriving.Common.HasImplementation {a} intf t))
   export total hasType : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => (nm : Language.Reflection.TT.Name) -> m (Prelude.Types.Maybe (ty : Language.Reflection.TTImp.TTImp ** Deriving.Common.HasType nm ty))
+  public export total isConForm : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Prelude.Basics.List Language.Reflection.TT.Name -> Language.Reflection.TTImp.TTImp -> m Prelude.Basics.Bool
+  public export total isConName : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TT.Name -> m Prelude.Basics.Bool
   export total isFamily : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TTImp.TTImp -> m Deriving.Common.IsFamily
   export total isFreeOf : (x : Language.Reflection.TT.Name) -> (ty : Language.Reflection.TTImp.TTImp) -> Prelude.Types.Maybe (Deriving.Common.IsFreeOf x ty)
   export total isProvable : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => (ty : Language.Reflection.TTImp.TTImp) -> m (Prelude.Types.Maybe (Deriving.Common.IsProvable ty))
+  public export total joinLines : Prelude.Basics.List String -> String
+  public export total mentions : Language.Reflection.TT.Name -> Language.Reflection.TTImp.TTImp -> Prelude.Basics.Bool
+  public export total nubNat : Prelude.Basics.List Prelude.Types.Nat -> Prelude.Basics.List Prelude.Types.Nat
   export total optionallyEta : Language.Reflection.TT.FC -> Prelude.Types.Maybe Language.Reflection.TTImp.TTImp -> (Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp) -> Language.Reflection.TTImp.TTImp
+  public export total telescope : Language.Reflection.TTImp.TTImp -> (Prelude.Basics.List (Language.Reflection.TT.Count, (Language.Reflection.TT.PiInfo Language.Reflection.TTImp.TTImp, (Prelude.Types.Maybe Language.Reflection.TT.Name, Language.Reflection.TTImp.TTImp))), Language.Reflection.TTImp.TTImp)
   export total withParams : Language.Reflection.TT.FC -> (Prelude.Types.Nat -> Prelude.Types.Maybe Language.Reflection.TTImp.TTImp) -> Prelude.Basics.List (Language.Reflection.TTImp.Argument Deriving.Common.TypeParameter, Prelude.Types.Nat) -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp
   export implementation : Prelude.Show.Show Deriving.Common.TypeParameter
+
+module Deriving.DecEq
+  import public Data.Maybe
+  import public Decidable.Equality
+  import public Deriving.Common
+  import public Language.Reflection
+  export total DecEq.derive : {0 f : Type} -> {default Language.Reflection.TT.Private _ : Language.Reflection.TT.Visibility} -> {default Language.Reflection.TT.Total _ : Language.Reflection.TT.TotalReq} -> {default (Prelude.Basics.Nil {a = Language.Reflection.TT.Name}) _ : Prelude.Basics.List Language.Reflection.TT.Name} -> Language.Reflection.Elab (Decidable.Equality.Core.DecEq f)
+  public export total decEqField : Language.Reflection.TT.Name -> Language.Reflection.TT.Name -> Prelude.Basics.List Language.Reflection.TT.Name -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp
+  public export implementation [fromDecEq] : {0 t : Type} -> ((x1 : t) -> (x2 : t) -> Prelude.Types.Dec (Builtin.(===) {a = t} x1 x2)) -> Decidable.Equality.Core.DecEq t
+  public export implementation [FromDecEq] : {0 t : Type} -> ((x1 : t) -> (x2 : t) -> Prelude.Types.Dec (Builtin.(===) {a = t} x1 x2)) => Decidable.Equality.Core.DecEq t
+
+module Deriving.Eq
+  import public Data.Maybe
+  import public Deriving.Common
+  import public Language.Reflection
+  export total Eq.derive : {0 f : Type} -> {default Language.Reflection.TT.Private _ : Language.Reflection.TT.Visibility} -> {default Language.Reflection.TT.Total _ : Language.Reflection.TT.TotalReq} -> {default (Prelude.Basics.Nil {a = Language.Reflection.TT.Name}) _ : Prelude.Basics.List Language.Reflection.TT.Name} -> Language.Reflection.Elab (Prelude.EqOrd.Eq f)
+  public export total eqField : Language.Reflection.TT.Name -> Language.Reflection.TT.Name -> Prelude.Basics.List Language.Reflection.TT.Name -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp
+  public export implementation [fromEq] : {0 ty : Type} -> (ty -> ty -> Prelude.Basics.Bool) -> Prelude.EqOrd.Eq ty
 
 module Deriving.Foldable
   import public Control.Monad.Either
@@ -2717,6 +2755,15 @@ module Deriving.Functor
   export total typeView : {0 m : Type -> Type} -> {auto elab : Language.Reflection.Elaboration m} -> {auto error : Control.Monad.Error.Interface.MonadError Deriving.Functor.Error m} -> {auto cs : Control.Monad.State.Interface.MonadState Deriving.Functor.Parameters m} -> (t : Language.Reflection.TT.Name) -> (ps : Prelude.Basics.List (Language.Reflection.TT.Name, Prelude.Types.Nat)) -> (x : Language.Reflection.TT.Name) -> {pol : Deriving.Functor.Polarity} -> (ty : Language.Reflection.TTImp.TTImp) -> m (Deriving.Functor.TypeView pol ty)
   export implementation : Prelude.Show.Show Deriving.Functor.Error
 
+module Deriving.Ord
+  import public Data.Maybe
+  import public Deriving.Common
+  import public Language.Reflection
+  export total Ord.derive : {0 f : Type} -> {default Language.Reflection.TT.Private _ : Language.Reflection.TT.Visibility} -> {default Language.Reflection.TT.Total _ : Language.Reflection.TT.TotalReq} -> {default (Prelude.Basics.Nil {a = Language.Reflection.TT.Name}) _ : Prelude.Basics.List Language.Reflection.TT.Name} -> Language.Reflection.Elab (Prelude.EqOrd.Ord f)
+  public export total compareField : Language.Reflection.TT.Name -> Language.Reflection.TT.Name -> Prelude.Basics.List Language.Reflection.TT.Name -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp
+  public export total thenCompare : Prelude.EqOrd.Ordering -> Lazy Prelude.EqOrd.Ordering -> Prelude.EqOrd.Ordering
+  public export implementation [fromCompare] : {0 ty : Type} -> Prelude.EqOrd.Eq ty => (ty -> ty -> Prelude.EqOrd.Ordering) -> Prelude.EqOrd.Ord ty
+
 module Deriving.Show
   import public Control.Monad.Either
   import public Control.Monad.State
@@ -2786,7 +2833,7 @@ module Language.Reflection
   export data Elab : Type -> Type
   public export interface Elaboration : (Type -> Type) -> Type
     parameters m
-    constructor : {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => ({0 a : Type} -> Language.Reflection.TT.FC -> String -> m a) -> (Language.Reflection.TT.FC -> String -> m Builtin.Unit) -> ({0 a : Type} -> Language.Reflection.Elab a -> Language.Reflection.Elab a -> m a) -> (String -> Prelude.Types.Nat -> String -> m Builtin.Unit) -> (String -> Prelude.Types.Nat -> String -> Language.Reflection.TTImp.TTImp -> m Builtin.Unit) -> (String -> Prelude.Types.Nat -> String -> Language.Reflection.TTImp.TTImp -> m Builtin.Unit) -> (Prelude.Types.Maybe Prelude.Types.Nat -> Language.Reflection.TTImp.TTImp -> m String) -> ({0 expected : Type} -> Language.Reflection.TTImp.TTImp -> m expected) -> ({0 a : Type} -> a -> m (Prelude.Basics.List Prelude.Types.Nat, Prelude.Basics.List (String, String))) -> ({0 val : Type} -> (0 _ : val) -> m Language.Reflection.TTImp.TTImp) -> ((0 x : Type) -> {0 ty : x -> Type} -> ((val : x) -> Language.Reflection.Elab (ty val)) -> m ((val : x) -> ty val)) -> m (Prelude.Types.Maybe Language.Reflection.TTImp.TTImp) -> m (Prelude.Basics.List Language.Reflection.TT.Name) -> (String -> m Language.Reflection.TT.Name) -> (Language.Reflection.TT.Name -> m Language.Reflection.TT.Name) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List (Language.Reflection.TT.Name, Language.Reflection.TTImp.TTImp))) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List (Language.Reflection.TT.Name, Language.Reflection.TT.NameInfo))) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List (Language.Reflection.TT.Name, Language.Reflection.TT.Visibility))) -> (Language.Reflection.TT.Name -> m Language.Reflection.TTImp.TTImp) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List Language.Reflection.TT.Name)) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List Language.Reflection.TT.Name)) -> m (Prelude.Basics.SnocList Language.Reflection.TT.Name) -> m Language.Reflection.TT.FC -> (Prelude.Basics.List Language.Reflection.TTImp.Decl -> m Builtin.Unit) -> (Language.Reflection.LookupDir -> String -> m (Prelude.Types.Maybe String)) -> (Language.Reflection.LookupDir -> String -> String -> m Builtin.Unit) -> (Language.Reflection.LookupDir -> m String) -> Language.Reflection.Elaboration m
+    constructor : {0 m : Type -> Type} -> Prelude.Interfaces.Monad m => ({0 a : Type} -> Language.Reflection.TT.FC -> String -> m a) -> (Language.Reflection.TT.FC -> String -> m Builtin.Unit) -> ({0 a : Type} -> Language.Reflection.Elab a -> Language.Reflection.Elab a -> m a) -> (String -> Prelude.Types.Nat -> String -> m Builtin.Unit) -> (String -> Prelude.Types.Nat -> String -> Language.Reflection.TTImp.TTImp -> m Builtin.Unit) -> (String -> Prelude.Types.Nat -> String -> Language.Reflection.TTImp.TTImp -> m Builtin.Unit) -> (Prelude.Types.Maybe Prelude.Types.Nat -> Language.Reflection.TTImp.TTImp -> m String) -> ({0 expected : Type} -> Language.Reflection.TTImp.TTImp -> m expected) -> ({0 a : Type} -> a -> m (Prelude.Basics.List Prelude.Types.Nat, Prelude.Basics.List (String, String))) -> ({0 val : Type} -> (0 _ : val) -> m Language.Reflection.TTImp.TTImp) -> ((0 x : Type) -> {0 ty : x -> Type} -> ((val : x) -> Language.Reflection.Elab (ty val)) -> m ((val : x) -> ty val)) -> m (Prelude.Types.Maybe Language.Reflection.TTImp.TTImp) -> m (Prelude.Basics.List Language.Reflection.TT.Name) -> (String -> m Language.Reflection.TT.Name) -> (Language.Reflection.TT.Name -> m Language.Reflection.TT.Name) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List (Language.Reflection.TT.Name, Language.Reflection.TTImp.TTImp))) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List (Language.Reflection.TT.Name, Language.Reflection.TT.NameInfo))) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List (Language.Reflection.TT.Name, Language.Reflection.TT.Visibility))) -> (Language.Reflection.TT.Name -> m Language.Reflection.TTImp.TTImp) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List Language.Reflection.TT.Name)) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List Language.Reflection.TT.Name)) -> m (Prelude.Basics.SnocList Language.Reflection.TT.Name) -> m Language.Reflection.TT.FC -> (Prelude.Basics.List Language.Reflection.TTImp.Decl -> m Builtin.Unit) -> (Language.Reflection.LookupDir -> String -> m (Prelude.Types.Maybe String)) -> (Language.Reflection.LookupDir -> String -> String -> m Builtin.Unit) -> (Language.Reflection.LookupDir -> m String) -> (Language.Reflection.TTImp.TTImp -> m (Language.Reflection.TTImp.TTImp, Language.Reflection.TTImp.TTImp)) -> ({0 val : Type} -> Prelude.Basics.Bool -> (0 _ : val) -> m Language.Reflection.TTImp.TTImp) -> (Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> m Prelude.Basics.Bool) -> (Language.Reflection.TT.Name -> m (Prelude.Basics.List Language.Reflection.TTImp.Clause)) -> Language.Reflection.Elaboration m
     method failAt : {0 a : Type} -> {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TT.FC -> String -> m a
     method warnAt : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TT.FC -> String -> m Builtin.Unit
     method try : {0 a : Type} -> {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.Elab a -> Language.Reflection.Elab a -> m a
@@ -2814,6 +2861,10 @@ module Language.Reflection
     method readFile : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.LookupDir -> String -> m (Prelude.Types.Maybe String)
     method writeFile : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.LookupDir -> String -> String -> m Builtin.Unit
     method idrisDir : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.LookupDir -> m String
+    method infer : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TTImp.TTImp -> m (Language.Reflection.TTImp.TTImp, Language.Reflection.TTImp.TTImp)
+    method quoteNF : {0 val : Type} -> {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Prelude.Basics.Bool -> (0 _ : val) -> m Language.Reflection.TTImp.TTImp
+    method convertible : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TTImp.TTImp -> Language.Reflection.TTImp.TTImp -> m Prelude.Basics.Bool
+    method getClauses : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TT.Name -> m (Prelude.Basics.List Language.Reflection.TTImp.Clause)
   public export data LookupDir : Type
     constructor ProjectDir : Language.Reflection.LookupDir
     constructor SourceDir : Language.Reflection.LookupDir
@@ -2824,6 +2875,7 @@ module Language.Reflection
   export total fail : {0 a : Type} -> {0 m : Type -> Type} -> Language.Reflection.Elaboration m => String -> m a
   export total isPublic : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Language.Reflection.TT.Name -> m Prelude.Basics.Bool
   export total logGoal : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => String -> Prelude.Types.Nat -> String -> m Builtin.Unit
+  export total normaliseTerm : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => Prelude.Basics.Bool -> Language.Reflection.TTImp.TTImp -> m Language.Reflection.TTImp.TTImp
   export total search : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => (0 ty : Type) -> m (Prelude.Types.Maybe ty)
   export total warn : {0 m : Type -> Type} -> Language.Reflection.Elaboration m => String -> m Builtin.Unit
   export implementation : Language.Reflection.Elaboration Language.Reflection.Elab

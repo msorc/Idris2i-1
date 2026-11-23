@@ -187,3 +187,29 @@ unless they say otherwise.
   RefC) is not written: those slots are `Maybe`-typed at the primitive
   level, so it needs its own primitives or a `Maybe`-free slot interface.
   `zipWith` on an `Array` costs 17% more than on a `Vect` on RefC.
+* Proof automation has no tactic layer. Elaborator reflection can now infer,
+  normalise, test conversion and read clauses, but a tactic would also need
+  access to the holes and metavariables of a goal (list them, read their
+  contexts, solve one), a proof state with several goals to focus on, and a
+  controlled form of unification that reports what it solved; today a script
+  can only build a whole term and `check` it.
+* `Data.Nat.Solver` handles equalities in commutative semirings only: no
+  subtraction (`minus` and `Integer` rings), no inequalities (`LTE`), and
+  atoms are compared syntactically, so `f (x + y)` and `f (y + x)` differ.
+  Coefficients are unary: the cost of checking a proof grows with them.
+* The derivers of `Eq`, `Ord` and `DecEq` compare two values of one type.
+  They reject an indexed family whose indices are computed by functions
+  (`STree (S (l + r))`) or whose fields depend on an implicit that the type
+  does not determine (`Lam : Expr d -> Expr Write`); `Eq` and `Ord` could
+  handle these with a comparison that is heterogeneous in the indices. The
+  derived `decEq` has one refutation per pair of constructors, so its size is
+  quadratic in their number.
+* An elaborator script runs in the module that uses it, where only the
+  modules imported (and those imported publicly by them) are loaded: a
+  function of a module that a library imports privately does not reduce, and
+  the script fails with an unhelpful message such as "Can't reify as String".
+  For example `show` of a `TTImp` lambda or Pi type needs `Data.Maybe`, which
+  `Language.Reflection.TTImp` imports privately. The derivers avoid such
+  functions; the compiler could load those modules, or say what is missing.
+* `Join` hides its nested occurrence of `Elab` from the positivity checker
+  with `assert_total`, since `Elab` is an index of `Elab`.
