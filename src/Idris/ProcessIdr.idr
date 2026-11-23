@@ -79,9 +79,12 @@ processDecl : {auto c : Ref Ctxt Defs} ->
 -- as soon as one of the definitions fails)
 processDecl (MkWithData _ $ PNamespace ns ps)
     = withExtendedNS ns $ processDecls ps
-processDecl (MkWithData _ $ PMutual ps)
+processDecl decl@(MkWithData _ $ PMutual ps)
     = let (tys, defs) = splitMutual ps in
-      processDecls (tys ++ defs)
+      -- with --check-universes, the definitions of the block are one group
+      -- (see Core.UniverseCheck)
+      withUniverseGroup (UN (Basic ("mutual block at " ++ show decl.fc))) $
+        processDecls (tys ++ defs)
 
 processDecl decl
     = profileDecl (show decl.fc ++ concatMap ((" " ++) . show) (take 1 (definedIn [decl.val]))) $

@@ -15,8 +15,10 @@ elemOf : Type -> Type
 elemOf (Seq a) = a
 elemOf _ = Unit
 
-T : Type
-T = elemOf (Seq Type)
+-- (in the mutual block, both uses of T are the same copy)
+mutual
+  T : Type
+  T = elemOf (Seq Type)
 
-selfT : T
-selfT = T
+  selfT : T
+  selfT = T

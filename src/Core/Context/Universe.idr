@@ -46,6 +46,22 @@ record UGraph where
   succs : NameMap (List UEdge)
   levels : NameMap Nat
 
+||| The names of a list without repetitions, in the order of their first
+||| occurrence
+export
+nubNames : List Name -> List Name
+nubNames = go empty
+  where
+    go : NameMap () -> List Name -> List Name
+    go seen [] = []
+    go seen (n :: ns)
+        = if isJust (lookup n seen) then go seen ns else n :: go (insert n () seen) ns
+
+||| A set of names, for membership tests
+export
+nameSet : List Name -> NameMap ()
+nameSet = foldl (\ m, n => insert n () m) empty
+
 export
 emptyUGraph : UGraph
 emptyUGraph = MkUGraph empty empty
@@ -143,7 +159,7 @@ projectUEdges : (isLocal : Name -> Bool) -> (origin : Name) ->
 projectUEdges isLocal origin es
     = let adj = foldl (\m, e => insert e.lo (e :: fromMaybe [] (lookup e.lo m)) m)
                       empty es
-          srcs = nub (filter (not . isLocal) (map lo es)) in
+          srcs = nubNames (filter (not . isLocal) (map lo es)) in
           concatMap (fromSource adj) srcs
   where
     fromSource : NameMap (List UEdge) -> Name -> List UEdge
@@ -174,14 +190,15 @@ projectUEdges isLocal origin es
                                            (insert o.hi (s' :: fromMaybe [] (lookup o.hi vis)) vis)
                                            found
 
-||| The universe polymorphism of a global definition: the universes in its
-||| type which may be renamed at each use, with the constraints its checking
-||| put on them. See Core.UniverseCheck for when this is sound.
+||| The universe polymorphism of a global definition: the universes which
+||| may be renamed at each use, with the constraints its checking put on
+||| them. See Core.UniverseCheck for when this is sound.
 public export
 record USchema where
   constructor MkUSchema
-  ||| For a type constructor, in this order, the universes which an instance
-  ||| of it names (see TyCon in Core.TT.Term)
+  ||| For a function, in this order, the universes which an instance of a
+  ||| reference to it names (see Func in Core.TT.Term); for a type
+  ||| constructor, those of them which are in 'instOnly' (see TyCon)
   poly : List Name
   edges : List UEdge
   ||| The universes of 'poly' which are renamed only through an instance:
@@ -191,6 +208,43 @@ record USchema where
   ||| When the definition was completed (see 'completions'); -1 for the
   ||| definitions of imported modules
   stamp : Int
+  ||| The definitions which share this schema (a definition and the case
+  ||| blocks, with blocks and local definitions lifted out of it, or an
+  ||| implementation and its methods): a reference from one of them to
+  ||| another has no instance, and is renamed with the one it is in
+  group : List Name
+  ||| Further universes of a function, which a copy does not rename on their
+  ||| own: each is renamed as the universe of 'poly' it goes with, or is
+  ||| replaced by a universe which is not renamed (see 'minimise' in
+  ||| Core.UniverseCheck). The definition's own universes (a reference
+  ||| without an instance) are not changed.
+  aliases : List (Name, Name)
+  ||| For a function: none of these universes are in its clauses (its body),
+  ||| only in its type. Then a reference to it needs no instance: unfolding
+  ||| it gives the same body whatever the instance, and the checker gives
+  ||| its type fresh universes at each use (as for a constructor).
+  bodyFree : Bool
+
+||| The renaming of the universes of a function's schema to an instance
+||| (which names the universes of 'poly', in order)
+export
+instPairs : USchema -> List Name -> List (Name, Name)
+instPairs sch inst
+    = let ps = zip sch.poly inst
+          m = addPairs ps empty in
+          ps ++ map (\ (a, t) => (a, fromMaybe t (lookup t m))) sch.aliases
+
+  where
+    addPairs : List (Name, Name) -> NameMap Name -> NameMap Name
+    addPairs [] m = m
+    addPairs ((p, u) :: ps) m = addPairs ps (insert p u m)
+
+||| The pairs of universes which two references to a function identify, when
+||| one of them has no instance (the function's own universes) and the other
+||| has 'inst'
+export
+ownPairs : USchema -> List Name -> List (Name, Name)
+ownPairs sch inst = instPairs sch inst
 
 ||| What the universe checker keeps for the module being processed.
 public export
@@ -222,9 +276,10 @@ record UniverseInfo where
   ||| the checks so far, and whether one of them met an unsolved
   ||| metavariable
   defEdges : NameMap (List UEdge, Bool)
-  ||| For each universe in the type of a global definition, the definitions
-  ||| whose types have it: a definition can rename it only if they all
-  ||| belong to its family (itself, or its data type and constructors)
+  ||| For each universe in the type or the clauses of a global definition,
+  ||| the definitions which have it: a definition can rename it only if they
+  ||| all belong to its family (itself, or its data type and constructors)
+  ||| or its group (see 'group' in USchema)
   typeOwner : NameMap (List Name)
   ||| What this module adds to 'typeOwner', to save in its TTC file
   savedTypeOwner : List (Name, Name)
@@ -235,8 +290,15 @@ record UniverseInfo where
   ||| For each definition of this module, the value of 'completions' when its
   ||| check started
   defStart : NameMap Int
+  ||| The implementation being elaborated, if it is not inside a definition:
+  ||| the definitions checked until it is done are one group with it
+  implGroup : Maybe Name
+  ||| The definitions checked completely whose schemas wait for their group
+  ||| to be done, by the name of the group, with their universes
+  deferred : NameMap (List (Name, List Name))
 
 export
 initUniverseInfo : UniverseInfo
 initUniverseInfo
     = MkUniverseInfo emptyUGraph [] empty empty [] empty [] empty [] empty empty [] [] 0 empty
+                     Nothing empty

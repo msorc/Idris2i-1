@@ -1,16 +1,10 @@
 1/1: Building Pack (Pack.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    an inferred universe <= an inferred universe (from Pack.pack)
-    an inferred universe <= an inferred universe (from Pack.setOfAll)
-    an inferred universe <= Pack.{uf:1} (from Pack.Pack implementation at Pack:1)
     Pack.{uf:1} <= Pack.{uf:2} (from Pack.Pack implementation at Pack:1)
-    Pack.{uf:2} <= Pack.{uf:3} (from Pack.pack)
-    Pack.{uf:3} <= Pack.{uf:4} (from Pack.Pack implementation at Pack:1)
-    Pack.{uf:4} <= an inferred universe (from Pack.Pack implementation at Pack:1)
-    an inferred universe <= Pack.{uf:5} (from Pack.setOfAll)
-    Pack.{uf:5} < an inferred universe (from Pack.Set)
-    an inferred universe <= an inferred universe (from Pack.setOfAll)
-    an inferred universe <= an inferred universe (from Pack.pack)
+    Pack.{uf:2} <= Pack.{uf:3} (from Pack.setOfAll)
+    Pack.{uf:3} < an inferred universe (from Pack.Set)
+    an inferred universe <= Pack.{uf:4} (from Pack.setOfAll)
+    Pack.{uf:4} <= Pack.{uf:1} (from Pack.setOfAll)
 
 Pack:23:1--23:23
  19 | Pack Set where
@@ -22,25 +16,19 @@ Pack:23:1--23:23
 
 1/1: Building Wrap (Wrap.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    an inferred universe <= an inferred universe (from Wrap.pack)
-    an inferred universe <= an inferred universe (from Wrap.self)
-    an inferred universe <= Wrap.{uf:1} (from Wrap.Pack implementation at Wrap:1)
     Wrap.{uf:1} <= Wrap.{uf:2} (from Wrap.Pack implementation at Wrap:1)
-    Wrap.{uf:2} <= Wrap.{uf:3} (from Wrap.pack)
-    Wrap.{uf:3} <= Wrap.{uf:4} (from Wrap.Pack implementation at Wrap:1)
-    Wrap.{uf:4} <= an inferred universe (from Wrap.Pack implementation at Wrap:1)
-    an inferred universe <= Wrap.{uf:5} (from Wrap.self)
-    Wrap.{uf:5} < an inferred universe (from Wrap.T)
-    an inferred universe <= an inferred universe (from Wrap.self)
-    an inferred universe <= an inferred universe (from Wrap.pack)
+    Wrap.{uf:2} <= Wrap.{uf:3} (from Wrap.self)
+    Wrap.{uf:3} < the universe of `Type` at Wrap:24:7--24:11 (from Wrap.T)
+    the universe of `Type` at Wrap:24:7--24:11 <= Wrap.{uf:4} (from Wrap.self)
+    Wrap.{uf:4} <= Wrap.{uf:1} (from Wrap.self)
 
-Wrap:25:1--25:14
- 21 | T = Wrap
- 22 |
- 23 | -- a Wrap holding itself
- 24 | self : T
- 25 | self = pack T
-      ^^^^^^^^^^^^^
+Wrap:28:3--28:16
+ 24 |   T : Type
+ 25 |   T = Wrap
+ 26 |
+ 27 |   self : T
+ 28 |   self = pack T
+        ^^^^^^^^^^^^^
 
 1/1: Building Monads (Monads.idr)
 1/1: Building HList (HList.idr)

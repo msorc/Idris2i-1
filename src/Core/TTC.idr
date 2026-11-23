@@ -282,14 +282,52 @@ TTC LazyReason where
              2 => pure LUnknown
              _ => corrupt "LazyReason"
 
+-- A universe instance (see NameType). Its names are mostly copies made for
+-- the universe checker, of one namespace and kind, so after the first name
+-- only the number of each such name is written.
+toBufInst : {auto b : Ref Bin Binary} -> List Name -> Core ()
+toBufInst [] = toBuf (the Int 0)
+toBufInst (n :: ns)
+    = do toBuf (the Int (cast (length (n :: ns))))
+         toBuf n
+         traverse_ one ns
+  where
+    one : Name -> Core ()
+    one m = case (n, m) of
+                 (NS ns (MN s _), NS ns' (MN s' i)) =>
+                    if ns == ns' && s == s'
+                       then do tag 0; toBuf i
+                       else do tag 1; toBuf m
+                 _ => do tag 1; toBuf m
+
+fromBufInst : {auto b : Ref Bin Binary} -> Core (List Name)
+fromBufInst
+    = do len <- fromBuf {a = Int}
+         if len <= 0 then pure [] else
+           do n <- fromBuf
+              rest <- readRest n (len - 1)
+              pure (n :: rest)
+  where
+    readRest : Name -> Int -> Core (List Name)
+    readRest n k
+        = if k <= 0 then pure [] else
+            do m <- case !getTag of
+                         0 => do i <- fromBuf {a = Int}
+                                 case n of
+                                      NS ns (MN s _) => pure (NS ns (MN s i))
+                                      _ => corrupt "universe instance"
+                         1 => fromBuf
+                         _ => corrupt "universe instance"
+               pure (m :: !(readRest n (k - 1)))
+
 export
 TTC NameType where
   toBuf Bound = tag 0
   toBuf (Func []) = tag 1
-  toBuf (Func inst) = do tag 5; toBuf inst
+  toBuf (Func inst) = do tag 5; toBufInst inst
   toBuf (DataCon t arity) = do tag 2; toBuf t; toBuf arity
   toBuf (TyCon arity []) = do tag 3; toBuf arity
-  toBuf (TyCon arity inst) = do tag 4; toBuf arity; toBuf inst
+  toBuf (TyCon arity inst) = do tag 4; toBuf arity; toBufInst inst
 
   fromBuf
       = case !getTag of
@@ -297,8 +335,8 @@ TTC NameType where
              1 => pure (Func [])
              2 => do x <- fromBuf; y <- fromBuf; pure (DataCon x y)
              3 => do y <- fromBuf; pure (TyCon y [])
-             4 => do y <- fromBuf; inst <- fromBuf; pure (TyCon y inst)
-             5 => do inst <- fromBuf; pure (Func inst)
+             4 => do y <- fromBuf; inst <- fromBufInst; pure (TyCon y inst)
+             5 => do inst <- fromBufInst; pure (Func inst)
              _ => corrupt "NameType"
 
 -- Assumption is that it was type safe when we wrote it out, so believe_me
@@ -1281,6 +1319,8 @@ TTC UEdge where
 
 export
 TTC USchema where
-  toBuf s = do toBuf s.poly; toBuf s.edges; toBuf s.instOnly
-  fromBuf = do ps <- fromBuf; es <- fromBuf; io <- fromBuf
-               pure (MkUSchema ps es io (-1))
+  toBuf s = do toBuf s.poly; toBuf s.edges; toBuf s.instOnly; toBuf s.group
+               toBuf s.aliases; toBuf s.bodyFree
+  fromBuf = do ps <- fromBuf; es <- fromBuf; io <- fromBuf; g <- fromBuf
+               as <- fromBuf; bf <- fromBuf
+               pure (MkUSchema ps es io (-1) g as bf)

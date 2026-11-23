@@ -1,26 +1,26 @@
 1/1: Building Nested (Nested.idr)
 1/1: Building NestedValue (NestedValue.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    NestedValue.{uf:1} < an inferred universe (from NestedValue.C)
-    an inferred universe <= an inferred universe (from NestedValue.nested)
+    the universe of `Type` at NestedValue:16:15--16:19 <= an inferred universe (from NestedValue.nested)
     an inferred universe <= NestedValue.{uf:1} (from NestedValue.nested)
+    NestedValue.{uf:1} < the universe of `Type` at NestedValue:16:15--16:19 (from NestedValue.C)
 
-NestedValue:18:1--18:23
- 14 | C : Type -> Type
- 15 | C = Comp
- 16 |
- 17 | nested : C (C Nat)
- 18 | nested = Pure (Pure Z)
-      ^^^^^^^^^^^^^^^^^^^^^^
+NestedValue:20:3--20:25
+ 16 |   C : Type -> Type
+ 17 |   C = Comp
+ 18 |
+ 19 |   nested : C (C Nat)
+ 20 |   nested = Pure (Pure Z)
+        ^^^^^^^^^^^^^^^^^^^^^^
 
 1/1: Building Index (Index.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    the universe of `Type` at Index:6:5--6:9 < an inferred universe (from Index.U)
-    an inferred universe <= the universe of `Type` at Index:6:5--6:9 (from Index.T)
+    the universe of `Type` at Index:7:7--7:11 <= the universe of `Type` at Index:8:7--8:11 (from Index.T)
+    the universe of `Type` at Index:8:7--8:11 < the universe of `Type` at Index:7:7--7:11 (from Index.U)
 
-Index:8:1--9:12
- 8 | data T : U -> Type where
-     ^^^^^^^^^^^^^^^^^^^^^^^^
- 9 |   MkT : T U
-       ^^^^^^^^^
+Index:10:3--11:14
+ 10 |   data T : U -> Type where
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+ 11 |     MkT : T U
+          ^^^^^^^^^
 

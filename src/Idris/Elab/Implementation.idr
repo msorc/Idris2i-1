@@ -242,68 +242,72 @@ elabImplementation {vars} ifc vis opts_in pass env nest is cons iname ps named i
                -- (the names defined from here on are those of the
                -- implementation: see step 5.5)
                firstMethEntry <- getNextEntry
-               defs <- get Ctxt
-               fns <- topMethTypes [] impName methImps impsp
-                                      (implParams cdata) (params cdata)
-                                      (map (.nameVal) (methods cdata))
-                                      (methods cdata)
-               traverse_ (processDecl [] nest env) (map mkTopMethDecl fns)
+               -- (with --check-universes, the record and the methods are
+               -- one group: see Core.UniverseCheck)
+               upds <- withUniverseGroup impName $ do
+                 defs <- get Ctxt
+                 fns <- topMethTypes [] impName methImps impsp
+                                        (implParams cdata) (params cdata)
+                                        (map (.nameVal) (methods cdata))
+                                        (methods cdata)
+                 traverse_ (processDecl [] nest env) (map mkTopMethDecl fns)
 
-               -- 3. Build the record for the implementation
-               let mtops = map (fst . snd) fns
-               let con = iconstructor cdata
-               let ilhs = impsApply (IVar EmptyFC impName)
-                                    (map (\(x, _) => (x, IBindVar vfc x)) methImps)
-               -- RHS is the constructor applied to a search for the necessary
-               -- parent constraints, then the method implementations
-               defs <- get Ctxt
-               let fldTys = getFieldArgs !(normaliseHoles defs Env.empty conty)
-               log "elab.implementation" 5 $ "Field types " ++ show fldTys
-               let irhs = apply (autoImpsApply (IVar vfc con) $ map (const (ISearch vfc 500)) (parents cdata))
-                                (map (mkMethField methImps fldTys) fns)
-               let impFn = IDef vfc impName [PatClause vfc ilhs irhs]
-               log "elab.implementation" 5 $ "Implementation record: " ++ show impFn
+                 -- 3. Build the record for the implementation
+                 let mtops = map (fst . snd) fns
+                 let con = iconstructor cdata
+                 let ilhs = impsApply (IVar EmptyFC impName)
+                                      (map (\(x, _) => (x, IBindVar vfc x)) methImps)
+                 -- RHS is the constructor applied to a search for the necessary
+                 -- parent constraints, then the method implementations
+                 defs <- get Ctxt
+                 let fldTys = getFieldArgs !(normaliseHoles defs Env.empty conty)
+                 log "elab.implementation" 5 $ "Field types " ++ show fldTys
+                 let irhs = apply (autoImpsApply (IVar vfc con) $ map (const (ISearch vfc 500)) (parents cdata))
+                                  (map (mkMethField methImps fldTys) fns)
+                 let impFn = IDef vfc impName [PatClause vfc ilhs irhs]
+                 log "elab.implementation" 5 $ "Implementation record: " ++ show impFn
 
-               -- If it's a named implementation, add it as a global hint while
-               -- elaborating the record and bodies
-               when named $ addOpenHint impName
+                 -- If it's a named implementation, add it as a global hint while
+                 -- elaborating the record and bodies
+                 when named $ addOpenHint impName
 
-               -- Make sure we don't use this name to solve parent constraints
-               -- when elaborating the record, or we'll end up in a cycle!
-               setFlag vfc impName BlockedHint
+                 -- Make sure we don't use this name to solve parent constraints
+                 -- when elaborating the record, or we'll end up in a cycle!
+                 setFlag vfc impName BlockedHint
 
-               -- Update nested names so we elaborate the body in the right
-               -- environment
-               names' <- traverse applyEnv (impName :: mtops)
-               let nest' = { names $= (names' ++) } nest
+                 -- Update nested names so we elaborate the body in the right
+                 -- environment
+                 names' <- traverse applyEnv (impName :: mtops)
+                 let nest' = { names $= (names' ++) } nest
 
-               -- it's the methods we're interested in, not the implementation
-               -- (and its coverage must not count the methods of its parents
-               -- as a total function's would: see step 5.5)
-               setFlag vfc impName (SetTotal PartialOK)
+                 -- it's the methods we're interested in, not the implementation
+                 -- (and its coverage must not count the methods of its parents
+                 -- as a total function's would: see step 5.5)
+                 setFlag vfc impName (SetTotal PartialOK)
 
-               traverse_ (processDecl [] nest' env) [impFn]
-               unsetFlag vfc impName BlockedHint
+                 traverse_ (processDecl [] nest' env) [impFn]
+                 unsetFlag vfc impName BlockedHint
 
-               setFlag vfc impName TCInline
+                 setFlag vfc impName TCInline
 
-               -- 4. (TODO: Order method bodies to be in declaration order, in
-               --    case of dependencies)
+                 -- 4. (TODO: Order method bodies to be in declaration order, in
+                 --    case of dependencies)
 
-               -- 5. Elaborate the method bodies
-               let upds = map methNameUpdate fns
-               body' <- traverse (updateBody upds) body
+                 -- 5. Elaborate the method bodies
+                 let upds = map methNameUpdate fns
+                 body' <- traverse (updateBody upds) body
 
-               log "elab.implementation" 10 $ "Implementation body: " ++ show body'
-               traverse_ (processDecl [] nest' env) body'
+                 log "elab.implementation" 10 $ "Implementation body: " ++ show body'
+                 traverse_ (processDecl [] nest' env) body'
 
-               -- 5.5. The record was checked for coverage before the method
-               --    bodies existed, when the methods counted as covering.
-               --    Now that they are defined, flag the methods that are not
-               --    covering, so that resolving this implementation in a
-               --    covering or total function is reported there when the
-               --    method totality check is on.
-               updateImplCoverage firstMethEntry impName
+                 -- 5.5. The record was checked for coverage before the method
+                 --    bodies existed, when the methods counted as covering.
+                 --    Now that they are defined, flag the methods that are not
+                 --    covering, so that resolving this implementation in a
+                 --    covering or total function is reported there when the
+                 --    method totality check is on.
+                 updateImplCoverage firstMethEntry impName
+                 pure upds
 
                -- 6. Add transformation rules for top level methods
                traverse_ (addTransform impName upds) (methods cdata)

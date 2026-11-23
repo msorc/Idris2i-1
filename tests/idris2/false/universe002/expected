@@ -1,15 +1,15 @@
 1/1: Building Fixed (Fixed.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
-    the universe of `Type` at Fixed:7:5--7:9 < an inferred universe (from Fixed.T)
-    an inferred universe <= the universe of `Type` at Fixed:7:5--7:9 (from Fixed.selfT)
+    the universe of `Type` at Fixed:9:7--9:11 <= the universe of `Type` at Fixed:10:7--10:11 (from Fixed.selfT)
+    the universe of `Type` at Fixed:10:7--10:11 < the universe of `Type` at Fixed:9:7--9:11 (from Fixed.T)
 
-Fixed:10:1--10:10
- 06 | T : Type
- 07 | T = Type
- 08 |
- 09 | selfT : T
- 10 | selfT = T
-      ^^^^^^^^^
+Fixed:13:3--13:12
+ 09 |   T : Type
+ 10 |   T = Type
+ 11 |
+ 12 |   selfT : T
+ 13 |   selfT = T
+        ^^^^^^^^^
 
 1/1: Building Russell (Russell.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
@@ -30,17 +30,17 @@ Error: Universe inconsistency: these constraints form a cycle with a strict step
     an inferred universe <= an inferred universe (from Box.Seq)
     an inferred universe <= an inferred universe (from Box.seqSmall)
     an inferred universe <= Box.{uf:1} (from Box.seqSmall)
-    Box.{uf:1} < an inferred universe (from Box.S)
-    an inferred universe <= an inferred universe (from Box.seqSmall)
+    Box.{uf:1} < the universe of `Type` at Box:25:7--25:11 (from Box.S)
+    the universe of `Type` at Box:25:7--25:11 <= an inferred universe (from Box.seqSmall)
     an inferred universe <= an inferred universe (from Box.Seq)
 
-Box:27:1--27:30
- 23 | S : Type
- 24 | S = Small
- 25 |
- 26 | seqSmall : S
- 27 | seqSmall = MkSmall (Seq S) []
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Box:29:3--29:32
+ 25 |   S : Type
+ 26 |   S = Small
+ 27 |
+ 28 |   seqSmall : S
+ 29 |   seqSmall = MkSmall (Seq S) []
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 1/1: Building Delta (Delta.idr)
 Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]

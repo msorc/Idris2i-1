@@ -10,8 +10,10 @@ cod : Type -> Type
 cod (Unit -> b) = b MkUnit
 cod _ = Unit
 
-T : Type
-T = cod (Unit -> Type)
+-- (in the mutual block, both uses of T are the same copy)
+mutual
+  T : Type
+  T = cod (Unit -> Type)
 
-selfT : T
-selfT = T
+  selfT : T
+  selfT = T

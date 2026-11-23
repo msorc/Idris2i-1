@@ -1,0 +1,8 @@
+. ../../../testutils.sh
+
+# Accepted: each reference to a definition is a copy of it
+check --no-prelude --check-universes Derive.idr
+check --no-prelude --check-universes Levels.idr
+# Rejected: the uses are made one copy
+check --no-prelude --check-universes Group.idr
+check --no-prelude --check-universes Mutual.idr

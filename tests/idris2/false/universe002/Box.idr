@@ -19,9 +19,11 @@ data Wrap : Type where
 wrapSmall : Small
 wrapSmall = MkSmall Wrap (MkWrap [])
 
--- S is one copy of Small: a list of S can't be held by S
-S : Type
-S = Small
+-- In the mutual block, S is one copy of Small: a list of S can't be held by
+-- S
+mutual
+  S : Type
+  S = Small
 
-seqSmall : S
-seqSmall = MkSmall (Seq S) []
+  seqSmall : S
+  seqSmall = MkSmall (Seq S) []

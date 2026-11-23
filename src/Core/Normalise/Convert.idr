@@ -83,21 +83,32 @@ tryUpdate ms (Erased fc a) = Erased fc <$> traverse (tryUpdate ms) a
 tryUpdate ms (TType fc u) = pure $ TType fc u
 
 -- Conversion identifies the universe instances of two uses of a type
--- constructor. Elaboration does not care, but the universe checker
--- (Core.UniverseCheck) collects the pairs (see the case of NType). An empty
--- instance stands for the family's own universes.
+-- constructor, or of two references to a function. Elaboration does not
+-- care, but the universe checker (Core.UniverseCheck) collects the pairs
+-- (see the case of NType). An empty instance stands for the global's own
+-- universes (for a type constructor, those of the fields of its family).
 collectInstances : {auto c : Ref Ctxt Defs} ->
-                   Defs -> Name -> List Name -> List Name -> Core ()
-collectInstances defs n [] [] = pure ()
-collectInstances defs n xs ys
+                   Defs -> (tycon : Bool) -> Name -> List Name -> List Name -> Core ()
+collectInstances defs tc n [] [] = pure ()
+collectInstances defs tc n xs ys
     = whenJust (ucollect defs) $ \ r =>
         do fn <- getFullName n
            let Just sch = lookup fn (schemas (universes defs))
                 | Nothing => pure ()
-           let xs' = if null xs then instOnly sch else xs
-           let ys' = if null ys then instOnly sch else ys
-           let pairs = zip xs' ys'
+           let pairs = if tc
+                          then zip (if null xs then instOnly sch else xs)
+                                   (if null ys then instOnly sch else ys)
+                          else if null xs then ownPairs sch ys
+                          else if null ys then map swap (ownPairs sch xs)
+                          else zip xs ys
            coreLift $ modifyIORef r (filter (\ (x, y) => x /= y) pairs ++)
+
+-- The same, for the heads of two applications which convert
+collectHeadInstances : {auto c : Ref Ctxt Defs} ->
+                       Defs -> NHead vars -> NHead vars -> Core ()
+collectHeadInstances defs (NRef (Func xs) n) (NRef (Func ys) _)
+    = collectInstances defs False n xs ys
+collectHeadInstances defs _ _ = pure ()
 
 mutual
   allConvNF : {auto c : Ref Ctxt Defs} ->
@@ -274,7 +285,11 @@ mutual
                      NHead vars -> List (Closure vars) ->
                      NHead vars -> List (Closure vars) -> Core Bool
   chkConvCaseBlock fc q i defs env (NRef _ n) nargs (NRef _ n') nargs'
-      = do NS _ (CaseBlock {}) <- full (gamma defs) n
+      -- When checking universes, two different case blocks are not taken
+      -- to be the same: their universes are not related (and a block with
+      -- a universe instance has another body than the one compared here)
+      = if isJust (ucollect defs) then pure False else
+        do NS _ (CaseBlock {}) <- full (gamma defs) n
               | _ => pure False
            NS _ (CaseBlock {}) <- full (gamma defs) n'
               | _ => pure False
@@ -384,7 +399,9 @@ mutual
     convGen q inf defs env (NApp fc val args) (NApp _ val' args')
         = if !(chkConvHead q inf defs env val val')
              then do i <- getInfPos val
-                     allConv q inf defs env (drop i args1) (drop i args2)
+                     ok <- allConv q inf defs env (drop i args1) (drop i args2)
+                     when ok $ collectHeadInstances defs val val'
+                     pure ok
              else chkConvCaseBlock fc q inf defs env val args1 val' args2
         where
           getInfPos : NHead vars -> Core NatSet
@@ -410,7 +427,7 @@ mutual
     convGen q i defs env (NTCon _ nm _ inst args) (NTCon _ nm' _ inst' args')
         = if nm == nm'
              then do ok <- allConv q i defs env (map snd args) (map snd args')
-                     when ok $ collectInstances defs nm inst inst'
+                     when ok $ collectInstances defs True nm inst inst'
                      pure ok
              else pure False
     convGen q i defs env (NAs _ _ _ tm) (NAs _ _ _ tm')

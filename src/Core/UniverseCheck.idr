@@ -28,25 +28,28 @@
 ||| each declaration; the constraints are saved in the TTC file so that the
 ||| modules importing it are checked against them.
 |||
-||| Universe polymorphism. Terms do not say at which universes a global
-||| definition is used, so renaming the universes of a definition at a use is
-||| only sound for those universes which evaluation can never produce: if
-||| `T = Type u` and every use of `T` could pick its own `u`, `T : T` would be
-||| accepted. So a definition is polymorphic in the universes of its type
-||| and left hand sides which are not "fixed", where the fixed universes are
-||| those occurring in the right hand side of a clause (or in the solution of
-||| a metavariable reachable from it or from the type), or in a field of a
-||| constructor (the contents of a data type do not depend on the instance,
-||| since a data type is not applied to its universes). A data type and its
-||| constructors are renamed together. A universe which also occurs in the
-||| type of another definition is renamed only if that definition is
-||| polymorphic in it and was complete before this one was started. A use of
-||| a polymorphic definition renames these universes to fresh ones and copies
-||| the constraints which checking the definition put on them. A definition
-||| is used monomorphically (with its own universe names) until it has been
-||| checked completely, so recursive and mutual uses are monomorphic, and so
-||| are definitions which met an unsolved metavariable or something the check
-||| could not handle (see 'gap').
+||| Universe polymorphism. Every definition checked completely is universe
+||| polymorphic: a reference to it with a universe instance (Func and TyCon
+||| in NameType) stands for the copy of it whose universes (those of its
+||| universe schema) are renamed to the instance. The elaborator gives each
+||| reference a fresh instance ('freshenUse'), the checker types it with the
+||| definition's type renamed so and copies the definition's constraints
+||| renamed ('globalType'), unfolding it gives the definition's body renamed
+||| so (Core.UniverseInst), and conversion makes the instances of two
+||| references to the same definition equal (Core.Normalise.Convert). The
+||| schema of a function covers the universes of its type and clauses, those
+||| of the instances of the references in them included ('completeGroup'),
+||| fewer those which another definition has too, and fewer again by
+||| 'minimise'; that of a data type covers the universes of its fields
+||| (renamed only through an instance, 'instOnly'), and the others are renamed
+||| afresh at each use. A reference without an instance stands for the
+||| definition's own universes. A definition and the definitions lifted out of
+||| it, an implementation and its methods, and a mutual block are one group,
+||| which shares a schema: references within it have no instance, and are
+||| renamed with the definition they are in. A definition is used with its own
+||| universes until it has been checked completely, and so are definitions
+||| which met an unsolved metavariable or something the check could not handle
+||| (see 'gap'). docs/source/reference/universes.rst says why this is sound.
 |||
 ||| The type of a solved metavariable is taken to be the type of its solution
 ||| (the type it was made with can be out of date). When checking universes,
@@ -61,6 +64,7 @@ import Core.Env
 import Core.Normalise
 import Core.Options
 import Core.TT
+import Core.UniverseInst
 import Core.Value
 
 import Data.List
@@ -132,6 +136,7 @@ gap msg
 levelsOf : Term vars -> List Name -> List Name
 levelsOf (Local {}) acc = acc
 levelsOf (Ref _ (TyCon _ inst) _) acc = inst ++ acc
+levelsOf (Ref _ (Func inst) _) acc = inst ++ acc
 levelsOf (Ref {}) acc = acc
 levelsOf (Meta _ _ _ args) acc = foldr levelsOf acc args
 levelsOf (Bind _ _ b sc) acc = foldr levelsOf (levelsOf sc acc) b
@@ -146,7 +151,7 @@ levelsOf (Erased {}) acc = acc
 levelsOf (TType _ u) acc = u :: acc
 
 canonicalLevels : {auto c : Ref Ctxt Defs} -> Term vars -> Core (List Name)
-canonicalLevels tm = nub <$> traverse canonical (levelsOf tm [])
+canonicalLevels tm = nubNames <$> traverse canonical (levelsOf tm [])
 
 evalLevelsFrom : {auto c : Ref Ctxt Defs} -> (self : Bool) -> Term vars ->
                  Core (List Name)
@@ -188,56 +193,19 @@ evalLevelsFrom self tm
 ||| The universes which evaluating a term can produce: those in the term and,
 ||| for the metavariables in it, in their solutions
 evalLevels : {auto c : Ref Ctxt Defs} -> Term vars -> Core (List Name)
-evalLevels tm = nub <$> evalLevelsFrom True tm
+evalLevels tm = nubNames <$> evalLevelsFrom True tm
 
 ||| The universes in the solutions of the metavariables in a term
 metaLevels : {auto c : Ref Ctxt Defs} -> Term vars -> Core (List Name)
-metaLevels tm = nub <$> evalLevelsFrom False tm
+metaLevels tm = nubNames <$> evalLevelsFrom False tm
 
+-- Rename universes ('ren' is by canonical name), also in the instances of
+-- references (see Core.UniverseInst)
 renameLevels : {auto c : Ref Ctxt Defs} ->
                NameMap Name -> Term vars -> Core (Term vars)
-renameLevels ren tm@(Local {}) = pure tm
-renameLevels ren tm@(Ref fc (TyCon a inst) n)
-    = do inst <- if null inst then ownInstance else pure inst
-         if null inst
-            then pure tm
-            else pure (Ref fc (TyCon a !(traverse rn inst)) n)
-  where
-    rn : Name -> Core Name
-    rn u = do u <- canonical u
-              pure (fromMaybe u (lookup u ren))
-
-    -- A use without an instance stands for the family's own universes; when
-    -- the renaming renames some of them (the type of a constructor of the
-    -- family refers to the family), the use gets them as its instance, so
-    -- that it is renamed with them
-    ownInstance : Core (List Name)
-    ownInstance
-        = do defs <- get Ctxt
-             fn <- canonical n
-             let Just sch = lookup fn (schemas (universes defs))
-                  | Nothing => pure []
-             pure (if any (\ p => isJust (lookup p ren)) (instOnly sch)
-                      then instOnly sch else [])
-renameLevels ren tm@(Ref {}) = pure tm
-renameLevels ren (Meta fc n i args)
-    = Meta fc n i <$> traverse (renameLevels ren) args
-renameLevels ren (Bind fc x b sc)
-    = Bind fc x <$> traverse (renameLevels ren) b <*> renameLevels ren sc
-renameLevels ren (App fc f a)
-    = App fc <$> renameLevels ren f <*> renameLevels ren a
-renameLevels ren (As fc s a p) = As fc s a <$> renameLevels ren p
-renameLevels ren (TDelayed fc r t) = TDelayed fc r <$> renameLevels ren t
-renameLevels ren (TDelay fc r t v)
-    = TDelay fc r <$> renameLevels ren t <*> renameLevels ren v
-renameLevels ren (TForce fc r t) = TForce fc r <$> renameLevels ren t
-renameLevels ren tm@(PrimVal {}) = pure tm
-renameLevels ren (Erased fc (Dotted t))
-    = Erased fc . Dotted <$> renameLevels ren t
-renameLevels ren tm@(Erased {}) = pure tm
-renameLevels ren (TType fc u)
-    = do u <- canonical u
-         pure (TType fc (fromMaybe u (lookup u ren)))
+renameLevels ren tm
+    = do defs <- get Ctxt
+         renameUnivs defs (mkURename (gamma defs) False (NameMap.toList ren)) tm
 
 addFixed : {auto c : Ref Ctxt Defs} -> List Name -> Core ()
 addFixed ns
@@ -252,13 +220,18 @@ addOwner o m l
     = let os = fromMaybe [] (lookup l m) in
           if elem o os then m else insert l (o :: os) m
 
--- Record which definition's type the universes of a type belong to
-addTypeOwner : {auto c : Ref Ctxt Defs} -> Name -> ClosedTerm -> Core ()
-addTypeOwner n ty
+-- Record that universes belong to a definition (they are in its type or its
+-- clauses)
+addOwners : {auto c : Ref Ctxt Defs} -> Name -> List Name -> Core ()
+addOwners n ls
     = do fn <- getFullName n
-         ls <- canonicalLevels ty
          update Ctxt { universes->typeOwner $= \ m => foldl (addOwner fn) m ls,
                        universes->savedTypeOwner $= (map (\ l => (l, fn)) ls ++) }
+
+-- Record which definition's type the universes of a type belong to (those
+-- in the solutions of its metavariables too)
+addTypeOwner : {auto c : Ref Ctxt Defs} -> Name -> ClosedTerm -> Core ()
+addTypeOwner n ty = addOwners n !(evalLevels ty)
 
 -- Conversion, recording the universes it identifies
 convertU : {auto c : Ref Ctxt Defs} ->
@@ -338,10 +311,13 @@ mutual
                              ++ show !(toFullNames !(quote defs env t)))
                         pure Nothing
 
-  -- The type of a global, renaming its polymorphic universes
-  -- (A use of a type constructor with an instance renames the universes
-  -- of the fields to its instance, and the others to fresh ones; one without
-  -- renames only the others.)
+  -- The type of a global, renaming its polymorphic universes, and the
+  -- constraints of its schema with them. A reference to a function with a
+  -- universe instance renames them to the instance; one without stands for
+  -- the function's own universes, and renames nothing. A use of a type
+  -- constructor with an instance renames the universes of the fields to its
+  -- instance, and the others to fresh ones; one without renames only the
+  -- others. A constructor renames them all to fresh ones.
   globalType : {auto c : Ref Ctxt Defs} ->
                {auto s : Ref UCK UCState} ->
                NameType -> Name -> ClosedTerm -> Core ClosedTerm
@@ -354,7 +330,7 @@ mutual
            -- parameter, say) are part of it, and renamed with it
            ty <- normaliseHoles defs Env.empty ty
            let others = filter (\ p => not (elem p (instOnly sch))) (poly sch)
-           ren <- case nt of
+           ren <- the (Core (List (Name, Name))) $ case nt of
                        TyCon _ inst@(_ :: _) =>
                          if length inst == length (instOnly sch)
                             then pure (!(traverse (\ (p, u) => pure (p, !(canonical u)))
@@ -364,7 +340,19 @@ mutual
                                          ++ " does not fit its schema")
                                     pure []
                        TyCon _ [] => traverse (\ p => pure (p, !freshU)) others
+                       Func [] => if bodyFree sch
+                                     then traverse (\ p => pure (p, !freshU)) (poly sch)
+                                     else pure []
+                       Func inst =>
+                         if length inst == length (poly sch) && null (instOnly sch)
+                            then traverse (\ (p, u) => pure (p, !(canonical u)))
+                                          (instPairs sch inst)
+                            else do gap ("the universe instance of " ++ show fn
+                                         ++ " does not fit its schema")
+                                    pure []
                        _ => traverse (\ p => pure (p, !freshU)) (poly sch)
+           let False = null ren
+                | True => pure ty
            let renm = fromList ren
            let rn = \ x => fromMaybe x (lookup x renm)
            st <- get UCK
@@ -704,7 +692,8 @@ addImportedUniverses : {auto c : Ref Ctxt Defs} ->
 addImportedUniverses fc es fs schs owners
     = do addUConstraints fc False es
          update Ctxt { universes->fixed $= insertFrom (map (\ n => (n, ())) fs),
-                       universes->schemas $= insertFrom schs,
+                       -- a schema is saved once for its group
+                       universes->schemas $= insertFrom (concatMap (\ (n, s) => (n, s) :: map (\ m => (m, s)) s.group) schs),
                        universes->typeOwner $= \ m => foldl (\ m, (l, o) => addOwner o m l) m owners }
 
 runCheck : {auto c : Ref Ctxt Defs} ->
@@ -771,7 +760,7 @@ complete cn owners n extra instOnly
                 ++ (if pending then " (but met an unsolved metavariable)" else "")
          unless (pending || null ps) $
            do let stamp = completions info
-              let sch = MkUSchema ps (filter (touches ps) es) (filter (\ u => elem u instOnly) ps) stamp
+              let sch = MkUSchema ps (filter (touches ps) es) (filter (\ u => elem u instOnly) ps) stamp [] [] False
               update Ctxt { universes->completions := stamp + 1,
                             universes->schemas $= insert fn sch,
                             universes->savedSchemas $= ((fn, sch) ::) }
@@ -829,6 +818,284 @@ checkSameTypeUniverses fc n ty ty'
           do defs <- get Ctxt
              convertU Env.empty !(nf defs Env.empty ty) !(nf defs Env.empty ty')
 
+-- Classes of universes, with each universe mapped straight to the
+-- representative of its class
+record UClasses where
+  constructor MkUClasses
+  repOf : NameMap Name
+  members : NameMap (List Name)
+
+findRep : UClasses -> Name -> Name
+findRep cl n = fromMaybe n (lookup n cl.repOf)
+
+-- Put the class of 'b' into the class of 'a' (whose representative stays)
+mergeInto : Name -> Name -> UClasses -> UClasses
+mergeInto a b cl
+    = let ra = findRep cl a
+          rb = findRep cl b in
+          if ra == rb then cl else
+            let ms = fromMaybe [rb] (lookup rb cl.members)
+                ma = fromMaybe [ra] (lookup ra cl.members) in
+                MkUClasses (foldl (\ m, x => insert x ra m) cl.repOf ms)
+                           (insert ra (ms ++ ma) (delete rb cl.members))
+
+-- The universes of a function which its copies rename: the universes 'ps'
+-- of its types and clauses, fewer. Each universe which is made equal to
+-- another one goes with it, and each universe which is not in the types of
+-- the definitions ('keep') and has one lower bound, which it may equal, is
+-- set to it in the copies. (One without a lower bound is not set to the
+-- lowest universe: `T = Type` would then be `Type` of the lowest universe
+-- in every copy, so not polymorphic.) Then the universes which no
+-- constraint connects, through universes of the definition, to a universe of
+-- its type are not renamed at all: the copies share them (they are in the
+-- body only, and mostly in the instances of the references there, which
+-- would otherwise make the universes of a definition all those of the
+-- definitions it uses).
+-- This keeps the instances small: a reference inside a function to another
+-- function has an instance of the other's universes, and they would all be
+-- the first function's universes too. Sound because setting universes of a
+-- definition to values which satisfy the constraints on them gives a copy of
+-- it (all its constraints hold for the copy), and the definition's own
+-- universes (a reference without an instance) are not changed.
+-- Returns the universes renamed by an instance, those which follow one of
+-- them or are set to a universe which is not renamed, and the constraints
+-- on them.
+minimise : (keep : NameMap ()) -> List Name -> List UEdge ->
+           (List Name, List (Name, Name), List UEdge)
+minimise keep ps es
+    = let psSet = nameSet ps
+          leq = foldl (\ m, e => if e.strict then m
+                                       else insert e.lo (insert e.hi () (fromMaybe empty (lookup e.lo m))) m)
+                      (the (NameMap (NameMap ())) empty) es
+          eqs = filter (\ e => not e.strict && isJust (lookup e.lo psSet) && isJust (lookup e.hi psSet)
+                               && maybe False (\ s => isJust (lookup e.lo s)) (lookup e.hi leq))
+                       es
+          cl0 = foldl union (MkUClasses empty empty) eqs
+          cl = lowerAll (the Nat 0) cl0
+          reps0 = filter (\ u => findRep cl u == u) ps
+          reps0Set = nameSet reps0
+          mapped = mapMaybe (mapEdge cl) es
+          adj = foldl (\ m, e => if isJust (lookup e.lo reps0Set) && isJust (lookup e.hi reps0Set)
+                                     then insert e.lo (e.hi :: fromMaybe [] (lookup e.lo m))
+                                            (insert e.hi (e.lo :: fromMaybe [] (lookup e.hi m)) m)
+                                     else m)
+                      (the (NameMap (List Name)) empty) mapped
+          reached = reach adj (filter (\ u => isJust (lookup u keep)) reps0) empty
+          reps = filter (\ u => isJust (lookup u reached)) reps0
+          repSet = nameSet reps
+          as = mapMaybe (\ u => let r = findRep cl u in
+                                    if r == u then Nothing else Just (u, r)) ps
+          es' = dedup (filter (\ e => isJust (lookup e.lo repSet) || isJust (lookup e.hi repSet))
+                              mapped) in
+          (reps, as, es')
+  where
+    -- the universes connected to the given ones
+    reach : NameMap (List Name) -> List Name -> NameMap () -> NameMap ()
+    reach adj [] seen = seen
+    reach adj (u :: us) seen
+        = if isJust (lookup u seen) then reach adj us seen
+             else reach adj (fromMaybe [] (lookup u adj) ++ us) (insert u () seen)
+
+    -- the representative of a class with a universe of 'keep' is one of them
+    union : UClasses -> UEdge -> UClasses
+    union cl e
+        = let a = findRep cl e.lo
+              b = findRep cl e.hi in
+              if isJust (lookup b keep) then mergeInto b a cl else mergeInto a b cl
+
+    -- the one lower bound of a class (from outside it), if it has exactly one
+    -- and it is not strict
+    oneLower : UClasses -> Name -> List (Name, Bool) -> Maybe Name -> Maybe Name
+    oneLower cl u [] acc = acc
+    oneLower cl u ((l, st) :: ls) acc
+        = let l' = findRep cl l in
+              if l' == u then oneLower cl u ls acc
+              else if st then Nothing
+              else case acc of
+                        Nothing => oneLower cl u ls (Just l')
+                        Just a => if a == l' then oneLower cl u ls acc else Nothing
+
+    -- one round of setting classes to their lower bound
+    lowerRound : UClasses -> (Bool, UClasses)
+    lowerRound cl
+        = let inc = foldl (\ acc, e =>
+                             let hi = findRep cl e.hi in
+                                 insert hi ((e.lo, e.strict) :: fromMaybe [] (lookup hi acc)) acc)
+                          (the (NameMap (List (Name, Bool))) empty) es in
+              foldl (\ (ch, cl), u =>
+                       if findRep cl u /= u || isJust (lookup u keep) then (ch, cl) else
+                         case oneLower cl u (fromMaybe [] (lookup u inc)) Nothing of
+                              Just l => (True, mergeInto l u cl)
+                              Nothing => (ch, cl))
+                    (False, cl) ps
+
+    lowerAll : Nat -> UClasses -> UClasses
+    lowerAll k cl
+        = if k >= 20 then cl else
+            let (ch, cl') = lowerRound cl in
+                if ch then lowerAll (S k) cl' else cl'
+
+    mapEdge : UClasses -> UEdge -> Maybe UEdge
+    mapEdge cl e
+        = let lo = findRep cl e.lo
+              hi = findRep cl e.hi in
+              if lo == hi && not e.strict then Nothing
+                 else Just ({ lo := lo, hi := hi } e)
+
+    addE : NameMap (NameMap UEdge) -> UEdge -> NameMap (NameMap UEdge)
+    addE m e
+        = let inner = fromMaybe empty (lookup e.lo m)
+              st = e.strict || maybe False strict (lookup e.hi inner) in
+              insert e.lo (insert e.hi ({ strict := st } e) inner) m
+
+    dedup : List UEdge -> List UEdge
+    dedup es
+        = concatMap (\ p => map snd (NameMap.toList (snd p)))
+                    (NameMap.toList (foldl addE empty es))
+
+-- The most universes a group of definitions is polymorphic in (see
+-- 'completeGroup')
+maxPolyUniverses : Nat
+maxPolyUniverses = 256
+
+-- A group of definitions checked completely: make each polymorphic in the
+-- universes of the types and clauses of them all ('ms' gives the universes
+-- of each one's clauses), which no definition outside the group has. They
+-- share the schema: a reference from one of them to another has no
+-- instance, and is renamed with the one it is in (see Core.UniverseInst).
+-- A reference to a definition which has a schema gets a fresh instance of
+-- it (see 'freshenUse'), and unfolds to its body renamed to the instance.
+completeGroup : {auto c : Ref Ctxt Defs} ->
+                List (Name, List Name) -> Core ()
+completeGroup [] = pure ()
+completeGroup ms
+    = do defs <- get Ctxt
+         let names = map fst ms
+         tyls <- traverse typeLevels names
+         let info = universes defs
+         let ls = nubNames (concat tyls ++ concatMap snd ms)
+         let memberSet = nameSet names
+         let found = map (\ n => fromMaybe ([], False) (lookup n (defEdges info))) names
+         let pending = any snd found
+         let start = foldl min (completions info)
+                           (mapMaybe (\ n => lookup n (defStart info)) names)
+         -- the definitions which are data types or constructors
+         dataDefs <- nameSet . map fst <$>
+                       filterM (\ (o, _) => isDataDef o)
+                               (concatMap (\ u => map (\ o => (o, ())) (fromMaybe [] (lookup u (typeOwner info)))) ls)
+         let ps = filter (\ u => not (isJust (lookup u (fixed info)))
+                                 && all (ownedOk info memberSet dataDefs start u)
+                                        (fromMaybe [] (lookup u (typeOwner info))))
+                         ls
+         log "universe" 5 $ "Universes of " ++ show names ++ ": " ++ show ls
+                ++ "; polymorphic in " ++ show ps
+                ++ (if pending then " (but met an unsolved metavariable)" else "")
+         let psSet = nameSet ps
+         let (reps, as, es) = minimise (nameSet (concat tyls)) ps
+                                       (filter (touches psSet) (concatMap fst found))
+         log "universe" 5 $ "Renamed by an instance: " ++ show (length reps)
+                ++ " of " ++ show (length ps)
+         -- A group with very many universes is not made polymorphic: every
+         -- reference to it would carry an instance of them all (and the
+         -- references in a definition's body make its universes; see
+         -- 'minimise'). Its uses are at its own universes, which is sound.
+         let tooMany = length reps > maxPolyUniverses
+         when tooMany $
+           log "universe" 2 $ "Not polymorphic, too many universes ("
+                 ++ show (length reps) ++ "): " ++ show names
+         unless (pending || null reps || tooMany) $
+           do let fn = fromMaybe (UN (Basic "<group>")) (head' names)
+              let stamp = completions info
+              -- (no clause has a universe the copies rename: see 'bodyFree')
+              let repSet = nameSet reps
+              let asMap = the (NameMap Name) (fromList as)
+              let bodyFree = not (any (\ u => isJust (lookup (fromMaybe u (lookup u asMap)) repSet))
+                                      (concatMap snd ms))
+              let sch = MkUSchema reps es [] stamp names as bodyFree
+              update Ctxt { universes->completions := stamp + 1,
+                            universes->schemas $= insertFrom (map (\ n => (n, sch)) names),
+                            -- (saved once: the group's other members get it
+                            -- when it is imported, see 'addImportedUniverses')
+                            universes->savedSchemas $= ((fn, sch) ::) }
+  where
+    touches : NameMap () -> UEdge -> Bool
+    touches ps e = isJust (lookup e.lo ps) || isJust (lookup e.hi ps)
+
+    -- A universe which another definition has too can be renamed only if
+    -- that one is in the group, or is a data type or a constructor which is
+    -- polymorphic in it, not through an instance (its every use renames the
+    -- universe afresh, see 'globalType', so a definition which has the
+    -- universe itself has it from a copy of the type it made), and which was
+    -- complete before the group was started.
+    ownedOk : UniverseInfo -> NameMap () -> NameMap () -> Int -> Name -> Name -> Bool
+    ownedOk info members dataDefs start u o
+        = isJust (lookup o members) ||
+          (isJust (lookup o dataDefs) &&
+           case lookup o (schemas info) of
+                Just sch => elem u (poly sch) && not (elem u (instOnly sch))
+                              && stamp sch < start
+                Nothing => False)
+
+    isDataDef : Name -> Core Bool
+    isDataDef o
+        = do defs <- get Ctxt
+             Just gdef <- lookupCtxtExact o (gamma defs)
+                  | Nothing => pure False
+             pure $ case definition gdef of
+                         TCon {} => True
+                         DCon {} => True
+                         _ => False
+
+    -- the solved metavariables of the type are renamed with it (see
+    -- 'globalType')
+    typeLevels : Name -> Core (List Name)
+    typeLevels n
+        = do defs <- get Ctxt
+             Just ty <- lookupTyExact n (gamma defs)
+                  | Nothing => pure []
+             canonicalLevels !(normaliseHoles defs Env.empty ty)
+
+-- The group the definition being checked belongs to: the implementation
+-- being elaborated, or the outermost definition being elaborated (case
+-- blocks, with blocks and local definitions are elaborated inside the
+-- definition they are lifted out of)
+currentGroup : {auto c : Ref Ctxt Defs} -> Core (Maybe Name)
+currentGroup
+    = do defs <- get Ctxt
+         case implGroup (universes defs) of
+              Just g => pure (Just g)
+              Nothing => case Prelude.toList (defsStack defs) of
+                              (outer :: _ :: _) => Just <$> getFullName outer
+                              _ => pure Nothing
+
+-- The schemas of a group are made when the group is done
+finishGroup : {auto c : Ref Ctxt Defs} -> Name -> Core ()
+finishGroup g
+    = do defs <- get Ctxt
+         let ms = fromMaybe [] (lookup g (deferred (universes defs)))
+         update Ctxt { universes->deferred $= delete g }
+         completeGroup (reverse ms)
+
+||| Elaborate an implementation, with its methods: when checking universes,
+||| the definitions checked meanwhile are one group (the record of the
+||| implementation refers to the methods before they are checked). Inside
+||| another definition, they are in that one's group already.
+export
+withUniverseGroup : {auto c : Ref Ctxt Defs} -> Name -> Core a -> Core a
+withUniverseGroup n act
+    = do sess <- getSession
+         defs <- get Ctxt
+         if not (checkUniverses sess) || isJust (implGroup (universes defs))
+              || not (null (Prelude.toList (defsStack defs)))
+            then act
+            else do fn <- getFullName n
+                    update Ctxt { universes->implGroup := Just fn }
+                    r <- catch act (\ err => do update Ctxt { universes->implGroup := Nothing }
+                                                throw err)
+                    update Ctxt { universes->implGroup := Nothing }
+                    finishGroup fn
+                    pure r
+
 ||| Check the clauses of a definition by pattern matching
 export
 checkClauseUniverses : {auto c : Ref Ctxt Defs} ->
@@ -837,15 +1104,23 @@ checkClauseUniverses : {auto c : Ref Ctxt Defs} ->
 checkClauseUniverses fc n pats
     = whenChecking $
         do runCheck fc n $ \ s => traverse_ checkClause pats
-           -- Evaluation can produce the universes in the right hand sides
-           -- (and in the values of let bindings in the environment)
-           addFixed . nub . concat =<< traverse bodyLevels pats
-           -- The universes of the left hand sides (and of the types of the
-           -- pattern variables) are this definition's own, so they are
-           -- renamed too
-           lhsls <- nub . concat <$> traverse lhsLevels pats
-           complete n [n] n lhsls []
+           -- The universes of the clauses (those of the left hand sides,
+           -- of the types of the pattern variables, of the right hand sides
+           -- and of the solutions of the metavariables in them) are this
+           -- definition's own: a copy of it renames them, and unfolding a
+           -- reference with a universe instance gives the right hand side
+           -- renamed so (see Core.UniverseInst)
+           ls <- nubNames . concat <$> traverse clauseLevels pats
+           addOwners n ls
+           fn <- getFullName n
+           -- In a group, the schema waits for the group to be done
+           g <- currentGroup
+           update Ctxt { universes->deferred $=
+                           \ m => let k = fromMaybe fn g in
+                                       insert k ((fn, ls) :: fromMaybe [] (lookup k m)) m }
+           when (isNothing g) $ finishGroup fn
   where
+
     checkEnv : {vs : _} -> {auto s : Ref UCK UCState} ->
                Env Term vs -> Core ()
     checkEnv [] = pure ()
@@ -856,28 +1131,18 @@ checkClauseUniverses fc n pats
                   PLet _ _ val ty => checkVal env val ty
                   _ => ignore $ sortOf env (binderType b)
 
-    envLevels : Env Term vs -> List Name -> List Name
-    envLevels [] acc = acc
-    envLevels (Let _ _ val ty :: env) acc
-        = levelsOf val (levelsOf ty (envLevels env acc))
-    envLevels (PLet _ _ val ty :: env) acc
-        = levelsOf val (levelsOf ty (envLevels env acc))
-    envLevels (_ :: env) acc = envLevels env acc
+    envLevels : {vs : _} -> Env Term vs -> Core (List Name)
+    envLevels [] = pure []
+    envLevels (b :: env)
+        = do bs <- case b of
+                        Let _ _ val ty => pure (!(evalLevels val) ++ !(evalLevels ty))
+                        PLet _ _ val ty => pure (!(evalLevels val) ++ !(evalLevels ty))
+                        _ => evalLevels (binderType b)
+             pure (bs ++ !(envLevels env))
 
-    envTypeLevels : Env Term vs -> List Name -> List Name
-    envTypeLevels [] acc = acc
-    envTypeLevels (b :: env) acc = levelsOf (binderType b) (envTypeLevels env acc)
-
-    lhsLevels : (vs ** (Env Term vs, Term vs, Term vs)) -> Core (List Name)
-    lhsLevels (_ ** (env, lhs, rhs))
-        = do ls <- traverse canonical (levelsOf lhs (envTypeLevels env []))
-             ms <- metaLevels lhs
-             pure (filter (\ l => not (elem l ms)) ls)
-
-    bodyLevels : (vs ** (Env Term vs, Term vs, Term vs)) -> Core (List Name)
-    bodyLevels (_ ** (env, lhs, rhs))
-        = do els <- traverse canonical (envLevels env [])
-             pure (els ++ !(evalLevels rhs))
+    clauseLevels : (vs ** (Env Term vs, Term vs, Term vs)) -> Core (List Name)
+    clauseLevels (_ ** (env, lhs, rhs))
+        = pure (!(envLevels env) ++ !(evalLevels lhs) ++ !(evalLevels rhs))
 
     checkClause : {auto s : Ref UCK UCState} ->
                   (vs ** (Env Term vs, Term vs, Term vs)) -> Core ()
@@ -1006,6 +1271,10 @@ finishModuleUniverses : {auto c : Ref Ctxt Defs} -> FC -> Core ()
 finishModuleUniverses fc
     = whenChecking $
         do runCheck fc (UN (Basic "<module>")) $ \ s => checkPendingMetas
+           -- groups which were not done (a definition was left out by an
+           -- error, say)
+           defs <- get Ctxt
+           traverse_ finishGroup (keys (deferred (universes defs)))
            defs <- get Ctxt
            let ics = nub (incompleteDefs (universes defs))
            unless (null ics) $
@@ -1067,11 +1336,20 @@ freshenUse nt n ty
                      fn <- canonical n
                      case lookup fn (schemas (universes defs)) of
                           Nothing => pure (nt, !(freshenWith empty ty))
-                          Just (MkUSchema _ _ [] _) => pure (nt, !(freshenWith empty ty))
+                          Just (MkUSchema _ _ [] _ _ _ _) => pure (nt, !(freshenWith empty ty))
                           Just sch =>
                             do inst <- traverse freshCopy (instOnly sch)
                                ty' <- freshenWith (fromList inst) ty
                                pure (TyCon a (map snd inst), ty')
+                Func [] =>
+                  do defs <- get Ctxt
+                     fn <- canonical n
+                     case lookup fn (schemas (universes defs)) of
+                          Just sch@(MkUSchema ps@(_ :: _) _ [] _ _ _ False) =>
+                            do inst <- traverse freshCopy ps
+                               ty' <- freshenWith (fromList (instPairs sch (map snd inst))) ty
+                               pure (Func (map snd inst), ty')
+                          _ => pure (nt, !(freshenWith empty ty))
                 _ => pure (nt, !(freshenWith empty ty))
 
 ||| When checking universes, give each binder of a declared type whose type

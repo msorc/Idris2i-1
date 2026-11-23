@@ -4,6 +4,7 @@ import Core.Case.CaseTree
 import Core.Context.Log
 import Core.Env
 import Core.Primitives
+import Core.UniverseInst
 import Core.Value
 
 import Data.Vect
@@ -321,7 +322,7 @@ parameters (defs : Defs) (topopts : EvalOpts)
         = do -- logC "eval.ref.bound" 50 $ do fn' <- toFullNames fn
              --                              pure $ "Found bound variable: " ++ show fn'
              pure def
-    evalRef env meta fc nt@(Func _) n stk def
+    evalRef env meta fc nt@(Func inst) n stk def
         = do -- logC "eval.ref" 50 $ do n' <- toFullNames n
              --                        pure $ "Found function: " ++ show n'
              Just res <- lookupCtxtExact n (gamma defs)
@@ -345,8 +346,14 @@ parameters (defs : Defs) (topopts : EvalOpts)
                    Just opts' <- updateLimit nt n topopts
                         | Nothing => do log "eval.stuck" 10 $ "Function \{show n} past reduction limit"
                                         pure def -- name is past reduction limit
+                   -- A reference with a universe instance unfolds to the
+                   -- body with its universes renamed to the instance (only
+                   -- with --check-universes, see Core.UniverseInst)
+                   d <- if isNil inst
+                           then pure (definition res)
+                           else instantiateDef defs (fullname res) inst (definition res)
                    nf <- evalDef env opts' meta fc
-                           (multiplicity res) (definition res) (flags res) stk def
+                           (multiplicity res) d (flags res) stk def
                    -- logC "eval.ref" 50 $ do n' <- toFullNames n
                    --                         nf <- toFullNames nf
                    --                         pure "Reduced \{show n'} to \{show nf}"

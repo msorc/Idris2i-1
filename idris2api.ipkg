@@ -118,6 +118,7 @@ modules =
     Core.Unify,
     Core.UnifyState,
     Core.UniverseCheck,
+    Core.UniverseInst,
     Core.Value,
     Core.WithData,
 

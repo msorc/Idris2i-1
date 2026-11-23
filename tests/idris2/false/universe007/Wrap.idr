@@ -1,5 +1,6 @@
 ||| A wrapper of types can hold a wrapper of types at another universe, but
-||| not itself: T unfolds to the same use of Wrap each time
+||| not itself: within a mutual block, T unfolds to the same use of Wrap each
+||| time
 module Wrap
 
 %default total
@@ -17,9 +18,11 @@ Pack Wrap where
 nested : Wrap
 nested = pack Wrap
 
-T : Type
-T = Wrap
+-- a Wrap holding itself (in the mutual block, both uses of T are the same
+-- copy)
+mutual
+  T : Type
+  T = Wrap
 
--- a Wrap holding itself
-self : T
-self = pack T
+  self : T
+  self = pack T

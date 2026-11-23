@@ -1,0 +1,28 @@
+1/1: Building Derive (Derive.idr)
+1/1: Building Levels (Levels.idr)
+1/1: Building Group (Group.idr)
+Error: While processing right hand side of outer. Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    the universe of `Type` at Group:12:9--12:13 <= the universe of `Type` at Group:13:9--13:13 (from Group.1:selfT)
+    the universe of `Type` at Group:13:9--13:13 < the universe of `Type` at Group:12:9--12:13 (from Group.2:T)
+
+Group:16:5--16:14
+ 12 |     T : Type
+ 13 |     T = Type
+ 14 |
+ 15 |     selfT : T
+ 16 |     selfT = T
+          ^^^^^^^^^
+
+1/1: Building Mutual (Mutual.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    the universe of `Type` at Mutual:8:7--8:11 <= the universe of `Type` at Mutual:9:7--9:11 (from Mutual.selfT)
+    the universe of `Type` at Mutual:9:7--9:11 < the universe of `Type` at Mutual:8:7--8:11 (from Mutual.T)
+
+Mutual:12:3--12:12
+ 08 |   T : Type
+ 09 |   T = Type
+ 10 |
+ 11 |   selfT : T
+ 12 |   selfT = T
+        ^^^^^^^^^
+

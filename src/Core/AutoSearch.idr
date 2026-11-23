@@ -627,7 +627,9 @@ searchName fc rigc defaults trying depth def top env heads target (n, ndef)
          when (BlockedHint `elem` flags ndef) $
             throw (CantSolveGoal fc (gamma defs) Env.empty top Nothing)
 
-         ty <- freshenLevels (type ndef)
+         -- (when checking universes, the reference gets a universe instance
+         -- of its own, as one written in the source would)
+         (nt, ty) <- freshenUse (getDefNameType ndef) n (type ndef)
          when (isErased ty) $
             throw (CantSolveGoal fc (gamma defs) [] top Nothing)
 
@@ -645,7 +647,7 @@ searchName fc rigc defaults trying depth def top env heads target (n, ndef)
          let [] = constraints ures
              | _ => throw (CantSolveGoal fc (gamma defs) Env.empty top Nothing)
          ispair <- isPairNF env nty defs
-         let candidate = apply fc (Ref fc (getDefNameType ndef) n) (map metaApp args)
+         let candidate = apply fc (Ref fc nt n) (map metaApp args)
          logTermNF "auto" 10 "Candidate " env candidate
          -- Work right to left, because later arguments may solve earlier
          -- dependencies by unification
