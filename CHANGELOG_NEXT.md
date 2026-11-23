@@ -2210,6 +2210,18 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Base
 
+* The functions of `Data.Nat` that recursed once per unit run on `Integer` at
+  run time: `lte`, `gte`, `lt`, `gt`, `minimum`, `maximum` and `power` (by
+  repeated squaring), and `div'`, `mod'` and `divmod'`, through which
+  `divNatNZ`, `modNatNZ`, `divmodNatNZ`, `divNat`, `modNat`, `divCeilNZ`,
+  `gcd`, `lcm` and `Integral Nat` go.  These are `%transform` rules to new
+  functions (`lteInteger`, `powerInteger`, `divInteger'`, ...): the
+  definitions themselves are unchanged and reduce as before at type-checking
+  time.  Measured with `benchmark/benchmarks/natOps` on RefC (instructions):
+  `lte` and the other comparisons 42 times fewer, `minimum`/`maximum` 46,
+  `div`/`mod` 56, `divCeilNZ` and `gcd` 107 to 111, `power` 47.  `lcm` no
+  longer overflows the C stack on RefC for operands of a few thousand.
+
 * `System.Crash` runs an action in a crash boundary: `catchCrash act` gives
   `Left` a `CrashInfo` (the kind: `CrashCall`, `MissingCase` or
   `FailedCheck`, the message, and the backtrace when backtraces are on) if

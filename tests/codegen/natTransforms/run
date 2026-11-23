@@ -1,0 +1,16 @@
+. ../../testutils.sh
+
+idris2 --dumpcases Main.cases -o Main Main.idr
+./build/exec/Main
+
+# The names of Data.Nat that each definition calls: the versions on Integer.
+# The divisions of Data.Nat (divNatNZ, modNatNZ, and gcd through modNatNZ)
+# reach them too.
+for f in Main.useLte Main.useGt Main.useMinimum Main.useMaximum Main.usePower \
+         "Main.useDiv'" "Main.useMod'" "Main.useDivmod'" \
+         Data.Nat.divNatNZ Data.Nat.modNatNZ Data.Nat.gcd; do
+    printf '%s:' "$f"
+    grep "^$f = " Main.cases | sed -e 's/^[^=]*= //' | grep -o "Data\.Nat\.[A-Za-z']*" | sort -u | tr '\n' ' '
+    echo
+done
+rm -f Main.cases

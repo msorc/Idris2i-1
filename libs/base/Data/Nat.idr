@@ -65,6 +65,35 @@ power : Nat -> Nat -> Nat
 power base Z       = S Z
 power base (S exp) = base * (power base exp)
 
+-- Run-time versions of the functions on `Nat`
+--
+-- The definitions above recurse once per unit, and that is how they reduce at
+-- type-checking time, where the proofs about them need it.  A `Nat` is an
+-- `Integer` at run time (the `Z`/`S` constructors are recognised as such, see
+-- `calcNaty` in the compiler), so the `%transform` rules below replace the
+-- run-time uses of these functions with versions on `Integer`.  These only
+-- change the code that is run: they compute the same results, and no
+-- `believe_me` is involved, because `natToInteger` and `integerToNat` are
+-- identities at run time.
+
+||| `power` by repeated squaring on `Integer`, used at run time in place of
+||| `power` (a `%transform` rule): O(log exp) multiplications, where `power`
+||| does `exp` of them.
+export
+powerInteger : Nat -> Nat -> Nat
+powerInteger base exp = integerToNat (go 1 (natToInteger base) (natToInteger exp))
+  where
+    -- acc * b ^ e, for e >= 0
+    go : Integer -> Integer -> Integer -> Integer
+    go acc b e
+        = if e <= 0
+             then acc
+             else assert_total $
+                    let acc' = if e `mod` 2 == 1 then acc * b else acc in
+                        if e == 1 then acc' else go acc' (b * b) (e `div` 2)
+
+%transform "powerInteger" power = powerInteger
+
 public export
 hyper : Nat -> Nat -> Nat -> Nat
 hyper Z        a b      = S b
@@ -274,6 +303,14 @@ lte Z        right     = True
 lte left     Z         = False
 lte (S left) (S right) = lte left right
 
+||| `lte` on `Integer`, used at run time in place of `lte` (a `%transform`
+||| rule), and so in place of `gte`, `lt` and `gt`.
+export
+lteInteger : Nat -> Nat -> Bool
+lteInteger left right = natToInteger left <= natToInteger right
+
+%transform "lteInteger" lte = lteInteger
+
 public export
 gte : Nat -> Nat -> Bool
 gte left right = lte right left
@@ -321,6 +358,21 @@ maximum Z m = m
 maximum (S n) Z = S n
 maximum (S n) (S m) = S (maximum n m)
 
+||| `minimum` on `Integer`, used at run time in place of `minimum` (a
+||| `%transform` rule).
+export
+minimumInteger : Nat -> Nat -> Nat
+minimumInteger n m = if natToInteger n <= natToInteger m then n else m
+
+||| `maximum` on `Integer`, used at run time in place of `maximum` (a
+||| `%transform` rule).
+export
+maximumInteger : Nat -> Nat -> Nat
+maximumInteger n m = if natToInteger n <= natToInteger m then m else n
+
+%transform "minimumInteger" minimum = minimumInteger
+%transform "maximumInteger" maximum = maximumInteger
+
 -- Proofs on S
 
 export
@@ -347,6 +399,27 @@ mod' (S fuel) centre right =
       else
         mod' fuel (minus centre (S right)) right
 
+-- `div'`, `mod'` and `divmod'` take away `S right` from `centre` while it is
+-- more than `right` and `fuel` lasts: they do it `steps fuel centre right`
+-- times, the smaller of `fuel` and the quotient.  Their run-time versions
+-- (`%transform` rules) compute that number with one `div` on `Integer`, and so
+-- give the same results with too little fuel as well.  They are what all the
+-- callers reach: `divNatNZ`, `modNatNZ`, `divmodNatNZ`, `divNat`, `modNat`,
+-- `divCeilNZ`, `gcd`, `lcm` and `Integral Nat`.
+steps : (fuel, centre, right : Integer) -> Integer
+steps fuel centre right = min fuel (assert_total $ centre `div` (right + 1))
+
+||| `mod'` on `Integer`, used at run time in place of `mod'` (a `%transform`
+||| rule).
+export
+modInteger' : Nat -> Nat -> Nat -> Nat
+modInteger' fuel centre right
+    = let c = natToInteger centre
+          r = natToInteger right in
+          integerToNat (c - (r + 1) * steps (natToInteger fuel) c r)
+
+%transform "modInteger'" mod' = modInteger'
+
 public export
 modNatNZ : Nat -> (y: Nat) -> (0 _ : NonZero y) -> Nat
 modNatNZ left Z         p = void (absurd p)
@@ -367,6 +440,15 @@ div' (S fuel) centre right =
     Z
   else
     S (div' fuel (minus centre (S right)) right)
+
+||| `div'` on `Integer`, used at run time in place of `div'` (a `%transform`
+||| rule).
+export
+divInteger' : Nat -> Nat -> Nat -> Nat
+divInteger' fuel centre right
+    = integerToNat (steps (natToInteger fuel) (natToInteger centre) (natToInteger right))
+
+%transform "divInteger'" div' = divInteger'
 
 -- 'public' to allow type-level division
 public export
@@ -398,6 +480,18 @@ divmod' (S fuel) centre right =
   else
     let qr = divmod' fuel (minus centre (S right)) right
     in (S (fst qr), snd qr)
+
+||| `divmod'` on `Integer`, used at run time in place of `divmod'` (a
+||| `%transform` rule).
+export
+divmodInteger' : Nat -> Nat -> Nat -> (Nat, Nat)
+divmodInteger' fuel centre right
+    = let c = natToInteger centre
+          r = natToInteger right
+          q = steps (natToInteger fuel) c r in
+          (integerToNat q, integerToNat (c - (r + 1) * q))
+
+%transform "divmodInteger'" divmod' = divmodInteger'
 
 public export
 divmodNatNZ : Nat -> (y: Nat) -> (0 _ : NonZero y) -> (Nat, Nat)

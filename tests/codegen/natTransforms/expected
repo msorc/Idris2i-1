@@ -1,0 +1,15 @@
+Dumping case trees to Main.cases
+[True, False]
+[3, 4, 81, 4, 1]
+((4, 1), (6, 4))
+Main.useLte:Data.Nat.lteInteger 
+Main.useGt:Data.Nat.lteInteger 
+Main.useMinimum:Data.Nat.minimumInteger 
+Main.useMaximum:Data.Nat.maximumInteger 
+Main.usePower:Data.Nat.powerInteger 
+Main.useDiv':Data.Nat.divInteger' 
+Main.useMod':Data.Nat.modInteger' 
+Main.useDivmod':Data.Nat.divmodInteger' 
+Data.Nat.divNatNZ:Data.Nat.divInteger' 
+Data.Nat.modNatNZ:Data.Nat.modInteger' 
+Data.Nat.gcd:Data.Nat.gcd Data.Nat.modNatNZ 

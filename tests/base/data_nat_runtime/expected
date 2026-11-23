@@ -1,0 +1,63 @@
+lte: 441 agree
+gte: 441 agree
+lt: 441 agree
+gt: 441 agree
+minimum: 441 agree
+maximum: 441 agree
+power: 169 agree
+mod': 2197 agree
+div': 2197 agree
+divmod': 2197 agree
+divNatNZ: 961 agree
+modNatNZ: 961 agree
+divmodNatNZ: 961 agree
+div: 961 agree
+mod: 961 agree
+gcd: 961 agree
+lcm: 961 agree
+(True, (False, (7, 123456789012345678901234567890)))
+(515377520732011331036461129765621272702107522001, (1, (0, True)))
+(123456788148148161864, (197434842, 1))
+((3, 123456789012345678901234567860), (5, 50))
+lte: 441 agree
+gte: 441 agree
+lt: 441 agree
+gt: 441 agree
+minimum: 441 agree
+maximum: 441 agree
+power: 169 agree
+mod': 2197 agree
+div': 2197 agree
+divmod': 2197 agree
+divNatNZ: 961 agree
+modNatNZ: 961 agree
+divmodNatNZ: 961 agree
+div: 961 agree
+mod: 961 agree
+gcd: 961 agree
+lcm: 961 agree
+(True, (False, (7, 123456789012345678901234567890)))
+(515377520732011331036461129765621272702107522001, (1, (0, True)))
+(123456788148148161864, (197434842, 1))
+((3, 123456789012345678901234567860), (5, 50))
+lte: 441 agree
+gte: 441 agree
+lt: 441 agree
+gt: 441 agree
+minimum: 441 agree
+maximum: 441 agree
+power: 169 agree
+mod': 2197 agree
+div': 2197 agree
+divmod': 2197 agree
+divNatNZ: 961 agree
+modNatNZ: 961 agree
+divmodNatNZ: 961 agree
+div: 961 agree
+mod: 961 agree
+gcd: 961 agree
+lcm: 961 agree
+(True, (False, (7, 123456789012345678901234567890)))
+(515377520732011331036461129765621272702107522001, (1, (0, True)))
+(123456788148148161864, (197434842, 1))
+((3, 123456789012345678901234567860), (5, 50))
