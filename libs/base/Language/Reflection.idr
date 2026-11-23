@@ -127,6 +127,12 @@ data Elab : Type -> Type where
      ||| only.
      GetClauses : Name -> Elab (List Clause)
 
+     ||| Run a script which returns a script, then run the returned script
+     -- `Elab` is an index of `Elab`, so the nested occurrence is not strictly
+     -- positive in the sense of the checker. `Elab` is abstract and only the
+     -- elaborator takes a script apart, so the occurrence is asserted.
+     Join : Elab (assert_total (Elab a)) -> Elab a
+
 export
 Functor Elab where
   map = Map
@@ -144,6 +150,9 @@ Alternative Elab where
 export
 Monad Elab where
   (>>=) = Bind
+  -- `Join` rather than the default `x >>= id`, which would instantiate
+  -- `Bind` at `Elab a` in a universe above the one of `a`
+  join = Join
 
 -----------------------------
 --- Elaboration interface ---

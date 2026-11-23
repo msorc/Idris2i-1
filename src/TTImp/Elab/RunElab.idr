@@ -514,6 +514,15 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
                | _ => throw (GenericMsg fc $ show fn ++
                                " is not a function defined by pattern matching")
              scriptRet !(traverse (unelabClause (location gdef)) pats)
+    elabCon defs "Join" [_, act]
+        -- act : Elab (Elab a)
+        -- Run act, then run the script it returns. The returned script has
+        -- been evaluated with the definitions cleared, so evaluate it again.
+        = do inner <- elabScript rig fc nest env !(evalClosure defs act) exp
+             defs <- get Ctxt
+             empty <- clearDefs defs
+             inner <- nfOpts withAll defs env !(quote empty env inner)
+             elabScript rig fc nest env inner exp
     elabCon defs n args = failWith defs $ "unexpected Elab constructor " ++ n ++
                                           ", or incorrect count of arguments: " ++ show (length args)
 elabScript rig fc nest env script exp

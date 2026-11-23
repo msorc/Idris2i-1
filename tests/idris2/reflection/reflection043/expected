@@ -1,0 +1,4 @@
+1/1: Building Join (Join.idr)
+LOG 0: join: 1 42
+LOG 0: caught: Nothing
+LOG 0: goal: Prelude.Types.Nat
