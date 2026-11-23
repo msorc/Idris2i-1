@@ -116,6 +116,9 @@ data Elab : Type -> Type where
      ||| term and its type, quoted as `Quote` does. Fails if the term or its
      ||| type contains a metavariable which is still unsolved.
      Infer : TTImp -> Elab (TTImp, TTImp)
+     ||| Quote a value back to TTImp after normalising it. Without
+     ||| `unfoldAll`, only definitions which are visible here are unfolded.
+     QuoteNF : (unfoldAll : Bool) -> (0 _ : val) -> Elab TTImp
 
 export
 Functor Elab where
@@ -242,6 +245,25 @@ interface Monad m => Elaboration m where
   ||| with `the`.
   infer : TTImp -> m (TTImp, TTImp)
 
+  ||| Return TTImp syntax of a given value, normalised.
+  |||
+  ||| `quote` only reduces the head of the value; `quoteNF` normalises it
+  ||| completely. With `unfoldAll = False`, only the definitions which are
+  ||| visible from the current module are unfolded, as when type checking;
+  ||| with `unfoldAll = True`, all of them are, including the private and
+  ||| export-only ones of other modules.
+  quoteNF : (unfoldAll : Bool) -> (0 _ : val) -> m TTImp
+
+||| Normalise a term: elaborate it as `infer` does, then quote the value with
+||| `quoteNF`. Tactics hold syntax, so this is the form they usually need.
+export
+normaliseTerm : Elaboration m => (unfoldAll : Bool) -> TTImp -> m TTImp
+normaliseTerm unfoldAll t
+  = do (tm, ty) <- infer t
+       tyv <- check {expected = Type} ty
+       v <- check {expected = tyv} tm
+       quoteNF unfoldAll v
+
 export %inline
 ||| Report an error in elaboration
 fail : Elaboration m => String -> m a
@@ -287,6 +309,7 @@ Elaboration Elab where
   writeFile        = WriteFile
   idrisDir         = IdrisDir
   infer            = Infer
+  quoteNF          = QuoteNF
 
 public export
 Elaboration m => MonadTrans t => Monad (t m) => Elaboration (t m) where
@@ -318,6 +341,7 @@ Elaboration m => MonadTrans t => Monad (t m) => Elaboration (t m) where
   writeFile d         = lift .: writeFile d
   idrisDir            = lift . idrisDir
   infer               = lift . infer
+  quoteNF u v         = lift $ quoteNF u v
 
 ||| Catch failures and use the `Maybe` monad instead
 export

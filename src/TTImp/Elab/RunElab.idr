@@ -434,6 +434,16 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
              rtm <- unelabUniqueBinders env tm
              rty <- unelabUniqueBinders env ty
              scriptRet (map rawName rtm, map rawName rty)
+    elabCon defs "QuoteNF" [_, all, tm]
+        = do unfoldAll <- reify defs !(evalClosure defs all)
+             -- The script is evaluated with `withAll`, so evaluate the value
+             -- again: without `unfoldAll`, names which are not visible here
+             -- must stay folded
+             let opts = if unfoldAll then withAll else defaultOpts
+             tm' <- evalClosureWithOpts defs opts tm
+             defs <- get Ctxt
+             ntm <- quote defs env tm'
+             scriptRet $ map rawName !(unelabUniqueBinders env ntm)
     elabCon defs n args = failWith defs $ "unexpected Elab constructor " ++ n ++
                                           ", or incorrect count of arguments: " ++ show (length args)
 elabScript rig fc nest env script exp
