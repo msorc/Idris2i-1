@@ -40,6 +40,18 @@ castBy n m xs = case decEq n m of
                      Yes prf => Just (rewrite sym prf in xs)
                      No _ => Nothing
 
+refStrengthen : {n : _} -> Fin (S n) -> Maybe (Fin n)
+refStrengthen {n = S _} FZ = Just FZ
+refStrengthen {n = S _} (FS p) with (refStrengthen p)
+  refStrengthen (FS _) | Nothing = Nothing
+  refStrengthen (FS _) | Just q  = Just $ FS q
+refStrengthen _ = Nothing
+
+refFinS : {n : Nat} -> Fin n -> Fin n
+refFinS {n = S _} x = case refStrengthen x of
+    Nothing => FZ
+    Just y => FS y
+
 -- The number of LTESucc in a proof, by matching on it
 size : LTE m n -> Nat
 size LTEZero = 0
@@ -60,6 +72,11 @@ check name results
            [] => putStrLn "\{name}: \{show (length results)} agree"
            ((x, y) :: _) => putStrLn "\{name}: MISMATCH \{show x} /= \{show y}"
 
+-- All the Fins of a bound, built with FS
+fins : (n : Nat) -> List (Fin n)
+fins Z = []
+fins (S k) = FZ :: map FS (fins k)
+
 range : Nat -> List Nat
 range n = [0 .. n]
 
@@ -79,3 +96,7 @@ main = do
   check "decEq (List Nat)" [(decEqPoly [a, b] [b, a], a == b) | (a, b) <- pairs 25]
   printLn (map (map finToNat) (castBy 2 2 [0, 1, 2]), map (map finToNat) (castBy 2 3 [0, 1]))
   printLn (yes (decEq big big), yes (decEq big (big + 1)))
+  check "strengthen" [ (map unFin (strengthen x), map unFin (refStrengthen x))
+                     | n <- range 20, x <- fins (S n) ]
+  check "finS" [(unFin (finS x), unFin (refFinS x)) | n <- range 20, x <- fins n]
+  printLn (map finToNat (strengthen (the (Fin 101) 99)), map finToNat (strengthen (the (Fin 101) 100)))

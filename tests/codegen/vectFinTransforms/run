@@ -7,7 +7,8 @@ idris2 --dumpcases Main.cases -o Main Main.idr
 # run-time versions.  The foldr of Foldable (Vect n) is the foldr of lists
 # on the same cells (vectToList is an identity).
 for f in Main.useTabulate Main.useRange Main.useVectAllFins Main.useListAllFins \
-         Main.useList1AllFins Main.useLength Main.useFoldr Data.Vect.Fin.range; do
+         Main.useList1AllFins Main.useLength Main.useFoldr Data.Vect.Fin.range \
+         Main.useStrengthen Data.Fin.finS; do
     printf '%s:' "$f"
     grep "^$f = " Main.cases | sed -e 's/^[^=]*= //' | grep -o "Data\.\(Vect\|Fin\)\.[A-Za-z0-9.]*\|Prelude\.Types\.foldr" | sort -u | tr '\n' ' '
     echo

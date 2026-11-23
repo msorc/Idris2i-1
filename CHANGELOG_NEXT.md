@@ -2246,6 +2246,8 @@ should target this file (`CHANGELOG_NEXT`).
   the clauses it had), which compares two `Integer`s at run time and gives
   `believe_me Refl`.  Measured with `natOps`/`vectFin` on RefC
   (instructions): `isLTE` 83 times fewer, `natToFin` 36, `decEq` 154.
+  `strengthen` compares the `Integer` with the bound and gives the same
+  value as a `Fin n`, and `finS` goes through it: 94 and 111 times fewer.
 
 * `System.Crash` runs an action in a crash boundary: `catchCrash act` gives
   `Left` a `CrashInfo` (the kind: `CrashCall`, `MissingCase` or

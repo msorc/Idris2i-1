@@ -25,8 +25,12 @@ useLength xs = length xs
 useFoldr : Vect n Integer -> Integer
 useFoldr xs = foldr (-) 0 xs
 
+useStrengthen : {n : Nat} -> Fin (S n) -> Maybe (Fin n)
+useStrengthen x = strengthen x
+
 main : IO ()
 main = do
   printLn (useTabulate 3, useRange 3, useVectAllFins 3)
   printLn (useListAllFins 3, forget (useList1AllFins 3))
   printLn (useLength [1, 2, 3], useFoldr [1, 2, 3])
+  printLn (useStrengthen {n = 3} 2, useStrengthen {n = 3} 3, finS {n = 4} 3)

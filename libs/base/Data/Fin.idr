@@ -123,6 +123,20 @@ strengthen {n = S _} (FS p) with (strengthen p)
   strengthen (FS _) | Just q  = Just $ FS q
 strengthen _ = Nothing
 
+||| `strengthen` on `Integer`, used at run time in place of `strengthen` (a
+||| `%transform` rule), and so in `finS` and the `Num` operations.
+|||
+||| This relies on the representation of `Fin` at run time: `Fin` has the
+||| shape of `Nat` (calcNaty in the compiler), so on every backend a `Fin` is
+||| the `Integer` it counts, and the same value is the `Fin n` when it is
+||| below `n`: `believe_me x` is that value with its new type.
+export
+strengthenInteger : {n : _} -> Fin (S n) -> Maybe (Fin n)
+strengthenInteger x
+    = if finToInteger x < natToInteger n then Just (believe_me x) else Nothing
+
+%transform "strengthenInteger" strengthen = strengthenInteger
+
 ||| Add some natural number to a Fin, extending the bound accordingly
 ||| @ n the previous bound
 ||| @ m the number to increase the Fin by
