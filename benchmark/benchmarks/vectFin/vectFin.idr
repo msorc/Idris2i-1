@@ -4,10 +4,11 @@
 ||| cases in order and prints a checksum for each, so the output of two
 ||| builds can be compared.  The case names starting with `v` work on a
 ||| `Vect`, with `f` on a `Fin`, with `l` on a `List` and with `i` on an
-||| `Int`: `vmap` is to be read beside `lmap`, `fplus` beside `iplus`, and
-||| so on.  Running one line at a time measures one case.
+||| `Int`, with `a` on an `Array` (Data.Array): `vmap` is to be read beside
+||| `lmap` and `amap`, `fplus` beside `iplus`, and so on.  Running one line at a time measures one case.
 module Main
 
+import Data.Array
 import Data.Fin
 import Data.List
 import Data.String
@@ -50,6 +51,12 @@ lindex _ [] = 0
 lindex Z (x :: _) = x
 lindex (S k) (_ :: xs) = lindex k xs
 
+mkArray : (n : Nat) -> Array n Int
+mkArray n = fromVect (mkVect n)
+
+sumA : Array n Int -> Int
+sumA = foldl (+) 0
+
 -- Cases --------------------------------------------------------------------
 
 -- `index` at every position: O(n^2) for both.
@@ -66,6 +73,14 @@ lindexC n r
           repeat r $ \j =>
             cast $ foldl (\acc, k => acc + lindex ((k + j) `mod` n) xs) 0 [0 .. pred n]
 
+-- `index` of an Array: O(1), so O(n) for every position.
+aindex : Nat -> Nat -> Integer
+aindex Z _ = 0
+aindex (S m) r
+    = let xs = mkArray (S m) in
+          repeat r $ \j =>
+            cast $ foldl (\acc, k => acc + Array.index (fin m (k + j)) xs) 0 [0 .. m]
+
 vmap : Nat -> Nat -> Integer
 vmap n r = let xs = mkVect n in
                repeat r $ \j => cast $ sumV (map (+ cast j) xs)
@@ -73,6 +88,10 @@ vmap n r = let xs = mkVect n in
 lmap : Nat -> Nat -> Integer
 lmap n r = let xs = mkList n in
                repeat r $ \j => cast $ sumL (map (+ cast j) xs)
+
+amap : Nat -> Nat -> Integer
+amap n r = let xs = mkArray n in
+               repeat r $ \j => cast $ sumA (map (+ cast j) xs)
 
 vzipWith : Nat -> Nat -> Integer
 vzipWith n r = let xs = mkVect n in
@@ -82,12 +101,20 @@ lzipWith : Nat -> Nat -> Integer
 lzipWith n r = let xs = mkList n in
                    repeat r $ \j => cast $ sumL (zipWith (\a, b => a * b + cast j) xs xs)
 
+azipWith : Nat -> Nat -> Integer
+azipWith n r = let xs = mkArray n in
+                   repeat r $ \j => cast $ sumA (zipWith (\a, b => a * b + cast j) xs xs)
+
 vfoldl : Nat -> Nat -> Integer
 vfoldl n r = let xs = mkVect n in
                  repeat r $ \j => cast $ foldl (\acc, x => acc + x * cast j) 0 xs
 
 lfoldl : Nat -> Nat -> Integer
 lfoldl n r = let xs = mkList n in
+                 repeat r $ \j => cast $ foldl (\acc, x => acc + x * cast j) 0 xs
+
+afoldl : Nat -> Nat -> Integer
+afoldl n r = let xs = mkArray n in
                  repeat r $ \j => cast $ foldl (\acc, x => acc + x * cast j) 0 xs
 
 vfoldr : Nat -> Nat -> Integer
@@ -126,6 +153,10 @@ vtabulate n r = repeat r $ \j =>
 ltabulate : Nat -> Nat -> Integer
 ltabulate n r = repeat r $ \j =>
                   cast $ sumL (map (\i => cast (i + j)) (take n [0 .. n]))
+
+atabulate : Nat -> Nat -> Integer
+atabulate n r = repeat r $ \j =>
+                  cast $ sumA (Array.tabulate {n} (\i => cast (finToNat i + j)))
 
 vrange : Nat -> Nat -> Integer
 vrange n r = repeat r $ \j => finSum (toList (range {len = n})) + cast j
@@ -172,15 +203,15 @@ fconvert m r = repeat r $ \j =>
 
 cases : List (String, Nat -> Nat -> Integer)
 cases =
-  [ ("vindex", vindex), ("lindex", lindexC)
-  , ("vmap", vmap), ("lmap", lmap)
-  , ("vzipWith", vzipWith), ("lzipWith", lzipWith)
-  , ("vfoldl", vfoldl), ("lfoldl", lfoldl)
+  [ ("vindex", vindex), ("lindex", lindexC), ("aindex", aindex)
+  , ("vmap", vmap), ("lmap", lmap), ("amap", amap)
+  , ("vzipWith", vzipWith), ("lzipWith", lzipWith), ("azipWith", azipWith)
+  , ("vfoldl", vfoldl), ("lfoldl", lfoldl), ("afoldl", afoldl)
   , ("vfoldr", vfoldr), ("lfoldr", lfoldr)
   , ("vlength", vlength), ("llength", llength)
   , ("vappend", vappend), ("lappend", lappend)
   , ("vtoList", vtoList)
-  , ("vtabulate", vtabulate), ("ltabulate", ltabulate)
+  , ("vtabulate", vtabulate), ("ltabulate", ltabulate), ("atabulate", atabulate)
   , ("vrange", vrange)
   , ("vallFins", vallFins), ("lallFins", lallFins)
   , ("fplus", fplus), ("iplus", iplus)

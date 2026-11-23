@@ -2253,6 +2253,18 @@ should target this file (`CHANGELOG_NEXT`).
   `Integer` at run time, and so does `complement` (and through it `negate`
   and `-`): `+` 297 times fewer than before, `*` 39, `complement` 39.
 
+* New module `Data.Array`: `Array n a`, an immutable array of `n` elements
+  with `index : Fin n -> Array n a -> a` in constant time.  An array is built
+  once, by `tabulate`, `replicate`, `fromVect`, `fromList` (which gives the
+  length in a dependent pair) or `empty`, and `map`, `zipWith`, `replaceAt`
+  and `updateAt` make new arrays (`replaceAt` copies the array).  `toVect`,
+  `size`, and `Functor`, `Foldable`, `Zippable`, `Eq` and `Show`
+  implementations.  It is pure: the array operations it runs are confined
+  to the module, which never writes to an array that it gave out.  On RefC,
+  `index` at every position of an array of 3000 takes 58 times fewer
+  instructions than on a `Vect`; `map`, `foldl` and `tabulate` cost what
+  they cost on a `Vect`, `zipWith` 17% more on RefC and 7% less on Chez.
+
 * `System.Crash` runs an action in a crash boundary: `catchCrash act` gives
   `Left` a `CrashInfo` (the kind: `CrashCall`, `MissingCase` or
   `FailedCheck`, the message, and the backtrace when backtraces are on) if

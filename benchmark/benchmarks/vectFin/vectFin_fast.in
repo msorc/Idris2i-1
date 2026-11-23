@@ -1,11 +1,15 @@
 vindex 1000 1
 lindex 1000 1
+aindex 1000 1
 vmap 100000 2
 lmap 100000 2
+amap 100000 2
 vzipWith 100000 2
 lzipWith 100000 2
+azipWith 100000 2
 vfoldl 100000 2
 lfoldl 100000 2
+afoldl 100000 2
 vfoldr 100000 2
 lfoldr 100000 2
 vlength 100000 20
@@ -15,6 +19,7 @@ lappend 100000 2
 vtoList 100000 2
 vtabulate 1000 1
 ltabulate 1000 1
+atabulate 1000 1
 vrange 1000 1
 vallFins 1000 1
 lallFins 1000 1

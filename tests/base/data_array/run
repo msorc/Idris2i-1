@@ -1,0 +1,6 @@
+. ../../testutils.sh
+
+# Data.Array on each backend: RefC (the default), Chez and Node.
+run Array.idr
+idris2 --cg chez -o array-chez Array.idr && ./build/exec/array-chez
+idris2 --cg node -o array.js Array.idr && node ./build/exec/array.js

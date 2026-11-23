@@ -35,6 +35,7 @@ modules = Control.App,
           Control.Relation.Closure,
           Control.WellFounded,
 
+          Data.Array,
           Data.Bifoldable,
           Data.Bits,
           Data.Bool,
