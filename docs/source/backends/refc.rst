@@ -383,6 +383,7 @@ them is compiled as it would be without flat arrays (the same C).
 arrays of values.  ``--directive refc-flat-arrays``, which turned them on
 when they were opt-in, is accepted and changes nothing (a program that does
 not use them has no array with a layout).
+
 - ``refc-no-lazy-constants``: an expression that occurs several times inside
   delayed code is a constant like the other repeated expressions, evaluated
   the first time that it is needed, instead of a delayed constant that is
