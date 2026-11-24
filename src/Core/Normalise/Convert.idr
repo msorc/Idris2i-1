@@ -359,7 +359,10 @@ mutual
                 Ref QVar Int -> Bool -> Defs -> Env Term vars ->
                 Binder (Closure vars) -> Binder (Closure vars) -> Core Bool
   convBinders q i defs env bx by
-    = if sameBinders bx by && multiplicity bx == multiplicity by
+    -- (The universe checker, which collects universes, compares types
+    -- whatever the quantities: the elaborator checked them, and chooses the
+    -- quantities of quantity variables at each use)
+    = if sameBinders bx by && (multiplicity bx == multiplicity by || isJust (ucollect defs))
          then allM id [ convPiInfo q i defs env (piInfo bx) (piInfo by)
                       , convGen q i defs env (binderType bx) (binderType by)]
          else pure False
