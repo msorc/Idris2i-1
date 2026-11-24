@@ -1,5 +1,5 @@
 package http-tls
-version = 0.8.0
+version = 0.1.0
 brief = "HTTPS: the HTTP server and client of the http library over the tls library"
 
 -- Built, tested and installed with the tls library only (see IDRIS2I_1_TLS in

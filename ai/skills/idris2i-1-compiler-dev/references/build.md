@@ -28,8 +28,8 @@ build/exec/idris2i-1_app/idris2i-1  the binary, linked with support/c of the tre
 libs/<lib>/build/ttc/<ttcVersion>/...   the libraries, as TTC files
    |  make testenv
    v
-build/env/idris2i-1-0.8.0/<lib>-0.8.0 -> libs/<lib>/build/ttc   (symlinks)
-build/env/idris2i-1-0.8.0/{lib,support}                         (installed support)
+build/env/idris2i-1-0.1.0/<lib>-0.1.0 -> libs/<lib>/build/ttc   (symlinks)
+build/env/idris2i-1-0.1.0/{lib,support}                         (installed support)
 ```
 
 - `idris2i-1.ipkg` depends on `network`, so the boot compiler needs `prelude`,

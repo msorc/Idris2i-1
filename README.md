@@ -6,6 +6,10 @@ number: two times *i*, minus one) and has gone far beyond Idris 2 0.8: the
 compiler emits C by default, errors carry codes that `--explain` describes,
 and it ships HTTP, TLS and JSON libraries.
 
+Idris2i-1 is a personal research project: it is not affiliated with the Idris
+project or its developers, it comes with no promise of stability or support,
+and its numbering starts again at 0.1.0.
+
 For installation instructions, see [INSTALL.md](INSTALL.md).
 
 Most of what is written about Idris 2 applies to Idris2i-1. The Idris 2

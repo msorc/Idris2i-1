@@ -1,5 +1,5 @@
 package tls
-version = 0.8.0
+version = 0.1.0
 brief = "TLS connections over the non-blocking sockets, with OpenSSL 3"
 
 -- The C part (c/) is built before the modules, and installed in the `lib`

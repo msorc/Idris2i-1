@@ -134,11 +134,11 @@ ignoreMissingIpkg (c :: cs) = ignoreMissingIpkg cs
 
 banner : String
 banner = #"""
-       ____    __     _         ___
-      /  _/___/ /____(_)____   |__ \
-      / // __  / ___/ / ___/   __/ /     Version \#{ showVersion True version }
-    _/ // /_/ / /  / (__  )   / __/      https://www.idris-lang.org
-   /___/\__,_/_/  /_/____/   /____/      Type :? for help
+       ____    __     _         ___     _            ___
+      /  _/___/ /____(_)____   |__ \   (_)          <  /
+      / // __  / ___/ / ___/   __/ /  / /  ______   / /    Version \#{ showVersion True version }
+    _/ // /_/ / /  / (__  )   / __/  / /  /_____/  / /     A personal research project
+   /___/\__,_/_/  /_/____/   /____/ /_/           /_/      Type :? for help
 
   Welcome to Idris2i-1.  Enjoy yourself!
   """#

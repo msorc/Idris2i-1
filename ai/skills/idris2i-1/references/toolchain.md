@@ -179,7 +179,7 @@ reading them yourself the default format, which shows the source lines, is bette
 
 ## Upstream differences
 
-`idris2i-1 --version` prints `0.8.0-<hash>` here. If `idris2i-1 --explain E0101` is rejected
+`idris2i-1 --version` prints `0.1.0-<hash>` here. If `idris2i-1 --explain E0101` is rejected
 as an unknown option, the compiler is upstream Idris 2: errors carry no codes, there is
 no JSON format and no import suggestion, the default back end is Chez Scheme, and
 `div`/`mod` do not affect totality. The language rules in this skill still hold.

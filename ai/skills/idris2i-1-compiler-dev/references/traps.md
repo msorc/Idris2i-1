@@ -51,7 +51,7 @@ compiler repository and have happened in practice.
 - **Cause**: as above, `idris2i-1 --install` writes under the baked-in prefix
   unless `IDRIS2I_1_PREFIX` is set, even when `make install PREFIX=...` put the
   compiler elsewhere.
-- **Symptom**: packages appear in `~/.idris2i-1/idris2i-1-0.8.0/`, and other
+- **Symptom**: packages appear in `~/.idris2i-1/idris2i-1-0.1.0/`, and other
   builds that use `~/.idris2i-1` as their boot compiler change behaviour.
 - **Do**: export `IDRIS2I_1_PREFIX=<scratch prefix>` before any `--install`
   that is not meant for the real installation. If it happened, say so.
@@ -95,7 +95,7 @@ compiler repository and have happened in practice.
   `clean_version` leaves version strings in.
 - **Do**: go through `make test only=...`. With another compiler and
   prefix: `make -C tests testbin IDRIS2I_1=<idris2i-1> IDRIS2I_1_PREFIX=<prefix>`
-  then `NAME_VERSION=idris2i-1-0.8.0 make -C tests test IDRIS2I_1=<idris2i-1>
+  then `NAME_VERSION=idris2i-1-0.1.0 make -C tests test IDRIS2I_1=<idris2i-1>
   IDRIS2I_1_PREFIX=<prefix> INTERACTIVE='' < /dev/null`. Do not pass
   `TARGET=` to `make test`: it leaks into the support Makefiles.
   `idris2i-1/pkg/pkg006` and `pkg015` only pass with the prefix at

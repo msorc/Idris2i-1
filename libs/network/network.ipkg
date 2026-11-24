@@ -1,5 +1,5 @@
 package network
-version = 0.8.0
+version = 0.1.0
 
 opts = "--ignore-missing-ipkg"
 

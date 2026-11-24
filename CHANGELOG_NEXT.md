@@ -30,6 +30,13 @@ should target this file (`CHANGELOG_NEXT`).
     compiler as `$idris2i_1`;
   - the agent skills are `idris2i-1`, `idris2i-1-proofs`, and so on.
 
+  - the version starts again at 0.1.0 (`idris2i-1 --version` prints
+    `0.1.0-<commit>`), and so do the versions of the libraries that come with
+    it: the libraries install under `~/.idris2i-1/idris2i-1-0.1.0/`, and a
+    `langversion` bound of a package is compared with 0.1.0;
+  - the banner of the REPL spells Idris2i-1, and says that it is a personal
+    research project instead of linking to the Idris website.
+
   Packages built for Idris 2 must be rebuilt and installed again under the
   new prefix. Source files keep the extensions `.idr`, `.lidr` and `.ipkg`,
   and the modules of the compiler keep their names (`Idris.REPL`, ...).
