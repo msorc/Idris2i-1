@@ -214,9 +214,20 @@ unless they say otherwise.
   of trivial steps, 0.1-0.2% of type checking the `deriving_*` tests. A
   name type for primitives in references, as data constructors have, would
   remove it.
-* `--check-universes` (experimental, off by default) passes `prelude`, at
-  about 2.3 times the instructions, and `base`, at about 4.3 times (two
-  definitions of `base` are not checked completely, W0008).
+* `--check-universes` (experimental, off by default) passes `prelude`,
+  `base`, `network`, `contrib`, `test`, `http`, `tls` and `http-tls`, at 2.3
+  to 5 times the instructions (`docs/source/reference/universes.rst` has the
+  table). `linear` fails in `System.Concurrency.Linear` and
+  `System.Concurrency.Session`, where uses of `pure1` and of the
+  `HasLinearIO` implementation of `L` share a universe of the constructor
+  `Pure1` which is not renamed; why it is not renamed there is not known yet.
+  `papers` fails in `Control.DivideAndConquer` (`Mu` is impredicative: for
+  good).
+* `join` of `Monad (L m)` in `Control.Linear.LIO` is typed for
+  `--check-universes` with two `believe_me` casts (an unproved assumption,
+  see the reference page); it is not typeable predicatively. A `Monad`
+  interface without `join` in its dictionary, or universe polymorphism of
+  implementations in the interface parameter, would avoid it.
 * `--check-universes` rejects the compiler's
   `Libraries.Data.WithData.AddMetadata`, which matches on a type whose
   parameter holds types: the pattern rule puts the universes in the bound

@@ -682,8 +682,11 @@ should target this file (`CHANGELOG_NEXT`).
   and two uses of one interface implementation can be at different
   universes; the uses within a `mutual` block, among a definition's local
   definitions and case blocks, and within an implementation are of one copy.
-  The `prelude` and `base` pass the check. A universe inconsistency is error
-  `E0107`; the warnings about
+  `prelude`, `base`, `network`, `contrib`, `test`, `http`, `tls` and
+  `http-tls` pass the check; `linear` (in `System.Concurrency.Linear`),
+  `papers` (in `Control.DivideAndConquer`, which is impredicative) and the
+  compiler (in `Libraries.Data.WithData`) do not. A universe inconsistency is
+  error `E0107`; the warnings about
   definitions not checked completely and about imports built without the flag
   are `W0008` and `W0009`. See the "Universe checking" section of the
   reference documentation for what the check covers and what it does not.

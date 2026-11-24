@@ -189,24 +189,56 @@ and the transformers over it would not be typeable predicatively (the shape
 How far it gets
 ===============
 
-With ``--check-universes``, the ``prelude`` library is checked completely, at
-a cost of about 2.3 times the instructions of building it without the option
-(the TTC files are 2.4 times bigger: every reference carries its instance).
-``base`` is checked too, at about 4.3 times the instructions, with two
-definitions not checked completely (W0008: ``Data.Vect.Quantifiers.All.drop'``
-and ``Data.List1.Quantifiers.All.indexAll``). Interfaces whose parameter type
-is inferred make the universes of that parameter shared by all their methods;
-giving the type (``interface Functor (0 f : Type -> Type)``) avoids it, and
-the ``Prelude`` and ``base`` interfaces do.
+The libraries built with ``--check-universes``, each with those it depends
+on built with the option too, one module at a time (instructions with and
+without the option, ``perf stat -e instructions:u``):
 
-The shapes which still fail are reduced in the test ``universe010``. Two are
-not typeable in a predicative hierarchy: a monad whose bind is a constructor
+============ ========== ============================== ===================
+library      result     not checked completely (W0008) instructions, ratio
+============ ========== ============================== ===================
+``prelude``  passes     none                           2.3
+``base``     passes     2 definitions                  4.3
+``linear``   fails      none                           7.8
+``network``  passes     none                           4.9
+``contrib``  passes     16 definitions                 3.6
+``papers``   fails      16 definitions                 4.0
+``test``     passes     none                           3.7
+``http``     passes     none                           3.3
+``tls``      passes     none                           4.8
+``http-tls`` passes     none                           21
+============ ========== ============================== ===================
+
+(``network`` and the libraries after it depend on ``linear``: they were
+checked with a build of the compiler which reports a universe cycle as a
+warning and carries on, so that ``linear``'s modules were installed.) The
+TTC files are 2-3 times bigger: every reference carries its instance. The
+ratio of ``http-tls`` is that of a small library which imports big ones.
+
+``linear`` fails in ``System.Concurrency.Linear`` and
+``System.Concurrency.Session``: their uses of ``pure1`` and of the
+``HasLinearIO`` implementation of ``L`` share universes of the constructor
+``Pure1`` (a universe of ``Control.Linear.LIO`` which is not renamed at those
+uses), which puts a computation returning a computation (``concurrently :
+L IO a -@ L1 IO (L IO a)``) in one copy. ``papers`` fails in
+``Control.DivideAndConquer`` only, whose ``Mu`` is impredicative (below). The
+compiler stops at ``Libraries.Data.WithData`` (below), which nearly every
+module imports: 38 of its 308 modules are checked before it.
+
+Interfaces whose parameter type is inferred make the universes of that
+parameter shared by all their methods; giving the type (``interface Functor
+(0 f : Type -> Type)``) avoids it, and the ``Prelude`` and ``base``
+interfaces do.
+
+The shapes which failed are reduced in the test ``universe010``. Two are not
+typeable in a predicative hierarchy: a monad whose bind is a constructor
 (``L`` of ``Control.Linear.LIO``, and ``Elab`` when it was a data type)
 hides the intermediate type in a field strictly below its own universe, and a
 transformer over it (``EitherT``) binds through it at a type which holds the
 same copy of it (every ``Monad`` dictionary holds a ``join``); and ``join``
-of ``Text.Parser.Core`` puts a grammar into the hidden field of the same copy.
-The third is a limit of this check: the compiler's
+of ``Text.Parser.Core`` puts a grammar into the hidden field of the same
+copy. The libraries avoid them: ``Elab`` is abstract (above), the grammar
+``join`` is gone, and ``L``'s ``join`` makes an assumption (see "What is not
+covered"). The third is a limit of this check: the compiler's
 ``Libraries.Data.WithData.AddMetadata`` matches on a type ``WithData ls a``
 whose ``ls`` holds types. A pattern on a type puts every universe in the type
 of what it binds no lower than the universe ``w`` of the type matched, but the
