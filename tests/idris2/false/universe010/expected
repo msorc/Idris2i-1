@@ -1,0 +1,54 @@
+1/1: Building Transformer (Transformer.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    Transformer.{uf:1} <= Transformer.{uf:2} (from Transformer.pure)
+    Transformer.{uf:2} <= Transformer.{uf:3} (from Transformer.nested)
+    Transformer.{uf:3} <= Transformer.{uf:4} (from Transformer.Monad implementation at Transformer:1)
+    Transformer.{uf:4} <= Transformer.{uf:5} (from Transformer.pure)
+    Transformer.{uf:5} <= Transformer.{uf:6} (from Transformer.nested)
+    Transformer.{uf:6} <= Transformer.{uf:7} (from Transformer.Monad implementation at Transformer:2)
+    Transformer.{uf:7} <= Transformer.{uf:8} (from Transformer.pure)
+    Transformer.{uf:8} <= Transformer.{uf:9} (from Transformer.nested)
+    Transformer.{uf:9} < an inferred universe (from Transformer.M)
+    an inferred universe <= an inferred universe (from Transformer.nested)
+    an inferred universe <= an inferred universe (from Transformer.T)
+    an inferred universe <= an inferred universe (from Transformer.T)
+    an inferred universe <= Transformer.{uf:1} (from Transformer.nested)
+
+Transformer:39:1--39:31
+ 35 | joinT : Monad m => T m (T m a) -> T m a
+ 36 | joinT x = bind x (\ y => y)
+ 37 |
+ 38 | nested : T M Nat
+ 39 | nested = joinT (pure (pure Z))
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1/1: Building GrammarJoin (GrammarJoin.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    GrammarJoin.{uf:1} < an inferred universe (from GrammarJoin.Grammar)
+    an inferred universe <= an inferred universe (from GrammarJoin.join)
+    an inferred universe <= GrammarJoin.{uf:1} (from GrammarJoin.join)
+
+GrammarJoin:15:1--15:31
+ 11 |   Empty : a -> Grammar a
+ 12 |   SeqEmpty : Grammar a -> (a -> Grammar b) -> Grammar b
+ 13 |
+ 14 | join : Grammar (Grammar a) -> Grammar a
+ 15 | join p = SeqEmpty p (\ g => g)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1/1: Building TypeMatch (TypeMatch.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    TypeMatch.{uf:1} < an inferred universe (from TypeMatch.WithData)
+    an inferred universe <= TypeMatch.{uf:2} (from TypeMatch.AddMetadata)
+    TypeMatch.{uf:2} <= an inferred universe (from TypeMatch.AddMetadata)
+    an inferred universe <= an inferred universe (from TypeMatch.WithData)
+    an inferred universe <= TypeMatch.{uf:1} (from TypeMatch.WithData)
+
+TypeMatch:35:1--35:57
+ 31 |   metadata : Values ls
+ 32 |   val : payload
+ 33 |
+ 34 | AddMetadata : KeyVal -> Type -> Type
+ 35 | AddMetadata lbl (WithData ls a) = WithData (lbl :: ls) a
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

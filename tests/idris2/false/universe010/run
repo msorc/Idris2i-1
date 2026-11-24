@@ -1,0 +1,7 @@
+. ../../../testutils.sh
+
+# Shapes which are not typeable in a predicative hierarchy (each rejected),
+# reduced from the libraries which still fail under --check-universes
+check --no-prelude --check-universes Transformer.idr
+check --no-prelude --check-universes GrammarJoin.idr
+check --no-prelude --check-universes TypeMatch.idr
