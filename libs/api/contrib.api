@@ -2002,7 +2002,6 @@ module Text.Parser.Core
   export total failLoc : {0 ty : Type} -> {0 c : Prelude.Basics.Bool} -> {0 tok : Type} -> {0 state : Type} -> Text.Bounded.Bounds -> String -> Text.Parser.Core.Grammar state tok c ty
   export total fatalError : {0 ty : Type} -> {0 c : Prelude.Basics.Bool} -> {0 tok : Type} -> {0 state : Type} -> String -> Text.Parser.Core.Grammar state tok c ty
   export total fatalLoc : {0 ty : Type} -> {0 c : Prelude.Basics.Bool} -> {0 tok : Type} -> {0 state : Type} -> Text.Bounded.Bounds -> String -> Text.Parser.Core.Grammar state tok c ty
-  export total join : {0 a : Type} -> {0 tok : Type} -> {0 state : Type} -> {c1 : Prelude.Basics.Bool} -> {c2 : Prelude.Basics.Bool} -> Text.Parser.Core.Grammar state tok c1 (Text.Parser.Core.Grammar state tok c2 a) -> Text.Parser.Core.Grammar state tok (c1 Prelude.Basics.(||) Delay c2) a
   export total mapToken : {0 ty : Type} -> {0 c : Prelude.Basics.Bool} -> {0 state : Type} -> {0 b : Type} -> {0 a : Type} -> (a -> b) -> Text.Parser.Core.Grammar state b c ty -> Text.Parser.Core.Grammar state a c ty
   export total mustWork : {0 ty : Type} -> {0 tok : Type} -> {0 state : Type} -> {c : Prelude.Basics.Bool} -> Text.Parser.Core.Grammar state tok c ty -> Text.Parser.Core.Grammar state tok c ty
   export total nextIs : {0 state : Type} -> {0 tok : Type} -> String -> (tok -> Prelude.Basics.Bool) -> Text.Parser.Core.Grammar state tok Prelude.Basics.False tok

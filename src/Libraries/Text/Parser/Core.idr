@@ -102,14 +102,6 @@ seq : {c1,c2 : Bool} ->
       Grammar state tok (c1 || c2) b
 seq = SeqEmpty
 
-||| Sequence a grammar followed by the grammar it returns.
-export %inline
-join : {c1,c2 : Bool} ->
-       Grammar state tok c1 (Grammar state tok c2 a) ->
-       Grammar state tok (c1 || c2) a
-join {c1 = False} p = SeqEmpty p id
-join {c1 = True} p = SeqEat p id
-
 ||| Allows the result of a grammar to be mapped to a different value.
 export
 {c : _} ->

@@ -2484,6 +2484,11 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Contrib
 
+* `Text.Parser.Core.join`, which ran a grammar and then the grammar it
+  returned, is removed: nothing used it, and a grammar holding a grammar of
+  its own universe is not typeable under `--check-universes` (a grammar is
+  a data type whose `SeqEmpty`/`SeqEat` hide the intermediate type in a
+  field). `seq p id` does the same.
 * `Data.Nat.Solver`: the macro `solveNat` proves equalities of natural
   numbers that hold in every commutative semiring (variables and other atoms,
   literals, `S`, `+`, `*`), by reflection: the sides are normalised with
