@@ -156,29 +156,56 @@ Why this is sound, in short:
    instances) again before they are part of a definition; copies made by
    partial evaluation and ``%transform`` rules are only used at run time.
 
+Elaborator scripts
+==================
+
+``Elab``, the type of elaborator scripts (``Language.Reflection``), is a type
+constructor without constructors (``data Elab : Type -> Type where
+[external]``), and its operations (``Pure``, ``Bind``, ``Join``, ``Lambda``,
+``Check``, ...) are primitives, which only the elaborator runs. So ``Elab``
+has no fields, the check puts no bound on the universe of the type a script
+returns, and a use of ``Elab`` or of a primitive takes fresh universes, as for
+any type constructor without fields and any primitive: ``Elab (Elab a)`` is
+a type like ``Elab a``, ``Join : Elab (Elab a) -> Elab a`` needs nothing, and
+a transformer over ``Elab`` (``EitherT e Elab``, ``StateT s Elab``) has a
+``Monad`` implementation whose ``join`` goes through ``Elab``'s bind at a type
+containing ``Elab``.
+
+This is harmless because nothing in the language takes a script apart:
+``Elab`` can't be matched on, and no primitive gives back, as a term, what a
+script holds (the elaborator runs a script outside the theory, and what a
+script produces, a term or declarations, is elaborated and checked again).
+The types of the primitives are assumptions, as for any primitive, and they
+hold in the trivial model ``Elab a = Unit``: every primitive returns an
+``Elab``, so every one of them is inhabited there, at any universes. A
+compiled program which builds a script gets exactly that: each primitive
+compiles to a function returning an erased value.
+
+As a data type, with a constructor ``Bind : Elab a -> (a -> Elab b) -> Elab
+b``, ``Elab`` would store ``a`` in a field strictly below its own universe,
+and the transformers over it would not be typeable predicatively (the shape
+``Transformer`` of the test ``universe010``).
+
 How far it gets
 ===============
 
 With ``--check-universes``, the ``prelude`` library is checked completely, at
 a cost of about 2.3 times the instructions of building it without the option
 (the TTC files are 2.4 times bigger: every reference carries its instance).
-``base`` is not accepted yet: ``Language.Reflection``, ``Deriving.Common`` and
-``Deriving.Traversable.derive'`` pass, ``Deriving.Traversable.derive`` does
-not. Its cycle goes through the copies of ``MonadError e (EitherT e m)`` and
-``Monad Elab`` which it uses at ``m = Elab``: the index universe of ``Elab``
-is above ``Elab``'s own (``Join`` takes an ``Elab (Elab a)``), and ``EitherT``
-stores an ``m (Either e a)``. Interfaces whose parameter type is inferred make
-the universes of that parameter shared by all their methods; giving the type
-(``interface Functor (0 f : Type -> Type)``) avoids it, and the ``Prelude``
-and ``base`` interfaces do.
+``base`` is checked too, at about 4.3 times the instructions, with two
+definitions not checked completely (W0008: ``Data.Vect.Quantifiers.All.drop'``
+and ``Data.List1.Quantifiers.All.indexAll``). Interfaces whose parameter type
+is inferred make the universes of that parameter shared by all their methods;
+giving the type (``interface Functor (0 f : Type -> Type)``) avoids it, and
+the ``Prelude`` and ``base`` interfaces do.
 
 The shapes which still fail are reduced in the test ``universe010``. Two are
 not typeable in a predicative hierarchy: a monad whose bind is a constructor
-(``Elab``, ``L`` of ``Control.Linear.LIO``) hides the intermediate type in a
-field strictly below its own universe, and a transformer over it
-(``EitherT``) binds through it at a type which holds the same copy of it
-(every ``Monad`` dictionary holds a ``join``); and ``join`` of
-``Text.Parser.Core`` puts a grammar into the hidden field of the same copy.
+(``L`` of ``Control.Linear.LIO``, and ``Elab`` when it was a data type)
+hides the intermediate type in a field strictly below its own universe, and a
+transformer over it (``EitherT``) binds through it at a type which holds the
+same copy of it (every ``Monad`` dictionary holds a ``join``); and ``join``
+of ``Text.Parser.Core`` puts a grammar into the hidden field of the same copy.
 The third is a limit of this check: the compiler's
 ``Libraries.Data.WithData.AddMetadata`` matches on a type ``WithData ls a``
 whose ``ls`` holds types. A pattern on a type puts every universe in the type
@@ -201,7 +228,7 @@ What is not covered
   compiler warns, and the check covers only the modules built with it. To
   check a program completely, every library it uses (including ``prelude``
   and ``base``) has to be built with the option, which is not possible yet for
-  ``base`` (see above).
+  every library (see above).
 * The elaborator does not always produce terms which are well typed when
   checked again: it builds the motive of a ``rewrite`` by abstraction without
   checking it, and it compares types without the arguments which other

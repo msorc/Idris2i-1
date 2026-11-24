@@ -208,17 +208,15 @@ unless they say otherwise.
   For example `show` of a `TTImp` lambda or Pi type needs `Data.Maybe`, which
   `Language.Reflection.TTImp` imports privately. The derivers avoid such
   functions; the compiler could load those modules, or say what is missing.
-* `Join` hides its nested occurrence of `Elab` from the positivity checker
-  with `assert_total`, since `Elab` is an index of `Elab`.
+* Running an elaborator script costs about 2,500 more instructions per
+  primitive step than when `Elab` was a data type (a context lookup in the
+  evaluator, where a constructor needed none): about 3% of a script made only
+  of trivial steps, 0.1-0.2% of type checking the `deriving_*` tests. A
+  name type for primitives in references, as data constructors have, would
+  remove it.
 * `--check-universes` (experimental, off by default) passes `prelude`, at
-  about 2.3 times the instructions, but not `base`: with universe instances
-  on all references, `Deriving.Traversable.derive` still fails, through the
-  copies of `MonadError e (EitherT e m)` and `Monad Elab` it uses at
-  `m = Elab` (the index universe of `Elab` is above `Elab`'s own because of
-  `Join`, and `EitherT` stores `m (Either e a)`). What it needs is not
-  known yet: less equality between universes where the elaborator unifies
-  types (as `decoupleBinderUniverses` does for type binders), or `Join`
-  without the nested `Elab`.
+  about 2.3 times the instructions, and `base`, at about 4.3 times (two
+  definitions of `base` are not checked completely, W0008).
 * `--check-universes` rejects the compiler's
   `Libraries.Data.WithData.AddMetadata`, which matches on a type whose
   parameter holds types: the pattern rule puts the universes in the bound

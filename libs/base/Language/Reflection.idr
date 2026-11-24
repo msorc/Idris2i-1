@@ -31,107 +31,116 @@ data LookupDir =
 ||| Elaboration scripts
 ||| Where types/terms are returned, binders will have unique, if not
 ||| necessarily human readable, names
+|||
+||| `Elab` is abstract: a script is built from the primitives below, and
+||| only the compiler runs it, when it elaborates `%runElab` or a `%macro`.
+||| A compiled program which evaluates a script stops with an error.
 export
-data Elab : Type -> Type where
-     Pure : a -> Elab a
-     Map  : (a -> b) -> Elab a -> Elab b
-     Ap   : Elab (a -> b) -> Elab a -> Elab b
-     Bind : Elab a -> (a -> Elab b) -> Elab b
-     Fail : FC -> String -> Elab a
-     Warn : FC -> String -> Elab ()
+data Elab : Type -> Type where [external]
 
-     Try : Elab a -> Elab a -> Elab a
+-- The primitives of `Elab`. The elaborator runs a script by evaluating it
+-- to an application of one of them, whose arguments are not evaluated
+-- (src/TTImp/Elab/RunElab.idr, which matches them by name), and the code
+-- generators compile each of them to a function which stops the program
+-- (src/Compiler/CompileExpr.idr). Their types are assumptions, as for any
+-- primitive.
 
-     ||| Log a message. Takes a
-     ||| * topic
-     ||| * level
-     ||| * message
-     LogMsg : String -> Nat -> String -> Elab ()
-     ||| Print and log a term. Takes a
-     ||| * topic
-     ||| * level
-     ||| * message
-     ||| * term
-     LogTerm : String -> Nat -> String -> TTImp -> Elab ()
-     ||| Resugar, print and log a term. Takes a
-     ||| * topic
-     ||| * level
-     ||| * message
-     ||| * term
-     LogSugaredTerm : String -> Nat -> String -> TTImp -> Elab ()
+%extern Pure : a -> Elab a
+%extern Map : (a -> b) -> Elab a -> Elab b
+%extern Ap : Elab (a -> b) -> Elab a -> Elab b
+%extern Bind : Elab a -> (a -> Elab b) -> Elab b
+%extern Fail : FC -> String -> Elab a
+%extern Warn : FC -> String -> Elab ()
 
-     ResugarTerm : (maxLineWidth : Maybe Nat) -> TTImp -> Elab String
+%extern Try : Elab a -> Elab a -> Elab a
 
-     ||| Elaborate a TTImp term to a concrete value
-     Check : TTImp -> Elab expected
+||| Log a message. Takes a
+||| * topic
+||| * level
+||| * message
+%extern LogMsg : String -> Nat -> String -> Elab ()
+||| Print and log a term. Takes a
+||| * topic
+||| * level
+||| * message
+||| * term
+%extern LogTerm : String -> Nat -> String -> TTImp -> Elab ()
+||| Resugar, print and log a term. Takes a
+||| * topic
+||| * level
+||| * message
+||| * term
+%extern LogSugaredTerm : String -> Nat -> String -> TTImp -> Elab ()
 
-     |||  given a type constructor, get positions of parameters in type, and the pairs of data constructors that can have the same type.
-     GetDecEqConPairs : a -> Elab (List Nat, List (String, String))
+%extern ResugarTerm : (maxLineWidth : Maybe Nat) -> TTImp -> Elab String
 
-     ||| Quote a concrete expression back to a TTImp
-     Quote : (0 _ : val) -> Elab TTImp
+||| Elaborate a TTImp term to a concrete value
+%extern Check : TTImp -> Elab expected
 
-     ||| Elaborate under a lambda
-     Lambda : (0 x : Type) ->
-              {0 ty : x -> Type} ->
-              ((val : x) -> Elab (ty val)) -> Elab ((val : x) -> (ty val))
+|||  given a type constructor, get positions of parameters in type, and the pairs of data constructors that can have the same type.
+%extern GetDecEqConPairs : a -> Elab (List Nat, List (String, String))
 
-     ||| Get the current goal type, if known
-     ||| (it might need to be inferred from the solution)
-     Goal : Elab (Maybe TTImp)
-     ||| Get the names of local variables in scope
-     LocalVars : Elab (List Name)
-     ||| Generate a new unique name, based on the given string
-     GenSym : String -> Elab Name
-     ||| Put a name in the current namespace
-     InCurrentNS : Name -> Elab Name
-     ||| Get the types of every name which matches.
-     ||| There may be ambiguities - returns a list of fully explicit names
-     ||| and their types. If there's no results, the name is undefined.
-     GetType : Name -> Elab (List (Name, TTImp))
-     ||| Get the metadata associated with a name
-     GetInfo : Name -> Elab (List (Name, NameInfo))
-     ||| Get the visibility associated with a name
-     GetVis : Name -> Elab (List (Name, Visibility))
-     ||| Get the type of a local variable
-     GetLocalType : Name -> Elab TTImp
-     ||| Get the constructors of a data type. The name must be fully resolved.
-     GetCons : Name -> Elab (List Name)
-     ||| Get all function definition names referred in a definition. The name must be fully resolved.
-     GetReferredFns : Name -> Elab (List Name)
-     ||| Get the name of the current and outer functions, if it is applicable
-     GetCurrentFn : Elab (SnocList Name)
-     ||| Get the source location of the macro call site
-     GetFC : Elab FC
-     ||| Check a group of top level declarations
-     Declare : List Decl -> Elab ()
-     ||| Read the contents of a file, if it is present
-     ReadFile : LookupDir -> (path : String) -> Elab $ Maybe String
-     ||| Writes to a file, replacing existing contents, if were present
-     WriteFile : LookupDir -> (path : String) -> (contents : String) -> Elab ()
-     ||| Returns the specified type of dir related to the current idris project
-     IdrisDir : LookupDir -> Elab String
+||| Quote a concrete expression back to a TTImp
+%extern Quote : (0 _ : val) -> Elab TTImp
 
-     ||| Elaborate a term without an expected type. Returns the elaborated
-     ||| term and its type, quoted as `Quote` does. Fails if the term or its
-     ||| type contains a metavariable which is still unsolved.
-     Infer : TTImp -> Elab (TTImp, TTImp)
-     ||| Quote a value back to TTImp after normalising it. Without
-     ||| `unfoldAll`, only definitions which are visible here are unfolded.
-     QuoteNF : (unfoldAll : Bool) -> (0 _ : val) -> Elab TTImp
-     ||| Elaborate two terms, the second at the type of the first, and test
-     ||| whether they are convertible. Nothing the elaboration did is kept.
-     Convert : TTImp -> TTImp -> Elab Bool
-     ||| Get the clauses of a definition, which must be visible: the clauses
-     ||| of a private or export definition are readable in its own module
-     ||| only.
-     GetClauses : Name -> Elab (List Clause)
+||| Elaborate under a lambda
+%extern Lambda : (0 x : Type) ->
+                 {0 ty : x -> Type} ->
+                 ((val : x) -> Elab (ty val)) -> Elab ((val : x) -> (ty val))
 
-     ||| Run a script which returns a script, then run the returned script
-     -- `Elab` is an index of `Elab`, so the nested occurrence is not strictly
-     -- positive in the sense of the checker. `Elab` is abstract and only the
-     -- elaborator takes a script apart, so the occurrence is asserted.
-     Join : Elab (assert_total (Elab a)) -> Elab a
+||| Get the current goal type, if known
+||| (it might need to be inferred from the solution)
+%extern Goal : Elab (Maybe TTImp)
+||| Get the names of local variables in scope
+%extern LocalVars : Elab (List Name)
+||| Generate a new unique name, based on the given string
+%extern GenSym : String -> Elab Name
+||| Put a name in the current namespace
+%extern InCurrentNS : Name -> Elab Name
+||| Get the types of every name which matches.
+||| There may be ambiguities - returns a list of fully explicit names
+||| and their types. If there's no results, the name is undefined.
+%extern GetType : Name -> Elab (List (Name, TTImp))
+||| Get the metadata associated with a name
+%extern GetInfo : Name -> Elab (List (Name, NameInfo))
+||| Get the visibility associated with a name
+%extern GetVis : Name -> Elab (List (Name, Visibility))
+||| Get the type of a local variable
+%extern GetLocalType : Name -> Elab TTImp
+||| Get the constructors of a data type. The name must be fully resolved.
+%extern GetCons : Name -> Elab (List Name)
+||| Get all function definition names referred in a definition. The name must be fully resolved.
+%extern GetReferredFns : Name -> Elab (List Name)
+||| Get the name of the current and outer functions, if it is applicable
+%extern GetCurrentFn : Elab (SnocList Name)
+||| Get the source location of the macro call site
+%extern GetFC : Elab FC
+||| Check a group of top level declarations
+%extern Declare : List Decl -> Elab ()
+||| Read the contents of a file, if it is present
+%extern ReadFile : LookupDir -> (path : String) -> Elab $ Maybe String
+||| Writes to a file, replacing existing contents, if were present
+%extern WriteFile : LookupDir -> (path : String) -> (contents : String) -> Elab ()
+||| Returns the specified type of dir related to the current idris project
+%extern IdrisDir : LookupDir -> Elab String
+
+||| Elaborate a term without an expected type. Returns the elaborated
+||| term and its type, quoted as `Quote` does. Fails if the term or its
+||| type contains a metavariable which is still unsolved.
+%extern Infer : TTImp -> Elab (TTImp, TTImp)
+||| Quote a value back to TTImp after normalising it. Without
+||| `unfoldAll`, only definitions which are visible here are unfolded.
+%extern QuoteNF : (unfoldAll : Bool) -> (0 _ : val) -> Elab TTImp
+||| Elaborate two terms, the second at the type of the first, and test
+||| whether they are convertible. Nothing the elaboration did is kept.
+%extern Convert : TTImp -> TTImp -> Elab Bool
+||| Get the clauses of a definition, which must be visible: the clauses
+||| of a private or export definition are readable in its own module
+||| only.
+%extern GetClauses : Name -> Elab (List Clause)
+
+||| Run a script which returns a script, then run the returned script
+%extern Join : Elab (Elab a) -> Elab a
 
 export
 Functor Elab where
@@ -150,8 +159,6 @@ Alternative Elab where
 export
 Monad Elab where
   (>>=) = Bind
-  -- `Join` rather than the default `x >>= id`, which would instantiate
-  -- `Bind` at `Elab a` in a universe above the one of `a`
   join = Join
 
 -----------------------------

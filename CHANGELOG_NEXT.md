@@ -682,8 +682,8 @@ should target this file (`CHANGELOG_NEXT`).
   and two uses of one interface implementation can be at different
   universes; the uses within a `mutual` block, among a definition's local
   definitions and case blocks, and within an implementation are of one copy.
-  The `prelude` passes the check; `base` does not yet (it stops in
-  `Deriving.Traversable`). A universe inconsistency is error `E0107`; the warnings about
+  The `prelude` and `base` pass the check. A universe inconsistency is error
+  `E0107`; the warnings about
   definitions not checked completely and about imports built without the flag
   are `W0008` and `W0009`. See the "Universe checking" section of the
   reference documentation for what the check covers and what it does not.
@@ -2325,6 +2325,18 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### Base
 
+* `Language.Reflection.Elab` is an abstract type with primitive operations:
+  `data Elab : Type -> Type where [external]`, and an `%extern` function for
+  each of its former constructors, with the same name and type (`Pure`,
+  `Bind`, `Join`, ...; none of them was exported, and the exported API does
+  not change). Scripts are written and run as before: the elaborator runs a
+  script by evaluating it to an application of a primitive, as it took a
+  constructor before. A compiled program which builds a script (a script in
+  a record, an `Elaboration Elab` dictionary) gets an erased value for it; it
+  used to build the constructors, which nothing could take apart. With
+  `--check-universes`, `Elab` has no fields, so `Elab (Elab a)` and the
+  transformers over `Elab` are typeable, and `Join`'s type no longer needs
+  `assert_total`.
 * The functions of `Data.Nat` that recursed once per unit run on `Integer` at
   run time: `lte`, `gte`, `lt`, `gt`, `minimum`, `maximum` and `power` (by
   repeated squaring), and `div'`, `mod'` and `divmod'`, through which

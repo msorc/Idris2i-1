@@ -566,8 +566,22 @@ toCDef n ty erased (PMDef pi args _ tree _)
     toLam True (MkFun args rhs) = MkFun Scope.empty (lamRHS args rhs)
     toLam _ d = d
 toCDef n ty _ (ExternDef arity)
-    = let (ns ** args) = mkArgList 0 arity in
-          pure $ MkFun _ (CExtPrim emptyFC !(getFullName n) (map toArgExp (toList $ getVars args)))
+    = do fn <- getFullName n
+         let (ns ** args) = mkArgList 0 arity
+         pure $ MkFun _ $ if isElabPrim fn
+           then CErased emptyFC
+           else CExtPrim emptyFC fn (map toArgExp (toList $ getVars args))
+  where
+    -- The primitives of `Elab` are run by the elaborator only, and nothing
+    -- can run a script at run time, so no back end implements them: a
+    -- script built at run time is an erased value (`Elab a` is `Unit` in
+    -- the model of the primitives' types). Stopping the program instead
+    -- would stop it wherever an `Elaboration Elab` or `Alternative Elab`
+    -- dictionary is built, since some of their methods (`goal`, `empty`)
+    -- are applications of primitives.
+    isElabPrim : Name -> Bool
+    isElabPrim (NS ns _) = ns == reflectionNS
+    isElabPrim _ = False
 
 toCDef n ty _ (ForeignDef arity cs)
     = do defs <- get Ctxt

@@ -71,6 +71,15 @@ deepRefersTo def = do
         let ns' = !(refs defs n) ++ ns
         clos all' defs ns'
 
+-- The error for a term which should be a script and is not an application of
+-- a primitive of `Elab`
+notScript : {vars : _} -> {auto c : Ref Ctxt Defs} ->
+            FC -> Env Term vars -> NF vars -> Core a
+notScript fc env script
+    = do defs <- get Ctxt
+         empty <- clearDefs defs
+         throw (BadRunElab fc env !(quote empty env script) "script is not a data value")
+
 export
 elabScript : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
@@ -81,19 +90,22 @@ elabScript : {vars : _} ->
              RigCount -> FC -> NestedNames vars ->
              Env Term vars -> NF vars -> Maybe (Glued vars) ->
              Core (NF vars)
-elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
+-- A script is an application of one of the primitives of `Elab` (`%extern`
+-- functions of Language.Reflection), which the evaluator leaves stuck with
+-- its arguments unevaluated. The names of the primitives are taken in that
+-- namespace, so the name is enough to know one (elabCon); any other stuck
+-- application is not a script.
+elabScript rig fc nest env script@(NApp nfc (NRef _ nm) args) exp
     = do defs <- get Ctxt
-         fnm <- toFullNames nm
-         case fnm of
-              NS ns (UN (Basic n))
-                 => if ns == reflectionNS
-                      then elabCon defs n (map snd args)
-                             `catch` \case -- wrap into `RunElabFail` any non-elab error
-                               e@(BadRunElab {})  => throw e
-                               e@(RunElabFail {}) => throw e
-                               e                  => throw $ RunElabFail e
-                      else failWith defs $ "bad reflection namespace " ++ show ns
-              _ => failWith defs $ "bad fullnames " ++ show fnm
+         NS ns (UN (Basic n)) <- toFullNames nm
+           | _ => notScript fc env script
+         let True = ns == reflectionNS
+           | False => notScript fc env script
+         elabCon defs n (map snd args)
+           `catch` \case -- wrap into `RunElabFail` any non-elab error
+             e@(BadRunElab {})  => throw e
+             e@(RunElabFail {}) => throw e
+             e                  => throw $ RunElabFail e
   where
     failWith : Defs -> String -> Core a
     failWith defs desc
@@ -523,12 +535,9 @@ elabScript rig fc nest env script@(NDCon nfc nm t ar args) exp
              empty <- clearDefs defs
              inner <- nfOpts withAll defs env !(quote empty env inner)
              elabScript rig fc nest env inner exp
-    elabCon defs n args = failWith defs $ "unexpected Elab constructor " ++ n ++
+    elabCon defs n args = failWith defs $ "unexpected Elab primitive " ++ n ++
                                           ", or incorrect count of arguments: " ++ show (length args)
-elabScript rig fc nest env script exp
-    = do defs <- get Ctxt
-         empty <- clearDefs defs
-         throw (BadRunElab fc env !(quote empty env script) "script is not a data value")
+elabScript rig fc nest env script exp = notScript fc env script
 
 export
 checkRunElab : {vars : _} ->
