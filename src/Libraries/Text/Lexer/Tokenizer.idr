@@ -114,7 +114,7 @@ dispatch t
     build : List (Int, List (Tokenizer a)) -> CharTable (List (Tokenizer a))
     build [] = Leaf []
     build [(_, x)] = Leaf x
-    build xs = let (l, r) = splitAt (divNatNZ (length xs) 2 SIsNonZero) xs in
+    build xs = let (l, r) = splitAt (divNatNZ (length xs) 2 ItIsSucc) xs in
                    case r of
                      ((bound, _) :: _) =>
                        Node bound (assert_total (build l)) (assert_total (build r))
