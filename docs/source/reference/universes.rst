@@ -172,6 +172,22 @@ the universes of that parameter shared by all their methods; giving the type
 (``interface Functor (0 f : Type -> Type)``) avoids it, and the ``Prelude``
 and ``base`` interfaces do.
 
+The shapes which still fail are reduced in the test ``universe010``. Two are
+not typeable in a predicative hierarchy: a monad whose bind is a constructor
+(``Elab``, ``L`` of ``Control.Linear.LIO``) hides the intermediate type in a
+field strictly below its own universe, and a transformer over it
+(``EitherT``) binds through it at a type which holds the same copy of it
+(every ``Monad`` dictionary holds a ``join``); and ``join`` of
+``Text.Parser.Core`` puts a grammar into the hidden field of the same copy.
+The third is a limit of this check: the compiler's
+``Libraries.Data.WithData.AddMetadata`` matches on a type ``WithData ls a``
+whose ``ls`` holds types. A pattern on a type puts every universe in the type
+of what it binds no lower than the universe ``w`` of the type matched, but the
+types inside a run time ``ls`` are only strictly below ``w``: the exact
+requirement is ``w <= f + 1``, which the check can't express (it has no
+successor constraints), so it rejects the definition. ``Mu`` of the paper
+``Control.DivideAndConquer`` is impredicative and is rejected for good.
+
 Each binder of a declared type whose type is a universe gets a universe of
 its own: the elaborator infers the type of a type variable by unification
 (in ``f a``, as the domain of ``f``), where cumulativity only needs it to be

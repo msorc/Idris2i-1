@@ -219,6 +219,15 @@ unless they say otherwise.
   known yet: less equality between universes where the elaborator unifies
   types (as `decoupleBinderUniverses` does for type binders), or `Join`
   without the nested `Elab`.
+* `--check-universes` rejects the compiler's
+  `Libraries.Data.WithData.AddMetadata`, which matches on a type whose
+  parameter holds types: the pattern rule puts the universes in the bound
+  variable's type no lower than the universe `w` matched, where `w <= f + 1`
+  would do. Successor constraints (`u + 1` in the universe graph, a weight
+  of -1 in the cycle check and in the TTC edge format) and a pattern rule
+  that uses them for universes strictly inside the bound variable's type
+  would accept it; not done (one module, and an unproved change to the cycle
+  algorithm). A rewrite of `AddMetadata` without the match also would.
 * `--check-universes` costs: every reference carries an instance, so the TTC
   files of a library built with the flag are 2-3 times bigger, and a group
   with more than 256 universes (after the minimisation described in
