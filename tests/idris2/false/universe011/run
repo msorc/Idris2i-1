@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+# A primitive is polymorphic in the universes of its declared type
+check --no-prelude --check-universes Extern.idr
+# A function declared before its clauses is not a primitive
+check --no-prelude --check-universes Forward.idr

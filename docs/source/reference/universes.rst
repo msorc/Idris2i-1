@@ -89,6 +89,11 @@ which are never renamed. References have none:
   definition it is in;
 * to a definition which met an unsolved metavariable, or which could not be
   checked completely (see below): it is not made polymorphic;
+* to a primitive (an ``%extern`` or ``%foreign`` function, or a builtin): it
+  has no body, so a use renames the universes of its type afresh, as for a
+  constructor. The declared type of a primitive is an assumption, as it is
+  for anything a primitive does; a function declared before its clauses is
+  not a primitive;
 * when built by parts of the compiler which do not make instances, or read
   from a TTC file written without the option.
 

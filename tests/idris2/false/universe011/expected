@@ -1,0 +1,14 @@
+1/1: Building Extern (Extern.idr)
+1/1: Building Forward (Forward.idr)
+Error: Universe inconsistency: these constraints form a cycle with a strict step: [E0107]
+    the universe of `Type` at Forward:7:5--7:9 <= the universe of `Type` at Forward:11:7--11:11 (from Forward.selfT)
+    the universe of `Type` at Forward:11:7--11:11 < the universe of `Type` at Forward:7:5--7:9 (from Forward.T)
+
+Forward:12:3--12:12
+ 08 | selfT : T
+ 09 |
+ 10 | mutual
+ 11 |   T = Type
+ 12 |   selfT = T
+        ^^^^^^^^^
+

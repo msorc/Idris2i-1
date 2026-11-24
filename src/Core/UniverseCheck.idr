@@ -799,15 +799,6 @@ checkPendingMetas
                   | Nothing => pure ()
              checkMeta n gdef
 
-||| Check the type of a global definition
-export
-checkTypeUniverses : {auto c : Ref Ctxt Defs} ->
-                     FC -> Name -> ClosedTerm -> Core ()
-checkTypeUniverses fc n ty
-    = whenChecking $
-        do addTypeOwner n ty
-           runCheck fc n $ \ s => ignore $ sortOf Env.empty ty
-
 ||| Check that two types given to the same name (a forward declaration and
 ||| the definition) have the same universes
 export
@@ -1095,6 +1086,33 @@ withUniverseGroup n act
                     update Ctxt { universes->implGroup := Nothing }
                     finishGroup fn
                     pure r
+
+||| Check the type of a global definition
+export
+checkTypeUniverses : {auto c : Ref Ctxt Defs} ->
+                     FC -> Name -> ClosedTerm -> Core ()
+checkTypeUniverses fc n ty
+    = whenChecking $
+        do addTypeOwner n ty
+           runCheck fc n $ \ s => ignore $ sortOf Env.empty ty
+           -- A primitive (an `%extern` or `%foreign` function, or a builtin)
+           -- has no body: it is complete once its type is checked, and
+           -- polymorphic in the universes of its type, which a use renames
+           -- afresh (it is body free, see 'completeGroup'). Its declared type
+           -- is an assumption, as for any primitive. A function declared
+           -- before its clauses, or a hole, is not one of these.
+           defs <- get Ctxt
+           Just gdef <- lookupCtxtExact n (gamma defs)
+                | Nothing => pure ()
+           when (isPrimitive (definition gdef)) $
+             do fn <- getFullName n
+                completeGroup [(fn, [])]
+  where
+    isPrimitive : Def -> Bool
+    isPrimitive (ExternDef {}) = True
+    isPrimitive (ForeignDef {}) = True
+    isPrimitive (Builtin {}) = True
+    isPrimitive _ = False
 
 ||| Check the clauses of a definition by pattern matching
 export
