@@ -2652,6 +2652,19 @@ should target this file (`CHANGELOG_NEXT`).
   reads that `libs/http` declared for itself are gone from its internal
   modules, which use these.
 
+#### Linear
+
+* `Control.Linear.LIO`: `RunCont`, the type of a continuation which uses its
+  argument as a `Usage` says, is exported, and `ContType io u_act u_k a b`
+  is defined as `RunCont u_act a (L io {use=u_k} b)`, which it was by cases;
+  the two reduce to the same types. `join` of `Monad (L m)` is the default
+  one with two casts, which do nothing at run time. Both are for
+  `--check-universes`: `ContType` was declared before `L` and defined after
+  it, so every copy of `L` shared its universes, and `join` is not typeable
+  predicatively (the reference page on universe checking says why, and what
+  the casts assume). `Control.Linear.LIO` now passes the check;
+  `System.Concurrency.Linear` does not yet.
+
 #### Network
 
 * New modules `Network.Socket.Async`, `Network.Socket.Address` and

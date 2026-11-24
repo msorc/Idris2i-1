@@ -220,6 +220,13 @@ its own: the elaborator infers the type of a type variable by unification
 (in ``f a``, as the domain of ``f``), where cumulativity only needs it to be
 no bigger.
 
+A function declared before a data type and defined after it, which the data
+type's constructors use (``ContType`` of ``Control.Linear.LIO`` was one), has
+universes which the data type has too, so they are not renamed at its uses:
+every copy of the data type shares them, which ties copies that should be
+independent. Defining the function before the data type, or using in the
+constructors a function which does not mention the data type, avoids it.
+
 What is not covered
 ===================
 
@@ -243,6 +250,16 @@ What is not covered
   separate source of inconsistency, which the totality checker rejects
   (error ``E0705``), with or without this option.
 * ``believe_me``, ``assert_total``, ``%unsafe`` and foreign functions can
-  prove anything and are out of the scope of the check.
+  prove anything and are out of the scope of the check. ``believe_me`` is a
+  primitive, so its source and target types take universes of their own at
+  each use: a cast can take a value from one copy of a type to another.
+  The libraries do it in one place, ``join`` of ``Monad (L m)`` in
+  ``Control.Linear.LIO`` (``linear``): the interface makes the inner and the
+  outer ``L`` one copy, and the intermediate type of ``L``'s ``Bind`` has to
+  be strictly below the universe of its ``L``, so ``join`` is not typeable
+  predicatively (as ``Elab``'s, when it was a data type). Two casts put the
+  inner computation in a smaller copy and take it back. This is an
+  assumption: nothing takes the types an ``L`` stores back out (``L`` is
+  only run, by ``runK``), so a smaller copy should do, but it is not proved.
 * Where the elaborator leaves a part of a term erased, no constraints come
   from that part.

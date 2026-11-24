@@ -25,8 +25,13 @@ fromInteger 0 = None
 fromInteger 1 = Linear
 fromInteger x = Unrestricted
 
+||| The type of a function from `t` to `b` which uses its argument as the
+||| usage says.
 public export
-0 ContType : (Type -> Type) -> Usage -> Usage -> Type -> Type -> Type
+RunCont : Usage -> Type -> Type -> Type
+RunCont None t b = (0 _ : t) -> b
+RunCont Linear t b = (1 _ : t) -> b
+RunCont Unrestricted t b = t -> b
 
 ||| A wrapper which allows operations to state the multiplicity of the value
 ||| they return. For example, `L IO {use=1} File` is an IO operation which
@@ -49,7 +54,10 @@ data L : (io : Type -> Type) ->
      Action : (1 _ : io a) -> L io {use} a
      Bind : {u_act : _} ->
             (1 _ : L io {use=u_act} a) ->
-            (1 _ : ContType io u_act u_k a b) ->
+            -- (not `ContType`: a function declared before `L` and defined
+            -- after it would have universes of its own which every copy of
+            -- `L` shares, see docs/source/reference/universes.rst)
+            (1 _ : RunCont u_act a (L io {use=u_k} b)) ->
             L io {use=u_k} b
 
 public export
@@ -60,14 +68,9 @@ public export
 L1 : (io : Type -> Type) -> (ty : Type) -> Type
 L1 io ty = L io {use = 1} ty
 
-ContType io None u_k a b = (0 _ : a) -> L io {use=u_k} b
-ContType io Linear u_k a b = (1 _ : a) -> L io {use=u_k} b
-ContType io Unrestricted u_k a b = a -> L io {use=u_k} b
-
-RunCont : Usage -> Type -> Type -> Type
-RunCont None t b = (0 _ : t) -> b
-RunCont Linear t b = (1 _ : t) -> b
-RunCont Unrestricted t b = t -> b
+public export
+0 ContType : (Type -> Type) -> Usage -> Usage -> Type -> Type -> Type
+ContType io u_act u_k a b = RunCont u_act a (L io {use=u_k} b)
 
 -- The repetition here is annoying, but necessary because we don't have
 -- multiplicity polymorphism. We need to look at the usage to know what the
@@ -107,6 +110,17 @@ Applicative io => Applicative (L io) where
 export
 (Applicative m, LinearBind m) => Monad (L m) where
   (>>=) a k = Bind a k
+  -- The default `join` (`Bind mma id`), with two casts which are the
+  -- identity at run time. They are an assumption for --check-universes:
+  -- `Monad (L m)` makes the inner and the outer `L` one copy, and the
+  -- intermediate type of a `Bind` (here the inner `L`) must be strictly
+  -- below the universe of its `L`, so the definition is not typeable
+  -- predicatively. The first cast puts the inner computation in a smaller
+  -- copy, the second takes it back. Assumed harmless because nothing takes
+  -- the types an `L` stores back out: `L` is only run (`runK`), and running
+  -- it gives the same effects whatever the copy. See "What is not covered"
+  -- in docs/source/reference/universes.rst.
+  join mma = Bind {u_act = Unrestricted} (believe_me mma) (\ma : L m a => believe_me ma)
 
 -- prioritise this one for concrete LIO, so we get the most useful
 -- linearity annotations.
