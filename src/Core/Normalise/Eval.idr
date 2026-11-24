@@ -72,6 +72,10 @@ mkClosure opts locs env tm@(Local _ _ idx prf)
     getLocal (S idx) (Later p) (_ :: locs) = getLocal idx p locs
 mkClosure opts locs env tm = MkClosure opts locs env tm
 
+isExternDef : Def -> Bool
+isExternDef (ExternDef {}) = True
+isExternDef _ = False
+
 updateLimit : NameType -> Name -> EvalOpts -> Core (Maybe EvalOpts)
 updateLimit (Func _) n opts
     = pure $ if isNil (reduceLimit opts)
@@ -329,6 +333,12 @@ parameters (defs : Defs) (topopts : EvalOpts)
                   | Nothing => do logC "eval.stuck.outofscope" 5 $ do n' <- toFullNames n
                                                                       pure $ "Stuck function: " ++ show n'
                                   pure def
+             -- A primitive has nothing to unfold: it is stuck, as the
+             -- default case of evalDef would find, without the visibility
+             -- checks and logging (the primitives of `Elab` are applied at
+             -- every step of an elaborator script)
+             let False = isExternDef (definition res)
+               | True => pure def
              let redok1 = evalAll topopts
              let redok2 = reducibleInAny (currentNS defs :: nestedNS defs)
                                          (fullname res)
