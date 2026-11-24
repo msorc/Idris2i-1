@@ -7,13 +7,13 @@ Types and Functions
 Primitive Types
 ===============
 
-Idris defines several primitive types: ``Int``, ``Integer`` and
+Idris2i-1 defines several primitive types: ``Int``, ``Integer`` and
 ``Double`` for numeric operations, ``Char`` and ``String`` for text
 manipulation, and ``Ptr`` which represents foreign pointers. There are
 also several data types declared in the library, including ``Bool``,
 with values ``True`` and ``False``. We can declare some constants with
 these types. Enter the following into a file ``Prims.idr`` and load it
-into the Idris interactive environment by typing ``idris2 Prims.idr``:
+into the Idris2i-1 interactive environment by typing ``idris2i-1 Prims.idr``:
 
 .. code-block:: idris
 
@@ -31,12 +31,12 @@ into the Idris interactive environment by typing ``idris2 Prims.idr``:
     quux : Bool
     quux = False
 
-An Idris file consists of an optional module declaration (here
+An Idris2i-1 file consists of an optional module declaration (here
 ``module Prims``) followed by an optional list of imports and a
 collection of declarations and definitions. In this example, no imports
-have been specified. However, Idris programs can consist of several
+have been specified. However, Idris2i-1 programs can consist of several
 modules, each with its own namespace. This is discussed further in Section
-:ref:`sect-namespaces`. When writing Idris programs, both the order in which
+:ref:`sect-namespaces`. When writing Idris2i-1 programs, both the order in which
 definitions are given and indentation are significant. Functions and
 data types must be defined before use. Incidentally, each definition must
 have a type declaration - for example, see ``x : Int`` or ``foo :
@@ -45,7 +45,7 @@ same level of indentation as the preceding declaration.
 Alternatively, a semicolon ``;`` can be used to terminate declarations.
 
 A library module ``prelude`` is automatically imported by every
-Idris program, including facilities for I/O, arithmetic, data
+Idris2i-1 program, including facilities for I/O, arithmetic, data
 structures, and various common functions. The prelude defines several
 arithmetic and comparison operators, which we can use at the prompt.
 Evaluating things at the prompt gives an answer, for example:
@@ -111,7 +111,7 @@ Functions
 =========
 
 Functions are implemented by pattern matching, again using a similar
-syntax to Haskell. The main difference is that Idris requires type
+syntax to Haskell. The main difference is that Idris2i-1 requires type
 declarations for all functions, using a single colon ``:`` (rather
 than Haskell's double colon ``::``). Some natural number arithmetic
 functions can be defined as follows, again taken from the standard
@@ -136,7 +136,7 @@ letter. Function names (``plus`` and ``mult`` above), data constructors
 (``Z``, ``S``, ``Nil`` and ``::``) and type constructors (``Nat`` and
 ``List``) are all part of the same namespace. By convention, however,
 data types and constructor names typically begin with a capital letter.
-We can test these functions at the Idris prompt:
+We can test these functions at the Idris2i-1 prompt:
 
 ::
 
@@ -160,7 +160,7 @@ computers have perfectly good integer arithmetic built in. The reason
 is primarily that unary numbers have a very convenient structure that
 is easy to reason about, and easy to relate to other data structures,
 as we will see later. Nevertheless, we do not want this convenience to
-be at the expense of efficiency. Fortunately, Idris knows about
+be at the expense of efficiency. Fortunately, Idris2i-1 knows about
 the relationship between ``Nat`` (and similarly structured types) and
 numbers. This means it can optimise the representation, and functions
 such as ``plus`` and ``mult``.
@@ -252,14 +252,14 @@ of how this works in practice:
 
     If the value is expensive to compute, bind it with ``let`` and pass it to
     the local functions that need it. The ``-Wwhere-recompute`` flag makes
-    Idris warn about such definitions.
+    Idris2i-1 warn about such definitions.
 
 .. _sect-holes:
 
 Totality and Covering
 ---------------------
 
-By default, functions in Idris must be ``covering``. That is, the patterns
+By default, functions in Idris2i-1 must be ``covering``. That is, the patterns
 must cover all possible values of the input's type. For example,
 the following definition will give an error:
 
@@ -268,7 +268,7 @@ the following definition will give an error:
     fromMaybe : Maybe a -> a
     fromMaybe (Just x) = x
 
-This gives an error because ``fromMaybe Nothing`` is not defined. Idris
+This gives an error because ``fromMaybe Nothing`` is not defined. Idris2i-1
 reports:
 
 ::
@@ -290,7 +290,7 @@ evaluate ``fromMaybe Nothing`` at runtime, you will get a runtime error.
 Holes
 -----
 
-Idris programs can contain *holes* which stand for incomplete parts of
+Idris2i-1 programs can contain *holes* which stand for incomplete parts of
 programs. For example, we could leave a hole for the greeting in our
 "Hello world" program:
 
@@ -300,7 +300,7 @@ programs. For example, we could leave a hole for the greeting in our
     main = putStrLn ?greeting
 
 The syntax ``?greeting`` introduces a hole, which stands for a part of
-a program that is not yet written. This is a valid Idris program, and you
+a program that is not yet written. This is a valid Idris2i-1 program, and you
 can check the type of ``greeting``:
 
 ::
@@ -330,7 +330,7 @@ and the type of the variable ``k``:
 
 Holes are useful because they help us write functions *incrementally*.
 Rather than writing an entire function in one go, we can leave some parts
-unwritten and use Idris to tell us what is necessary to complete the
+unwritten and use Idris2i-1 to tell us what is necessary to complete the
 definition.
 
 Dependent Types
@@ -341,7 +341,7 @@ Dependent Types
 First-Class Types
 -----------------
 
-In Idris, types are first-class, meaning that they can be computed and
+In Idris2i-1, types are first-class, meaning that they can be computed and
 manipulated (and passed to functions) just like any other language construct.
 For example, we could write a function which computes a type:
 
@@ -378,7 +378,7 @@ Vectors
 
 A standard example of a dependent data type is the type of "lists with
 length", conventionally called *vectors* in the dependent type
-literature. They are available as part of the Idris library, by
+literature. They are available as part of the Idris2i-1 library, by
 importing ``Data.Vect``, or we can declare them as follows:
 
 .. code-block:: idris
@@ -388,7 +388,7 @@ importing ``Data.Vect``, or we can declare them as follows:
        (::) : a -> Vect k a -> Vect (S k) a
 
 Note that we have used the same constructor names as for ``List``.
-Ad-hoc name overloading such as this is accepted by Idris,
+Ad-hoc name overloading such as this is accepted by Idris2i-1,
 provided the names are declared in different namespaces (in
 practice, normally in different modules). Ambiguous constructor names
 can normally be resolved from context.
@@ -419,7 +419,7 @@ defined as follows, appends two ``Vect``:
 
 The type of ``(++)`` states that the resulting vector's length will be
 the sum of the input lengths. If we get the definition wrong in such a
-way that this does not hold, Idris will not accept the definition.
+way that this does not hold, Idris2i-1 will not accept the definition.
 For example:
 
 .. code-block:: idris
@@ -428,12 +428,12 @@ For example:
     (++) Nil       ys = ys
     (++) (x :: xs) ys = x :: xs ++ xs -- BROKEN
 
-When run through the Idris type checker, this results in the
+When run through the Idris2i-1 type checker, this results in the
 following:
 
 ::
 
-    $ idris2 Vect.idr --check
+    $ idris2i-1 Vect.idr --check
     1/1: Building Vect (Vect.idr)
     Vect.idr:7:26--8:1:While processing right hand side of Main.++ at Vect.idr:7:1--8:1:
     When unifying plus k k and plus k m
@@ -450,7 +450,7 @@ The Finite Sets
 ---------------
 
 Finite sets, as the name suggests, are sets with a finite number of
-elements. They are available as part of the Idris library, by
+elements. They are available as part of the Idris2i-1 library, by
 importing ``Data.Fin``, or can be declared as follows:
 
 .. code-block:: idris
@@ -621,7 +621,7 @@ to rely on the behaviour of a mutually defined function for something to typeche
   odd    Z  = False
   odd (S k) = even k
 
-Forward-declaring signatures can help Idris detect their corresponding
+Forward-declaring signatures can help Idris2i-1 detect their corresponding
 mutual definitions.
 
 I/O
@@ -629,8 +629,8 @@ I/O
 
 Computer programs are of little use if they do not interact with the
 user or the system in some way. The difficulty in a pure language such
-as Idris - that is, a language where expressions do not have
-side-effects - is that I/O is inherently side-effecting. So, Idris provides
+as Idris2i-1 - that is, a language where expressions do not have
+side-effects - is that I/O is inherently side-effecting. So, Idris2i-1 provides
 a parameterised type ``IO`` which *describes* the interactions that the
 runtime system will perform when executing a function:
 
@@ -712,7 +712,7 @@ allows us to inject a value directly into an I/O operation:
 As we will see later, ``do``-notation is more general than this, and
 can be overloaded.
 
-You can try executing ``greet`` at the Idris 2 REPL by running the command
+You can try executing ``greet`` at the Idris2i-1 REPL by running the command
 ``:exec greet``:
 
 ..
@@ -726,7 +726,7 @@ Laziness
 ========
 
 Normally, arguments to functions are evaluated before the function
-itself (that is, Idris uses *eager* evaluation). However, this is
+itself (that is, Idris2i-1 uses *eager* evaluation). However, this is
 not always the best approach. Consider the following function:
 
 .. code-block:: idris
@@ -737,7 +737,7 @@ not always the best approach. Consider the following function:
 
 This function uses one of the ``t`` or ``e`` arguments, but not both.
 We would prefer if *only* the argument that is used were evaluated. To achieve
-this, Idris provides a ``Lazy`` primitive, which allows evaluation to be
+this, Idris2i-1 provides a ``Lazy`` primitive, which allows evaluation to be
 suspended. It is a primitive, but conceptually we can think of it as follows:
 
 .. code-block:: idris
@@ -748,7 +748,7 @@ suspended. It is a primitive, but conceptually we can think of it as follows:
     Force : Lazy a -> a
 
 A value of type ``Lazy a`` is unevaluated until it is forced by
-``Force``. The Idris type checker knows about the ``Lazy`` type,
+``Force``. The Idris2i-1 type checker knows about the ``Lazy`` type,
 and inserts conversions where necessary between ``Lazy a`` and ``a``,
 and vice versa. We can therefore write ``ifThenElse`` as follows,
 without any explicit use of ``Force`` or ``Delay``:
@@ -783,7 +783,7 @@ of ones:
 Useful Data Types
 =================
 
-Idris includes a number of useful data types and library functions
+Idris2i-1 includes a number of useful data types and library functions
 (see the ``libs/`` directory in the distribution, and the
 `documentation <https://www.idris-lang.org/pages/documentation.html>`_). This
 section describes a few of these, and how to import them.
@@ -1043,9 +1043,9 @@ Records
 -------
 
 *Records* are data types that collect several values (the record's *fields*)
-together. Idris provides syntax for defining records and automatically
+together. Idris2i-1 provides syntax for defining records and automatically
 generating field access and update functions. Unlike the syntax used for data
-structures, records in Idris follow a different syntax from that seen in
+structures, records in Idris2i-1 follow a different syntax from that seen in
 Haskell. For example, we can represent a person's name and age in a record:
 
 .. code-block:: idris
@@ -1165,7 +1165,7 @@ Dots with spaces around them stand for function composition operators.
 Nested record update
 ~~~~~~~~~~~~~~~~~~~~
 
-Idris also provides convenient syntax for accessing and updating
+Idris2i-1 also provides convenient syntax for accessing and updating
 nested records. For example, if a field is accessible with the
 expression ``x.a.b.c``, it can be updated using the following
 syntax:
@@ -1336,7 +1336,7 @@ introducing ambiguities.
 List comprehensions
 -------------------
 
-Idris provides *comprehension* notation as a convenient shorthand
+Idris2i-1 provides *comprehension* notation as a convenient shorthand
 for building lists. The general form is:
 
 ::
@@ -1406,7 +1406,7 @@ otherwise, we get a default value:
 Totality
 ========
 
-Idris distinguishes between *total* and *partial* functions.
+Idris2i-1 distinguishes between *total* and *partial* functions.
 A total function is a function that either:
 
 + Terminates for all possible inputs, or
@@ -1421,7 +1421,7 @@ it's total:
 + If it's partial, then as long as it doesn't crash or enter an infinite loop,
   it will return a ``String``.
 
-Idris makes this distinction so that it knows which functions are safe to
+Idris2i-1 makes this distinction so that it knows which functions are safe to
 evaluate while type checking (as we've seen with :ref:`sect-fctypes`). After all,
 if it tries to evaluate a function during type checking that doesn't
 terminate, then type checking won't terminate!

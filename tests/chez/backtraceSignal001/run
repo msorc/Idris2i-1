@@ -19,7 +19,7 @@ esac
 
 ulimit -c 0
 ${MAKE} all > /dev/null
-idris2 --cg chez --directive chez-backtrace -o bt Main.idr
+idris2i-1 --cg chez --directive chez-backtrace -o bt Main.idr
 
 for s in segv fpe; do
   echo "--- $s"

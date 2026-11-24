@@ -1,4 +1,4 @@
-I want to call zlib from Idris 2 (zlib is installed on this machine: `zlib.h`, `-lz`).
+I want to call zlib from Idris2i-1 (zlib is installed on this machine: `zlib.h`, `-lz`).
 
 Write a program `zcheck` that takes one argument, a string, and prints three lines:
 
@@ -9,6 +9,6 @@ Write a program `zcheck` that takes one argument, a string, and prints three lin
 3. `roundtrip ok` if `uncompress` on that output gives the original bytes back,
    otherwise `roundtrip FAILED`
 
-The work must be done by zlib through the FFI, not reimplemented in Idris. Put the
+The work must be done by zlib through the FFI, not reimplemented in Idris2i-1. Put the
 build commands in `build.sh`, so that `sh build.sh` produces `build/exec/zcheck`. Use
 the compiler's default back end.

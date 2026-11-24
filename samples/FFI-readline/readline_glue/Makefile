@@ -1,6 +1,6 @@
 include ../../../config.mk
 
-IDRIS := idris2
+IDRIS := idris2i-1
 INSTALLDIR = `${IDRIS} --libdir`/readline/lib
 
 TARGET = libidrisreadline

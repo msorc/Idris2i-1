@@ -5,10 +5,10 @@
 # of a stack overflow depends on the size of the frames: it is left out.
 
 ulimit -c 0
-idris2 --directive refc-backtrace -o bt Main.idr
+idris2i-1 --directive refc-backtrace -o bt Main.idr
 
-export IDRIS2_MAIN_STACK_SIZE=1048576
-export IDRIS2_THREAD_STACK_SIZE=1048576
+export IDRIS2I_1_MAIN_STACK_SIZE=1048576
+export IDRIS2I_1_THREAD_STACK_SIZE=1048576
 for w in main thread; do
   for c in overflow crash; do
     echo "--- $c on the $w thread"

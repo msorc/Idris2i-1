@@ -36,10 +36,10 @@ function, which concatenates vectors:
 
     app : Vect n a -> Vect m a -> Vect (n + m) a
 
-This tutorial introduces Idris, a general purpose functional
-programming language with dependent types. The goal of the Idris
+This tutorial introduces Idris2i-1, a general purpose functional
+programming language with dependent types. The goal of the Idris2i-1
 project is to build a dependently typed language suitable for
-verifiable general purpose programming. To this end, Idris is a compiled
+verifiable general purpose programming. To this end, Idris2i-1 is a compiled
 language which aims to generate efficient executable code. It also has
 a lightweight foreign function interface which allows easy interaction
 with external libraries.
@@ -55,7 +55,7 @@ assumed, although most concepts will at least be explained
 briefly. The reader is also assumed to have some interest in using
 dependent types for writing and verifying software.
 
-For a more in-depth introduction to Idris, which proceeds at a much slower
+For a more in-depth introduction to Idris2i-1, which proceeds at a much slower
 pace, covering interactive program development, with many more examples, see
 `Type-Driven Development with Idris <https://www.manning.com/books/type-driven-development-with-idris>`_
 by Edwin Brady, available from `Manning <https://www.manning.com>`_.
@@ -64,7 +64,7 @@ Example Code
 ============
 
 This tutorial includes some example code, which has been tested
-against Idris 2. These files are available with the Idris 2 distribution,
+against Idris2i-1. These files are available with the Idris2i-1 distribution,
 so that you can try them out easily. They can be found under
 ``samples``. It is, however, strongly recommended that you type
 them in yourself, rather than simply loading and reading them.

@@ -14,7 +14,7 @@ BUILD=false
 FAST=false
 
 function usage {
-        echo 'Perform all benchmarks in the Idris2 benchmark suite. Command output is written to a csv file.'
+        echo 'Perform all benchmarks in the Idris2i-1 benchmark suite. Command output is written to a csv file.'
         echo
         echo "Usage: $(basename $0) [OPTION]..." 2>&1
         echo '   -b   build each test first'
@@ -40,7 +40,7 @@ while getopts ${optstring} arg; do
     c)  case $OPTARG in
             chez|refc|racket|gambit)
               BACKEND="$OPTARG"
-              export IDRIS2_CG=$BACKEND ;;
+              export IDRIS2I_1_CG=$BACKEND ;;
             *)
               echo "$OPTARG is not a recognised backend! You can check the available backends using $0 -h"
               exit 1 ;;
@@ -98,7 +98,7 @@ do
   if ! test -f "build/exec/${test}" || [ "$BUILD" = true ]; then
     echo building $test...
     [[ -f $infile.in ]] && rm -r build
-    idris2 -o $test $test.idr # - currently do not have a way to handle compilation errors (todo?)
+    idris2i-1 -o $test $test.idr # - currently do not have a way to handle compilation errors (todo?)
   fi
   # begin test
   echo executing build/exec/$test

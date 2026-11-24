@@ -49,7 +49,7 @@ this to happen silently. We define ``head`` as follows:
     head : (xs : List a) -> {auto p : isCons xs = True} -> a
     head (x :: xs) = x
 
-The ``auto`` annotation on the implicit argument means that Idris
+The ``auto`` annotation on the implicit argument means that Idris2i-1
 will attempt to fill in the implicit argument by searching for a value
 of the appropriate type. In fact, internally, this is exactly how interface
 resolution works. It will try the following, in order:
@@ -72,8 +72,8 @@ In the case that a proof is not found, it can be provided explicitly as normal:
 Default implicit arguments
 ---------------------------
 
-Besides having Idris automatically find a value of a given type, sometimes we
-want to have an implicit argument with a specific default value. In Idris, we can
+Besides having Idris2i-1 automatically find a value of a given type, sometimes we
+want to have an implicit argument with a specific default value. In Idris2i-1, we can
 do this using the ``default`` annotation. While this is primarily intended to assist
 in automatically constructing a proof where auto fails, or finds an unhelpful value,
 it might be easier to first consider a simpler case, not involving proofs.
@@ -95,7 +95,7 @@ only. Usually, ``default`` is used to provide things like a custom proof search 
 Literate programming
 ====================
 
-Like Haskell, Idris supports *literate* programming. If a file has
+Like Haskell, Idris2i-1 supports *literate* programming. If a file has
 an extension of ``.lidr`` then it is assumed to be a literate file. In
 literate programs, everything is assumed to be a comment unless the line
 begins with a greater than sign ``>``, for example:
@@ -130,7 +130,7 @@ types themselves have types. For example:
     *universe> :t Vect
     Vect : Nat -> Type -> Type
 
-But what about the type of ``Type``? If we ask Idris it reports:
+But what about the type of ``Type``? If we ask Idris2i-1 it reports:
 
 ::
 

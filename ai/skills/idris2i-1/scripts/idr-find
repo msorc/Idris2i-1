@@ -1,0 +1,24 @@
+#!/bin/sh
+# Print the path of the Idris2i-1 compiler to use, or fail with a hint.
+#
+# Order: $IDRIS2I_1, build/exec/idris2i-1 of a compiler checkout that contains the
+# current directory, idris2i-1 on PATH, ~/.idris2i-1/bin/idris2i-1.
+
+if [ -n "${IDRIS2I_1:-}" ]; then
+  echo "$IDRIS2I_1"; exit 0
+fi
+dir=$(pwd)
+while [ "$dir" != / ]; do
+  if [ -x "$dir/build/exec/idris2i-1" ] && [ -f "$dir/idris2i-1.ipkg" ]; then
+    echo "$dir/build/exec/idris2i-1"; exit 0
+  fi
+  dir=$(dirname "$dir")
+done
+if command -v idris2i-1 >/dev/null 2>&1; then
+  command -v idris2i-1; exit 0
+fi
+if [ -x "$HOME/.idris2i-1/bin/idris2i-1" ]; then
+  echo "$HOME/.idris2i-1/bin/idris2i-1"; exit 0
+fi
+echo "idr-find: no idris2i-1 found; set IDRIS2I_1=/path/to/idris2i-1" >&2
+exit 1

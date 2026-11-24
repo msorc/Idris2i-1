@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 -o divzero DivZero.idr > /dev/null
+idris2i-1 -o divzero DivZero.idr > /dev/null
 for t in Bits8 Bits16 Bits32 Bits64 Int8 Int16 Int32 Int64 Int Integer \
          "big Integer" "mod Bits8" "mod Bits16" "mod Bits32" "mod Bits64" \
          "mod Int8" "mod Int16" "mod Int32" "mod Int64" "mod Int" \

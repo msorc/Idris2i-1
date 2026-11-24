@@ -3,13 +3,13 @@
 // Node delivers signals to listeners on the main thread (`process.on`), from
 // its event loop.  The program runs synchronously, so a listener on the
 // thread that runs `main` would only run after `main` has returned.  So the
-// listeners live on the main thread (see `__idris2_setSignal` in
+// listeners live on the main thread (see `__idris2i_1_setSignal` in
 // node_main.js) and record a signal in a word of memory shared with the
 // thread that runs `main`, where handleNextCollectedSignal reads it.
 //
 // When `main` runs in its worker thread (the default), the main thread is
 // idle and records signals from other processes as they arrive.  When it
-// runs on the main thread (IDRIS2_MAIN_STACK_SIZE=0, or the program loaded
+// runs on the main thread (IDRIS2I_1_MAIN_STACK_SIZE=0, or the program loaded
 // as a module), such signals are only recorded when `main` has returned;
 // ignoring a signal works in both cases, and so do the signals that the
 // program raises itself, which are handled synchronously, as `raise` in C.
@@ -49,7 +49,7 @@ function support_system_signal_set(signal, mode) {
   if (name === undefined || (mode === 'collect' && (signal < 0 || signal >= 32)))
     return -1
   try {
-    __idris2_controlSignal(name, signal, mode)
+    __idris2i_1_controlSignal(name, signal, mode)
   } catch (e) {
     process.__lasterr = e
     return -1
@@ -73,7 +73,7 @@ function support_system_signal_collectSignal(signal) {
 
 // The lowest collected signal that arrived (and forget it), -1 if none.
 function support_system_signal_handleNextCollectedSignal() {
-  const bits = __idris2_signalBits()
+  const bits = __idris2i_1_signalBits()
   for (;;) {
     const v = Atomics.load(bits, 0)
     if (v === 0) return -1
@@ -87,7 +87,7 @@ function support_system_signal_raiseSignal(signal) {
   if (name === undefined) return -1
   switch (support_system_signal_modes.get(signal)) {
     case 'collect':
-      __idris2_markSignal(signal)
+      __idris2i_1_markSignal(signal)
       return 0
     case 'ignore':
       return 0

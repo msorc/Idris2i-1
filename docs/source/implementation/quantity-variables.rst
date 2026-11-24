@@ -25,7 +25,7 @@ unrestricted caller:
 
 This page gives the rules and the argument that they accept only programs
 that are well typed for every choice of ``1`` or ω for the variables. The
-tests are ``tests/idris2/linear/linear023`` (``Poly.idr`` what is accepted,
+tests are ``tests/idris2i-1/linear/linear023`` (``Poly.idr`` what is accepted,
 ``Reject.idr`` what must be rejected).
 
 Syntax and scope

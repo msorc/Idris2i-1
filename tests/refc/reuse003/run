@@ -1,20 +1,20 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
-IDRIS2_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
+idris2i-1 -o main Main.idr
+IDRIS2I_1_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
 grep "leaked values" leaks.txt | sed 's/,.*//'
 fn() { awk -v RS= "/Value \\*Main_$2\\n/ && /\\{/" "build/exec/$1.c"; }
 # The uniqueness tests (a cell kept), and the cells freed or released
 # because no constructor takes them over: both cells of `merge` and of
 # `count` are taken over; `pick` releases one of its two in one branch.
 for f in merge count firstOfTwo pick; do
-  echo "$f: $(fn main $f | grep -c "idris2_isUnique\|idris2_reuseCell") $(fn main $f | grep -c "idris2_freeValue\|idris2_removeReuseConstructor")"
+  echo "$f: $(fn main $f | grep -c "idris2i_1_isUnique\|idris2i_1_reuseCell") $(fn main $f | grep -c "idris2i_1_freeValue\|idris2i_1_removeReuseConstructor")"
 done
 fn main merge
 # one cell of a key at most with the directive
-idris2 --directive refc-no-multi-reuse -o main2 Main.idr
+idris2i-1 --directive refc-no-multi-reuse -o main2 Main.idr
 $VALGRIND ./build/exec/main2
 for f in merge count; do
-  echo "$f: $(fn main2 $f | grep -c "idris2_isUnique\|idris2_reuseCell") $(fn main2 $f | grep -c "idris2_freeValue\|idris2_removeReuseConstructor")"
+  echo "$f: $(fn main2 $f | grep -c "idris2i_1_isUnique\|idris2i_1_reuseCell") $(fn main2 $f | grep -c "idris2i_1_freeValue\|idris2i_1_removeReuseConstructor")"
 done
 rm -f leaks.txt

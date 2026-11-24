@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 --build test.ipkg
+idris2i-1 --build test.ipkg
 
 P="build/exec/use-get-opt"
 

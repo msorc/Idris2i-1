@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 --build dummy.ipkg
+idris2i-1 --build dummy.ipkg
 
 ./custom_output/check_dir
 

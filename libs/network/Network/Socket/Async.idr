@@ -51,7 +51,7 @@ import System.IO.Fd
 -- The C functions (support/c/idris_net_async.h)
 
 netC : String -> String
-netC fn = "C:\{fn}, libidris2_support, idris_net_async.h"
+netC fn = "C:\{fn}, libidris2i_1_support, idris_net_async.h"
 
 %foreign netC "idrnet_async_socket"
 prim__socket : Int -> Int -> PrimIO Int
@@ -136,9 +136,9 @@ prim__enotconn : PrimIO Int
 
 -- The wait of System.IO.Wait, without its `Maybe` and result type: a
 -- deadline below 0 is none; 1 ready, 0 deadline, -errno.
-%foreign "RefC:idris2_ioWait"
-         "C__collect_safe:idris2_fdWaitBlocking, libidris2_support, idris_fd.h"
-         "C:idris2_fdWaitBlocking, libidris2_support, idris_fd.h"
+%foreign "RefC:idris2i_1_ioWait"
+         "C__collect_safe:idris2i_1_fdWaitBlocking, libidris2i_1_support, idris_fd.h"
+         "C:idris2i_1_fdWaitBlocking, libidris2i_1_support, idris_fd.h"
 prim__wait : (fd : Int) -> (event : Int) -> (deadline : Int64) -> PrimIO Int
 
 -- ---------------------------------------------------------------------------

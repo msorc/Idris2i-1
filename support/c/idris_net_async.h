@@ -7,8 +7,8 @@
 // The sockets that these functions make are non-blocking and close-on-exec,
 // and no function here blocks: a call that cannot go on returns -EAGAIN (an
 // EWOULDBLOCK of the system is returned as -EAGAIN too), after which the
-// caller waits for the socket with idris2_ioWait (RefC) or
-// idris2_fdWaitBlocking (the other back ends), then tries again.  The one
+// caller waits for the socket with idris2i_1_ioWait (RefC) or
+// idris2i_1_fdWaitBlocking (the other back ends), then tries again.  The one
 // exception is idrnet_async_resolve, which runs getaddrinfo(3) on a pool
 // thread on RefC.
 //

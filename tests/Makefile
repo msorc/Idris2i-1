@@ -4,13 +4,13 @@ threads ?= $(shell (nproc || sysctl -n hw.ncpu) 2>/dev/null || echo 1)
 .PHONY: testbin test
 
 test:
-	./build/exec/runtests $(IDRIS2) $(INTERACTIVE) --timing --failure-file failures --threads $(threads) --only $(only) --except $(except)
+	./build/exec/runtests $(IDRIS2I_1) $(INTERACTIVE) --timing --failure-file failures --threads $(threads) --only $(only) --except $(except)
 
 retest:
-	./build/exec/runtests $(IDRIS2) $(INTERACTIVE) --timing --failure-file failures --threads $(threads) --only-file failures --only $(only) --except $(except)
+	./build/exec/runtests $(IDRIS2I_1) $(INTERACTIVE) --timing --failure-file failures --threads $(threads) --only-file failures --only $(only) --except $(except)
 
 testbin:
-	$(IDRIS2) --build tests.ipkg
+	$(IDRIS2I_1) --build tests.ipkg
 
 clean:
 	$(RM) failures

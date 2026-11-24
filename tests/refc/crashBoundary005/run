@@ -5,7 +5,7 @@
 # nothing else (no invalid read or write, no use of uninitialised memory),
 # and that each crash leaks the same, by running the program with 0, 1 and
 # 11 crashes.  Without Valgrind, only the program runs.
-idris2 -o crash Main.idr > /dev/null
+idris2i-1 -o crash Main.idr > /dev/null
 ./build/exec/crash 3
 if type valgrind > /dev/null 2>&1; then
   lost() {

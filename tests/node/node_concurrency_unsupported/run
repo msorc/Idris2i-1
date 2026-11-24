@@ -1,10 +1,10 @@
 . ../../testutils.sh
 
-idris2 -p contrib -o unsupported Unsupported.idr
+idris2i-1 -p contrib -o unsupported Unsupported.idr
 for case in fork future forkIO channelGet channelPut semaphore condition barrier release; do
     ./build/exec/unsupported $case 2>&1
     echo "exit code $?"
 done
 echo "-- main thread"
-IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/unsupported fork 2>&1
+IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/unsupported fork 2>&1
 echo "exit code $?"

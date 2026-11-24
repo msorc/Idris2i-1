@@ -88,12 +88,12 @@ export
 onCollect : HasIO io => Ptr t -> (Ptr t -> IO ()) -> io (GCPtr t)
 onCollect ptr c = primIO (prim__onCollect ptr (\x => toPrim (c x)))
 
-%foreign "C:idris2_getString, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getString, libidris2i_1_support, idris_support.h"
          "javascript:lambda:x=>x"
 export
 prim__getString : Ptr String -> String
 
-%foreign "RefC:idris2_refc_putChar"
+%foreign "RefC:idris2i_1_refc_putChar"
          "C:putchar,libc 6"
          "node:lambda:x=>process.stdout.write(x)"
          "browser:lambda:x=>console.log(x)"
@@ -104,14 +104,14 @@ prim__putChar : Char -> (1 x : %World) -> IORes ()
 %extern prim__getChar : (1 x : %World) -> IORes Char
 
 -- (RefC: its own reader builds the string directly, without the copy out of
--- the per-thread buffer of idris2_getStr that the other backends make.)
-%foreign "RefC:idris2_refc_getStr"
-         "C:idris2_getStr, libidris2_support, idris_support.h"
+-- the per-thread buffer of idris2i_1_getStr that the other backends make.)
+%foreign "RefC:idris2i_1_refc_getStr"
+         "C:idris2i_1_getStr, libidris2i_1_support, idris_support.h"
          "node:support:getStr,support_system_file"
 prim__getStr : PrimIO String
 
-%foreign "RefC:idris2_refc_putStr"
-         "C:idris2_putStr, libidris2_support, idris_support.h"
+%foreign "RefC:idris2i_1_refc_putStr"
+         "C:idris2i_1_putStr, libidris2i_1_support, idris_support.h"
          "node:lambda:x=>process.stdout.write(x)"
          "browser:lambda:x=>console.log(x)"
 prim__putStr : String -> PrimIO ()

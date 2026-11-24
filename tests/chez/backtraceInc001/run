@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-# Backtraces of a program built incrementally (IDRIS2_INC_CGS=chez): each
+# Backtraces of a program built incrementally (IDRIS2I_1_INC_CGS=chez): each
 # module is compiled by itself, and Chez does not inline the functions of a
 # module in another one, nor those of a module (they are defined at the top
 # level).  The directive, when the program is linked, only turns the
@@ -12,12 +12,12 @@
 rm -rf prelude
 cp -r ../../../libs/prelude prelude
 rm -rf prelude/build
-(cd prelude && IDRIS2_INC_CGS=chez idris2 --install prelude.ipkg > /dev/null)
+(cd prelude && IDRIS2I_1_INC_CGS=chez idris2i-1 --install prelude.ipkg > /dev/null)
 rm -rf prelude
-export IDRIS2_PACKAGE_PATH="$NEW_PP"
-export IDRIS2_INC_CGS=chez
+export IDRIS2I_1_PACKAGE_PATH="$NEW_PP"
+export IDRIS2I_1_INC_CGS=chez
 
-idris2 --cg chez --directive chez-backtrace -o bt Main.idr
+idris2i-1 --cg chez --directive chez-backtrace -o bt Main.idr
 ls build/exec/bt_app | grep -c '^Main.so$'
 for c in crash case deep; do
   echo "--- $c"
@@ -25,7 +25,7 @@ for c in crash case deep; do
   echo "exit code: $?"
 done
 echo "--- off"
-echo crash | IDRIS2_CHEZ_BACKTRACE=0 ./build/exec/bt 2>&1
+echo crash | IDRIS2I_1_CHEZ_BACKTRACE=0 ./build/exec/bt 2>&1
 echo "exit code: $?"
 
 rm -rf build prefix

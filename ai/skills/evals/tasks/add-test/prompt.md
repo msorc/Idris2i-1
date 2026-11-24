@@ -1,6 +1,6 @@
-You are in a git worktree of the Idris 2 compiler fork, at the tip of its `devel`
+You are in a git worktree of the Idris2i-1 compiler fork, at the tip of its `devel`
 branch. Do not build the compiler here. A compiler built from this very commit is
-at `REPO/build/exec/idris2`, the libraries it tests against are in `REPO/build/env`,
+at `REPO/build/exec/idris2i-1`, the libraries it tests against are in `REPO/build/env`,
 and the built test runner is `REPO/tests/build/exec/runtests`. Treat `REPO` as
 read-only.
 

@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+idris2i-1 --log specialise.fail:1 --exec main Merge.idr
+idris2i-1 --log specialise.fail:1 --exec main Blocks.idr
+check Unnamed.idr

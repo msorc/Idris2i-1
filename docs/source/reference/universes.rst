@@ -4,7 +4,7 @@ Universe checking
 
 .. warning::
    Universe checking is experimental and **off by default**. Without it,
-   Idris has ``Type : Type``, which makes the logic inconsistent: Girard's
+   Idris2i-1 has ``Type : Type``, which makes the logic inconsistent: Girard's
    paradox (for example in Hurkens' form) gives a closed term of type
    ``Void`` which the totality checker accepts. Read the section on what is
    not covered before relying on it.

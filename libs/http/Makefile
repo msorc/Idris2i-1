@@ -2,19 +2,19 @@ all: build
 .PHONY: all
 
 build:
-	${IDRIS2} --build http.ipkg
+	${IDRIS2I_1} --build http.ipkg
 .PHONY: build
 
 install:
-	${IDRIS2} --install http.ipkg
+	${IDRIS2I_1} --install http.ipkg
 .PHONY: install
 
 install-with-src:
-	${IDRIS2} --install-with-src http.ipkg
+	${IDRIS2I_1} --install-with-src http.ipkg
 .PHONY: install-with-src
 
 docs:
-	${IDRIS2} --mkdoc http.ipkg
+	${IDRIS2I_1} --mkdoc http.ipkg
 .PHONY: docs
 
 clean:

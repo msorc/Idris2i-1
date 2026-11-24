@@ -1,0 +1,9 @@
+. ../../../testutils.sh
+
+idris2i-1 --dumpcases cases.txt -o rec Rec.idr > /dev/null
+./build/exec/rec
+# Which functions each copy calls: itself, a copy, not Rec.countK and so on.
+grep '^_PE\.' cases.txt | sed 's/_[0-9a-f]\{8,16\}\b/_HASH/g; s/Rec\.[0-9]*:[0-9]*:/Rec.local_/g' | while read -r name rest; do
+  echo "$name:" $(echo "$rest" | grep -o '\(_PE\.Rec\.[A-Za-z_]*_HASH\|Rec\.[A-Za-z0-9:]*\)' | sort -u)
+done | sort
+rm -f cases.txt

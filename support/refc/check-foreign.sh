@@ -14,12 +14,12 @@
 # For each `%foreign` declaration (at the start of a line, with the strings on
 # the lines indented below it) this takes the string that RefC uses: the first
 # "RefC:" one, else the first "C:" one.  A string may be a literal or a helper
-# applied to a literal, `supportC "idris2_sleep"`, where the helper is defined
+# applied to a literal, `supportC "idris2i_1_sleep"`, where the helper is defined
 # in the same file as `supportC fn = "C:\{fn}, lib, header"` or
 # `libc fn = "C:" ++ fn ++ ", lib"`.  A declaration with a header includes
 # `runtime.h` and the header, one without includes `runtime.h` only (as the
 # generated C does).  A function from a library other than the support
-# libraries and libc (no `lib` or a name starting with `libidris2_support`
+# libraries and libc (no `lib` or a name starting with `libidris2i_1_support`
 # or `libc`) is only checked for a declaration.
 #
 # It prints the functions that fail, with where they are declared in Idris,
@@ -115,7 +115,7 @@ while read -r h; do
         [ -n "$h" ] && echo "#include <$h>"
         awk -F '\t' -v h="$h" '$3 == h { print $1 }' "$work/decls" | LC_ALL=C sort -u |
             while read -r n; do
-                printf '#ifndef %s\nvoid *idris2_check_%s = (void *)&%s;\n#endif\n' "$n" "$n" "$n"
+                printf '#ifndef %s\nvoid *idris2i_1_check_%s = (void *)&%s;\n#endif\n' "$n" "$n" "$n"
             done
     } > "$c"
     if ! $CC -fsyntax-only -I"$refc" -I"$csup" "$c" > "$work/decl$i.log" 2>&1; then
@@ -134,9 +134,9 @@ while read -r h; do
 done < "$work/headers"
 
 # The support library: next to its headers in the repository, in lib/ of an
-# installation (<prefix>/idris2-<version>/{lib,support/c}).
-suplib=$csup/libidris2_support.a
-[ -f "$suplib" ] || suplib=$csup/../../lib/libidris2_support.a
+# installation (<prefix>/idris2i-1-<version>/{lib,support/c}).
+suplib=$csup/libidris2i_1_support.a
+[ -f "$suplib" ] || suplib=$csup/../../lib/libidris2i_1_support.a
 
 # Definitions: a program that refers to every name of the support libraries
 # and libc that is a function, linked as RefC links programs.
@@ -145,17 +145,17 @@ suplib=$csup/libidris2_support.a
     cut -f3 "$work/decls" | LC_ALL=C sort -u | while read -r h; do
         [ -n "$h" ] && echo "#include <$h>"
     done
-    awk -F '\t' '$2 == "" || $2 ~ /^libidris2_support/ || $2 ~ /^libc( |$)/ { print $1 }' "$work/decls" |
+    awk -F '\t' '$2 == "" || $2 ~ /^libidris2i_1_support/ || $2 ~ /^libc( |$)/ { print $1 }' "$work/decls" |
         LC_ALL=C sort -u | while read -r n; do
             if ! cut -f1 "$work/undeclared" | grep -qx "$n"; then
-                printf '#ifndef %s\nvoid *volatile idris2_check_%s = (void *)&%s;\n#endif\n' "$n" "$n" "$n"
+                printf '#ifndef %s\nvoid *volatile idris2i_1_check_%s = (void *)&%s;\n#endif\n' "$n" "$n" "$n"
             fi
         done
     echo 'int main(void) { return 0; }'
 } > "$work/link.c"
 : > "$work/undefined"
 if ! $CC -o "$work/link" -I"$refc" -I"$csup" "$work/link.c" \
-        "$suplib" -L"$refc" -lidris2_refc -lgmp -lm -pthread \
+        "$suplib" -L"$refc" -lidris2i_1_refc -lgmp -lm -pthread \
         > "$work/link.log" 2>&1; then
     sed -n "s/.*undefined reference to [\`‘']\([A-Za-z_][A-Za-z0-9_]*\)['’].*/\1/p" "$work/link.log" |
         LC_ALL=C sort -u > "$work/undefined"

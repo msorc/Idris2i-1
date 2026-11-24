@@ -5,11 +5,11 @@
 mkdir -p build/sample build/client
 cp ../../../samples/chat/Main.idr ../../../samples/chat/chat.ipkg build/sample/
 cp Client.idr build/client/
-(cd build/sample && idris2 --build chat.ipkg | grep -v 'Building\|compiling')
-(cd build/client && idris2 -p contrib -p network -p http -o client Client.idr)
+(cd build/sample && idris2i-1 --build chat.ipkg | grep -v 'Building\|compiling')
+(cd build/client && idris2i-1 -p contrib -p network -p http -o client Client.idr)
 for w in 1 4; do
     echo "=== $w workers"
-    IDRIS2_WORKERS=$w build/sample/build/exec/chat 0 > build/chat.log 2>&1 &
+    IDRIS2I_1_WORKERS=$w build/sample/build/exec/chat 0 > build/chat.log 2>&1 &
     pid=$!
     for i in $(seq 1 100); do grep -q listening build/chat.log && break; sleep 0.1; done
     port=$(sed -n 's/listening on .*:\([0-9]*\)/\1/p' build/chat.log)

@@ -7,7 +7,7 @@ A4="2000000 readings finish within 30 seconds with the right output"
 A5="pure Idris: no %foreign, no believe_me, no %cg directive"
 
 rm -rf build
-assert "idris2 Meter.idr -o meter succeeds" "$IDRIS" --no-color Meter.idr -o meter
+assert "idris2i-1 Meter.idr -o meter succeeds" "$IDRIS" --no-color Meter.idr -o meter
 if [ ! -x build/exec/meter ]; then
   fail_rest "no executable" "$A2" "$A3" "$A4" "$A5"
   exit 0

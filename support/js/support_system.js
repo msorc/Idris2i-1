@@ -1,7 +1,7 @@
 const support_system_child_process = require('child_process')
 const support_system_os = require('os')
 
-// The exit status of `cmd` as a shell reports it, as `idris2_system` of the
+// The exit status of `cmd` as a shell reports it, as `idris2i_1_system` of the
 // C support library: the exit code when it exited, 128 + the number of the
 // signal when it was killed by one, -1 when it could not be run.
 function support_system_spawnSync(cmd) {
@@ -40,7 +40,7 @@ function support_system_getErrno() {
 // too).  With `main` in its worker thread, a signal that System.Signal
 // collects wakes the sleep up, as it interrupts `sleep` in C.
 function support_system_sleepMs(ms) {
-  const bits = __idris2_signalBits()
+  const bits = __idris2i_1_signalBits()
   const t0 = Date.now()
   let left = ms
   const seen = Atomics.load(bits, 0)

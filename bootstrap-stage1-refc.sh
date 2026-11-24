@@ -2,13 +2,13 @@
 
 set -e # exit on any error
 
-if [ -z "$IDRIS2_VERSION" ]; then
-    echo "Required IDRIS2_VERSION env is not set."
+if [ -z "$IDRIS2I_1_VERSION" ]; then
+    echo "Required IDRIS2I_1_VERSION env is not set."
     exit 1
 fi
 
 CC="${CC:-cc}"
-SUPPORT_C="${IDRIS2_SUPPORT_DIR:-$PWD/support/c}"
+SUPPORT_C="${IDRIS2I_1_SUPPORT_DIR:-$PWD/support/c}"
 SUPPORT_REFC="$PWD/support/refc"
 
 # The generated code is split in chunks (see generateCSourceFile in
@@ -36,7 +36,7 @@ if [ -z "$BOOT_PARTS" ]; then
     BOOT_PARTS=16
     [ "$BOOT_JOBS" -gt "$BOOT_PARTS" ] && BOOT_PARTS=$BOOT_JOBS
 fi
-if ! grep -q '^#if !defined(IDRIS2_PARTS)' bootstrap-build/idris2_app/idris2-boot.c; then
+if ! grep -q '^#if !defined(IDRIS2I_1_PARTS)' bootstrap-build/idris2i-1_app/idris2i-1-boot.c; then
     BOOT_JOBS=1
     BOOT_PARTS=1
 fi
@@ -50,19 +50,19 @@ fi
 # is not used, warnings in generated code depend on the C compiler.
 BOOT_CFLAGS="${BOOT_CFLAGS-"-O1"}"
 
-echo "Bootstrapping CC=$CC IDRIS2_VERSION=$IDRIS2_VERSION"
+echo "Bootstrapping CC=$CC IDRIS2I_1_VERSION=$IDRIS2I_1_VERSION"
 
 cd bootstrap-build
-echo "Building idris2-boot from idris2-boot.c in $BOOT_PARTS parts, $BOOT_JOBS at a time ($BOOT_CFLAGS)"
+echo "Building idris2i-1-boot from idris2i-1-boot.c in $BOOT_PARTS parts, $BOOT_JOBS at a time ($BOOT_CFLAGS)"
 objs=
 k=0
 while [ "$k" -lt "$BOOT_PARTS" ]; do
-    objs="$objs idris2_app/idris2-boot.$k.o"
+    objs="$objs idris2i-1_app/idris2i-1-boot.$k.o"
     k=$((k + 1))
 done
 # Workers that take the parts one by one: a part is claimed by making a
 # directory for it.  After a failure, the workers do not start new parts.
-claims="idris2_app/idris2-boot.claims.$$"
+claims="idris2i-1_app/idris2i-1-boot.claims.$$"
 rm -rf "$claims"
 mkdir "$claims"
 worker() {
@@ -70,8 +70,8 @@ worker() {
     while [ "$k" -lt "$BOOT_PARTS" ]; do
         if [ ! -e "$claims/failed" ] && mkdir "$claims/$k" 2>/dev/null; then
             # shellcheck disable=SC2086 # the flags are lists of words
-            "$CC" $BOOT_CFLAGS $CPPFLAGS -DIDRIS2_PARTS="$BOOT_PARTS" -DIDRIS2_PART="$k" \
-                -c idris2_app/idris2-boot.c -o "idris2_app/idris2-boot.$k.o" \
+            "$CC" $BOOT_CFLAGS $CPPFLAGS -DIDRIS2I_1_PARTS="$BOOT_PARTS" -DIDRIS2I_1_PART="$k" \
+                -c idris2i-1_app/idris2i-1-boot.c -o "idris2i-1_app/idris2i-1-boot.$k.o" \
                 -I"$SUPPORT_REFC" -I"$SUPPORT_C" || { : >"$claims/failed"; return 1; }
         fi
         k=$((k + 1))
@@ -90,16 +90,16 @@ for pid in $pids; do
 done
 rm -rf "$claims"
 if [ "$status" -ne 0 ]; then
-    echo "Compiling idris2-boot.c failed"
+    echo "Compiling idris2i-1-boot.c failed"
     exit 1
 fi
 # shellcheck disable=SC2086
-"$CC" $BOOT_CFLAGS $objs -o idris2_app/idris2 \
-    "$SUPPORT_C/libidris2_support.a" "$SUPPORT_REFC/libidris2_refc.a" \
+"$CC" $BOOT_CFLAGS $objs -o idris2i-1_app/idris2i-1 \
+    "$SUPPORT_C/libidris2i_1_support.a" "$SUPPORT_REFC/libidris2i_1_refc.a" \
     $LDFLAGS -lgmp -lm -pthread $LDLIBS
 
 # Put the result in the usual place where the target goes
-mkdir -p ../build/exec/idris2_app
-install idris2_app/idris2 ../build/exec/idris2_app/idris2
-install ../bootstrap/idris2-refc.sh ../build/exec/idris2
+mkdir -p ../build/exec/idris2i-1_app
+install idris2i-1_app/idris2i-1 ../build/exec/idris2i-1_app/idris2i-1
+install ../bootstrap/idris2i-1-refc.sh ../build/exec/idris2i-1
 echo 'bootstrap stage 1 complete'

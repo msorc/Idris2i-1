@@ -22,7 +22,7 @@ export
 isWindows : Bool
 isWindows = os `elem` ["windows", "mingw32", "cygwin32"]
 
-%foreign "C:idris2_getNProcessors, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getNProcessors, libidris2i_1_support, idris_support.h"
          "node:lambda:() => require('os').cpus().length"
 prim__getNProcessors : PrimIO Int
 

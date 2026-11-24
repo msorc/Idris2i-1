@@ -5,4 +5,4 @@ comments say what each returns). You may add helper lemmas and imports, but do n
 change `sumTo`, `sumSquares` or the ten signatures, and keep `%default total`.
 
 No `believe_me`, `assert_total`, `assert_smaller`, `idris_crash` or `partial`.
-`idris2 --typecheck arith.ipkg` must succeed with no holes left.
+`idris2i-1 --typecheck arith.ipkg` must succeed with no holes left.

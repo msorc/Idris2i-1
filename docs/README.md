@@ -1,4 +1,4 @@
-# Documentation for the Idris Language
+# Documentation for the Idris2i-1 Language
 
 
 This manual has been prepared using ReStructured Text and the [Sphinx Documentation Generator](https://www.sphinx-doc.org) for future inclusion on [Read The Docs](https://readthedocs.org).
@@ -26,8 +26,8 @@ There are two ways.
 Using pip as follows:
 
 ```sh
-python3 -m venv idris2docs_venv
-source idris2docs_venv/bin/activate
+python3 -m venv idris2i_1docs_venv
+source idris2i_1docs_venv/bin/activate
 pip install --upgrade pip
 pip install sphinx_rtd_theme myst-parser sphinx sphinx-book-theme sphinxcontrib-bibtex sphinx-copybutton
 ```

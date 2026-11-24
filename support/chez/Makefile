@@ -10,8 +10,8 @@ clean:
 build: support-sep.ss
 
 install: build
-	mkdir -p ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/chez
-	install -p -m 644 *.ss ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/chez
+	mkdir -p ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/support/chez
+	install -p -m 644 *.ss ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/support/chez
 
 support-sep.ss: support.ss
 	# start library header

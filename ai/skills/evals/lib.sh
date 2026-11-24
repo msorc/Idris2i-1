@@ -7,7 +7,7 @@
 # Source this file first; it changes to WORKDIR and sets $IDRIS and $TASK.
 
 TASK=$(cd "$(dirname "$0")" && pwd)
-IDRIS=${IDRIS2:-$HOME/.idris2/bin/idris2}
+IDRIS=${IDRIS2I_1:-$HOME/.idris2i-1/bin/idris2i-1}
 if [ $# -lt 1 ] || ! cd "$1"; then
   echo "usage: grade.sh WORKDIR" >&2
   exit 2
@@ -47,7 +47,7 @@ forbid() {
   if [ -z "$found" ]; then pass "$text" "not found"; else fail "$text" "$found"; fi
 }
 
-# no_holes TEXT FILE [idris2 options...]: passes when the file checks and has no holes.
+# no_holes TEXT FILE [idris2i-1 options...]: passes when the file checks and has no holes.
 no_holes() {
   text=$1; file=$2; shift 2
   out=$("$IDRIS" --no-color --console-width 0 "$@" "$file" --client ':m' 2>&1)
@@ -57,7 +57,7 @@ no_holes() {
   esac
 }
 
-# is_total TEXT FILE NAME [idris2 options...]
+# is_total TEXT FILE NAME [idris2i-1 options...]
 is_total() {
   text=$1; file=$2; name=$3; shift 3
   out=$("$IDRIS" --no-color --console-width 0 "$@" "$file" --client ":total $name" 2>&1)
@@ -74,7 +74,7 @@ fail_rest() {
   for text in "$@"; do fail "$text" "$reason"; done
 }
 
-# holes FILE [idris2 options...]: prints the holes, or nothing when there are none
+# holes FILE [idris2i-1 options...]: prints the holes, or nothing when there are none
 # (also prints the error when the file does not check).
 holes() {
   file=$1; shift

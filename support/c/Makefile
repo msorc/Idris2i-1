@@ -1,6 +1,6 @@
 include ../../config.mk
 
-TARGET = libidris2_support
+TARGET = libidris2i_1_support
 
 LIBTARGET = $(TARGET).a
 DYLIBTARGET = $(TARGET)$(SHLIB_SUFFIX)
@@ -57,8 +57,8 @@ cleandep: clean
 
 .PHONY: install
 install: build
-	mkdir -p ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/lib
-	mkdir -p ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/c
-	install -p -m 755 $(DYLIBTARGET) ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/lib
-	install -p -m 644 $(LIBTARGET)   ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/lib
-	install -p -m 644 *.h            ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/c
+	mkdir -p ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/lib
+	mkdir -p ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/support/c
+	install -p -m 755 $(DYLIBTARGET) ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/lib
+	install -p -m 644 $(LIBTARGET)   ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/lib
+	install -p -m 644 *.h            ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/support/c

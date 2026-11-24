@@ -50,5 +50,5 @@ exit code: 1
   3.1%  bt  bt  [.] Main.describe.cold
   1.0%  bt  libc.so.6  [.] malloc
 exit code: 0
-RefC: IDRIS2_REFC_DEMANGLE: this program has no table of names; compile it with --directive refc-backtrace
+RefC: IDRIS2I_1_REFC_DEMANGLE: this program has no table of names; compile it with --directive refc-backtrace
 exit code: 1

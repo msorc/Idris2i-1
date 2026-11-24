@@ -2,13 +2,13 @@
 
 # The browser backend, where the loops are made by default (its output runs
 # on Node too: putStr is console.log, which adds a newline).
-idris2 --cg javascript -o md.js MonoidDefault.idr
+idris2i-1 --cg javascript -o md.js MonoidDefault.idr
 node ./build/exec/md.js | grep -v '^$' > browser.out
 cat browser.out
 
 # With Node, `--directive explicit-stack` makes them here on the main thread,
 # whose stack is as small as a browser's.
-idris2 --directive explicit-stack -o md MonoidDefault.idr
-IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/md > node.out
+idris2i-1 --directive explicit-stack -o md MonoidDefault.idr
+IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/md > node.out
 diff node.out browser.out && echo same
 rm -f node.out browser.out

@@ -7,46 +7,46 @@
 # without any flag in the environment.  The executable is linked again when
 # the archive changes.
 
-unset IDRIS2_LDLIBS LDLIBS
+unset IDRIS2I_1_LDLIBS LDLIBS
 
-cc="${IDRIS2_CC:-${CC:-cc}}"
+cc="${IDRIS2I_1_CC:-${CC:-cc}}"
 archive() {
   (cd clib && "$cc" "$@" -c answer.c -o answer.o && ar rcs libanswer.a answer.o)
 }
 
 archive
 # (from another directory: the scripts of a package run in its directory)
-idris2 --install clib/clib.ipkg > /dev/null || echo "clib not installed"
+idris2i-1 --install clib/clib.ipkg > /dev/null || echo "clib not installed"
 installed="$(find prefix -name libanswer.a)"
 test -n "$installed" && echo "the archive is installed"
 test -e "$(dirname "$installed")/answer.h" && echo "the header is installed"
 
 cd app
 echo "--- first build"
-idris2_no_clean --build app.ipkg --log compiler.refc.cc:10 > build.log 2>&1 \
+idris2i_1_no_clean --build app.ipkg --log compiler.refc.cc:10 > build.log 2>&1 \
   || cat build.log
 ./build/exec/app
 # (the link: the archive comes once, by its path in the package)
-grep -- "-lidris2_refc" build.log | grep -o "[^ ']*libanswer.a" | sed 's#.*/prefix/#prefix/#; s#idris2-[^/]*/#idris2-x.y.z/#'
+grep -- "-lidris2i_1_refc" build.log | grep -o "[^ ']*libanswer.a" | sed 's#.*/prefix/#prefix/#; s#idris2i-1-[^/]*/#idris2i-1-x.y.z/#'
 
 # (no stamp is written while files are newer than a second, on file systems
 # that keep seconds only)
 sleep 2
-idris2_no_clean --build app.ipkg > /dev/null 2>&1
+idris2i_1_no_clean --build app.ipkg > /dev/null 2>&1
 
 echo "--- nothing changed"
-idris2_no_clean --build app.ipkg --log package.stamp:5 | grep -i "stamp\|up to date"
+idris2i_1_no_clean --build app.ipkg --log package.stamp:5 | grep -i "stamp\|up to date"
 
 echo "--- the archive changed"
 cd ..
 archive -DANSWER=43
 cp clib/libanswer.a "$installed"
 cd app
-idris2_no_clean --build app.ipkg --log package.stamp:5 | grep -i "stamp\|compiling"
+idris2i_1_no_clean --build app.ipkg --log package.stamp:5 | grep -i "stamp\|compiling"
 ./build/exec/app
 
 echo "--- a directive changed"
-idris2_no_clean --build app.ipkg --directive refc-lib=m --log package.stamp:5 | grep -i "stamp\|compiling"
+idris2i_1_no_clean --build app.ipkg --directive refc-lib=m --log package.stamp:5 | grep -i "stamp\|compiling"
 ./build/exec/app
 
 cd ..

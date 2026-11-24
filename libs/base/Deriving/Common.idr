@@ -242,7 +242,7 @@ assert_hasImplementation = TrustMeHI
 ||| Given
 ||| @ intf an interface (e.g. `Functor`, or `Bifunctor`)
 ||| @ t    a term corresponding to a (possibly partially applied) type constructor
-||| check whether Idris2 can find a proof that t satisfies the interface.
+||| check whether Idris2i-1 can find a proof that t satisfies the interface.
 export
 hasImplementation : Elaboration m => (intf : a -> Type) -> (t : TTImp) ->
                     m (Maybe (HasImplementation intf t))

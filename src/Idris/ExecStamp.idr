@@ -1,5 +1,5 @@
 ||| Telling whether the executable of a package, built by an earlier
-||| `idris2 --build`, is certainly up to date.
+||| `idris2i-1 --build`, is certainly up to date.
 |||
 ||| Compiling an executable is a whole-program compilation: it takes the
 ||| same time whether or not any module changed.  After it succeeds, a stamp
@@ -209,9 +209,9 @@ fingerprint items
 -- The environment variables that RefC reads (see Compiler.RefC.CC), and
 -- those that the C compiler reads
 refcEnv : List String
-refcEnv = [ "IDRIS2_CC", "CC", "IDRIS2_CFLAGS", "CFLAGS"
-          , "IDRIS2_CPPFLAGS", "CPPFLAGS", "IDRIS2_LDFLAGS", "LDFLAGS"
-          , "IDRIS2_LDLIBS", "LDLIBS", "IDRIS2_REFC_SPLIT_SIZE" ]
+refcEnv = [ "IDRIS2I_1_CC", "CC", "IDRIS2I_1_CFLAGS", "CFLAGS"
+          , "IDRIS2I_1_CPPFLAGS", "CPPFLAGS", "IDRIS2I_1_LDFLAGS", "LDFLAGS"
+          , "IDRIS2I_1_LDLIBS", "LDLIBS", "IDRIS2I_1_REFC_SPLIT_SIZE" ]
           ++ ccEnvVars
 
 envLine : String -> IO String
@@ -220,7 +220,7 @@ envLine name
          pure ("env \{name} " ++ maybe "unset" show val)
 
 ||| The file of a program (a path, or a name looked for in the `PATH`), as
-||| the backends run it (as a single word: `IDRIS2_CC`, `CC` and `CHEZ` are
+||| the backends run it (as a single word: `IDRIS2I_1_CC`, `CC` and `CHEZ` are
 ||| programs, not command lines)
 programOf : String -> IO (Maybe String)
 programOf p = if '/' `elem` unpack p
@@ -274,7 +274,7 @@ settings mainNS mainFile
               -- program was put in a directory that comes earlier in it).
               tool <- coreLift $ toolOf cg
               pure $ Just $
-                [ "idris2 \{show idrisVersion}"
+                [ "idris2i-1 \{show idrisVersion}"
                 , "cwd \{show wd}"
                 , "codegen \{show cg}"
                 , "main \{show (show mainNS)} \{show mainFile}"
@@ -414,7 +414,7 @@ stampFile exec
          pure (outputDirWithDefault d </> (exec ++ ".stamp"))
 
 stampHeader : String
-stampHeader = "idris2 executable stamp 2"
+stampHeader = "idris2i-1 executable stamp 2"
 
 --------------------------------------------------------------------------------
 -- Writing and checking the stamp

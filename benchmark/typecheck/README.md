@@ -12,17 +12,17 @@ instructions of two runs of a clean build of `base` differed by less than
 0.0001%; processor time (what the profile below measures) moves by 10-20%
 on a busy machine, so read the profile as shares of a run.
 
-    benchmark/typecheck/tc-perf.sh -c build/exec/idris2 -l mybranch -o tc.csv base
+    benchmark/typecheck/tc-perf.sh -c build/exec/idris2i-1 -l mybranch -o tc.csv base
     benchmark/typecheck/tc-perf.sh -h      # all the options
 
 ## Corpora
 
-- `compiler`: the compiler itself, `idris2 --typecheck idris2.ipkg` (the
-  modules of the executable; `idris2api.ipkg` lists the modules of the API
+- `compiler`: the compiler itself, `idris2i-1 --typecheck idris2i-1.ipkg` (the
+  modules of the executable; `idris2i-1-api.ipkg` lists the modules of the API
   library, which are a few more and do not include `Idris.Main`). The source
   tree must have `src/IdrisPaths.idr`, which `make` writes.
 - `base`, `contrib`: `libs/base` and `libs/contrib`.
-- `perf`: each of the tests of `tests/idris2/perf` that is one source file,
+- `perf`: each of the tests of `tests/idris2i-1/perf` that is one source file,
   checked alone with `--check` (only a clean build).
 
 Each corpus is copied into the work directory (`-d`, by default
@@ -48,7 +48,7 @@ script. The column `modules_built` counts the `Building` lines of the output.
 
 ## Profiles
 
-`idris2 --timing-summary` prints, as it exits, the processor time spent under
+`idris2i-1 --timing-summary` prints, as it exits, the processor time spent under
 a set of timers (inclusive and self times: see "Performance" in
 `docs/source/reference/debugging.rst`) and a few counters, and for each
 module that it built a line with its time and the ten most expensive

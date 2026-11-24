@@ -1,7 +1,7 @@
 . ../../testutils.sh
 
-# The modules of a package are built in parallel (IDRIS2_BUILD_JOBS), and with
-# IDRIS2_INC_CGS=chez each of them runs Chez on a script of its own.  They once
+# The modules of a package are built in parallel (IDRIS2I_1_BUILD_JOBS), and with
+# IDRIS2I_1_INC_CGS=chez each of them runs Chez on a script of its own.  They once
 # shared one script file, and a module ran the script of another one or a
 # half-written one: "variable M07.ss is not bound".  The race depends on timing,
 # so a broken compiler can pass this test by luck, but a correct one never
@@ -12,12 +12,12 @@
 rm -rf prelude
 cp -r ../../../libs/prelude prelude
 rm -rf prelude/build
-(cd prelude && IDRIS2_INC_CGS=chez idris2 --install prelude.ipkg > /dev/null)
+(cd prelude && IDRIS2I_1_INC_CGS=chez idris2i-1 --install prelude.ipkg > /dev/null)
 rm -rf prelude
-export IDRIS2_PACKAGE_PATH="$NEW_PP"
+export IDRIS2I_1_PACKAGE_PATH="$NEW_PP"
 
-export IDRIS2_INC_CGS=chez
-IDRIS2_BUILD_JOBS=8 idris2 --build chezincparallel.ipkg 2>&1 | grep -v "Building"
+export IDRIS2I_1_INC_CGS=chez
+IDRIS2I_1_BUILD_JOBS=8 idris2i-1 --build chezincparallel.ipkg 2>&1 | grep -v "Building"
 ls build/ttc/*/M*.so | wc -l
 ls build/ttc/*/*.compile build/ttc/*/compileChez 2>/dev/null | wc -l
 

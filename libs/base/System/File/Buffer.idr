@@ -12,11 +12,11 @@ import Data.Buffer
 
 %default total
 
-%foreign supportC "idris2_readBufferData"
+%foreign supportC "idris2i_1_readBufferData"
          supportNode "readBufferData"
 prim__readBufferData : FilePtr -> Buffer -> (offset : Int) -> (maxbytes : Int) -> PrimIO Int
 
-%foreign supportC "idris2_writeBufferData"
+%foreign supportC "idris2i_1_writeBufferData"
          supportNode "writeBufferData"
 prim__writeBufferData : FilePtr -> Buffer -> (offset : Int) -> (size : Int) -> PrimIO Int
 

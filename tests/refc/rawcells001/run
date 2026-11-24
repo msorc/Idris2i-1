@@ -8,7 +8,7 @@
 # prints the same.
 
 support=../../../support
-cc=${IDRIS2_CC:-${CC:-cc}}
+cc=${IDRIS2I_1_CC:-${CC:-cc}}
 mkdir -p build
 
 build() { # out flags...
@@ -20,15 +20,15 @@ build() { # out flags...
 
 check() { # exe
     "$1"
-    IDRIS2_REFC_LEAKCHECK=2 "$1" 2>&1 >/dev/null | sed 's/0x[0-9a-f]*/ADDR/g'
+    IDRIS2I_1_REFC_LEAKCHECK=2 "$1" 2>&1 >/dev/null | sed 's/0x[0-9a-f]*/ADDR/g'
 }
 
 build build/rawcells
 check ./build/rawcells
 
 # The statistics build of the runtime, with its report.
-build build/rawcells_stats -DIDRIS2_REFC_STATS
-IDRIS2_REFC_MEMSTATS=1 ./build/rawcells_stats 2>/dev/null
+build build/rawcells_stats -DIDRIS2I_1_REFC_STATS
+IDRIS2I_1_REFC_MEMSTATS=1 ./build/rawcells_stats 2>/dev/null
 
 gmpinc=
 have32=

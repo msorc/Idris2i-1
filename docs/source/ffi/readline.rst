@@ -6,12 +6,12 @@ Example: Minimal Readline Bindings
 
 In this section, we'll see how to create bindings for a C library (the `GNU
 Readline <https://tiswww.case.edu/php/chet/readline/rltop.html>`_ library) in
-Idris, and make them available in a package. We'll only create the most minimal
+Idris2i-1, and make them available in a package. We'll only create the most minimal
 bindings, but nevertheless they demonstrate some of the trickier problems in
 creating bindings to a C library, in that they need to handle memory allocation
 of ``String``.
 
-You can find the example in full in the Idris 2 source repository,
+You can find the example in full in the Idris2i-1 source repository,
 in `samples/FFI-readline
 <https://github.com/edwinb/Idris2/tree/master/samples/FFI-readline>`_. As a
 minimal example, this can be used as a starting point for other C library
@@ -37,7 +37,7 @@ completion:
 
 A completion function takes a ``String``, which is the text to complete, and
 an ``Int``, which is the number of times it has asked for a completion so far.
-In Idris, this could be a function ``complete : String -> Int -> IO String``.
+In Idris2i-1, this could be a function ``complete : String -> Int -> IO String``.
 So, for example, if the text so far is ``"id"``, and the possible completions
 are ``idiomatic`` and ``idris``, then ``complete "id" 0`` would produce the
 string ``"idiomatic"`` and ``complete "id" 1`` would produce ``"idris"``.
@@ -75,7 +75,7 @@ Then, we can write an ``IO`` wrapper:
 Unfortunately, this isn't quite good enough! The C ``readline`` function
 returns a ``NULL`` string if there is no input due to encountering an
 end of file. So, we need to handle that - if we don't, we'll get a crash
-on encountering end of file (remember: it's the Idris programmer's responsibility
+on encountering end of file (remember: it's the Idris2i-1 programmer's responsibility
 to give an appropriate type to the C binding!)
 
 Instead, we need to use a ``Ptr`` to say that it might be a ``NULL``
@@ -152,7 +152,7 @@ provide a binding to ``add_history`` as follows:
     addHistory : String -> IO ()
     addHistory s = primIO $ prim__add_history s
 
-In this case, since Idris is in control of the ``String``, we know it's not
+In this case, since Idris2i-1 is in control of the ``String``, we know it's not
 going to be ``NULL``, so we can add it directly.
 
 A small ``readline`` program that reads input, and echoes it, recording input
@@ -191,7 +191,7 @@ function. We'll use the following:
 
 The completion function takes the prefix of the completion, and the number
 of times it has been called so far on this prefix, and returns the next
-completion, or ``NULL`` if there are no more completions. An Idris equivalent
+completion, or ``NULL`` if there are no more completions. An Idris2i-1 equivalent
 would therefore have the following type:
 
 .. code-block:: idris
@@ -211,7 +211,7 @@ completion function...
         rl_completion_entry_function = fn;
     }
 
-...then defining the Idris binding, which needs to take into account that
+...then defining the Idris2i-1 binding, which needs to take into account that
 the Readline library expects ``NULL`` when there are no more completions:
 
 .. code-block:: idris
@@ -256,18 +256,18 @@ entering anything:
     Main> :exec main
     > free(): invalid pointer
 
-The Idris code which sets up the completion is fine, but there is a problem
+The Idris2i-1 code which sets up the completion is fine, but there is a problem
 with the memory allocation in the C glue code.
 
 This problem arises because we haven't thought carefully enough about which
 parts of our program are responsible for allocating and freeing strings.
-When an Idris callback returns a ``String`` to C, C gets a pointer to a string
-that the Idris run time owns: it is only valid until the callback returns, and
-C must not free it. (In the other direction, when Idris calls a foreign
+When an Idris2i-1 callback returns a ``String`` to C, C gets a pointer to a string
+that the Idris2i-1 run time owns: it is only valid until the callback returns, and
+C must not free it. (In the other direction, when Idris2i-1 calls a foreign
 function that returns a ``String``, the string is copied and the C string is
 left alone, see :ref:`sect-ffi-string`.) But Readline frees the string that
 the completion function returns, once it has processed it: here it frees
-memory of the Idris run time. We can solve this problem by writing a wrapper
+memory of the Idris2i-1 run time. We can solve this problem by writing a wrapper
 for the completion function which copies the string to memory from
 ``malloc``, and using that in ``idrisrl_setCompletion`` instead.
 
@@ -294,8 +294,8 @@ for the completion function which copies the string to memory from
         my_compentry = fn; // fn is an Idris function, called by compentry_wrapper
     }
 
-So, we define the completion function in C, which calls the Idris completion
-function then makes sure the string returned by the Idris function is copied
+So, we define the completion function in C, which calls the Idris2i-1 completion
+function then makes sure the string returned by the Idris2i-1 function is copied
 to the C heap.
 
 We now have a primitive API that covers the most fundamental features of the

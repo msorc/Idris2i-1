@@ -2402,7 +2402,7 @@ knownCommands =
   explain ["module", "import"] "Import an extra module" ++
   [ ("package", "Import every module of the package")
   ] ++
-  explain ["q", "quit", "exit"] "Exit the Idris system" ++
+  explain ["q", "quit", "exit"] "Exit the Idris2i-1 system" ++
   [ ("cwd", "Displays the current working directory")
   , ("cd", "Change the current working directory")
   , ("sh", "Run a shell command")
@@ -2475,7 +2475,7 @@ knownCommands =
   [ ("psnext", "Show next proof")
   , ("gd", "Try to generate a definition using proof-search")
   , ("gdnext", "Show next definition")
-  , ("version", "Display the Idris version")
+  , ("version", "Display the Idris2i-1 version")
   , ("explain", "Explain an error code (such as E0101), with an example and the usual fixes")
   ] ++
   explain ["?", "h", "help"] (unlines     -- FIXME: this should be a multiline string (see #2087)

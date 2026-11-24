@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2 -o libs Libs.idr
-IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/libs
+idris2i-1 -o libs Libs.idr
+IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/libs

@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+unset IDRIS2I_1_PATH
+
+idris2i-1 --no-prelude < input

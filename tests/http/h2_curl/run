@@ -8,7 +8,7 @@ if ! command -v curl >/dev/null 2>&1 || ! curl --version | grep -q 'HTTP2'; then
 fi
 
 mkdir -p build/src && cp Main.idr build/src/ && cd build/src
-idris2 -p contrib -p network -p http -o main Main.idr
+idris2i-1 -p contrib -p network -p http -o main Main.idr
 rm -f port
 ./build/exec/main &
 pid=$!

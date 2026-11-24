@@ -10,7 +10,7 @@ GET /count counts the successful sums, also after 40 parallel requests
 an unknown path answers 404"
 
 rm -rf build
-assert "idris2 --build sumsvc.ipkg succeeds" "$IDRIS" --build sumsvc.ipkg
+assert "idris2i-1 --build sumsvc.ipkg succeeds" "$IDRIS" --build sumsvc.ipkg
 if [ ! -x build/exec/sumsvc ]; then
   echo "$REST" | while read -r t; do fail "$t" "no executable"; done
   exit 0

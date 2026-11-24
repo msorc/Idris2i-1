@@ -1,8 +1,8 @@
-Contributing to Idris 2
+Contributing to Idris2i-1
 =======================
 
 We welcome contributions! This document describes how you can contribute to
-Idris 2, and the kind of contributions which will most benefit the project.
+Idris2i-1, and the kind of contributions which will most benefit the project.
 
 This document outlines: the kinds of contributions we will almost certainly
 accept; those we might accept after a proposal and
@@ -25,11 +25,11 @@ any new features which are contributed.
 ## General comments
 
 Overall, when making a contribution, please try to make sure they follow the
-general philosophy of the Idris project, which can be summarised as follows:
+general philosophy of the Idris2i-1 project, which can be summarised as follows:
 
-* Idris aims to make advanced type-related programming techniques accessible to
+* Idris2i-1 aims to make advanced type-related programming techniques accessible to
   software practitioners.
-* Idris *allows* software developers to express invariants of their data and prove
+* Idris2i-1 *allows* software developers to express invariants of their data and prove
   properties of programs, but will not *require* them to do so.
 
 
@@ -67,7 +67,7 @@ the `expected` files of the tests that change must be reviewed one by one.
 
 In all cases, a pull request must have a short description that explains its purpose.
 However obvious you think it might be, it really helps reviewers know what to look for
-when reviewing the changes. A reviewer does not have to be an Idris maintainer and
+when reviewing the changes. A reviewer does not have to be an Idris2i-1 maintainer and
 could be any other knowledgable community member.
 
 ## Things We Will Almost Certainly Accept
@@ -95,7 +95,7 @@ could be any other knowledgable community member.
     worth the additional burden it places on programmers learning the language
 * Changes to any of the core representations (TT and CExp in particular)
   - These have been fairly stable for a while, and external tools using the
-    Idris 2 API may be depending on them
+    Idris2i-1 API may be depending on them
 * Changes to prelude and base libraries
   - `prelude` and `base` are, in some sense, part of the language. There are a
     lot of trade offs to be made in the design of the prelude especially - such
@@ -130,10 +130,10 @@ could be any other knowledgable community member.
   package manager.
 * Fancy REPL features (e.g. readline, history, tab completion). We definitely
   want this, but it would be better implemented as a separate tool using the
-  Idris 2 API, to minimise the maintenance burden on the compiler.
+  Idris2i-1 API, to minimise the maintenance burden on the compiler.
 * Anything which adds an external dependency. We aim to keep
   dependencies minimal for ease of initial installation.
-* New backends. You can implement new backends via the Idris 2 API - and indeed
+* New backends. You can implement new backends via the Idris2i-1 API - and indeed
   several people have. The backends in this repository are limited to those we
   are able to commit to maintaining.
 

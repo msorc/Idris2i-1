@@ -2,16 +2,16 @@ Custom backend cookbook
 =======================
 
 This document addresses the details on how to implement a custom code generation
-backend for the Idris compiler.
+backend for the Idris2i-1 compiler.
 
 This part has no insights about how to implement the dependently typed bits.
 For that part of the compiler Edwin Brady gave lectures at SPLV20_ which are
 available online.
 
-The architecture of the Idris2 compiler makes it easy to implement a custom code
+The architecture of the Idris2i-1 compiler makes it easy to implement a custom code
 generation back-end.
 
-The way to extend Idris with new back-ends is to use it as a library.
+The way to extend Idris2i-1 with new back-ends is to use it as a library.
 The module ``Idris.Driver`` exports the function ``mainWithCodegens``,
 that takes a list of ``(String, Codegen)``, starting idris with these codegens
 in addition to the built-in ones.
@@ -32,26 +32,26 @@ following questions:
 - How to embed code snippets?
 - What should the runtime system support?
 
-First of all, we should know that Idris2 is not an optimizing compiler.
+First of all, we should know that Idris2i-1 is not an optimizing compiler.
 Currently its focus is only to compile dependently typed functional code
 in a timely manner.
 Its main purpose is to check if the given program is correct in a dependently
 typed setting and generate code in form of a lambda-calculus like IR where
 higher-order functions are present.
-Idris has 3 intermediate representations for code generation.
+Idris2i-1 has 3 intermediate representations for code generation.
 At every level we get a simpler representation, closer to machine code, but it
 should be stressed that all the aggressive code optimizations should happen in
 the custom back-ends.
 The quality and readability of the generated back-end code is on the shoulders
-of the implementor of the back-end. Idris erases type information in the IRs,
+of the implementor of the back-end. Idris2i-1 erases type information in the IRs,
 as its own back-ends (C and Scheme) have no use for it, and there is no need
 to keep the type information around.
 With this in mind let's answer the questions above.
 
-The architecture of an Idris back-end
--------------------------------------
+The architecture of an Idris2i-1 back-end
+-----------------------------------------
 
-Idris compiles its dependently typed front-end language into a representation
+Idris2i-1 compiles its dependently typed front-end language into a representation
 which is called ``Compile.TT.Term`` .
 This data type has a few constructors and it represents a dependently typed
 term.
@@ -104,11 +104,11 @@ and function applications (even if the function application is partial), how
 to handle let expressions, how to implement and invoke primitive operations,
 how to handle ``Erased`` arguments, and how to do runtime crashes.
 
-The implementor of the custom back-end should pick the closest Idris IR which
+The implementor of the custom back-end should pick the closest Idris2i-1 IR which
 fits to the abstraction of the technology that is aimed to compile to.
 The implementor should also consider how to transform the simple main expression
 which is represented in CExp.
-As Idris does not focus on memory management and threading. The custom back-end
+As Idris2i-1 does not focus on memory management and threading. The custom back-end
 should model these concepts for the program that is compiled.
 One possible approach is to target a fairly high level language and reuse as
 much as possible from it for the custom back-end.
@@ -119,7 +119,7 @@ Which Intermediate Representation (IR) should be consumed by the custom back-end
 ---------------------------------------------------------------------------------
 
 Now lets turn our attention to the different intermediate representations (IRs)
-that Idris provides.
+that Idris2i-1 provides.
 When the ``getCompileData`` function is invoked with the ``UsePhase`` parameter
 it will produce a ``CompileData`` record, which will contain lists of top-level
 definitions that needs to be compiled. These are:
@@ -137,7 +137,7 @@ How to represent primitive values defined by the ``Core.TT.Constant`` type?
 
 After one selects the IR to be used during code generation, the next question
 to answer is how primitive types should be represented in the back-end.
-Idris has the following primitive types:
+Idris2i-1 has the following primitive types:
 
 - ``Int``
 - ``Integer`` (arbitrary precision)
@@ -147,7 +147,7 @@ Idris has the following primitive types:
 - ``Double``
 - ``WorldVal`` (token for IO computations)
 
-And as Idris allows pattern matching on types all the primitive types have
+And as Idris2i-1 allows pattern matching on types all the primitive types have
 their primitive counterpart for describing a type:
 
 - ``IntType``
@@ -174,11 +174,11 @@ As its name suggest this type represent a string of characters. As mentioned in
 Strings are encoded in UTF-8.
 
 It is not always clear who is responsible for freeing up a ``String`` created by
-a component other than the Idris runtime. Strings created in Idris will
+a component other than the Idris2i-1 runtime. Strings created in Idris2i-1 will
 always have value, unlike possible String representation of the host technology,
-where for example NULL pointer can be a value, which can not happen on the Idris side.
+where for example NULL pointer can be a value, which can not happen on the Idris2i-1 side.
 This creates constraints on the possible representations of the Strings in the
-custom back-end and diverging from the Idris representation is not a good idea.
+custom back-end and diverging from the Idris2i-1 representation is not a good idea.
 The best approach here is to build a conversion layer between the string
 representation of the custom back-end and the runtime.
 
@@ -188,12 +188,12 @@ representation of the custom back-end and the runtime.
 
 In pure functional programming, causality needs to be represented whenever we
 want to maintain the order in which subexpressions are executed.
-In Idris a token is used to chain IO function calls.
+In Idris2i-1 a token is used to chain IO function calls.
 This is an abstract notion about the state of the world. For example this
 information could be the information that the runtime needs for bookkeeping
 of the running program.
 
-The ``WorldVal`` value in Idris programs is accessed via the ``primIO``
+The ``WorldVal`` value in Idris2i-1 programs is accessed via the ``primIO``
 construction which leads us to the ``PrimIO`` module.
 Let's see the relevant snippets:
 
@@ -208,7 +208,7 @@ Let's see the relevant snippets:
    primIO : HasIO io => (1 fn : (1 x : %World) -> IORes a) -> io a
    primIO op = liftIO (fromPrim op)
 
-The world value is referenced as ``%World`` in Idris.
+The world value is referenced as ``%World`` in Idris2i-1.
 It is created by the runtime when the program starts.
 Its content is changed by the custom runtime.
 More precisely, the World is created when the ``WorldVal`` is evaluated during
@@ -219,7 +219,7 @@ function is executed.
 How to represent Algebraic Data Types?
 --------------------------------------
 
-In Idris there are two different ways to define a data type: tagged unions are
+In Idris2i-1 there are two different ways to define a data type: tagged unions are
 introduced using the ``data`` keyword while structs are declared via the
 ``record`` keyword.
 Declaring a ``record`` amounts to defining a named collection of fields.
@@ -238,7 +238,7 @@ Let's see examples for both:
      fst : a
      snd : b
 
-Idris offers not only algebraic data types but also indexed families. These
+Idris2i-1 offers not only algebraic data types but also indexed families. These
 are tagged union where different constructors may have different return types.
 Here is ``Vect`` an example of a data type which is an indexed family
 corresponding to a linked-list whose length is known at compile time.
@@ -262,15 +262,15 @@ in the IR:
 
 - One for the ``Either`` type itself, with the arity of two.
   Arity tells how many parameters of the constructor should have.
-  Two is reasonable in this case as the original Idris ``Either`` type has
+  Two is reasonable in this case as the original Idris2i-1 ``Either`` type has
   two parameters.
 - One for the ``Left`` constructor with arity of three.
-  Three may be surprising, as the constructor only has one argument in Idris,
+  Three may be surprising, as the constructor only has one argument in Idris2i-1,
   but we should keep in mind the type parameters for the data type too.
 - One for the ``Right`` constructor with arity of three.
 
 In the IR constructors have unique names. For efficiency reasons,
-Idris assigns a unique integer tag to each data constructors so that constructor
+Idris2i-1 assigns a unique integer tag to each data constructors so that constructor
 matching is reduced to comparisons of integers instead of strings.
 In the ``Either`` example above ``Left`` gets tag 0 and ``Right`` gets tag 1.
 
@@ -290,7 +290,7 @@ How to implement special values?
 --------------------------------
 
 Apart from the data constructors there are two special kind of values present
-in the Idris IRs: type constructors and ``Erased``.
+in the Idris2i-1 IRs: type constructors and ``Erased``.
 
 Type constructors
 ~~~~~~~~~~~~~~~~~
@@ -300,7 +300,7 @@ behaviour may be used at compile time but will be erased from the intermediate
 representation.
 
 However some type constructors need to be kept around even at runtime
-because pattern matching on types is allowed in Idris:
+because pattern matching on types is allowed in Idris2i-1:
 
 .. code-block:: idris
 
@@ -328,7 +328,7 @@ This is one of the things that make dependently typed abstraction elegant.
 ~~~~~~~~~~
 
 The other kind of special value is ``Erased``.
-This is generated by the Idris compiler and part of the IR if the original value
+This is generated by the Idris2i-1 compiler and part of the IR if the original value
 is only needed during the type elaboration process. For example:
 
 .. code-block:: idris
@@ -377,7 +377,7 @@ BelieveMe
 The primitive ``believe_me`` is an unsafe cast that allows users to bypass the
 typechecker when they know something to be true even though it cannot be proven.
 
-For instance, assuming that Idris' primitives are correctly implemented, it
+For instance, assuming that Idris2i-1's primitives are correctly implemented, it
 should be true that if a boolean equality test on two ``Int`` ``i`` and ``j``
 returns ``True`` then ``i`` and ``j`` are equal.
 Such a theorem can be implemented by using ``believe_me`` to cast ``Refl``
@@ -387,7 +387,7 @@ Such a theorem can be implemented by using ``believe_me`` to cast ``Refl``
 Boxing
 ~~~~~~
 
-Idris assumes that the back-end representation of the data is not strongly typed
+Idris2i-1 assumes that the back-end representation of the data is not strongly typed
 and that all the data type have the same kind of representation.
 This could introduce a constraint on the representation of the primitives and
 constructor represented data types.
@@ -403,9 +403,9 @@ Official backends represent primitive data types as boxed ones.
 How to compile top-level definitions?
 -------------------------------------
 
-As mentioned earlier, Idris has 4 different IRs that are available in
+As mentioned earlier, Idris2i-1 has 4 different IRs that are available in
 the ``CompileData`` record: ``Named``, ``LambdaLifted``, ``ANF``, and ``VMDef``.
-When assembling the ``CompileData`` we have to tell the Idris compiler which
+When assembling the ``CompileData`` we have to tell the Idris2i-1 compiler which
 level we are interested in.
 The ``CompileData`` contains lists of definitions that can be considered as top
 level definitions that the custom back-end need to generate functions for.
@@ -425,19 +425,19 @@ be implemented as a function creating the corresponding data structure
 in the custom back-end.
 
 A top-level **foreign call** defines an entry point for calling functions
-implemented outside the Idris program under compilation.
+implemented outside the Idris2i-1 program under compilation.
 The Foreign construction contains a list of Strings which are the snippets
 defined by the programmer, the type of the arguments and the return type of
 the foreign function. The custom back-end should generate a wrapper function.
 More on this on `How to implement the Foreign Function Interface?`_
 
-A top-level **error** definition represents holes in Idris programs, uses of
+A top-level **error** definition represents holes in Idris2i-1 programs, uses of
 ``idris_crash``, or unreachable branches in a case tree.
 Users may want to execute incomplete programs for testing purposes which is
 fine as long as we never actually need the value of any of the holes.
 Library writers may want to raise an exception if an unrecoverable error has
 happened.
-Finally, Idris compiles the unreachable branches of a case tree to runtime
+Finally, Idris2i-1 compiles the unreachable branches of a case tree to runtime
 error as it is dead code anyway.
 
 
@@ -562,7 +562,7 @@ values the operation ``NULL`` assigns an empty/null value for the register.
 How to implement the Foreign Function Interface?
 ------------------------------------------------
 
-The Foreign Function Interface (FFI) plays a big role in running Idris programs.
+The Foreign Function Interface (FFI) plays a big role in running Idris2i-1 programs.
 The primitive operations which are mentioned above are functions for
 manipulating values and those functions aren't meant for complex interaction
 with the runtime system.
@@ -594,7 +594,7 @@ The foreign types are:
 - ``CFFun`` of type  ``CFType -> CFType -> CFType``
   Callbacks can be registered in the host technology via parameters that have
   CFFun type. The back-end should be able to handle functions that are
-  defined in Idris side and compiled to the host technology. If the custom
+  defined in Idris2i-1 side and compiled to the host technology. If the custom
   back-end supports higher order functions then it should
   be used to implement the support for this kind of FFI type.
 - ``CFIORes`` of type ``CFType -> CFType``
@@ -607,7 +607,7 @@ The foreign types are:
   Represents the current state of the world. This should refer to a token that
   is passed around between function calls.
   The implementation of the World value should contain back-end
-  specific values and information about the state of the Idris runtime.
+  specific values and information about the state of the Idris2i-1 runtime.
 - ``CFStruct`` of type ``String -> List (String, CFType) -> CFType`` is the
   foreign type associated with the ``System.FFI.Struct``.
   It represents a C like structure in the custom back-end.
@@ -619,11 +619,11 @@ The foreign types are:
   ``CFUser Module.MyType []``
 - ``CFBuffer``
   Foreign type defined for ``Data.Buffer``.
-  Although this is an external type, Idris builds on a random access buffer.
+  Although this is an external type, Idris2i-1 builds on a random access buffer.
 - ``CFPtr`` The ``Ptr t`` and ``AnyPtr`` are compiled to ``CFPtr``
   Any complex structured data that can not be represented as a simple primitive
   can use this CFPtr to keep track where the value is used.
-  In Idris ``Ptr t`` is defined as external type.
+  In Idris2i-1 ``Ptr t`` is defined as external type.
 - ``CFGCPtr`` The ``GCPtr t`` and ``GCAnyPtr`` are compiled to ``CFGCPtr``.
   ``GCPtr`` is inferred from a Ptr value calling the ``onCollect`` function and
   has a special property. The ``onCollect`` attaches a finalizer for the pointer
@@ -632,7 +632,7 @@ The foreign types are:
 Examples
 ~~~~~~~~
 
-Let's step back and look into how this is represented at the Idris source level.
+Let's step back and look into how this is represented at the Idris2i-1 source level.
 The simplest form of a definition involving the FFI a function definition with
 a ``%foreign`` pragma. The pragma is passed a list of strings corresponding to
 a mapping from backends to names for the foreign calls. For instance:
@@ -645,7 +645,7 @@ a mapping from backends to names for the foreign calls. For instance:
 this function should be translated by the C back end as a call to the ``add``
 function defined in the ``smallc.c`` file. In the FFI, ``Int`` is translated to
 ``CFInt``. The back-end assumes that the data representation specified in the
-library file correspond to that of normal Idris values.
+library file correspond to that of normal Idris2i-1 values.
 
 We can also define ``external`` types like in the following examples:
 
@@ -674,7 +674,7 @@ types that the function in the ``%foreign`` directive needs..
 How to compile modules?
 -----------------------
 
-The Idris compiler generates intermediate files for modules, the content of
+The Idris2i-1 compiler generates intermediate files for modules, the content of
 the files are neither part of ``Lifted``, ``ANF``, nor ``VMCode``.
 Because of this, when the compilation pipeline enters the stage of code
 generation, all the information will be in one instance of the ``CompileData``
@@ -684,28 +684,28 @@ see the whole program.
 The custom back-end has the option to introduce some hierarchy for the functions
 in different namespaces and organize some module structure to let the host
 technology process the bits and pieces in different sized chunks.
-However, this feature is not in the scope of the Idris compiler.
+However, this feature is not in the scope of the Idris2i-1 compiler.
 
-It is worth noting that modules can be mutually recursive in Idris.
-So a direct compilation of Idris modules to modules in the host language
+It is worth noting that modules can be mutually recursive in Idris2i-1.
+So a direct compilation of Idris2i-1 modules to modules in the host language
 may be unsuccessful.
 
 How to embed code snippets?
 ---------------------------
 
-A possible motivation for implementing a custom back-end for Idris is to
+A possible motivation for implementing a custom back-end for Idris2i-1 is to
 generate code that is meant to be used in a larger project. This project
 may be bound to another language that has many useful libraries  but could
-benefit from relying on Idris' strong type system in places.
+benefit from relying on Idris2i-1's strong type system in places.
 
 When writing a code generator for this purpose, the interoperability of the
-host technology and Idris based on the Foreign Interface can be inconvenient.
+host technology and Idris2i-1 based on the Foreign Interface can be inconvenient.
 In this situation, the need to embed code of the host technology arises
 naturally. Elaboration can be an answer for that.
 
 Elaboration is a typechecking time code generation technique.
 It relies on the ``Elab`` monad to write scripts that can interact with the
-typechecking machinery to generate Idris code in ``Core.TT``.
+typechecking machinery to generate Idris2i-1 code in ``Core.TT``.
 
 When code snippets need to be embedded a custom library should be provided
 with the custom back-end to turn the valid code snippets into their
@@ -714,8 +714,8 @@ representation in ``Core.TT``.
 What should the runtime system support?
 ---------------------------------------
 
-As a summary, a custom back-end for the Idris compiler should create an environment
-in the host technology that is able to run Idris programs. As Idris is part of
+As a summary, a custom back-end for the Idris2i-1 compiler should create an environment
+in the host technology that is able to run Idris2i-1 programs. As Idris2i-1 is part of
 the family of functional programming languages, its computation model is based
 on graph reduction. Programs represented as simple graphs in the memory are based
 on the closure creation mechanism during evaluation. Closure creation exist even
@@ -727,16 +727,16 @@ has memory management, the problem is not difficult. It is also likely
 that storing closures can be easily implemented via the tools of the host technology.
 
 Although it is not clear how much functionality a back-end should support.
-Tools from the Scheme back-end are brought into the Idris world via external types and primitive operations
+Tools from the Scheme back-end are brought into the Idris2i-1 world via external types and primitive operations
 around them. This is a good practice and gives the community the ability to focus on
 the implementation of a quick compiler for a dependently typed language.
 One of these hidden features is the concurrency primitives. These are part of the
 different libraries that could be part of the compiler or part of the
 contribution package. If the threading model is different for the host technology
-that the Idris back-ends inherit from the Scheme and C runtimes it could be a bigger
+that the Idris2i-1 back-ends inherit from the Scheme and C runtimes it could be a bigger
 piece of work.
 
-IO in Idris is implemented using an abstract ``%World`` value, which serves as token for
+IO in Idris2i-1 is implemented using an abstract ``%World`` value, which serves as token for
 functions that operate interactively with the World through simple calls to the
 underlying runtime system. The entry point of the program is the main function, which
 has the type of the IO unit, such as ``main : IO ()``. This means that every

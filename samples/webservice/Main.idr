@@ -9,7 +9,7 @@
 |||
 ||| Build and run it (see "Writing a web service" in the documentation):
 |||
-|||     idris2 --build webservice.ipkg
+|||     idris2i-1 --build webservice.ipkg
 |||     ./build/exec/webservice 8080
 |||
 ||| It stops gracefully on SIGINT (Ctrl-C): it stops accepting, lets the

@@ -4,7 +4,7 @@
 Modules and Namespaces
 **********************
 
-An Idris program consists of a collection of modules. Each module
+An Idris2i-1 program consists of a collection of modules. Each module
 includes an optional ``module`` declaration giving the name of the
 module, a list of ``import`` statements giving the other modules which
 are to be imported, and a collection of declarations and definitions of
@@ -78,7 +78,7 @@ If a file contains a module declaration ``module Foo.Bar.MyModule``, its
 path relative to the ``sourcedir`` specified in the ``.ipkg`` project file
 (defaults to ``.``) must be ``./Foo/Bar/MyModule.idr``. If you are not using an
 ``.ipkg`` project file, the path must be relative to the directory you are
-running Idris from. Similarly, an ``import`` statement also refers to such a
+running Idris2i-1 from. Similarly, an ``import`` statement also refers to such a
 relative filepath stripped of its file extension, using dots to separate
 directories. As in the example above, all modules names and directories must be
 capitalised identifiers. If a file does not contain a module declaration, it
@@ -87,10 +87,10 @@ is considered to be a module whose identifier is ``Main``.
 Export Modifiers
 ================
 
-Idris allows for fine-grained control over the visibility of a
+Idris2i-1 allows for fine-grained control over the visibility of a
 namespace's contents. By default, all names defined in a namespace are kept
 private.  This aids in specification of a minimal interface and for
-internal details to be left hidden. Idris allows for functions,
+internal details to be left hidden. Idris2i-1 allows for functions,
 types, and interfaces to be marked as: ``private``, ``export``, or
 ``public export``. Their general meaning is as follows:
 
@@ -119,10 +119,10 @@ Meaning for Functions
 
 .. note::
 
-   Type synonyms in Idris are created by writing a function. When
+   Type synonyms in Idris2i-1 are created by writing a function. When
    setting the visibility for a module, it is usually a good idea to
    ``public export`` all type synonyms if they are to be used outside
-   the module. Otherwise, Idris won't know what the synonym is a
+   the module. Otherwise, Idris2i-1 won't know what the synonym is a
    synonym for.
 
 Since ``public export`` means that a function's definition is exported,

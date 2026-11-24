@@ -1,4 +1,4 @@
-||| Until Idris2 starts supporting the 'syntax' keyword, here's a
+||| Until Idris2i-1 starts supporting the 'syntax' keyword, here's a
 ||| poor-man's equational reasoning
 module Syntax.PreorderReasoning
 

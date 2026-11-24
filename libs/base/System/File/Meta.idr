@@ -15,43 +15,43 @@ import public System.File.Types
 FileTimePtr : Type
 FileTimePtr = AnyPtr
 
-%foreign supportC "idris2_fileSize"
+%foreign supportC "idris2i_1_fileSize"
          "node:lambda:fp=>require('fs').fstatSync(fp.fd).size"
 prim__fileSize : FilePtr -> PrimIO Int
 
-%foreign supportC "idris2_fileSize"
+%foreign supportC "idris2i_1_fileSize"
          "node:lambda:fp=>require('fs').fstatSync(fp.fd).size"
 prim__fPoll : FilePtr -> PrimIO Int
 
-%foreign supportC "idris2_fileTime"
+%foreign supportC "idris2i_1_fileTime"
          "node:support:filetime,support_system_file"
 prim__fileTime : FilePtr -> PrimIO FileTimePtr
 
-%foreign supportC "idris2_filetimeAccessTimeSec"
+%foreign supportC "idris2i_1_filetimeAccessTimeSec"
          "node:lambda:ft=>ft.atime_sec"
 prim__filetimeAccessTimeSec : FileTimePtr -> PrimIO Int
 
-%foreign supportC "idris2_filetimeAccessTimeNsec"
+%foreign supportC "idris2i_1_filetimeAccessTimeNsec"
          "node:lambda:ft=>ft.atime_nsec"
 prim__filetimeAccessTimeNsec : FileTimePtr -> PrimIO Int
 
-%foreign supportC "idris2_filetimeModifiedTimeSec"
+%foreign supportC "idris2i_1_filetimeModifiedTimeSec"
          "node:lambda:ft=>ft.mtime_sec"
 prim__filetimeModifiedTimeSec : FileTimePtr -> PrimIO Int
 
-%foreign supportC "idris2_filetimeModifiedTimeNsec"
+%foreign supportC "idris2i_1_filetimeModifiedTimeNsec"
          "node:lambda:ft=>ft.mtime_nsec"
 prim__filetimeModifiedTimeNsec : FileTimePtr -> PrimIO Int
 
-%foreign supportC "idris2_filetimeStatusTimeSec"
+%foreign supportC "idris2i_1_filetimeStatusTimeSec"
          "node:lambda:ft=>ft.ctime_sec"
 prim__filetimeStatusTimeSec : FileTimePtr -> PrimIO Int
 
-%foreign supportC "idris2_filetimeStatusTimeNsec"
+%foreign supportC "idris2i_1_filetimeStatusTimeNsec"
          "node:lambda:ft=>ft.ctime_nsec"
 prim__filetimeStatusTimeNsec : FileTimePtr -> PrimIO Int
 
-%foreign supportC "idris2_fileIsTTY"
+%foreign supportC "idris2i_1_fileIsTTY"
          "node:lambda:fp=>Number(require('tty').isatty(fp.fd))"
 prim__fileIsTTY : FilePtr -> PrimIO Int
 

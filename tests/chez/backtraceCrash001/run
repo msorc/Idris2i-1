@@ -25,7 +25,7 @@ bt() {
   echo "exit code: $code"
 }
 
-idris2 --cg chez --directive chez-backtrace -o bt Main.idr
+idris2i-1 --cg chez --directive chez-backtrace -o bt Main.idr
 for c in crash case div chez deep; do
   echo "--- $c"
   bt $c main
@@ -35,11 +35,11 @@ for c in crash chez; do
   bt $c thread
 done
 
-# IDRIS2_CHEZ_BACKTRACE=0 turns them off.
+# IDRIS2I_1_CHEZ_BACKTRACE=0 turns them off.
 echo "--- off"
-IDRIS2_CHEZ_BACKTRACE=0 ./build/exec/bt crash main 2>&1
+IDRIS2I_1_CHEZ_BACKTRACE=0 ./build/exec/bt crash main 2>&1
 echo "exit code: $?"
-IDRIS2_CHEZ_BACKTRACE=0 ./build/exec/bt chez main 2>&1
+IDRIS2I_1_CHEZ_BACKTRACE=0 ./build/exec/bt chez main 2>&1
 echo "exit code: $?"
 
 # An error while printing the backtrace (stderr full, here) ends the program,
@@ -50,18 +50,18 @@ if [ -w /dev/full ]; then
   (ulimit -v 4000000 2>/dev/null; ./build/exec/bt chez main 2>/dev/full; echo "exit code: $?")
 fi
 
-# Without the directive, they are off unless IDRIS2_CHEZ_BACKTRACE=1, and the
+# Without the directive, they are off unless IDRIS2I_1_CHEZ_BACKTRACE=1, and the
 # names of the functions are those of the Scheme code turned back into Idris
 # names.  Chez inlines most of the functions here, and which ones depends on
 # its version: look at the message of the error, the heading of the backtrace,
 # whether some of the functions of the program are named and whether the long
 # one is cut.
 echo "--- no directive"
-idris2 --cg chez -o plain Main.idr
+idris2i-1 --cg chez -o plain Main.idr
 ./build/exec/plain case main 2>&1
 echo "exit code: $?"
 plain() {
-  out=$(IDRIS2_CHEZ_BACKTRACE=1 ./build/exec/plain "$@" 2>&1)
+  out=$(IDRIS2I_1_CHEZ_BACKTRACE=1 ./build/exec/plain "$@" 2>&1)
   code=$?
   echo "$out" | grep -v '^  '
   echo "$out" | grep -q '^  Main\.' && echo "(Main functions named)"

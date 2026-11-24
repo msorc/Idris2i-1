@@ -11,7 +11,7 @@
 
 #include "idris_system.h"
 
-int idris2_system(const char *command) {
+int idris2i_1_system(const char *command) {
   int status = system(command);
 #ifdef _WIN32
   return status;
@@ -26,7 +26,7 @@ int idris2_system(const char *command) {
 #endif
 }
 
-int idris2_spawnShell(const char *command) {
+int idris2i_1_spawnShell(const char *command) {
 #ifdef _WIN32
   (void)command;
   return -1;
@@ -40,9 +40,9 @@ int idris2_spawnShell(const char *command) {
 #endif
 }
 
-static int idris2_lastChildStatus = -1;
+static int idris2i_1_lastChildStatus = -1;
 
-int idris2_waitAnyChild(void) {
+int idris2i_1_waitAnyChild(void) {
 #ifdef _WIN32
   return -1;
 #else
@@ -53,14 +53,14 @@ int idris2_waitAnyChild(void) {
   } while (pid == -1 && errno == EINTR);
   if (pid == -1)
     return -1;
-  idris2_lastChildStatus = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+  idris2i_1_lastChildStatus = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
   return (int)pid;
 #endif
 }
 
-int idris2_lastChildExitStatus(void) { return idris2_lastChildStatus; }
+int idris2i_1_lastChildExitStatus(void) { return idris2i_1_lastChildStatus; }
 
-long long idris2_processCPUTimeNs(void) {
+long long idris2i_1_processCPUTimeNs(void) {
 #ifdef _WIN32
   return 0;
 #else
@@ -71,7 +71,7 @@ long long idris2_processCPUTimeNs(void) {
 #endif
 }
 
-long long idris2_peakRSSKiB(void) {
+long long idris2i_1_peakRSSKiB(void) {
 #ifdef _WIN32
   return 0;
 #else

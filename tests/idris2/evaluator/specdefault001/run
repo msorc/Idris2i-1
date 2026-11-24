@@ -1,5 +1,0 @@
-. ../../../testutils.sh
-
-# Only total' for Integer, in main, is copied
-idris2 --spec-interfaces --log specialise.declare:5 --exec main Proofs.idr | sed -n 's/.*Specialising \(Proofs\.[^ ]*\) .*/Specialising \1/p'
-idris2 --spec-interfaces --exec main Proofs.idr

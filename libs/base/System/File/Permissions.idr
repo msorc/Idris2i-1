@@ -6,7 +6,7 @@ import public System.File.Types
 
 %default total
 
-%foreign supportC "idris2_chmod"
+%foreign supportC "idris2i_1_chmod"
          supportNode "chmod"
 prim__chmod : String -> Int -> PrimIO Int
 

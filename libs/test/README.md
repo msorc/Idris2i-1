@@ -1,14 +1,14 @@
 # Test
-The test package exposes the same test framework(s) the Idris 2 compiler
+The test package exposes the same test framework(s) the Idris2i-1 compiler
 uses for its test suite.
 
-In a language like Idris 2, there are a number of strategies one can take
+In a language like Idris2i-1, there are a number of strategies one can take
 for testing their code and the eventual goal of this testing package is to
 facilitate a blend of these strategies in any project. Currently the package
 contains one module facilitating one style of testing: `Golden`. Contributions
 containing other modules that enable additional testing styles are encouraged.
 
-To use the test package, either pass `-p test` to the idris2 executable or
+To use the test package, either pass `-p test` to the idris2i-1 executable or
 add `depends = test` to your test suite's package file.
 
 ## Golden
@@ -74,19 +74,19 @@ my_great_test/
 ```
 
 These files define:
-1. Any Idris 2 source code needed for the test
+1. Any Idris2i-1 source code needed for the test
   (Test.idr, which can be named anything you'd like and is not limited to 1 file).
 2. Any package information needed to build those source files (test.ipkg).
-3. The command run at the shell to execute your test (run, use `$1` in place of the name of the idris2 executable).
+3. The command run at the shell to execute your test (run, use `$1` in place of the name of the idris2i-1 executable).
 4. Optional input passed to your test case (input).
 5. The expected output of running your test (expected).
 
 See the [documentation](./Test/Golden.idr#L12) in `Test/Golden.idr` and
-the [template directories](../../tests/templates) provided with the Idris 2
+the [template directories](../../tests/templates) provided with the Idris2i-1
 project for a great primer on these files.
 
 When you run your tests (the executable produced by building your
-`tests/Main.idr` file), you need to specify the Idris executable to use
+`tests/Main.idr` file), you need to specify the Idris2i-1 executable to use
 and optionally set the interactive mode (`--interactive`), specify the
 number of threads to use concurrently (`--threads`), or limit the test
 cases that are run (`--only [names]`).

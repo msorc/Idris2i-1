@@ -1,13 +1,13 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
-IDRIS2_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
+idris2i-1 -o main Main.idr
+IDRIS2I_1_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
 grep "leaked values" leaks.txt | sed 's/,.*//'
 fn() { awk -v RS= "/Value \\*Main_$2\\n/ && /\\{/" "build/exec/$1.c"; }
 fn main insert | grep -v "^ *//" | sed -n '/Main.Leaf \*\//,/break;/p'
-fn main keep | grep -c idris2_static_con
+fn main keep | grep -c idris2i_1_static_con
 # with --directive refc-no-static, the matched value is counted
-idris2 --directive refc-no-static -o main2 Main.idr
+idris2i-1 --directive refc-no-static -o main2 Main.idr
 ./build/exec/main2
 fn main2 insert | grep -v "^ *//" | sed -n '/Main.Leaf \*\//,/break;/p'
 rm -f leaks.txt

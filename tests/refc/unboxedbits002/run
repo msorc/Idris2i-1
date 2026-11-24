@@ -1,10 +1,10 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr > /dev/null
+idris2i-1 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 # The operations on the fixed width integers of these functions are done on C
 # integers: there is no call of the runtime for them, and no value is made in
 # the loops (which goes to their start, `goto`, before the end of the function)
 for f in Main_mix Main_hash Main_fnv Main_mask Main_classify; do
-  echo "$f: $(awk -v RS= "/Value \\*$f\\n/" build/exec/main.c | grep -c 'idris2_\(add\|sub\|mul\|xor\|and\|shiftr\|shiftl\|cast\|lt\|eq\)_\|idris2_integerConstant\|idris2_vp_to_Bits64(var\|idris2_mkBits64')"
+  echo "$f: $(awk -v RS= "/Value \\*$f\\n/" build/exec/main.c | grep -c 'idris2i_1_\(add\|sub\|mul\|xor\|and\|shiftr\|shiftl\|cast\|lt\|eq\)_\|idris2i_1_integerConstant\|idris2i_1_vp_to_Bits64(var\|idris2i_1_mkBits64')"
 done

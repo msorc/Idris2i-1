@@ -1,0 +1,62 @@
+[
+  {
+    "query": "prove in Idris2i-1 that reverse (reverse xs) = xs for my own rev function defined in Rev.idr, no believe_me please",
+    "should_trigger": true
+  },
+  {
+    "query": "idris2i-1 --check fails with `chunks is not total, possibly not terminating due to recursive path Main.chunks` — make it total without assert_total",
+    "should_trigger": true
+  },
+  {
+    "query": "I need a DecEq instance for my data type Token in Idris2i-1 (six constructors, two with arguments), can it be derived or do I have to write all the cases",
+    "should_trigger": true
+  },
+  {
+    "query": "how do I rewrite with plusSuccRightSucc in idris2i-1? my goal is Vect (n + S m) a but I have a Vect (S (n + m)) a and Refl doesn't work",
+    "should_trigger": true
+  },
+  {
+    "query": "getting `Can't match on Z (Erased argument)` when I pattern match on the length of a Vect in Idris2i-1, the signature is `f : Vect n a -> ...`",
+    "should_trigger": true
+  },
+  {
+    "query": "my function in Queue.idr is rejected under %default total because it calls `div` — it says not covering because of Data.Nat.div. what do I do",
+    "should_trigger": true
+  },
+  {
+    "query": "write a total merge sort on List in Idris2i-1 with a proof that the output has the same length as the input",
+    "should_trigger": true
+  },
+  {
+    "query": "in idris 2, how can I show that this case is impossible: `lookup : (i : Fin Z) -> a`? the compiler wants a clause",
+    "should_trigger": true
+  },
+  {
+    "query": "`There are 0 uses of linear name h` — I have a (1 h : Handle) argument in my Idris2i-1 file protocol and I don't know what the checker wants",
+    "should_trigger": true
+  },
+  {
+    "query": "can solveNat prove `(a + b) * c = a * c + b * c` for me in Idris2i-1 or do I need to chain the Data.Nat lemmas by hand?",
+    "should_trigger": true
+  },
+  {
+    "query": "prove in Lean 4 that List.reverse (List.reverse xs) = xs without simp, I want to see the induction",
+    "should_trigger": false
+  },
+  {
+    "query": "Coq: Fixpoint chunks is rejected, `Cannot guess decreasing argument of fix`. How do I use Program Fixpoint or Function here?",
+    "should_trigger": false
+  },
+  {
+    "query": "write an Idris2i-1 program that downloads a URL with the http library and prints the status code",
+    "should_trigger": false
+  },
+  {
+    "query": "my Idris2i-1 program is slow when it builds a big string in a loop, where does the time go?",
+    "should_trigger": false
+  },
+  {
+    "query": "explain the difference between propositional and definitional equality in general type theory, no particular language, for my seminar notes",
+    "should_trigger": false
+  }
+]

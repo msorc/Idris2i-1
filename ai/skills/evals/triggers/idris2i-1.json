@@ -1,0 +1,62 @@
+[
+  {
+    "query": "can you add a function to src/Parser/Token.idr that counts how many tokens of each kind there are and returns a SortedMap? the Token type is already in that file",
+    "should_trigger": true
+  },
+  {
+    "query": "I'm getting `Error: While processing right hand side of render. Undefined name mapM_. [E0201]` in my Render.idr, what's the fix",
+    "should_trigger": true
+  },
+  {
+    "query": "port this little haskell module to idris 2 for me, it's a word counter using Data.Map and foldr, I pasted it in hs/Count.hs and want Count.idr next to it",
+    "should_trigger": true
+  },
+  {
+    "query": "write an Idris program that reads a CSV file given on the command line and prints the sum of the third column, exit code 1 if the file is missing",
+    "should_trigger": true
+  },
+  {
+    "query": "my idris build says `Couldn't parse declaration` on line 3 which is just `area :: Double -> Double`. what is wrong with it??",
+    "should_trigger": true
+  },
+  {
+    "query": "set up a new idris2i-1 package for me called shapes with an ipkg, a src dir, a Main module and one library module, so that idris2i-1 --build works",
+    "should_trigger": true
+  },
+  {
+    "query": "there's a hole ?rhs in Stack.idr line 40 in the pop function, can you fill it in and make the file typecheck",
+    "should_trigger": true
+  },
+  {
+    "query": "explain what this Idris2i-1 snippet does and whether it is idiomatic: `{ count $= S } st` inside a State monad, in our Counter.idr",
+    "should_trigger": true
+  },
+  {
+    "query": "please review tools/gen/Emit.idr for mistakes before I merge, especially the record update and the interface implementation at the bottom",
+    "should_trigger": true
+  },
+  {
+    "query": "why does idris2i-1 say n is not accessible in this context when I return the length index of my vector? file is Vec.idr",
+    "should_trigger": true
+  },
+  {
+    "query": "port this little Idris-like pseudo code to Haskell: I want a Data.Map based word counter in Count.hs, GHC 9.8",
+    "should_trigger": false
+  },
+  {
+    "query": "my Agda file fails with `Termination checking failed for the following functions: merge` — how do I convince Agda's termination checker here?",
+    "should_trigger": false
+  },
+  {
+    "query": "write a Lean 4 function that reads a CSV file from argv and sums the third column, using IO.FS",
+    "should_trigger": false
+  },
+  {
+    "query": "Idris Elba's filmography as a markdown table please, with year and role columns",
+    "should_trigger": false
+  },
+  {
+    "query": "set up a new cabal package called shapes with a library and an executable, GHC2021, and a test suite with hspec",
+    "should_trigger": false
+  }
+]

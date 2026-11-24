@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
+idris2i-1 -o main Main.idr
 
 # 2000 numbers after a few lines: UTF-8, CRLF, a line longer than the
 # first buffer, an empty line.
@@ -17,5 +17,5 @@ idris2 -o main Main.idr
 # Once more under Valgrind, which prints only when it finds an error.
 $VALGRIND ./build/exec/main < input | grep '^valgrind:'
 # (not under Valgrind: the leak check looks at the pages)
-IDRIS2_REFC_LEAKCHECK=1 ./build/exec/main < input 2>&1 >/dev/null | sed 's/,.*//'
+IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main < input 2>&1 >/dev/null | sed 's/,.*//'
 rm -f input output.valgrind.refc.log

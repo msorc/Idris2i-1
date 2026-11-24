@@ -1,13 +1,13 @@
 . ../../testutils.sh
 
-idris2 -o stdin Stdin.idr
+idris2i-1 -o stdin Stdin.idr
 printf 'xab\ncdefg\n\nh i\r\nlast' > input.txt
 echo "-- pipe"
 cat input.txt | ./build/exec/stdin
 echo "-- file"
 ./build/exec/stdin < input.txt
 echo "-- main thread"
-IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/stdin < input.txt
+IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/stdin < input.txt
 echo "-- ends with a newline"
 printf 'xab\ncdefg\n\nend\n' | ./build/exec/stdin
 echo "-- empty"

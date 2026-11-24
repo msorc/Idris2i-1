@@ -10,20 +10,20 @@
 //    obtained (the C library's `system` returned -1).
 // On Windows the C library's `system` already returns the exit code, which
 // is returned unchanged.
-int idris2_system(const char *command);
+int idris2i_1_system(const char *command);
 
 // Start `sh -c command` without waiting for it, and return its process id,
 // or -1 when it cannot be started (always on Windows).
-int idris2_spawnShell(const char *command);
+int idris2i_1_spawnShell(const char *command);
 
 // Wait for any child process to end, and return its process id, or -1 when
 // there is none (always on Windows).  Its exit status is then given by
-// idris2_lastChildExitStatus (-1 when it did not exit normally).
-int idris2_waitAnyChild(void);
-int idris2_lastChildExitStatus(void);
+// idris2i_1_lastChildExitStatus (-1 when it did not exit normally).
+int idris2i_1_waitAnyChild(void);
+int idris2i_1_lastChildExitStatus(void);
 
 // The processor time used by the process so far, in nanoseconds (0 on
 // Windows), and its peak resident set size so far, in KiB (0 on Windows).
 // They are cheap enough to be read often, by the compiler's profiler.
-long long idris2_processCPUTimeNs(void);
-long long idris2_peakRSSKiB(void);
+long long idris2i_1_processCPUTimeNs(void);
+long long idris2i_1_peakRSSKiB(void);

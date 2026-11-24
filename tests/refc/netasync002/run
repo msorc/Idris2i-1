@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
-idris2 -p network -o main Main.idr
+idris2i-1 -p network -o main Main.idr
 ./build/exec/main
-IDRIS2_WORKERS=1 $VALGRIND ./build/exec/main
+IDRIS2I_1_WORKERS=1 $VALGRIND ./build/exec/main

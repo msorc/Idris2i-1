@@ -124,9 +124,9 @@ candidateDirs dname pkgName bounds = do
           let pkgVersion = maybe "unversioned" (\v => "version \{show v} of") pkg.version
           recordWarning $ GenericWarn EmptyFC $
                  """
-                 Found \{pkgVersion} package \{pkg.pkgName} installed with no compatible binaries for the current Idris2 compiler.
+                 Found \{pkgVersion} package \{pkg.pkgName} installed with no compatible binaries for the current Idris2i-1 compiler.
 
-                 Reinstall \{pkg.pkgName} with the current Idris2 compiler to resolve the issue.
+                 Reinstall \{pkg.pkgName} with the current Idris2i-1 compiler to resolve the issue.
                  """
           pure Nothing
 
@@ -173,7 +173,7 @@ findPkgDir p bounds = do
 
   -- From what remains, pick the one with the highest version number.
   -- If there's none, report it
-  -- (TODO: Can't do this quite yet due to idris2 build system...)
+  -- (TODO: Can't do this quite yet due to idris2i-1 build system...)
   if defs.options.session.ignoreMissingPkg
      then pure Nothing
      else throw (CantFindPackage (p ++ " (" ++ show bounds ++ ")"))
@@ -217,7 +217,7 @@ listPackages
   where
     printIdrisTTCVersion : Core ()
     printIdrisTTCVersion = iputStrLn $
-      pretty0 "Idris2 TTC Version: \{show ttcVersion}" <+> line <+>
+      pretty0 "Idris2i-1 TTC Version: \{show ttcVersion}" <+> line <+>
       (replicateChar 5 '─')
 
     pkgTTCVersions : PkgDir -> Doc IdrisAnn
@@ -253,7 +253,7 @@ dirOption : {auto c : Ref Ctxt Defs} ->
             Dirs -> DirCommand -> Core ()
 dirOption dirs LibDir
     = coreLift $ putStrLn
-         (prefix_dir dirs </> "idris2-" ++ showVersion False version)
+         (prefix_dir dirs </> "idris2i-1-" ++ showVersion False version)
 dirOption dirs BlodwenPaths
     = iputStrLn $ pretty0 (toString dirs)
 dirOption dirs Prefix
@@ -298,7 +298,7 @@ logLevels = map fst knownTopics >>= prefixes . forget . split (== '.')
 -- completions. If the list of completions is empty, bash
 -- will perform directory completion.
 opts : {auto c : Ref Ctxt Defs} -> String -> String -> Core (List String)
-opts "--" "idris2"  = pure optionFlags
+opts "--" "idris2i-1"  = pure optionFlags
 
 -- codegens
 opts x "--cg"      = prefixOnlyIfNonEmpty x <$> codegens
@@ -340,16 +340,16 @@ bashCompletionScript fun = let fun' = "_" ++ fun in """
   \{ fun' }()
   {
     ED=$([ -z $2 ] && echo "--" || echo $2)
-    COMPREPLY=($(idris2 --bash-completion $ED $3))
+    COMPREPLY=($(idris2i-1 --bash-completion $ED $3))
   }
 
-  complete -F \{ fun' } -o default idris2
+  complete -F \{ fun' } -o default idris2i-1
   """
 
 zshCompletionScript : (fun : String) -> String
 zshCompletionScript fun = let fun' = "_" ++ fun in """
-  #compdef idris2
-  compdef \{fun'} idris2
+  #compdef idris2i-1
+  compdef \{fun'} idris2i-1
 
   \{fun'}()
   {
@@ -358,12 +358,12 @@ zshCompletionScript fun = let fun' = "_" ++ fun in """
     CURRENT_PARTIAL=$([[ -z ${PREFIX} ]] && echo "--" || echo "${PREFIX}")
     PREVIOUS="${words[$PREV_IDX]}"
 
-    REPLY=($(idris2 --bash-completion "$CURRENT_PARTIAL" "$PREVIOUS"))
+    REPLY=($(idris2i-1 --bash-completion "$CURRENT_PARTIAL" "$PREVIOUS"))
 
     if [[ -z $REPLY ]]; then
       _files
     else
-      _describe 'idris2' REPLY
+      _describe 'idris2i-1' REPLY
     fi
   }
 
@@ -549,7 +549,7 @@ preOptions (Explain code :: _)
     = do case lookupCode code of
            Just k => coreLift $ putStr (explainText k)
            Nothing => coreLift $ putStrLn ("Unknown error code: " ++ code
-                        ++ ". The codes are listed in the reference page of error codes (idris2 --list-error-codes).")
+                        ++ ". The codes are listed in the reference page of error codes (idris2i-1 --list-error-codes).")
          pure Abort
 preOptions (ListErrorCodes :: _)
     = do coreLift $ putStr codesRST

@@ -2,7 +2,7 @@
 
 # `--cg chez-sep` compiles every module to a Chez library of its own: the
 # compile scripts must run, so that there is a program that runs.
-idris2 --cg chez-sep -o hello Main.idr
+idris2i-1 --cg chez-sep -o hello Main.idr
 ./build/exec/hello
 echo "exit code: $?"
 
@@ -12,15 +12,15 @@ ls build/exec/hello_app | grep -E '\.(ss|script)$' | wc -l
 ls build/exec/hello_app/*.so | grep -c mainprog
 
 # Without a change, the program is built again and still runs
-idris2 --cg chez-sep -o hello Main.idr
+idris2i-1 --cg chez-sep -o hello Main.idr
 ./build/exec/hello
 
 # A unit whose compiled file is missing is compiled again
 rm build/exec/hello_app/Main.so
-idris2 --cg chez-sep -o hello Main.idr
+idris2i-1 --cg chez-sep -o hello Main.idr
 ./build/exec/hello
 
 # --exec runs the program without compiling it to .so files
-idris2 --cg chez-sep --exec main Main.idr
+idris2i-1 --cg chez-sep --exec main Main.idr
 
 rm -rf build

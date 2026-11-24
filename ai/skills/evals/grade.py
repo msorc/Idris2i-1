@@ -5,7 +5,7 @@
 
 Runs tasks/TASK/grade.sh on WORKDIR and turns its PASS|text|evidence lines into the
 grading.json that the skill-creator viewer reads (fields text, passed, evidence).
-The compiler is $IDRIS2, or ~/.idris2/bin/idris2.
+The compiler is $IDRIS2I_1, or ~/.idris2i-1/bin/idris2i-1.
 """
 import json
 import os

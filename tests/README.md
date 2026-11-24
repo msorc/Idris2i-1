@@ -10,14 +10,14 @@ To run only a subset of the tests use: `make test only=NAME`. `NAME` is matched 
 Examples:
 - `make test only=chez` will run all Chez Scheme tests.
 - `make test only=ttimp/basic` will run all basic tests for `TTImp`.
-- `make test only=idris2/basic001` will run a specific test.
+- `make test only=idris2i-1/basic001` will run a specific test.
 
 Templates for common test instances can be found in the `templates` folder.
 
 There is no defined naming convention for adding tests, but the pattern has
 been:
 
-- a sub-directory in the relevant test section (`idris2`, `refc`, etc.)
+- a sub-directory in the relevant test section (`idris2i-1`, `refc`, etc.)
 - with a descriptive name followed by a 3-digit number (e.g. `envflags001` is
     the first test checking the environment flags functions)
 - containing:

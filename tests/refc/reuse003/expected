@@ -9,94 +9,94 @@ merge: 2 0
 count: 2 0
 firstOfTwo: 1 0
 pick: 2 2
-Idris2_Value *Main_merge
+Idris2i_1_Value *Main_merge
 (
-    Idris2_Value * var_0
-,   Idris2_Value * var_1
+    Idris2i_1_Value * var_0
+,   Idris2i_1_Value * var_1
 )
 {
-    Idris2_Value *idris2_trmc_result = NULL;
-    Idris2_Value **idris2_trmc_hole = &idris2_trmc_result;
-    IDRIS2_SAFEPOINT();
-    idris2_self_entry: ;
-    Idris2_Value * tmp_0 = NULL;                             // Main:8:9--8:17
+    Idris2i_1_Value *idris2i_1_trmc_result = NULL;
+    Idris2i_1_Value **idris2i_1_trmc_hole = &idris2i_1_trmc_result;
+    IDRIS2I_1_SAFEPOINT();
+    idris2i_1_self_entry: ;
+    Idris2i_1_Value * tmp_0 = NULL;                          // Main:8:9--8:17
     if (NULL == var_0 /* _builtin.NIL [nil] */) {
         tmp_0 = var_1;
     } else {
-        Idris2_Value * tmp_1 = NULL;                         // Main:8:21--8:29
+        Idris2i_1_Value * tmp_1 = NULL;                      // Main:8:21--8:29
         if (NULL == var_1 /* _builtin.NIL [nil] */) {
             tmp_1 = var_0;
         } else {
-            Idris2_Value * tmp_2 = NULL;                     // Main:8:9--8:17
+            Idris2i_1_Value * tmp_2 = NULL;                  // Main:8:9--8:17
             if (NULL != var_0 /* _builtin.CONS [cons] */) {
-                Idris2_Constructor* constructor_3 = (Idris2_Constructor*)var_0;
-                if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
-                    IDRIS2_STAT(reuseHit);
+                Idris2i_1_Constructor* constructor_3 = (Idris2i_1_Constructor*)var_0;
+                if (IDRIS2I_1_LIKELY(idris2i_1_isUnique(var_0))) {
+                    IDRIS2I_1_STAT(reuseHit);
                 } else {
-                    IDRIS2_STAT(reuseMiss);
-                    constructor_3 = idris2_newConstructor(2, 1);
-                    constructor_3->args[0] = idris2_newReference(((Idris2_Constructor*)var_0)->args[0]);
-                    constructor_3->args[1] = idris2_newReference(((Idris2_Constructor*)var_0)->args[1]);
-                    idris2_dropSharedReference(var_0);
+                    IDRIS2I_1_STAT(reuseMiss);
+                    constructor_3 = idris2i_1_newConstructor(2, 1);
+                    constructor_3->args[0] = idris2i_1_newReference(((Idris2i_1_Constructor*)var_0)->args[0]);
+                    constructor_3->args[1] = idris2i_1_newReference(((Idris2i_1_Constructor*)var_0)->args[1]);
+                    idris2i_1_dropSharedReference(var_0);
                 }
-                Idris2_Value *var_2 = constructor_3->args[0];
-                Idris2_Value *var_3 = constructor_3->args[1];
-                Idris2_Value * tmp_4 = NULL;                 // Main:8:21--8:29
+                Idris2i_1_Value *var_2 = constructor_3->args[0];
+                Idris2i_1_Value *var_3 = constructor_3->args[1];
+                Idris2i_1_Value * tmp_4 = NULL;              // Main:8:21--8:29
                 if (NULL != var_1 /* _builtin.CONS [cons] */) {
-                    Idris2_Constructor* constructor_5 = (Idris2_Constructor*)var_1;
-                    if (IDRIS2_LIKELY(idris2_isUnique(var_1))) {
-                        IDRIS2_STAT(reuseHit);
+                    Idris2i_1_Constructor* constructor_5 = (Idris2i_1_Constructor*)var_1;
+                    if (IDRIS2I_1_LIKELY(idris2i_1_isUnique(var_1))) {
+                        IDRIS2I_1_STAT(reuseHit);
                     } else {
-                        IDRIS2_STAT(reuseMiss);
-                        constructor_5 = idris2_newConstructor(2, 1);
-                        constructor_5->args[0] = idris2_newReference(((Idris2_Constructor*)var_1)->args[0]);
-                        constructor_5->args[1] = idris2_newReference(((Idris2_Constructor*)var_1)->args[1]);
-                        idris2_dropSharedReference(var_1);
+                        IDRIS2I_1_STAT(reuseMiss);
+                        constructor_5 = idris2i_1_newConstructor(2, 1);
+                        constructor_5->args[0] = idris2i_1_newReference(((Idris2i_1_Constructor*)var_1)->args[0]);
+                        constructor_5->args[1] = idris2i_1_newReference(((Idris2i_1_Constructor*)var_1)->args[1]);
+                        idris2i_1_dropSharedReference(var_1);
                     }
-                    Idris2_Value *var_4 = constructor_5->args[0];
-                    Idris2_Value *var_5 = constructor_5->args[1];
-                    int64_t primVar_6 = ((idris2_vp_to_Int64(var_2)) < (idris2_vp_to_Int64(var_4)));
+                    Idris2i_1_Value *var_4 = constructor_5->args[0];
+                    Idris2i_1_Value *var_5 = constructor_5->args[1];
+                    int64_t primVar_6 = ((idris2i_1_vp_to_Int64(var_2)) < (idris2i_1_vp_to_Int64(var_4)));
                     int64_t int_10 = primVar_6;              // Prelude.Basics:212:13--212:16
-                    Idris2_Value *tmp_7 = NULL;              // Prelude.Basics:212:13--212:16
+                    Idris2i_1_Value *tmp_7 = NULL;           // Prelude.Basics:212:13--212:16
                     switch (int_10) {
                     case INT64_C(0): {
                          // constructor _builtin.CONS        // Main:13:35--13:37
-                        Idris2_Value * var_6 = (Idris2_Value*)constructor_3;
+                        Idris2i_1_Value * var_6 = (Idris2i_1_Value*)constructor_3;
                                                              // Main:13:26--13:31
                          // constructor _builtin.CONS        // Main:13:23--13:25
                         constructor_5->args[1] = NULL;
-                        Idris2_Value *idris2_trmc_cell_8 = (Idris2_Value*)constructor_5;
+                        Idris2i_1_Value *idris2i_1_trmc_cell_8 = (Idris2i_1_Value*)constructor_5;
                                                              // Main:13:23--13:25
-                        *idris2_trmc_hole = idris2_trmc_cell_8;
+                        *idris2i_1_trmc_hole = idris2i_1_trmc_cell_8;
                                                              // Main:13:23--13:25
-                        idris2_trmc_hole = &((Idris2_Constructor *)idris2_trmc_cell_8)->args[1];
+                        idris2i_1_trmc_hole = &((Idris2i_1_Constructor *)idris2i_1_trmc_cell_8)->args[1];
                                                              // Main:13:23--13:25
-                        Idris2_Value *tmp_9 = var_6;         // Main:13:26--13:31
-                        Idris2_Value *tmp_10 = var_5;        // Main:13:26--13:31
+                        Idris2i_1_Value *tmp_9 = var_6;      // Main:13:26--13:31
+                        Idris2i_1_Value *tmp_10 = var_5;     // Main:13:26--13:31
                         var_0 = tmp_9;                       // Main:13:26--13:31
                         var_1 = tmp_10;                      // Main:13:26--13:31
-                        IDRIS2_SAFEPOINT();                  // Main:13:26--13:31
-                        goto idris2_self_entry;              // Main:13:26--13:31
+                        IDRIS2I_1_SAFEPOINT();               // Main:13:26--13:31
+                        goto idris2i_1_self_entry;           // Main:13:26--13:31
                       break;
                     }
                     default: {
                          // constructor _builtin.CONS        // Main:12:38--12:40
-                        Idris2_Value * var_8 = (Idris2_Value*)constructor_5;
+                        Idris2i_1_Value * var_8 = (Idris2i_1_Value*)constructor_5;
                                                              // Main:12:26--12:31
                          // constructor _builtin.CONS        // Main:12:23--12:25
                         constructor_3->args[1] = NULL;
-                        Idris2_Value *idris2_trmc_cell_11 = (Idris2_Value*)constructor_3;
+                        Idris2i_1_Value *idris2i_1_trmc_cell_11 = (Idris2i_1_Value*)constructor_3;
                                                              // Main:12:23--12:25
-                        *idris2_trmc_hole = idris2_trmc_cell_11;
+                        *idris2i_1_trmc_hole = idris2i_1_trmc_cell_11;
                                                              // Main:12:23--12:25
-                        idris2_trmc_hole = &((Idris2_Constructor *)idris2_trmc_cell_11)->args[1];
+                        idris2i_1_trmc_hole = &((Idris2i_1_Constructor *)idris2i_1_trmc_cell_11)->args[1];
                                                              // Main:12:23--12:25
-                        Idris2_Value *tmp_12 = var_3;        // Main:12:26--12:31
-                        Idris2_Value *tmp_13 = var_8;        // Main:12:26--12:31
+                        Idris2i_1_Value *tmp_12 = var_3;     // Main:12:26--12:31
+                        Idris2i_1_Value *tmp_13 = var_8;     // Main:12:26--12:31
                         var_0 = tmp_12;                      // Main:12:26--12:31
                         var_1 = tmp_13;                      // Main:12:26--12:31
-                        IDRIS2_SAFEPOINT();                  // Main:12:26--12:31
-                        goto idris2_self_entry;              // Main:12:26--12:31
+                        IDRIS2I_1_SAFEPOINT();               // Main:12:26--12:31
+                        goto idris2i_1_self_entry;           // Main:12:26--12:31
                     }
                     }
                     tmp_4 = tmp_7;
@@ -107,8 +107,8 @@ Idris2_Value *Main_merge
         }
         tmp_0 = tmp_1;
     }
-    *idris2_trmc_hole = tmp_0;
-    return idris2_trmc_result;
+    *idris2i_1_trmc_hole = tmp_0;
+    return idris2i_1_trmc_result;
 }
 [1, 2, 3, 4, 6, 7, 8, 9, 10]
 ([1, 5, 6, 7, 8], [5, 6, 7])

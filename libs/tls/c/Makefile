@@ -6,7 +6,7 @@ include ../../../config.mk
 
 PKG_CONFIG ?= pkg-config
 
-TARGET = libidris2_tls
+TARGET = libidris2i_1_tls
 LIBTARGET = $(TARGET).a
 DYLIBTARGET = $(TARGET)$(SHLIB_SUFFIX)
 

@@ -169,8 +169,8 @@ as the first and second elements of the pair.
 Note: Interfaces and ``mutual`` blocks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Idris is strictly "define before use", except in ``mutual`` blocks.
-In a ``mutual`` block, Idris elaborates in two passes: types on the first
+Idris2i-1 is strictly "define before use", except in ``mutual`` blocks.
+In a ``mutual`` block, Idris2i-1 elaborates in two passes: types on the first
 pass and definitions on the second. When the mutual block contains an
 interface declaration, it elaborates the interface header but none of the
 method types on the first pass, and elaborates the method types and any
@@ -323,7 +323,7 @@ the ``Nothing`` cases is achieved by the ``>>=`` operator, hidden by the
 
 The translation of ``do``-notation is entirely syntactic, so there is no
 need for the ``(>>=)`` and ``(>>)`` operators to be those defined in the
-``Monad`` interface. In general, Idris will try to disambiguate which
+``Monad`` interface. In general, Idris2i-1 will try to disambiguate which
 operators you mean based on their type. However, you can explicitly specify
 the source module using qualified ``do``-notation. For example:
 
@@ -335,7 +335,7 @@ the source module using qualified ``do``-notation. For example:
                    y' <- y -- Extract value from y
                    pure (x' + y') -- Add them
 
-The ``Prelude.do`` means that Idris will use the ``(>>=)`` and ``(>>)``
+The ``Prelude.do`` means that Idris2i-1 will use the ``(>>=)`` and ``(>>)``
 operators defined in the ``Prelude``.
 
 Pattern Matching Bind
@@ -542,7 +542,7 @@ Rather than having to insert ``m_app`` everywhere there is an
 application, we can use idiom brackets to do the job for us.
 To do this, we can give ``Maybe`` an implementation of ``Applicative``
 as follows, where ``<*>`` is defined in the same way as ``m_app``
-above (this is defined in the Idris library):
+above (this is defined in the Idris2i-1 library):
 
 .. code-block:: idris
 
@@ -667,7 +667,7 @@ Given the following list:
 
 We can sort it using the default ``Ord`` implementation by using the ``sort``
 function, available via ``import Data.List``. Then, we can try with the named
-implementation ``myord`` - both are shown below at the Idris prompt:
+implementation ``myord`` - both are shown below at the Idris2i-1 prompt:
 
 ::
 

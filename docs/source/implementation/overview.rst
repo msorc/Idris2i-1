@@ -28,7 +28,7 @@ of unification problems. Essentially works the same way as Agda as described
 in Ulf Norell's thesis.
 
 General idea is that high level languages will provide a translation to TT.
-In the ``Idris/`` namespace we define the high level syntax for Idris, which
+In the ``Idris/`` namespace we define the high level syntax for Idris2i-1, which
 translates to TTImp by desugaring operators, do notation, etc.
 
 There is a separate linearity check after elaboration, which updates types of
@@ -179,7 +179,7 @@ This is one place where indexing over ``vars`` is extremely valuable: we
 have to keep the environment consistent, so unification won't accidentally
 introduce any scoping bugs!
 
-Idris 2 implements pattern unification - see Adam Gundry's thesis for an
+Idris2i-1 implements pattern unification - see Adam Gundry's thesis for an
 accessible introduction.
 
 Context

@@ -174,7 +174,7 @@ For ``plus_commutes_Z_rhs_2``, we now see:
 So we know that ``k = plus k Z``, but how do we use this to update the goal to
 ``S k = S k``?
 
-To achieve this, Idris provides a ``replace`` function as part of the
+To achieve this, Idris2i-1 provides a ``replace`` function as part of the
 prelude:
 
 .. code-block:: idris
@@ -188,7 +188,7 @@ know ``x`` and ``y`` must be the same. Note the multiplicity on ``rule``
 means that it's guaranteed to be erased at run time.
 In practice, this function can be
 a little tricky to use because in general the implicit argument ``p``
-can be hard to infer by unification, so Idris provides a high level
+can be hard to infer by unification, so Idris2i-1 provides a high level
 syntax which calculates the property and applies ``replace``:
 
 .. code-block:: idris

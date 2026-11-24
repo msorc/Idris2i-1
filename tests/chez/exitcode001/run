@@ -2,10 +2,10 @@
 
 # `--exec` exits with the exit code of the program, 128 + the signal when it
 # is killed by one; `:exec` at the REPL says what the code is when it is not
-# 0, and goes on.  The same as tests/idris2/error/exitcode002, with Chez.
+# 0, and goes on.  The same as tests/idris2i-1/error/exitcode002, with Chez.
 code() {
   echo "--- $*"
-  idris2_no_clean "$@"
+  idris2i_1_no_clean "$@"
   echo "exit code: $?"
 }
 
@@ -16,6 +16,6 @@ code --exec crash Exit.idr
 code --exec terminated Exit.idr
 code --exec three --exec ok Exit.idr
 
-idris2 Exit.idr < input
+idris2i-1 Exit.idr < input
 
 rm -rf build

@@ -1,4 +1,4 @@
-Before we discuss the details of theorem proving in Idris, we will describe
+Before we discuss the details of theorem proving in Idris2i-1, we will describe
 some fundamental concepts:
 
 -  Propositions and judgments
@@ -56,7 +56,7 @@ because we are constructing a 'database' of judgments.
 Curry-Howard correspondence
 ---------------------------
 
-So how do we relate these proofs to Idris programs? It turns out that there is
+So how do we relate these proofs to Idris2i-1 programs? It turns out that there is
 a correspondence between constructive logic and type theory. They have the same
 structure and we can switch back and forth between the two notations.
 
@@ -199,7 +199,7 @@ If an equality type can be proved/constructed by using ``Refl`` alone it is know
 as a *definitional equality*. In order to be definitionally equal both sides
 of the equation must normalise to the same value.
 
-So when we type ``1+1`` in Idris it is immediately reduced to 2 because
+So when we type ``1+1`` in Idris2i-1 it is immediately reduced to 2 because
 definitional equality is built in
 
 .. code-block:: idris

@@ -1,7 +1,7 @@
 . ../../testutils.sh
 
-idris2 -p network -o main Main.idr
+idris2i-1 -p network -o main Main.idr
 # (a hang fails the test instead of stopping the test suite)
 for w in 1 2 4; do
-  IDRIS2_WORKERS=$w timeout 300 ./build/exec/main || echo "failed or hung with $w workers"
+  IDRIS2I_1_WORKERS=$w timeout 300 ./build/exec/main || echo "failed or hung with $w workers"
 done

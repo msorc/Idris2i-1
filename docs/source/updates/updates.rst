@@ -4,7 +4,7 @@
 Changes since Idris 1
 #####################
 
-Idris 2 is mostly backwards compatible with Idris 1, with some minor
+Idris2i-1 is mostly backwards compatible with Idris 1, with some minor
 exceptions. This document describes the changes, approximately in order of
 likelihood of encountering them in practice. New features are described at
 the end, in Section :ref:`sect-new-features`.
@@ -24,23 +24,23 @@ by Edwin Brady, available from `Manning <https://www.manning.com>`_.
 New Core Language: Quantities in Types
 ======================================
 
-Idris 2 is based on `Quantitative Type Theory (QTT)
+Idris2i-1 is based on `Quantitative Type Theory (QTT)
 <https://bentnib.org/quantitative-type-theory.html>`_, a core language
 developed by Bob Atkey and Conor McBride. In practice, this means that every
-variable in Idris 2 has a *quantity* associated with it. A quantity is one of:
+variable in Idris2i-1 has a *quantity* associated with it. A quantity is one of:
 
 * ``0``, meaning that the variable is *erased* at run time
 * ``1``, meaning that the variable is used *exactly once* at run time
 * *Unrestricted*, which is the same behaviour as Idris 1
 
 For more details on this, see Section :ref:`sect-multiplicities`. In practice,
-this might cause some Idris 1 programs not to type check in Idris 2 due to
+this might cause some Idris 1 programs not to type check in Idris2i-1 due to
 attempting to use an argument which is erased at run time.
 
 Erasure
 -------
 
-In Idris, names which begin with a lower case letter are automatically bound
+In Idris2i-1, names which begin with a lower case letter are automatically bound
 as implicit arguments in types, for example in the following skeleton
 definition, ``n``, ``a`` and ``m`` are implicitly bound:
 
@@ -54,7 +54,7 @@ is deciding which arguments are used at run time and which can safely be
 erased. More importantly, it's one of the difficulties when programming: how
 can a programmer *know* when an argument will be erased?
 
-In Idris 2, a variable's quantity tells us whether it will be available at
+In Idris2i-1, a variable's quantity tells us whether it will be available at
 run time or not. We can see the quantities of the variables in scope in
 ``append_rhs`` by inspecting the hole at the REPL:
 
@@ -88,14 +88,14 @@ be available at run time, so at run time we always need the length of the
 vector to be available if we ever call ``vlen``. Idris 1 can infer whether the
 length is needed, but there's no easy way for a programmer to be sure.
 
-In Idris 2, we need to state explicitly that ``n`` is needed at run time
+In Idris2i-1, we need to state explicitly that ``n`` is needed at run time
 
 .. code-block:: idris
 
     vlen : {n : Nat} -> Vect n a -> Nat
     vlen xs = n
 
-(Incidentally, also note that in Idris 2, names bound in types are also available
+(Incidentally, also note that in Idris2i-1, names bound in types are also available
 in the definition without explicitly rebinding them.)
 
 This also means that when you call ``vlen``, you need the length available. For
@@ -106,7 +106,7 @@ example, this will give an error
     sumLengths : Vect m a -> Vect n a —> Nat
     sumLengths xs ys = vlen xs + vlen ys
 
-Idris 2 reports::
+Idris2i-1 reports::
 
   vlen.idr:7:20--7:28:While processing right hand side of Main.sumLengths at vlen.idr:7:1--10:1:
   m is not accessible in this context
@@ -145,7 +145,7 @@ unrestricted multiplicity
 Remember that giving no multiplicity on a binder, as with ``m`` and ``n`` here,
 means that the variable has unrestricted usage.
 
-If you're converting Idris 1 programs to work with Idris 2, this is probably the
+If you're converting Idris 1 programs to work with Idris2i-1, this is probably the
 biggest thing you need to think about. It is important to note,
 though, that if you have bound implicits, such as...
 
@@ -185,9 +185,9 @@ the type of the second argument
     sNot False SFalse = True
     sNot True  STrue  = False
 
-Experience with Idris 2 so far suggests that, most of the time, as long as
+Experience with Idris2i-1 so far suggests that, most of the time, as long as
 you're using unbound implicits in your Idris 1 programs, they will work without
-much modification in Idris 2. The Idris 2 type checker will point out where you
+much modification in Idris2i-1. The Idris2i-1 type checker will point out where you
 require an unbound implicit argument at run time - sometimes this is both
 surprising and enlightening!
 
@@ -210,7 +210,7 @@ Prelude and ``base`` libraries
 ==============================
 
 The Prelude in Idris 1 contained a lot of definitions, many of them rarely
-necessary. The philosophy in Idris 2 is different. The (rather vaguely
+necessary. The philosophy in Idris2i-1 is different. The (rather vaguely
 specified) rule of thumb is that it should contain the basic functions
 required by almost any non-trivial program.
 
@@ -252,17 +252,17 @@ Ambiguous Name Resolution
 
 Idris 1 worked very hard to resolve ambiguous names, by type, even if this
 involved some complicated interaction with interface resolution. This could
-sometimes be the cause of long type checking times. Idris 2 simplifies this, at
+sometimes be the cause of long type checking times. Idris2i-1 simplifies this, at
 the cost of sometimes requiring more programmer annotations on ambiguous
 names.
 
-As a general rule, Idris 2 will be able to disambiguate between names which
+As a general rule, Idris2i-1 will be able to disambiguate between names which
 have different concrete return types (such as data constructors), or which have
 different concrete argument types (such as record projections). It may struggle
 to resolve ambiguities if one name requires an interface to be resolved.
 It will postpone resolution if a name can't be resolved immediately, but unlike
 Idris 1, it won't attempt significant backtracking. If you have deeply nested
-ambiguous names (beyond a small threshold, default 3) Idris 2 will report an
+ambiguous names (beyond a small threshold, default 3) Idris2i-1 will report an
 error.  You can change this threshold with a directive, for example:
 
 .. code-block:: idris
@@ -333,7 +333,7 @@ any name.
 ---------------------
 
 There are several ``%language`` pragmas in Idris 1, which define various
-experimental extensions. None of these are available in Idris 2, although
+experimental extensions. None of these are available in Idris2i-1, although
 extensions may be defined in the future.
 
 Also removed was the ``%access`` pragma for default visibility, use visibility
@@ -369,7 +369,7 @@ See Section :ref:`sect-let-bindings` for more info.
 
 Interfaces and ``auto``-implicit arguments are similar, in that they invoke an
 expression search mechanism to find the value of an argument. In Idris 1,
-they were implemented separately, but in Idris 2, they use the same mechanism.
+they were implemented separately, but in Idris2i-1, they use the same mechanism.
 Consider the following *total* definition of ``fromMaybe``:
 
 .. code-block:: idris
@@ -464,7 +464,7 @@ partial).
 Build artefacts
 ---------------
 
-This is not really a language change, but a change in the way Idris saves
+This is not really a language change, but a change in the way Idris2i-1 saves
 checked files, and still useful to know. All checked modules are now saved in a
 directory ``build/ttc``, in the root of the source tree, with the directory
 structure following the directory structure of the source.  Executables are
@@ -530,7 +530,7 @@ These ``let`` blocks can be used anywhere (in the middle of ``do`` blocks
 as above, but also in any function, or in type declarations).
 ``where`` blocks are now elaborated by translation into a local ``let``.
 
-However, Idris no longer attempts to infer types for functions defined in
+However, Idris2i-1 no longer attempts to infer types for functions defined in
 ``where`` blocks, because this was fragile. This may be reinstated, if we can
 come up with a good, predictable approach.
 
@@ -585,7 +585,7 @@ Or, alternatively, using a new name:
         ...
 
 Idris 1 took a different approach here: names which were parameters to data
-types were in scope, other names were not. The Idris 2 approach is, we hope,
+types were in scope, other names were not. The Idris2i-1 approach is, we hope,
 more consistent and easier to understand.
 
 .. _sect-app-syntax-additions:
@@ -650,7 +650,7 @@ regular unnamed explicit arguments are processed first and take priority:
 
 This snippet won't type check, because "b" in ``badCall`` is passed first,
 although logically we want it to be second.
-Idris will tell you that it couldn't find a spot for ``a = "a"`` (because "b" took its place),
+Idris2i-1 will tell you that it couldn't find a spot for ``a = "a"`` (because "b" took its place),
 so the application is ill-formed.
 
 Thus if you want to use the new syntax, it is worth naming your ``Pi`` types.
@@ -736,7 +736,7 @@ Better inference
 
 In Idris 1, holes (that is, unification variables arising from implicit
 arguments) were local to an expression, and if they were not resolved while
-checking the expression, they would not be resolved at all. In Idris 2,
+checking the expression, they would not be resolved at all. In Idris2i-1,
 they are global, so inference works better. For example, we can now say:
 
 .. code-block:: idris
@@ -756,7 +756,7 @@ Dependent case
 --------------
 
 ``case`` blocks were available in Idris 1, but with some restrictions. Having
-better inference means that ``case`` blocks work more effectively in Idris 2,
+better inference means that ``case`` blocks work more effectively in Idris2i-1,
 and dependent case analysis is supported.
 
 .. code-block:: idris
@@ -866,7 +866,7 @@ Chez Scheme target
 When Idris 2 was first released, its default code generator was `Chez Scheme
 <https://www.scheme.com/>`_. It is now RefC, which compiles via C (see
 :doc:`../backends/refc`); Chez Scheme, Racket and Gambit code generators are also
-available.  Like Idris 1, Idris 2 `supports plug-in code generation
+available.  Like Idris 1, Idris2i-1 `supports plug-in code generation
 <https://idris2.readthedocs.io/en/latest/backends/custom.html>`_
 to allow you to write a back end for the platform of your choice.
 To change the code generator, you can use the ``:set cg`` command:

@@ -1,0 +1,11 @@
+refc-hosted:
+✗ Scheme evaluator not found
+wrong-result:
+✓ Found Scheme evaluator at wrong-result
+idris2i-1/schemeeval/probe001: success
+not-loaded:
+✓ Found Scheme evaluator at not-loaded
+idris2i-1/schemeeval/probe001: success
+hosted:
+✓ Found Scheme evaluator at hosted
+idris2i-1/schemeeval/probe001: success

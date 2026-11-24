@@ -1,5 +1,5 @@
 -- Test integer comparison operations
--- Regression test for WASM32 comparison bug where idris2_extractInt
+-- Regression test for WASM32 comparison bug where idris2i_1_extractInt
 -- incorrectly handled unboxed boolean values on 32-bit platforms.
 module Main
 

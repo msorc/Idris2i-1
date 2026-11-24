@@ -1,10 +1,10 @@
 . ../../testutils.sh
 
-idris2 -o pipes Pipes.idr
+idris2i-1 -o pipes Pipes.idr
 ./build/exec/pipes
 echo "-- the child reads our stdin"
 printf 'from stdin\n' | ./build/exec/pipes stdin
 echo "-- main thread: the same"
-IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/pipes runners
-IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/pipes writers 2>&1
-IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/pipes both 2>&1
+IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/pipes runners
+IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/pipes writers 2>&1
+IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/pipes both 2>&1

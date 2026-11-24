@@ -2,7 +2,7 @@
 . "$(dirname "$0")/../../lib.sh"
 
 rm -rf build
-assert "idris2 Report.idr -o report succeeds" "$IDRIS" --no-color Report.idr -o report
+assert "idris2i-1 Report.idr -o report succeeds" "$IDRIS" --no-color Report.idr -o report
 if [ -x build/exec/report ]; then
   ./build/exec/report >"$GRADE_TMP/act" 2>&1
   same_output "the program prints exactly expected.txt" "$TASK/files/expected.txt" "$GRADE_TMP/act"

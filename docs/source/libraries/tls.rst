@@ -16,8 +16,8 @@ The library is optional: it is built, tested and installed with the others
 only when ``pkg-config`` finds OpenSSL 3 or later (``pkg-config --exists
 'openssl >= 3'``), with its development files.  Otherwise ``make``, ``make
 test`` and ``make install`` say once that the library is skipped, and do
-everything else as without it.  ``make IDRIS2_TLS=1`` builds it anyway (and
-fails without OpenSSL), ``make IDRIS2_TLS=0`` leaves it out, and
+everything else as without it.  ``make IDRIS2I_1_TLS=1`` builds it anyway (and
+fails without OpenSSL), ``make IDRIS2I_1_TLS=0`` leaves it out, and
 ``PKG_CONFIG`` names another ``pkg-config``.  It is not part of the
 libraries of ``bootstrap``.
 
@@ -133,7 +133,7 @@ unable to get local issuer certificate``, ``...: hostname mismatch``,
 ``...: certificate has expired``, ...  The peer that is rejected sees the
 alert as a ``ProtocolError`` (``tlsv1 alert unknown ca``, ...).
 
-There are no verification callbacks written in Idris: the policy is that of
+There are no verification callbacks written in Idris2i-1: the policy is that of
 OpenSSL, configured by the fields above.
 
 Reading, writing and closing
@@ -310,7 +310,7 @@ What it does not do
 -------------------
 
 * TLS 1.0 and 1.1, renegotiation, and cipher lists other than OpenSSL's.
-* Verification callbacks written in Idris, OCSP stapling, certificate
+* Verification callbacks written in Idris2i-1, OCSP stapling, certificate
   revocation lists, pinning.
 * Tuning of sessions and session tickets, early data (0-RTT).
 * QUIC and DTLS.

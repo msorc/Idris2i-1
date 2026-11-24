@@ -25,7 +25,7 @@ typedef struct {
 
 // A flat array: one block.
 typedef struct {
-  Idris2_header header;
+  Idris2i_1_header header;
   uint32_t pad;
   int64_t size;
   const FlatLayout *layout;
@@ -35,7 +35,7 @@ typedef struct {
 
 // The stage A cell of MkParticle (no pointer field).
 typedef struct {
-  Idris2_header header;
+  Idris2i_1_header header;
   uint16_t total;
   int16_t tag;
   double px, py, vx, vy;
@@ -64,34 +64,34 @@ static FlatArray *newFlat(const FlatLayout *l, int64_t n) {
 // ---- generic path: the descriptor is only known at run time ----
 
 // A read boxes the slot: a stage A cell for the record and a Just cell.
-__attribute__((noinline)) static Idris2_Value *flatGetGeneric(FlatArray *a, int64_t i) {
+__attribute__((noinline)) static Idris2i_1_Value *flatGetGeneric(FlatArray *a, int64_t i) {
   if (i < 0 || i >= a->size)
     return NULL;
   const FlatLayout *l = a->layout;
   unsigned char *slot = a->slots + (size_t)i * l->slotSize;
   if (!slot[0])
     return NULL;
-  Idris2_Constructor *c = (Idris2_Constructor *)idris2_newValue(l->cellSize);
+  Idris2i_1_Constructor *c = (Idris2i_1_Constructor *)idris2i_1_newValue(l->cellSize);
   c->header.tag = CONSTRUCTOR_TAG;
   c->total = 0;
   c->tag = 0;
   memcpy((unsigned char *)c + 8, slot + 8, l->payload);
-  Idris2_Constructor *just = idris2_newConstructor(1, 1);
-  just->args[0] = (Idris2_Value *)c;
-  return (Idris2_Value *)just;
+  Idris2i_1_Constructor *just = idris2i_1_newConstructor(1, 1);
+  just->args[0] = (Idris2i_1_Value *)c;
+  return (Idris2i_1_Value *)just;
 }
 
 // A write unboxes the cell it is given (and drops it).
-__attribute__((noinline)) static int flatSetGeneric(FlatArray *a, int64_t i, Idris2_Value *x) {
+__attribute__((noinline)) static int flatSetGeneric(FlatArray *a, int64_t i, Idris2i_1_Value *x) {
   if (i < 0 || i >= a->size) {
-    idris2_removeReference(x);
+    idris2i_1_removeReference(x);
     return 0;
   }
   const FlatLayout *l = a->layout;
   unsigned char *slot = a->slots + (size_t)i * l->slotSize;
   slot[0] = 1;
   memcpy(slot + 8, (unsigned char *)x + 8, l->payload);
-  idris2_removeReference(x);
+  idris2i_1_removeReference(x);
   return 1;
 }
 
@@ -108,12 +108,12 @@ static inline MaybeParticle flatGetParticle(FlatArray *a, int64_t i) {
     return r;
   }
   // (not taken: the array was made by generic code)
-  Idris2_Value *v = flatGetGeneric(a, i);
+  Idris2i_1_Value *v = flatGetGeneric(a, i);
   if (v) {
-    Particle_cell *c = (Particle_cell *)((Idris2_Constructor *)v)->args[0];
+    Particle_cell *c = (Particle_cell *)((Idris2i_1_Constructor *)v)->args[0];
     r.present = 1;
     memcpy(&r.px, &c->px, 40);
-    idris2_removeReference(v);
+    idris2i_1_removeReference(v);
   }
   return r;
 }
@@ -127,12 +127,12 @@ static inline int flatSetParticle(FlatArray *a, int64_t i, const MaybeParticle *
     memcpy(slot + 8, &p->px, 40);
     return 1;
   }
-  Particle_cell *c = (Particle_cell *)idris2_newValue(sizeof(Particle_cell));
+  Particle_cell *c = (Particle_cell *)idris2i_1_newValue(sizeof(Particle_cell));
   c->header.tag = CONSTRUCTOR_TAG;
   c->total = 0;
   c->tag = 0;
   memcpy(&c->px, &p->px, 40);
-  return flatSetGeneric(a, i, (Idris2_Value *)c);
+  return flatSetGeneric(a, i, (Idris2i_1_Value *)c);
 }
 
 // W1's update of one element: read i and i+1, write i (move as in particles.idr).
@@ -151,7 +151,7 @@ static int64_t n_elems = 100000;
 static int fastMode;
 static int64_t updates;
 
-static Idris2_Value *run(void) {
+static Idris2i_1_Value *run(void) {
   FlatArray *a = newFlat(&layout_Maybe_MkParticle, n_elems);
   for (int64_t i = 0; i < n_elems; i++) {
     MaybeParticle p = {1, (double)(i % 1000), (double)((i * 7) % 1000), 0, 0, 0};
@@ -168,23 +168,23 @@ static Idris2_Value *run(void) {
         flatSetParticle(a, i, &r);
       }
     } else {
-      Idris2_Value *mp = flatGetGeneric(a, i), *mq = flatGetGeneric(a, j);
+      Idris2i_1_Value *mp = flatGetGeneric(a, i), *mq = flatGetGeneric(a, j);
       if (mp && mq) {
-        Particle_cell *p = (Particle_cell *)((Idris2_Constructor *)mp)->args[0];
-        Particle_cell *q = (Particle_cell *)((Idris2_Constructor *)mq)->args[0];
+        Particle_cell *p = (Particle_cell *)((Idris2i_1_Constructor *)mp)->args[0];
+        Particle_cell *q = (Particle_cell *)((Idris2i_1_Constructor *)mq)->args[0];
         MaybeParticle pp = {1, p->px, p->py, p->vx, p->vy, p->hits};
         MaybeParticle qq = {1, q->px, q->py, q->vx, q->vy, q->hits};
         MaybeParticle r;
         move(&r, &pp, &qq);
-        Particle_cell *c = (Particle_cell *)idris2_newValue(sizeof(Particle_cell));
+        Particle_cell *c = (Particle_cell *)idris2i_1_newValue(sizeof(Particle_cell));
         c->header.tag = CONSTRUCTOR_TAG;
         c->total = 0;
         c->tag = 0;
         memcpy(&c->px, &r.px, 40);
-        flatSetGeneric(a, i, (Idris2_Value *)c);
+        flatSetGeneric(a, i, (Idris2i_1_Value *)c);
       }
-      idris2_removeReference(mp);
-      idris2_removeReference(mq);
+      idris2i_1_removeReference(mp);
+      idris2i_1_removeReference(mq);
     }
   }
   for (int64_t i = 0; i < n_elems; i++) {
@@ -199,6 +199,6 @@ static Idris2_Value *run(void) {
 int main(int argc, char **argv) {
   fastMode = argc > 1 && strcmp(argv[1], "fast") == 0;
   updates = argc > 2 ? atoll(argv[2]) : 1000000;
-  idris2_threadSchedulerRun(run);
+  idris2i_1_threadSchedulerRun(run);
   return 0;
 }

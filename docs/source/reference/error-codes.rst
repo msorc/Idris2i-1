@@ -4,15 +4,15 @@
 Error codes
 ***********
 
-.. This page is printed by `idris2 --list-error-codes` from the registry in
+.. This page is printed by `idris2i-1 --list-error-codes` from the registry in
    src/Idris/ErrorCode.idr; edit that and print it again, as the test
-   idris2/error/errorcodes001 compares the two.
+   idris2i-1/error/errorcodes001 compares the two.
 
 Each kind of error and warning has a code, printed in brackets at the end
 of the first line of its message (unless ``--no-error-codes`` is given), and
 as the ``code`` field of JSON diagnostics (``--error-format json``). Errors
 have codes ``E`` followed by four digits, warnings ``W`` and four digits;
-the first two digits are the area. ``idris2 --explain E0101`` (or
+the first two digits are the area. ``idris2i-1 --explain E0101`` (or
 ``:explain E0101`` at the REPL) prints the explanation of a code.
 
 Codes are never renumbered and never given to another kind of error. A
@@ -216,7 +216,7 @@ Usual fixes:
 E0103: A pattern variable stands for a value that is known
 ----------------------------------------------------------
 
-In a pattern, a variable (or an implicit argument) must be free to match anything. When unification finds that it can only be one particular value, because of the type of another argument, the variable does not really bind anything new, and Idris reports it.
+In a pattern, a variable (or an implicit argument) must be free to match anything. When unification finds that it can only be one particular value, because of the type of another argument, the variable does not really bind anything new, and Idris2i-1 reports it.
 
 This often happens with implicit arguments that are named in the pattern, or when an argument's type forces another one.
 
@@ -267,7 +267,7 @@ A name is used that is not defined, or not defined in any module that is importe
 
 Usual fixes:
 
-* Import the module that defines it (`import Data.List`), or add the package that provides it to `depends` in the `.ipkg` file, or pass `-p` to `idris2`.
+* Import the module that defines it (`import Data.List`), or add the package that provides it to `depends` in the `.ipkg` file, or pass `-p` to `idris2i-1`.
 * Fix the spelling.
 * Define the name before it is used in a `mutual` block, or declare its type first.
 
@@ -482,7 +482,7 @@ Usual fixes:
 
 * Add the missing clauses.
 * Add a final clause with a variable or `_` that covers the rest.
-* If a case is impossible, write it with `impossible` so that Idris checks it.
+* If a case is impossible, write it with `impossible` so that Idris2i-1 checks it.
 
 E0602: A definition is not covering: it calls a function that is not
 --------------------------------------------------------------------
@@ -611,7 +611,7 @@ A definition calls itself (or a cycle of definitions calls round) with arguments
 Usual fixes:
 
 * Recurse on a structurally smaller argument (a variable bound inside a constructor pattern).
-* Use `assert_smaller` or `assert_total` where you know the call terminates but Idris can't see it.
+* Use `assert_smaller` or `assert_total` where you know the call terminates but Idris2i-1 can't see it.
 * Recurse on a separate argument that decreases (a fuel argument, `Nat`).
 
 E0705: Not total: a type is matched on
@@ -722,7 +722,7 @@ An imported module can't be found in the source directory, in the build director
 Usual fixes:
 
 * Fix the name of the module.
-* Add the package that provides it to `depends` in the `.ipkg` file, or pass `-p <package>` to `idris2`.
+* Add the package that provides it to `depends` in the `.ipkg` file, or pass `-p <package>` to `idris2i-1`.
 * Check `sourcedir` in the `.ipkg` file, and that the file is where its module name says (`Data/Foo.idr` for `Data.Foo`).
 
 E1202: Modules import each other in a cycle
@@ -752,9 +752,9 @@ A `.ttc` file was written by another version of the compiler, which stores modul
 
 Usual fixes:
 
-* Remove the build directory (`rm -r build`, or `idris2 --clean <package>.ipkg`) and build again.
+* Remove the build directory (`rm -r build`, or `idris2i-1 --clean <package>.ipkg`) and build again.
 * Reinstall the packages in use with the current compiler.
-* Check that the `idris2` in the `PATH` is the one the packages were installed with (`idris2 --version`, `idris2 --paths`).
+* Check that the `idris2i-1` in the `PATH` is the one the packages were installed with (`idris2i-1 --version`, `idris2i-1 --paths`).
 
 W0002: Unreachable clause
 -------------------------

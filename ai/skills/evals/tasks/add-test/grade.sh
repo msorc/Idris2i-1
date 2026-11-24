@@ -36,9 +36,9 @@ else fail "$A3" "$(head -n 3 "$new/run")"; fi
 
 # The same environment as `make test`: the prefix of the test libraries, and the
 # name of the directory in it (testutils.sh builds the package path from it).
-version=$("$REPO/build/exec/idris2" --version | sed 's/.*version \([0-9.]*\).*/\1/')
-out=$(cd tests && NAME_VERSION=idris2-$version IDRIS2_PREFIX=$REPO/build/env timeout 300 "$REPO/tests/build/exec/runtests" \
-  "$REPO/build/exec/idris2" --threads 1 --failure-file "$GRADE_TMP/failures" \
+version=$("$REPO/build/exec/idris2i-1" --version | sed 's/.*version \([0-9.]*\).*/\1/')
+out=$(cd tests && NAME_VERSION=idris2i-1-$version IDRIS2I_1_PREFIX=$REPO/build/env timeout 300 "$REPO/tests/build/exec/runtests" \
+  "$REPO/build/exec/idris2i-1" --threads 1 --failure-file "$GRADE_TMP/failures" \
   --only "$(basename "$new")" </dev/null 2>&1)
 find "$new" -name output -delete 2>/dev/null
 rm -rf "$new/build"

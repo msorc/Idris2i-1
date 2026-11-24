@@ -16,6 +16,6 @@ export LDLIBS="-lffistrings"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:./library/"
 export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:./library/"
 
-idris2 -o ffistrings Main.idr
+idris2i-1 -o ffistrings Main.idr
 
 echo Edwin | $VALGRIND ./build/exec/ffistrings

@@ -6,12 +6,12 @@ Type Driven Development with Idris: Updates Required
 The code in the book `Type-Driven Development with Idris
 <https://www.manning.com/books/type-driven-development-with-idris>`_ by Edwin
 Brady, available from `Manning <https://www.manning.com>`_,  will mostly work
-in Idris 2, with some small changes as detailed in this document. The updated
+in Idris2i-1, with some small changes as detailed in this document. The updated
 code is also [going to be] part of the test suite (see `tests/typedd-book
 <https://github.com/edwinb/Idris2/tree/master/tests/typedd-book>`_ in the Idris
 2 source).
 
-If you are new to Idris, and learning from the book, we recommend working
+If you are new to Idris2i-1, and learning from the book, we recommend working
 through the first 3-4 chapters with Idris 1, to avoid the need to worry about
 the changes described here. After that, refer to this document for any
 necessary changes.
@@ -117,7 +117,7 @@ In ``DataStore.idr`` and ``DataStoreHoles.idr``, add ``import Data.String`` and
 In ``TypeFuns.idr`` add ``import Data.String``
 
 Listing 6.9 says that ``data Schema`` declares a type that hasn't been defined yet.
-In Idris2, a colon and a type are required:
+In Idris2i-1, a colon and a type are required:
 
 .. code-block:: idris
 
@@ -222,7 +222,7 @@ In ``RemoveElem.idr``
 Chapter 10
 ----------
 
-Lots of changes necessary here, at least when constructing views, due to Idris
+Lots of changes necessary here, at least when constructing views, due to Idris2i-1
 2 having a better (that is, more precise and correct!) implementation of
 unification, and the rules for recursive ``with`` application being tightened up.
 
@@ -253,7 +253,7 @@ constructor ``Exact`` of ``TakeN`` must be made explicit.
 In ``SnocList.idr``, in ``my_reverse``, the link between ``Snoc rec`` and ``xs ++ [x]``
 needs to be made explicit. Idris 1 would happily decide that ``xs`` and ``x`` were
 the relevant implicit arguments to ``Snoc`` but this was little more than a guess
-based on what would make it type check, whereas Idris 2 is more precise in
+based on what would make it type check, whereas Idris2i-1 is more precise in
 what it allows to unify. So, ``x`` and ``xs`` need to be explicit arguments to
 ``Snoc``:
 
@@ -288,7 +288,7 @@ It's no longer necessary to give ``{input}`` explicitly in the patterns for
 
 In ``IsSuffix.idr``, the matching has to be written slightly differently. The
 recursive with application in Idris 1 probably shouldn't have allowed this!
-Note that the ``Snoc`` - ``Snoc`` case has to be written first otherwise Idris
+Note that the ``Snoc`` - ``Snoc`` case has to be written first otherwise Idris2i-1
 generates a case tree splitting on ``input1`` and ``input2`` instead of the
 ``SnocList`` objects and this leads to a lot of cases being detected as missing.
 

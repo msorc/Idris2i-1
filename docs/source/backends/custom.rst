@@ -1,8 +1,8 @@
-**********************************
-Building Idris 2 with new backends
-**********************************
+************************************
+Building Idris2i-1 with new backends
+************************************
 
-The way to extend Idris 2 with new backends is to use it as
+The way to extend Idris2i-1 with new backends is to use it as
 a library. The module ``Idris.Driver`` exports the function
 ``mainWithCodegens``, that takes a list of ``(String, Codegen)``,
 starting idris with these codegens in addition to the built-in ones. The first
@@ -11,8 +11,8 @@ codegen in the list will be set as the default codegen.
 Getting started
 ===============
 
-To use Idris 2 as a library you need a self-hosting installation and
-then install the `idris2api` library (at the top level of the Idris2 repo)
+To use Idris2i-1 as a library you need a self-hosting installation and
+then install the `idris2i-1-api` library (at the top level of the Idris2i-1 repo)
 
 ::
 
@@ -50,7 +50,7 @@ Now create a file containing
     main = mainWithCodegens [("lazy", lazyCodegen)]
 
 The function that executes an expression returns the exit code of the
-program it ran (0 when it succeeded): ``idris2 --exec`` exits with it, and
+program it ran (0 when it succeeded): ``idris2i-1 --exec`` exits with it, and
 ``:exec`` at the REPL reports it when it is not 0.  ``System.system`` of
 ``base`` returns it in that form (128 + the number of the signal for a
 program killed by a signal), so an ``execute`` that runs the program with
@@ -60,20 +60,20 @@ Build it with
 
 ::
 
-    $ idris2 -p idris2 -p contrib -p network Lazy.idr -o lazy-idris2
+    $ idris2i-1 -p idris2i-1 -p contrib -p network Lazy.idr -o lazy-idris2i-1
 
-Now you have an idris2 with an added backend.
+Now you have an idris2i-1 with an added backend.
 
 ::
 
-    $ ./build/exec/lazy-idris2
+    $ ./build/exec/lazy-idris2i-1
          ____    __     _         ___
         /  _/___/ /____(_)____   |__ \
         / // __  / ___/ / ___/   __/ /     Version 0.2.0-bd9498c00
       _/ // /_/ / /  / (__  )   / __/      https://www.idris-lang.org
      /___/\__,_/_/  /_/____/   /____/      Type :? for help
 
-    Welcome to Idris 2.  Enjoy yourself!
+    Welcome to Idris2i-1.  Enjoy yourself!
     With codegen for: lazy
     Main>
 
@@ -81,7 +81,7 @@ It will not be overly eager to actually compile any code with the new backend th
 
 ::
 
-    $ ./build/exec/lazy-idris2 --cg lazy Hello.idr -o hello
+    $ ./build/exec/lazy-idris2i-1 --cg lazy Hello.idr -o hello
     I'd rather not.
     $
 
@@ -92,4 +92,4 @@ The code generator can assume that both ``tmpDir`` and ``outputDir`` exist. ``tm
 is intended for temporary files, while ``outputDir`` is the location to put the desired
 output files. By default, ``tmpDir`` and ``outputDir`` point to the same directory
 (``build/exec``). The directories can be set from the package description (See Section
-:ref:`ref-sect-packages`) or via command line options (Listed in ``idris2 --help``).
+:ref:`ref-sect-packages`) or via command line options (Listed in ``idris2i-1 --help``).

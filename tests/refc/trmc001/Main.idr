@@ -58,7 +58,7 @@ main = do
     printLn (length (append xs xs))
     printLn (total' (myFilter (\x => x `mod` 3 == 0) xs))
     printLn (total' (myTake 500000 xs))
-    -- (released without a deep stack too, see idris2_releaseValue)
+    -- (released without a deep stack too, see idris2i_1_releaseValue)
     printLn (depth 0 (leftSpine 1000000))
     printLn (total' (addLen [1, 2, 3] xs))
     -- used as a closure

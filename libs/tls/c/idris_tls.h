@@ -7,8 +7,8 @@
 // pointer to its bytes, and a `GCAnyPtr` or `AnyPtr` is a `void *`.  No
 // function blocks: the sockets are non-blocking, and an operation that
 // cannot go on returns IDRIS_TLS_WANT_READ or IDRIS_TLS_WANT_WRITE, after
-// which the caller waits for the socket (idris2_ioWait on RefC,
-// idris2_fdWaitBlocking elsewhere) and calls it again with the same
+// which the caller waits for the socket (idris2i_1_ioWait on RefC,
+// idris2i_1_fdWaitBlocking elsewhere) and calls it again with the same
 // arguments.
 //
 // errno and the error queue of OpenSSL belong to the OS thread, and a green

@@ -174,7 +174,7 @@ htmlPreamble title root class =
 
   <body class="\{class}">
   <header>
-    <strong>Idris2Doc</strong> : \{title}
+    <strong>Idris2i_1Doc</strong> : \{title}
     <nav><a href="\{root}index.html">Index</a>
 
     <select id="\{cssSelectID}">
@@ -203,7 +203,7 @@ htmlPreamble title root class =
   """
 
 htmlFooter : String
-htmlFooter = "</div><footer>Produced by Idris 2 version " ++ (showVersion True version) ++ "</footer></body></html>"
+htmlFooter = "</div><footer>Produced by Idris2i-1 version " ++ (showVersion True version) ++ "</footer></body></html>"
 
 export
 renderDocIndex : PkgDesc -> SortedMap ModuleIdent String -> String

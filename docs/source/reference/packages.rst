@@ -4,9 +4,9 @@
 Packages
 ********
 
-Idris includes a system for building packages from a package
-description file.  These files can be used with the Idris compiler to
-manage the development process of your Idris programs and packages.
+Idris2i-1 includes a system for building packages from a package
+description file.  These files can be used with the Idris2i-1 compiler to
+manage the development process of your Idris2i-1 programs and packages.
 
 Package Descriptions
 ====================
@@ -16,7 +16,7 @@ A package description includes the following:
 + A header, consisting of the keyword ``package`` followed by the package name.
   Package names are typically written in kebab-case (e.g. ``my-lib``,
   ``idris2-json``), and may include hyphens (``-``). This is allowed even though
-  hyphens are not valid characters in ordinary Idris identifiers. The iPKG
+  hyphens are not valid characters in ordinary Idris2i-1 identifiers. The iPKG
   format also takes a quoted version that accepts any valid filename.
 
 + Fields describing package contents, ``<field> = <value>``
@@ -36,7 +36,7 @@ When installed, this will be in a directory ``test-0.1``. If the version
 number is missing, it will default to ``0``.
 
 Other examples of package files can be found in the ``libs`` directory
-of the main Idris repository, and in `third-party libraries <https://github.com/idris-lang/Idris2/wiki/Third-party-Libraries>`_.
+of the main Idris2i-1 repository, and in `third-party libraries <https://github.com/idris-lang/Idris2/wiki/Third-party-Libraries>`_.
 
 Metadata
 --------
@@ -72,7 +72,7 @@ The added fields are:
 Directories
 -----------
 
-+ ``sourcedir = "<dir>"``, the directory to look for Idris source files.
++ ``sourcedir = "<dir>"``, the directory to look for Idris2i-1 source files.
 
 + ``builddir = "<dir>"``, the directory to put the checked modules and
   the artefacts from the code generator.
@@ -86,7 +86,7 @@ Common Fields
 Other common fields which may be present in an ``ipkg`` file are:
 
 + ``executable = <output>``, which takes the name of the executable
-  file to generate. Executable names can be any valid Idris
+  file to generate. Executable names can be any valid Idris2i-1
   identifier. the iPKG format also takes a quoted version that accepts
   any valid filename.
 
@@ -97,10 +97,10 @@ Other common fields which may be present in an ``ipkg`` file are:
   must be present if the ``executable`` field is present.
 
 + ``opts = "<idris options>"``, which allows options to be passed to
-  Idris.
+  Idris2i-1.
 
 + ``depends = <pkg description> (',' <pkg description>)+``, a comma separated list of
-  package names that the Idris package requires. The ``pkg_description`` is
+  package names that the Idris2i-1 package requires. The ``pkg_description`` is
   the package name, followed by an optional list of version constraints. Version
   constraints are separated by ``&&`` and can use operators
   ``<``, ``<=``, ``>``, ``>=``, ``==``. For example, the following are valid
@@ -119,32 +119,32 @@ Other common fields which may be present in an ``ipkg`` file are:
 Comments
 ---------
 
-Package files support comments using the standard Idris singleline ``--`` and multiline ``{- -}`` format.
+Package files support comments using the standard Idris2i-1 singleline ``--`` and multiline ``{- -}`` format.
 
 Using Package files
 ===================
 
-Given an Idris package file ``test.ipkg`` it can be used with the Idris compiler as follows:
+Given an Idris2i-1 package file ``test.ipkg`` it can be used with the Idris2i-1 compiler as follows:
 
-+ ``idris2 --build test.ipkg`` will build all modules in the package
++ ``idris2i-1 --build test.ipkg`` will build all modules in the package
 
-+ ``idris2 --install test.ipkg`` will install the package to the global
-  Idris library directory (that is ``$IDRIS2_PREFIX/idris2-<version>/``),
-  making the modules in its ``modules`` field accessible by other Idris
++ ``idris2i-1 --install test.ipkg`` will install the package to the global
+  Idris2i-1 library directory (that is ``$IDRIS2I_1_PREFIX/idris2i-1-<version>/``),
+  making the modules in its ``modules`` field accessible by other Idris2i-1
   libraries and programs. Note that this doesn't install any executables, just
   library modules.
 
-+ ``idris2 --clean test.ipkg`` will clean the intermediate build files.
++ ``idris2i-1 --clean test.ipkg`` will clean the intermediate build files.
 
-+ ``idris2 --mkdoc test.ipkg`` will generate HTML documentation for the
++ ``idris2i-1 --mkdoc test.ipkg`` will generate HTML documentation for the
   package, output to ``build/docs``
 
-+ ``idris2 --dump-api test.ipkg`` will build the package and print its public
++ ``idris2i-1 --dump-api test.ipkg`` will build the package and print its public
   API to the standard output, in a stable text form meant for ``diff`` (see
   :ref:`api-dump`)
 
 With ``--build``, ``--install``, ``--typecheck`` and ``--repl``, the option
-``--jobs N`` (or ``-j N``, or the environment variable ``IDRIS2_BUILD_JOBS``)
+``--jobs N`` (or ``-j N``, or the environment variable ``IDRIS2I_1_BUILD_JOBS``)
 builds the modules of the package with up to ``N`` processes in parallel: each
 module is built by a process of its own once the modules it imports are built.
 The output of each process is shown when it ends.  This is not available on
@@ -169,7 +169,7 @@ options, directories, the C compiler, its flags and the variables it reads)
 and the state of everything that the executable is made from: the TTC files
 of the program and of the packages it depends on, the compiler, the runtime
 support files and libraries (also those in the ``-L`` directories of
-``IDRIS2_LDFLAGS``), the C compiler or Scheme, the C headers of the
+``IDRIS2I_1_LDFLAGS``), the C compiler or Scheme, the C headers of the
 ``%foreign`` functions that are not those of the runtime (and the headers
 they include, as the C compiler finds them), and the executable itself.  The next build prints ``The executable
 <executable> is up to date, not compiling it again`` when all of that is as
@@ -189,8 +189,8 @@ For example::
 Detecting changes to the API of a package
 =========================================
 
-``idris2 --dump-api test.ipkg`` builds the package (quietly: only errors are
-printed; one module after the other, so ``idris2 --build -j N test.ipkg``
+``idris2i-1 --dump-api test.ipkg`` builds the package (quietly: only errors are
+printed; one module after the other, so ``idris2i-1 --build -j N test.ipkg``
 beforehand is faster) and prints its public API: for each module of the ``modules`` field,
 in the order of their names, what another package can use of it.  For
 example::
@@ -257,8 +257,8 @@ documentation comments.
 To notice a change of the API of a library, commit its API and compare it
 with the API of every new version::
 
-    idris2 --dump-api mylib.ipkg > mylib.api      # once, then commit mylib.api
-    idris2 --dump-api mylib.ipkg | diff -u -F '^module ' mylib.api -
+    idris2i-1 --dump-api mylib.ipkg > mylib.api      # once, then commit mylib.api
+    idris2i-1 --dump-api mylib.ipkg | diff -u -F '^module ' mylib.api -
 
 A line that is removed (``-``) or changed is a change that can break the
 packages that use the library: a removed name, a different type, quantity or
@@ -268,28 +268,28 @@ define the same name).  ``-F '^module '`` writes the module of each change in
 the header of its hunk.  When a change is intended, write the file again and
 commit it with the change.
 
-The libraries of Idris 2 are checked this way: ``libs/api`` has the API of
+The libraries of Idris2i-1 are checked this way: ``libs/api`` has the API of
 ``prelude``, ``base`` and ``contrib``, ``make api-check`` (and the test
-``idris2/mkdoc/apidump002-libs``) fails with the difference when it changed,
+``idris2i-1/mkdoc/apidump002-libs``) fails with the difference when it changed,
 and ``make api-snapshots`` writes the files again (the variable ``API_LIBS``
 says which libraries).
 
-Where does Idris look for packages?
-===================================
+Where does Idris2i-1 look for packages?
+=======================================
 
 Compiled packages are directories with compiled TTC files (see :ref:`build-artefacts` section).
 Directory structure of the source `*.idr` files is preserved for TTC files.
 
-Compiled packages can be installed globally (under ``$IDRIS2_PREFIX/idris2-<version>/`` as
+Compiled packages can be installed globally (under ``$IDRIS2I_1_PREFIX/idris2i-1-<version>/`` as
 described above) or locally (under a ``depends`` subdirectory in the top level
 working directory of a project).
 Packages specified using ``-p pkgname`` or with the ``depends`` field of a
 package will then be located as follows:
 
-* First, Idris looks in ``depends/pkgname-<version>``, for a package which
+* First, Idris2i-1 looks in ``depends/pkgname-<version>``, for a package which
   satisfies the version constraint.
-* If no package is found locally, Idris looks in
-  ``$IDRIS2_PREFIX/idris2-<version>/pkgname-<version>``.
+* If no package is found locally, Idris2i-1 looks in
+  ``$IDRIS2I_1_PREFIX/idris2i-1-<version>/pkgname-<version>``.
 
 In each case, if more than one version satisfies the constraint, it will choose
 the one with the highest version number.
@@ -303,35 +303,35 @@ Pack documentation for details.
 
 As noted above, packages can be installed globally or locally to be used as dependencies in
 other projects. In either case, there are two directories within a package's install root that
-Idris 2 treats specially when the package is depended upon by some other Idris package.
+Idris2i-1 treats specially when the package is depended upon by some other Idris2i-1 package.
 
 Those directories are ``lib`` and ``data``.
 
 Below we will refer to these directories as ``pkgname-<version>/lib`` and ``pkgname-<version>/data``
 and in all cases these folders may be located locally in the depending project within a ``depends``
-directory or globally (you can ask Idris 2 for the global install directory with ``idris2 --libdir``).
+directory or globally (you can ask Idris2i-1 for the global install directory with ``idris2i-1 --libdir``).
 
 Library files
 -------------
 
-Idris will look for library files at ``pkgname-<version>/lib``. Library files are those that
+Idris2i-1 will look for library files at ``pkgname-<version>/lib``. Library files are those that
 will need to be around whenever an executable that depends on your library is run. That is,
 these files are not built into the executable, but rather linked against or otherwise referred
 to during building and then loaded in at runtime. A common example of this type of file is a
 shared object file (these commonly have the extension ``.so`` on Linux systems and ``.dylib`` on Mac OS
 systems).
 
-When building with the Scheme or Refc backends, you may want your package to use Idris 2's ``C`` FFI
+When building with the Scheme or Refc backends, you may want your package to use Idris2i-1's ``C`` FFI
 and rely on a ``C`` support file. The FFI interface is documented elsewhere so we won't go into that
 here. Once you do have a support file written in ``C``, you can build an ``so`` file using your
 package's post-build hook. Then, install (copy) that ``so`` file into the ``lib`` subfolder where
-Idris has installed your package in your post-install hook. When an executable depends on your package,
-Idris will copy shared object files from the ``lib`` directory into the build folder for the executable.
+Idris2i-1 has installed your package in your post-install hook. When an executable depends on your package,
+Idris2i-1 will copy shared object files from the ``lib`` directory into the build folder for the executable.
 
 Data files
 ----------
 
-Idris will look for data files at ``pkgname-<version>/data``. Data files are a bit open-ended
+Idris2i-1 will look for data files at ``pkgname-<version>/data``. Data files are a bit open-ended
 in how they are used. One important use-case is adding support files for the ``Javascript`` FFI.
 ``Javascript`` support files are different from ``C`` support files in that they get built *into* the
 executable rather than installed alongside it. The FFI interface is documented elsewhere, but we will
@@ -342,5 +342,5 @@ When building with the NodeJS backend, you can refer to functions you've defined
 support JS files by using the FFI pattern ``node:support:my_func,my_lib``. This pattern will prompt
 idris to look in any ``data`` directories it knows about for a ``js`` folder and a file named
 ``my_lib.js`` within it. So, you can specify a post-install hook for your package that copies any
-needed support JS files into the ``pkgname-<version>/data/js`` folder to enable Idris to later build
+needed support JS files into the ``pkgname-<version>/data/js`` folder to enable Idris2i-1 to later build
 that support file into any JS executables that depend on your package.

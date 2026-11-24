@@ -25,16 +25,16 @@ import System.Term
 -- Terminal access (support/c/idris_term.c)
 --------------------------------------------------------------------------------
 
-%foreign "C:idris2_termRawOn, libidris2_support, idris_term.h"
+%foreign "C:idris2i_1_termRawOn, libidris2i_1_support, idris_term.h"
 prim__termRawOn : PrimIO Int
 
-%foreign "C:idris2_termRawOff, libidris2_support, idris_term.h"
+%foreign "C:idris2i_1_termRawOff, libidris2i_1_support, idris_term.h"
 prim__termRawOff : PrimIO ()
 
-%foreign "C:idris2_readKey, libidris2_support, idris_term.h"
+%foreign "C:idris2i_1_readKey, libidris2i_1_support, idris_term.h"
 prim__readKey : PrimIO Int
 
-%foreign "C:idris2_keyPending, libidris2_support, idris_term.h"
+%foreign "C:idris2i_1_keyPending, libidris2i_1_support, idris_term.h"
 prim__keyPending : PrimIO Int
 
 --------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ data Key
   | KEof
   | KIgnore
 
--- The key codes of idris2_readKey
+-- The key codes of idris2i_1_readKey
 keySpecial, keyAlt : Int
 keySpecial = 0x200000
 keyAlt = 0x300000
@@ -597,7 +597,7 @@ data LineResult
 export
 lineEditingEnabled : IO Bool
 lineEditingEnabled = do
-  disabled <- getEnv "IDRIS2_LINE_EDITING"
+  disabled <- getEnv "IDRIS2I_1_LINE_EDITING"
   term <- getEnv "TERM"
   inputTTY <- isTTY stdin
   outputTTY <- isTTY stdout
@@ -704,15 +704,15 @@ resumeEdit s candidates =
 maxHistory : Nat
 maxHistory = 1000
 
-||| The history file: $IDRIS2_HISTORY_FILE (empty for no file), or
-||| ~/.idris2_history.
+||| The history file: $IDRIS2I_1_HISTORY_FILE (empty for no file), or
+||| ~/.idris2i_1_history.
 historyFile : IO (Maybe String)
 historyFile = do
-  explicit <- getEnv "IDRIS2_HISTORY_FILE"
+  explicit <- getEnv "IDRIS2I_1_HISTORY_FILE"
   case explicit of
     Just "" => pure Nothing
     Just file => pure (Just file)
-    Nothing => map (++ "/.idris2_history") <$> getEnv "HOME"
+    Nothing => map (++ "/.idris2i_1_history") <$> getEnv "HOME"
 
 ||| The lines saved from earlier sessions, the most recent first
 export covering

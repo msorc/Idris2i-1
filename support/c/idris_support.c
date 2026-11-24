@@ -30,13 +30,13 @@ char **_argv;
 extern char **environ;
 #endif
 
-int idris2_isNull(void *ptr) { return (ptr == NULL); }
+int idris2i_1_isNull(void *ptr) { return (ptr == NULL); }
 
-void *idris2_getNull() { return NULL; }
+void *idris2i_1_getNull() { return NULL; }
 
-char *idris2_getString(void *p) { return (char *)p; }
+char *idris2i_1_getString(void *p) { return (char *)p; }
 
-int idris2_getErrno() {
+int idris2i_1_getErrno() {
 #ifdef _WIN32
   return win32_getErrno();
 #else
@@ -44,17 +44,17 @@ int idris2_getErrno() {
 #endif
 }
 
-char *idris2_strerror(int errnum) { return strerror(errnum); }
+char *idris2i_1_strerror(int errnum) { return strerror(errnum); }
 
 // The line is returned in a buffer of the thread, valid until the next call:
 // the Scheme backends (and the checked-in bootstrap C) copy it into a string
 // of their own right away, and none frees it (a buffer from malloc was lost
-// at every call).  RefC reads lines with idris2_refc_getStr instead.
-char *idris2_getStr() {
+// at every call).  RefC reads lines with idris2i_1_refc_getStr instead.
+char *idris2i_1_getStr() {
   static _Thread_local char *inp = NULL;
   static char empty[1] = "";
   free(inp);
-  inp = idris2_readLine(stdin);
+  inp = idris2i_1_readLine(stdin);
   if (inp == NULL) // the end of the input, or an error: an empty string
     return empty;
   // Remove trailing newline; easier to do this than in PrimIO which
@@ -67,9 +67,9 @@ char *idris2_getStr() {
   return inp;
 }
 
-void idris2_putStr(char *f) { idris2_writeLine(stdout, f); }
+void idris2i_1_putStr(char *f) { idris2i_1_writeLine(stdout, f); }
 
-void idris2_sleep(int sec) {
+void idris2i_1_sleep(int sec) {
 #ifdef _WIN32
   win32_sleep(sec * 1000);
 #else
@@ -83,7 +83,7 @@ void idris2_sleep(int sec) {
 #endif
 }
 
-void idris2_usleep(int usec) {
+void idris2i_1_usleep(int usec) {
 #ifdef _WIN32
   win32_sleep(usec / 1000);
 #else
@@ -95,22 +95,22 @@ void idris2_usleep(int usec) {
 #endif
 }
 
-int idris2_time() {
+int idris2i_1_time() {
   return time(NULL); // RTS needs to have 32 bit integers at least
 }
 
-void idris2_setArgs(int argc, char *argv[]) {
+void idris2i_1_setArgs(int argc, char *argv[]) {
   _argc = argc;
   _argv = argv;
 }
 
-int idris2_getArgCount() { return _argc; }
+int idris2i_1_getArgCount() { return _argc; }
 
-char *idris2_getArg(int n) { return _argv[n]; }
+char *idris2i_1_getArg(int n) { return _argv[n]; }
 
-char *idris2_getEnvPair(int i) { return *(environ + i); }
+char *idris2i_1_getEnvPair(int i) { return *(environ + i); }
 
-int idris2_setenv(const char *name, const char *value, int overwrite) {
+int idris2i_1_setenv(const char *name, const char *value, int overwrite) {
 #ifdef _WIN32
   return win32_modenv(name, value, overwrite);
 #else
@@ -123,7 +123,7 @@ int idris2_setenv(const char *name, const char *value, int overwrite) {
 struct termios *initial_termios = NULL;
 #endif
 
-int idris2_enableRawMode() {
+int idris2i_1_enableRawMode() {
 #ifndef _WIN32
   struct termios ti;
   int rval = tcgetattr(STDIN_FILENO, &ti);
@@ -140,7 +140,7 @@ int idris2_enableRawMode() {
 #endif
 }
 
-void idris2_resetRawMode() {
+void idris2i_1_resetRawMode() {
 #ifndef _WIN32
   if (initial_termios != NULL) {
     tcsetattr(STDIN_FILENO, TCSAFLUSH, initial_termios);
@@ -148,7 +148,7 @@ void idris2_resetRawMode() {
 #endif
 }
 
-int idris2_unsetenv(const char *name) {
+int idris2i_1_unsetenv(const char *name) {
 #ifdef _WIN32
   return win32_modenv(name, "", 1);
 #else
@@ -156,7 +156,7 @@ int idris2_unsetenv(const char *name) {
 #endif
 }
 
-int idris2_getPID() {
+int idris2i_1_getPID() {
 #ifdef _WIN32
   return win32_getPID();
 #else
@@ -165,7 +165,7 @@ int idris2_getPID() {
 }
 
 // get the number of processors configured
-long idris2_getNProcessors() {
+long idris2i_1_getNProcessors() {
 #if defined(_WIN32)
   return win32_getNProcessors();
 #elif defined(_POSIX_VERSION) && _POSIX_VERSION >= 200112L &&                  \

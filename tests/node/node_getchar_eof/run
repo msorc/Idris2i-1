@@ -1,8 +1,8 @@
 . ../../testutils.sh
 
-idris2 -o getchar GetChar.idr
+idris2i-1 -o getchar GetChar.idr
 printf 'x' | ./build/exec/getchar
 echo "-- empty"
 ./build/exec/getchar < /dev/null
 echo "-- main thread"
-printf 'x' | IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/getchar
+printf 'x' | IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/getchar

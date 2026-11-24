@@ -4,11 +4,11 @@
 Multiplicities
 **************
 
-Idris 2 is
+Idris2i-1 is
 based on `Quantitative Type Theory (QTT)
 <https://bentnib.org/quantitative-type-theory.html>`_, a core language
 developed by Bob Atkey and Conor McBride. In practice, this means that every
-variable in Idris 2 has a *quantity* associated with it. A quantity is one of:
+variable in Idris2i-1 has a *quantity* associated with it. A quantity is one of:
 
 * ``0``, meaning that the variable is *erased* at run time
 * ``1``, meaning that the variable is used *exactly once* at run time
@@ -54,7 +54,7 @@ the argument is erased. So, the above types could also be written as:
 * ``ignoreN : {0 a : _} -> (0 n : Nat) -> Vect n a -> Nat``
 * ``duplicate : {0 a : _} -> (1 x : a) -> (a, a)``
 
-This section describes what this means for your Idris 2 programs in practice,
+This section describes what this means for your Idris2i-1 programs in practice,
 with several examples. In particular, it describes:
 
 * :ref:`sect-erasure` - how to know what is relevant at run time and what is erased
@@ -62,8 +62,8 @@ with several examples. In particular, it describes:
 * :ref:`sect-pmtypes` - truly first class types
 
 The most important of these for most programs, and the thing you'll need to
-know about if converting Idris 1 programs to work with Idris 2, is erasure_.
-The most interesting, however, and the thing which gives Idris 2 much more
+know about if converting Idris 1 programs to work with Idris2i-1, is erasure_.
+The most interesting, however, and the thing which gives Idris2i-1 much more
 expressivity, is linearity_, so we'll start there.
 
 .. _sect-linearity:
@@ -138,7 +138,7 @@ trying to define ``duplicate``...::
 
   duplicate x = (x, x)
 
-...then Idris will complain::
+...then Idris2i-1 will complain::
 
   pmtype.idr:2:15--8:1:While processing right hand side of Main.duplicate at pmtype.idr:2:1--8:1:
   There are 2 uses of linear name x
@@ -226,7 +226,7 @@ Prelude's higher-order functions:
     fromList : List a -> LList a
     fromList = foldr (::) []
 
-Idris does this by *eta-expanding* the function: here ``(::)`` becomes
+Idris2i-1 does this by *eta-expanding* the function: here ``(::)`` becomes
 ``\x, xs => x :: xs``, a function with unrestricted arguments. It happens
 only when the type of the function and the type expected are both known to
 be function types at that point, only for the arguments that are ``1`` in the
@@ -374,7 +374,7 @@ resource in an ``IO`` monad, since we're already enforcing an ordering on
 operations and don't have access to any out of date resource states. This is
 similar to the way interactive programs work in
 `the Clean programming language <https://clean.cs.ru.nl/Clean>`_, and in
-fact is how ``IO`` is implemented internally in Idris 2, with a special
+fact is how ``IO`` is implemented internally in Idris2i-1, with a special
 ``%World`` type for representing the state of the outside world that is
 always used linearly
 
@@ -426,14 +426,14 @@ This is fine, since it runs in constant time, but the trade off is that
 of the vector to be available if we ever call ``vlen``. Idris 1 can infer whether
 the length is needed, but there's no easy way for a programmer to be sure.
 
-In Idris 2, we need to state explicitly that ``n`` is needed at run time
+In Idris2i-1, we need to state explicitly that ``n`` is needed at run time
 
 .. code-block:: idris
 
     vlen : {n : Nat} -> Vect n a -> Nat
     vlen xs = n
 
-(Incidentally, also note that in Idris 2, names bound in types are also available
+(Incidentally, also note that in Idris2i-1, names bound in types are also available
 in the definition without explicitly rebinding them.)
 
 This also means that when you call ``vlen``, you need the length available. For
@@ -444,7 +444,7 @@ example, this will give an error
     sumLengths : Vect m a -> Vect n a —> Nat
     sumLengths xs ys = vlen xs + vlen ys
 
-Idris 2 reports::
+Idris2i-1 reports::
 
   vlen.idr:7:20--7:28:While processing right hand side of Main.sumLengths at vlen.idr:7:1--10:1:
   m is not accessible in this context
@@ -483,7 +483,7 @@ unrestricted multiplicity
 Remember that giving no multiplicity on a binder, as with ``m`` and ``n`` here,
 means that the variable has unrestricted usage.
 
-If you're converting Idris 1 programs to work with Idris 2, this is probably the
+If you're converting Idris 1 programs to work with Idris2i-1, this is probably the
 biggest thing you need to think about. It is important to note,
 though, that if you have bound implicits, such as...
 
@@ -523,9 +523,9 @@ the type of the second argument
     sNot False SFalse = True
     sNot True  STrue  = False
 
-Experience with Idris 2 so far suggests that, most of the time, as long as
+Experience with Idris2i-1 so far suggests that, most of the time, as long as
 you're using unbound implicits in your Idris 1 programs, they will work without
-much modification in Idris 2. The Idris 2 type checker will point out where you
+much modification in Idris2i-1. The Idris2i-1 type checker will point out where you
 require an unbound implicit argument at run time - sometimes this is both
 surprising and enlightening!
 
@@ -538,7 +538,7 @@ One way to think about dependent types is to think of them as "first class"
 objects in the language, in that they can be assigned to variables,
 passed around and returned from functions, just like any other construct.
 But, if they're truly first class, we should be able to pattern match on
-them too! Idris 2 allows us to do this. For example
+them too! Idris2i-1 allows us to do this. For example
 
 .. code-block:: idris
 
@@ -593,7 +593,7 @@ hold a function over types is not: given
     J _ = \_ => True
 
 ``J`` undoes ``I``, so ``Type -> Bool`` fits inside ``Type``, and the diagonal
-argument then gives a closed proof of ``Void``. Idris therefore reports::
+argument then gives a closed proof of ``Void``. Idris2i-1 therefore reports::
 
   Error: J is not total, since matching on a type gives it f, which can hold a function over types [E0705]
 
@@ -634,7 +634,7 @@ might pattern match on ``a``.
 
 On the other hand, it is merely a coincidence that, in non-dependently typed
 languages, types are *irrelevant* and get erased, and values are *relevant*
-and remain at run time. Idris 2, being based on QTT, allows us to make the
+and remain at run time. Idris2i-1, being based on QTT, allows us to make the
 distinction between relevant and irrelevant arguments precise. Types can be
 relevant, values (such as the ``n`` index to vectors) can be irrelevant.
 

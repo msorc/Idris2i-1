@@ -9,7 +9,7 @@ fi
 
 . ../../tls/gencerts.sh
 mkdir -p build/src && cp ../common/HttpsTest.idr Main.idr build/src/ && cd build/src
-idris2 -p contrib -p network -p http -p tls -p http-tls -o main Main.idr
+idris2i-1 -p contrib -p network -p http -p tls -p http-tls -o main Main.idr
 rm -f port handshakes
 ./build/exec/main "$certs" &
 pid=$!

@@ -1,9 +1,0 @@
-. ../../../testutils.sh
-
-# The hint at an import for an undefined name keeps the list of the modules
-# in the build directory while the directory does not change: a module built
-# later in the same session must show up.  The build directory is made old,
-# so that its listing is kept.
-check Other.idr > /dev/null
-touch -t 200001010000 build/ttc/* build/ttc
-idris2 < input

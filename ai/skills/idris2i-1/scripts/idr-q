@@ -1,0 +1,41 @@
+#!/bin/sh
+# Ask the Idris2i-1 REPL several questions in one run.
+#
+#   idr-q [idris2i-1 options] [FILE] ':t name' ':doc name' 'reverse [1, 2, 3]' ...
+#
+# FILE is the argument that ends in .idr (or .lidr, .md, .org). Every other
+# argument is a line for the REPL, a command such as ':t name' or an expression
+# to evaluate; they run in order after FILE is loaded (no FILE: only the
+# Prelude, add modules with ':module Data.List').
+# `idris2i-1 FILE --client CMD` runs a single command; this runs many, and removes
+# the prompts from the output.
+
+here=$(cd "$(dirname "$0")" && pwd)
+idris=$("$here/idr-find") || exit 1
+
+opts=
+file=
+cmds=
+nl='
+'
+while [ $# -gt 0 ]; do
+  case $1 in
+    :*) cmds="$cmds$1$nl"; shift ;;
+    -p|--package|--source-dir|--build-dir|--cg|--codegen|--directive|--log)
+      opts="$opts $1 $2"; shift 2 ;;
+    -*) opts="$opts $1"; shift ;;
+    *.idr|*.lidr|*.md|*.org|*.ipkg) file=$1; shift ;;
+    *) cmds="$cmds$1$nl"; shift ;;
+  esac
+done
+if [ -z "$cmds" ]; then
+  echo "usage: idr-q [idris2i-1 options] [FILE] ':command'|'expression' ..." >&2
+  exit 2
+fi
+
+# $opts is split on purpose; $file may be empty.
+# shellcheck disable=SC2086
+printf '%s:q\n' "$cmds" |
+  IDRIS2I_1_LINE_EDITING=0 "$idris" --find-ipkg --no-banner --no-color \
+    --console-width 0 $opts ${file:+"$file"} |
+  sed -e 's/^[A-Za-z0-9_.]*> //' -e '/^Bye for now!$/d'

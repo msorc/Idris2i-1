@@ -1,12 +1,12 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
+idris2i-1 -o main Main.idr
 # A thread stack of 256KB: a million nested calls would not fit.
-IDRIS2_THREAD_STACK_SIZE=262144 $VALGRIND ./build/exec/main
+IDRIS2I_1_THREAD_STACK_SIZE=262144 $VALGRIND ./build/exec/main
 # (not under Valgrind: the leak check looks at the pages)
-IDRIS2_THREAD_STACK_SIZE=262144 IDRIS2_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null | sed 's/,.*//'
+IDRIS2I_1_THREAD_STACK_SIZE=262144 IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null | sed 's/,.*//'
 # The functions that loop with a hole for the result of the call (in the
 # worker, when the function has one).
 for f in myMap append myFilter upto myTake leftSpine addLen; do
-  printf '%s %s\n' $f $(awk -v RS= "/Value \\*(idris2_raw_)?Main_$f\\n/" build/exec/main.c | grep -c 'trmc_hole = &((Idris2_Constructor')
+  printf '%s %s\n' $f $(awk -v RS= "/Value \\*(idris2i_1_raw_)?Main_$f\\n/" build/exec/main.c | grep -c 'trmc_hole = &((Idris2i_1_Constructor')
 done

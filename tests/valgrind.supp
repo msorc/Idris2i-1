@@ -27,7 +27,7 @@
 }
 
 # The same for the threads of the pool of blocking calls
-# (idris2_blockingCall in support/refc/reactor.c), which are started as the
+# (idris2i_1_blockingCall in support/refc/reactor.c), which are started as the
 # calls need them and wait for more calls until the process exits.
 {
    refc-blocking-pool-thread-dtv
@@ -39,7 +39,7 @@
    ...
    fun:pthread_create*
    ...
-   fun:idris2_blockingCall
+   fun:idris2i_1_blockingCall
 }
 
 # glibc keeps the resolver configuration that getaddrinfo loads in a

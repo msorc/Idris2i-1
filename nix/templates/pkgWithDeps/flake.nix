@@ -1,5 +1,5 @@
 {
-  description = "My Idris 2 program";
+  description = "My Idris2i-1 program";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.idris = {
@@ -30,9 +30,9 @@
         packages = pkgs // idrisPkgs;
         defaultPackage = pkgs.executable;
         devShell = npkgs.mkShell {
-          buildInputs = [ idrisPkgs.idris2 npkgs.rlwrap ];
+          buildInputs = [ idrisPkgs.idris2i-1 npkgs.rlwrap ];
           shellHook = ''
-            alias idris2="rlwrap -s 1000 idris2 --no-banner"
+            alias idris2i_1="rlwrap -s 1000 idris2i-1 --no-banner"
           '';
         };
       });

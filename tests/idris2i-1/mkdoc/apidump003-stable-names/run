@@ -1,0 +1,9 @@
+. ../../../testutils.sh
+
+# The dump has no source positions of implementations (`Ord implementation at
+# Prelude.EqOrd:167:1--172:43`), no numbers of machine generated names
+# (`{conArg:1841}`) and the full name of every operator, also in the left
+# operand of another one
+idris2i_1_no_clean --dump-api stable.ipkg
+
+rm -rf build

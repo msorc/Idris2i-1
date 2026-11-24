@@ -13,13 +13,13 @@ import Network.Socket.Address
 %default total
 
 netC : String -> String
-netC fn = "C:\{fn}, libidris2_support, idris_net_async.h"
+netC fn = "C:\{fn}, libidris2i_1_support, idris_net_async.h"
 
 %foreign netC "idrnet_async_strdup"
 prim__strdup : String -> PrimIO AnyPtr
 
-%foreign "C__collect_safe:idrnet_async_resolve, libidris2_support, idris_net_async.h"
-         "C:idrnet_async_resolve, libidris2_support, idris_net_async.h"
+%foreign "C__collect_safe:idrnet_async_resolve, libidris2i_1_support, idris_net_async.h"
+         "C:idrnet_async_resolve, libidris2i_1_support, idris_net_async.h"
 prim__resolve : AnyPtr -> Int -> Int -> PrimIO AnyPtr
 
 %foreign netC "idrnet_async_resolve_status"

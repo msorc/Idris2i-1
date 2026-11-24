@@ -23,11 +23,11 @@ set -e
 root=$(pwd)
 out="$root/build/bench-ws"
 here="$root/benchmark/websocket"
-export IDRIS2_PREFIX=${IDRIS2_PREFIX:-$root/build/env}
+export IDRIS2I_1_PREFIX=${IDRIS2I_1_PREFIX:-$root/build/env}
 mkdir -p "$out"
 cp "$here/Server.idr" "$here/Load.idr" "$out/"
-(cd "$out" && "$root/build/exec/idris2" -p contrib -p network -p http -o server Server.idr \
-           && "$root/build/exec/idris2" -p contrib -p network -p http -o load Load.idr)
+(cd "$out" && "$root/build/exec/idris2i-1" -p contrib -p network -p http -o server Server.idr \
+           && "$root/build/exec/idris2i-1" -p contrib -p network -p http -o load Load.idr)
 server="$out/build/exec/server"
 if [ "${GO:-0}" = 1 ]; then
   # the same echo with gorilla/websocket (from the module cache: no download)
@@ -43,11 +43,11 @@ run() {
   w=$1; shift
   port=$((port + 1))
   rm -f "$out/ready"
-  IDRIS2_WORKERS=$w GOMAXPROCS=$w "$@" "$server" $port $SERVER_MODE > "$out/ready" 2>/dev/null &
+  IDRIS2I_1_WORKERS=$w GOMAXPROCS=$w "$@" "$server" $port $SERVER_MODE > "$out/ready" 2>/dev/null &
   spid=$!
   i=0; while ! grep -q listening "$out/ready" 2>/dev/null; do sleep 0.05; i=$((i+1)); [ $i -gt 200 ] && break; done
   # (the load generator stops the server at the end)
-  IDRIS2_WORKERS=4 "$load" $port $LOAD > "$out/load.txt"
+  IDRIS2I_1_WORKERS=4 "$load" $port $LOAD > "$out/load.txt"
   wait $spid
 }
 
@@ -83,7 +83,7 @@ fi
 for w in ${WORKERS:-1 4}; do
   port=$((port + 1))
   rm -f "$out/ready"
-  IDRIS2_WORKERS=$w GOMAXPROCS=$w "$server" $port > "$out/ready" 2>/dev/null &
+  IDRIS2I_1_WORKERS=$w GOMAXPROCS=$w "$server" $port > "$out/ready" 2>/dev/null &
   spid=$!
   i=0; while ! grep -q listening "$out/ready" 2>/dev/null; do sleep 0.05; i=$((i+1)); [ $i -gt 200 ] && break; done
   r0=$(awk '/VmRSS/ {print $2}' /proc/$spid/status)

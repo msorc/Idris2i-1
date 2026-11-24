@@ -14,7 +14,7 @@ import System.Errno
 %default total
 
 signalFFI : String -> String
-signalFFI fn = "C:" ++ fn ++ ", libidris2_support, idris_signal.h"
+signalFFI fn = "C:" ++ fn ++ ", libidris2i_1_support, idris_signal.h"
 
 signalFFINode : String -> String
 signalFFINode fn = "node:support:" ++ fn ++ ",support_system_signal"

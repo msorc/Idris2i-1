@@ -16,7 +16,7 @@ has() { # assertion, regex
   hit=$(grep -n -i -E -m1 -e "$2" ANSWER.md)
   if [ -n "$hit" ]; then pass "$1" "$hit"; else fail "$1" "nothing matches /$2/"; fi
 }
-has "rebuilds the compiler with the repository's make target" 'make +(idris2-exec|all\b)|IDRIS2_BOOT'
+has "rebuilds the compiler with the repository's make target" 'make +(idris2i-1-exec|all\b)|IDRIS2I_1_BOOT'
 has "runs only the affected tests (make test only=... or make retest)" 'make +(re)?test.*only=|make +retest'
 has "reviews each changed expected file instead of accepting in bulk" 'git diff.*expected|expected.*(one by one|each|review|read)|(review|read|inspect).*expected'
 has "points to the error-message rules (docs/source/implementation/error-messages.rst)" 'error-messages\.rst'

@@ -25,11 +25,11 @@ serves many pages.  A page that holds no value any more can be used for values o
 another size; every OS thread of the program keeps up to 16 such pages (1MB),
 and gives the memory of the others back to the system (with ``madvise``; the
 regions themselves are kept, for the pages to be used again).  The environment
-variable ``IDRIS2_REFC_KEEP_PAGES`` sets that number.  When the program runs under Valgrind, and the support library
+variable ``IDRIS2I_1_REFC_KEEP_PAGES`` sets that number.  When the program runs under Valgrind, and the support library
 was built with the Valgrind headers available, every value comes from
 ``malloc``, so that Valgrind can check them.  For other memory checkers (such
 as AddressSanitizer), compile the support library and the program with
-``-DIDRIS2_REFC_NO_POOLS``: ``make install-support-refc-asan PREFIX=<prefix>``
+``-DIDRIS2I_1_REFC_NO_POOLS``: ``make install-support-refc-asan PREFIX=<prefix>``
 installs such a support library, built with AddressSanitizer and UBSan, and the
 comment at the top of ``support/refc/Makefile`` gives the flags for the
 programs.
@@ -37,13 +37,13 @@ programs.
 Two environment variables make a program report on its memory when it exits
 (on the standard error):
 
-- ``IDRIS2_REFC_MEMSTATS=1`` prints the pages of the allocator and the values
+- ``IDRIS2I_1_REFC_MEMSTATS=1`` prints the pages of the allocator and the values
   that they hold, by size.
-- ``IDRIS2_REFC_LEAKCHECK=1`` looks for the values that are still alive once
+- ``IDRIS2I_1_REFC_LEAKCHECK=1`` looks for the values that are still alive once
   the main expression is done, and that the constants of the program (the
   definitions without arguments, which are kept until the program exits) do
   not hold: those values leaked, from a cycle of references for example.
-  ``IDRIS2_REFC_LEAKCHECK=2`` also shows some of them.  The check is skipped
+  ``IDRIS2I_1_REFC_LEAKCHECK=2`` also shows some of them.  The check is skipped
   when other threads still run, or when the program exits early (with
   ``exitWith``, say).  Large values (more than 256 bytes) are only counted.
 
@@ -53,8 +53,8 @@ memory that changes under it.  When a thread does not stop within a second
 (it makes a system call, say), the report is skipped.
 
 When the support library and the program are both compiled with
-``-DIDRIS2_REFC_STATS`` (``IDRIS2_CPPFLAGS=-DIDRIS2_REFC_STATS`` for the
-program), ``IDRIS2_REFC_MEMSTATS=1`` also prints counts of what the program
+``-DIDRIS2I_1_REFC_STATS`` (``IDRIS2I_1_CPPFLAGS=-DIDRIS2I_1_REFC_STATS`` for the
+program), ``IDRIS2I_1_REFC_MEMSTATS=1`` also prints counts of what the program
 did: allocations by size and by kind of value (constructor, closure, string,
 boxed number, other), and the bytes allocated; the reference count operations
 (taking a reference, dropping one, and the drops that the release of a value
@@ -72,23 +72,23 @@ This code generator can be accessed via the REPL command:
 
     Main> :set cg refc
 
-Alternatively, you can set it via the ``IDRIS2_CG`` environment variable:
+Alternatively, you can set it via the ``IDRIS2I_1_CG`` environment variable:
 
 ::
 
-    $ export IDRIS2_CG=refc
+    $ export IDRIS2I_1_CG=refc
 
-The C compiler it invokes is determined by either the ``IDRIS2_CC`` or ``CC``
+The C compiler it invokes is determined by either the ``IDRIS2I_1_CC`` or ``CC``
 environment variables. If neither is set, it uses ``cc``.  It is the name or
 the path of a program (which may contain spaces), not a command line: to use
-``ccache gcc``, point ``IDRIS2_CC`` to a script or link that runs it.
+``ccache gcc``, point ``IDRIS2I_1_CC`` to a script or link that runs it.
 
 Both ``:exec`` and ``:c`` work at the REPL: ``:exec`` compiles the expression
 to a temporary executable in the build directory and runs it.
 
 Also note that, if you link with any dynamic libraries for interfacing with
 C, you will need to arrange for them to be accessible via ``LD_LIBRARY_PATH``
-when running the executable. The default Idris 2 support libraries are
+when running the executable. The default Idris2i-1 support libraries are
 statically linked.
 
 Directives
@@ -111,7 +111,7 @@ A directive that starts with ``refc-`` and is not one of these, or whose value
 cannot be, is an error.  The headers of a ``%foreign "C:fn,,header.h"`` are
 looked for in the support directories of the run time, in the ``lib``
 directories of the packages that the program depends on, and where the flags of
-the user (``IDRIS2_CFLAGS``, ``IDRIS2_CPPFLAGS``) and of
+the user (``IDRIS2I_1_CFLAGS``, ``IDRIS2I_1_CPPFLAGS``) and of
 ``refc-pkg-config`` tell.
 
 The stamp of the executable of a package (which skips its compilation when
@@ -122,8 +122,8 @@ linked again when one of them changes.
 Big programs
 ============
 
-A program of more than 4MB of C (the Idris 2 compiler itself is 140MB) is
-compiled in units, by C compilers running in parallel: ``IDRIS2_CC_JOBS`` of
+A program of more than 4MB of C (the Idris2i-1 compiler itself is 140MB) is
+compiled in units, by C compilers running in parallel: ``IDRIS2I_1_CC_JOBS`` of
 them at once (the number of processors, up to 16, by default).  Besides
 ``<name>.c``, which has the whole program, the compiler writes
 ``<name>.u<k>.c``, one file per unit with the definitions of the unit and
@@ -133,7 +133,7 @@ only the prototypes and constants that they use, and compiles those to
 When the program is compiled again, the object file of a unit is reused if
 nothing that decides it has changed: the text of the unit (it is compared with
 the file of the last compilation, not hashed), the C compiler and its version,
-its flags (``IDRIS2_CC``, ``IDRIS2_CFLAGS``, ``IDRIS2_CPPFLAGS``, ``-fpic``,
+its flags (``IDRIS2I_1_CC``, ``IDRIS2I_1_CFLAGS``, ``IDRIS2I_1_CPPFLAGS``, ``-fpic``,
 the include directories), a few environment variables that it reads (``CPATH``
 and the like) and the contents of the header files of the runtime (in the
 ``refc`` and ``c`` support directories).  If the program includes a header
@@ -150,8 +150,8 @@ another one is added.  Changing a module therefore compiles only the units of
 its definitions again, and those that refer to something that changed.
 
 ``<name>.c`` is a single file that can be compiled by itself.  With
-``-DIDRIS2_PARTS=p -DIDRIS2_PART=i`` the C compiler builds only the ``i``-th of
-``p`` parts of it (this is how the Idris 2 compiler is bootstrapped).  Add
+``-DIDRIS2I_1_PARTS=p -DIDRIS2I_1_PART=i`` the C compiler builds only the ``i``-th of
+``p`` parts of it (this is how the Idris2i-1 compiler is bootstrapped).  Add
 ``-flto`` (or ``-flto=auto``) to the C flags to keep the inlining across units.
 
 Strings and characters
@@ -172,7 +172,7 @@ through the FFI is still a C ``char``.
 
 A string stores its length, so it may contain the NUL character.  It is also
 followed by a NUL, so a C function receives a usual C string, which ends at
-the first NUL character of the Idris string.  Reading a line from a file
+the first NUL character of the Idris2i-1 string.  Reading a line from a file
 (``fGetLine``) also stops at a NUL character.
 
 ``show`` prints a ``Double`` like the Chez backend: the shortest digits that
@@ -183,12 +183,12 @@ The ``C`` and ``RefC`` calling conventions pass strings differently.  With
 result is a ``char *`` (or a ``const char *``) that the generated code copies
 and never frees, as in the other backends (so it may be a literal or a static
 buffer, like the result of ``getenv``; a string that the caller must free is
-leaked, see below).  The ``char *`` of an argument points into the Idris
+leaked, see below).  The ``char *`` of an argument points into the Idris2i-1
 string: it is only valid until the function returns, and must not be changed.
-With ``%foreign "RefC:f"``, a ``String`` is an Idris value
-(``Idris2_Value *``, an ``Idris2_String`` with its length ``len`` and its
+With ``%foreign "RefC:f"``, a ``String`` is an Idris2i-1 value
+(``Idris2i_1_Value *``, an ``Idris2i_1_String`` with its length ``len`` and its
 bytes ``str``), like ``Integer`` and foreign objects: the arguments are
-borrowed, a result is a new reference (``idris2_mkStringN`` makes one).
+borrowed, a result is a new reference (``idris2i_1_mkStringN`` makes one).
 A string must not be changed once other code has seen it: the runtime keeps
 the number of its characters (``codePoints``), counted the first time that it
 is needed.
@@ -197,7 +197,7 @@ A ``Struct`` of ``System.FFI`` is a pointer to a C ``struct`` that C code
 owns, passed to and returned from foreign functions as a ``void *``.
 ``getField`` and ``setField`` read and write its fields in place.  As in the
 Chez backend, the layout is that of the C ``struct`` whose fields have the C
-types of the fields of the Idris type, in order: ``Int`` is ``int``, ``Char``
+types of the fields of the Idris2i-1 type, in order: ``Int`` is ``int``, ``Char``
 is ``char``, ``Double`` is ``double``, ``Int8`` to ``Bits64`` are ``int8_t``
 to ``uint64_t``, ``Ptr t`` and ``AnyPtr`` are ``void *``, and a ``Struct`` is
 a *pointer* to that struct (a struct that C nests by value cannot be
@@ -215,10 +215,10 @@ Memory
 
 A value is freed as soon as its last reference goes away.  There is no
 collector of cycles: values that refer to each other are never freed.  In
-Idris, a cycle can only be made through a mutable value: an ``IORef`` or an
+Idris2i-1, a cycle can only be made through a mutable value: an ``IORef`` or an
 array that holds a value that refers to it, a closure stored in an ``IORef``
 that refers to that ``IORef``, or the finaliser of a ``GCPtr`` (see
-``onCollect``) that refers to the pointer itself.  ``IDRIS2_REFC_LEAKCHECK=1``
+``onCollect``) that refers to the pointer itself.  ``IDRIS2I_1_REFC_LEAKCHECK=1``
 (see above) finds such values in a test run.
 
 The definitions without arguments (constants, like ``primes : List Integer``)
@@ -241,28 +241,28 @@ be given the result type ``String``, which copies the string and leaves the
 buffer alone: declare its result as a ``Ptr String``, convert it and free it
 (the way that works with every backend, see "Returning a string that the
 caller frees" in :ref:`sect-ffi-string`), or go through a ``RefC`` wrapper that
-calls ``idris2_mkStringOwned``, which copies the string and frees it.
+calls ``idris2i_1_mkStringOwned``, which copies the string and frees it.
 A foreign function is called without taking a reference to its arguments (they
 are *borrowed*): C code that keeps an argument beyond the call, in a data
-structure of its own say, takes a reference with ``idris2_newReference`` and
-releases it with ``idris2_removeReference``.  That is for the Idris values of
+structure of its own say, takes a reference with ``idris2i_1_newReference`` and
+releases it with ``idris2i_1_removeReference``.  That is for the Idris2i-1 values of
 the ``RefC`` calling convention; the ``char *`` of a ``String`` argument of the
-``C`` convention has no reference to take, so C code that keeps it copies it.  The same holds for the Idris
+``C`` convention has no reference to take, so C code that keeps it copies it.  The same holds for the Idris2i-1
 functions that the compiler found to only look at some of their arguments
 (see below), which matters for C code that calls the generated functions
 directly.
 
-An Idris function passed to a foreign function is not a C function pointer
-but the closure itself, an ``Idris2_Value *``, which C applies to one argument
-at a time with ``idris2_apply_closure`` (the call consumes a reference to the
+An Idris2i-1 function passed to a foreign function is not a C function pointer
+but the closure itself, an ``Idris2i_1_Value *``, which C applies to one argument
+at a time with ``idris2i_1_apply_closure`` (the call consumes a reference to the
 closure and one to the argument, so take a new reference with
-``idris2_newReference`` to a closure that is applied again; the result is a
+``idris2i_1_newReference`` to a closure that is applied again; the result is a
 new reference).
 A library that wants a function pointer therefore needs a ``RefC:`` wrapper
 with a C function of its own that applies the closure, kept with
-``idris2_newReference`` for as long as the library may call it. Such a
-function must be called by the OS thread that runs the Idris code (in the
-foreign call, or later from a call that Idris makes): a thread that C started
+``idris2i_1_newReference`` for as long as the library may call it. Such a
+function must be called by the OS thread that runs the Idris2i-1 code (in the
+foreign call, or later from a call that Idris2i-1 makes): a thread that C started
 would use the memory of the main thread of the run time.
 
 A foreign function cannot return a function: the compiler reports it (return a
@@ -305,7 +305,7 @@ The code generator does the following, each of which a directive turns off
   is a call of the C function (an inline one for the reads of a ``Buffer``,
   see ``buffer.h``), with no value made for the index or the byte, and no
   reference count changed.  Its other arguments are borrowed.  (This is not
-  turned off by the directive, which is about the Idris functions.)
+  turned off by the directive, which is about the Idris2i-1 functions.)
 - ``refc-no-unbox-double``: the ``Double`` values that the primitives compute
   (arithmetic, comparisons, ``sqrt``, ``exp`` and the other functions of
   ``Double``, the casts to and from the integer types) are C doubles while
@@ -317,7 +317,7 @@ The code generator does the following, each of which a directive turns off
   do those of the foreign functions of C that take or give a ``double``.
   The results are those of the values: the arithmetic of C on doubles, with
   each result rounded to a double (on a 32 bit x86 without SSE2 too, see
-  ``IDRIS2_DOUBLE`` in ``mathFunctions.h``), and the casts of the runtime.
+  ``IDRIS2I_1_DOUBLE`` in ``mathFunctions.h``), and the casts of the runtime.
 - ``refc-no-cycle-safepoints``: the functions that call each other in a
   cycle, or call themselves other than in tail position, have no safepoint
   at their start (see `Green threads`_); a thread that computes in them
@@ -355,7 +355,7 @@ The code generator does the following, each of which a directive turns off
   as a C number, and a constructor is built from C numbers, with no value
   made where none is needed (see ``refc-no-unbox-double``).  Code that
   reads the fields of such a cell in C (through ``AnyPtr``, say) must use
-  ``idris2_rawField`` (see ``memoryManagement.h``): ``total`` counts the
+  ``idris2i_1_rawField`` (see ``memoryManagement.h``): ``total`` counts the
   fields that are values only.  A ``believe_me`` between two data types
   whose constructors lay their fields out differently is undefined
   behaviour, as it is between types that the enumeration and newtype
@@ -390,7 +390,7 @@ not use them has no array with a layout).
 
 The reference counting of immortal values (the static values, the constants
 of a program) is tested in line, which saves calls of the runtime.  Compiling
-the C code with ``-DIDRIS2_REFC_SMALL_CODE`` (in ``IDRIS2_CFLAGS``) leaves that
+the C code with ``-DIDRIS2I_1_REFC_SMALL_CODE`` (in ``IDRIS2I_1_CFLAGS``) leaves that
 test to the runtime: the code is about 10% smaller and compiles as much
 faster, and runs a few percent slower.
 
@@ -400,15 +400,15 @@ takes no more arguments than the caller, or no more than are passed in
 registers (6 on x86-64, 4 on x86-64 Windows, 8 on AArch64 and RISC-V 64).  Otherwise the call is left to the
 trampoline of the caller, which costs more but needs no support from the C
 compiler.  It is always the trampoline on 32 bit x86 and ARM, which pass
-arguments on the stack, where GCC cannot make every such call a jump.  Two macros, given in ``IDRIS2_CPPFLAGS`` or ``IDRIS2_CFLAGS``,
-change this: ``-DIDRIS2_NO_MUSTTAIL`` makes no jumps at all, and
-``-DIDRIS2_MUSTTAIL_REG_ARGS=0`` only the jumps to functions that take no
+arguments on the stack, where GCC cannot make every such call a jump.  Two macros, given in ``IDRIS2I_1_CPPFLAGS`` or ``IDRIS2I_1_CFLAGS``,
+change this: ``-DIDRIS2I_1_NO_MUSTTAIL`` makes no jumps at all, and
+``-DIDRIS2I_1_MUSTTAIL_REG_ARGS=0`` only the jumps to functions that take no
 more arguments than their caller.
 
 Two macros change how green threads (see below) are run:
-``-DIDRIS2_SINGLE_WORKER``, given to both the support library and the
+``-DIDRIS2I_1_SINGLE_WORKER``, given to both the support library and the
 program, runs every green thread on the main OS thread, without starting
-other OS threads; ``-DIDRIS2_USE_UCONTEXT``, given to the support library,
+other OS threads; ``-DIDRIS2I_1_USE_UCONTEXT``, given to the support library,
 switches between green threads with ``swapcontext(3)`` instead of the
 hand-written code for x86-64 and AArch64.
 
@@ -441,7 +441,7 @@ overflow), on any green thread:
 
 ::
 
-    $ idris2 --directive refc-backtrace -o prog Main.idr
+    $ idris2i-1 --directive refc-backtrace -o prog Main.idr
     $ ./build/exec/prog
     ERROR: Unhandled input for Main.name at Main:13:1--13:17
     Backtrace of the main thread, innermost call first:
@@ -464,11 +464,11 @@ the signal (here a profile of the ``mergeInt`` benchmark, interrupted by a
       Main.{doSort:3} (mergeInt:17:1)
 
 - ``--directive refc-backtrace`` puts a table of the functions of the program
-  in it: their C names, their Idris names and where they are defined (where
+  in it: their C names, their Idris2i-1 names and where they are defined (where
   their declaration begins, pragmas included), and turns the backtraces on by
   default.  It also compiles every function with ``noinline``, so that every
   call that is not in tail position has a frame of its own.
-- The environment variable ``IDRIS2_REFC_BACKTRACE`` turns them on (``1``) or
+- The environment variable ``IDRIS2I_1_REFC_BACKTRACE`` turns them on (``1``) or
   off (``0``) when the program runs, with or without the directive.  Without
   it, the frames show the C names of the functions (``Main_describe``).
 
@@ -485,7 +485,7 @@ backtrace does not show:
 - without the directive, the functions that the C compiler inlined (the
   ``noinline`` of the directive made no measurable difference to the
   benchmarks of ``benchmark/``: within 0.04% of their instructions); and, with
-  or without it, the functions that the Idris compiler inlined (``%noinline``
+  or without it, the functions that the Idris2i-1 compiler inlined (``%noinline``
   keeps a function);
 - where in a function the call is: only the line where the function is
   defined.
@@ -516,21 +516,21 @@ Profiling with perf
 -------------------
 
 ``perf`` profiles RefC programs well, as they are C programs: the functions of
-the program are those of the Idris program, with their C names.  Compile it
-with ``--directive refc-backtrace`` to see their Idris names (the
+the program are those of the Idris2i-1 program, with their C names.  Compile it
+with ``--directive refc-backtrace`` to see their Idris2i-1 names (the
 ``noinline`` of the directive also keeps the functions apart in the profile,
-at the cost of a few percent), and with ``-g`` in ``IDRIS2_CFLAGS`` for
+at the cost of a few percent), and with ``-g`` in ``IDRIS2I_1_CFLAGS`` for
 ``perf annotate`` to show the C source:
 
 ::
 
-    $ IDRIS2_CFLAGS=-g idris2 --directive refc-backtrace -o prog Main.idr
+    $ IDRIS2I_1_CFLAGS=-g idris2i-1 --directive refc-backtrace -o prog Main.idr
     $ perf record -g ./build/exec/prog
-    $ perf report --stdio --no-children | IDRIS2_REFC_DEMANGLE=1 ./build/exec/prog
+    $ perf report --stdio --no-children | IDRIS2I_1_REFC_DEMANGLE=1 ./build/exec/prog
 
-With ``IDRIS2_REFC_DEMANGLE`` set, the program does not run: it copies its
+With ``IDRIS2I_1_REFC_DEMANGLE`` set, the program does not run: it copies its
 standard input to its standard output, with every C name of one of its
-functions replaced by the Idris name (``Main_describe`` and
+functions replaced by the Idris2i-1 name (``Main_describe`` and
 ``Main_describe.cold``, a part of it that GCC moved away, become
 ``Main.describe`` and ``Main.describe.cold``).  This works on the output of
 ``perf report``, ``perf script`` or ``perf annotate``, and of any other
@@ -540,10 +540,10 @@ characters that C does not allow are spelt out (``Prelude_EqOrd__eq_eq_Eq_Int``
 is ``==`` of ``Eq Int``); ``Main_f_0`` is ``Main.{f:0}``, a function that the
 compiler made of a part of ``Main.f`` (a lambda, a ``where`` block),
 ``n__...`` nested functions and ``case__...`` case blocks.  The functions of
-the runtime begin with ``idris2_``.
+the runtime begin with ``idris2i_1_``.
 
-Building Idris 2 with RefC
-==========================
+Building Idris2i-1 with RefC
+============================
 
 The compiler can itself be compiled with RefC, which gives a way to bootstrap
 it with only a C compiler: ``make bootstrap-c`` (see ``INSTALL.md``).  A
@@ -555,7 +555,7 @@ a build.  A plain ``make`` compiles it with ``-O1``, which is quick.
 ``make LTO=1`` compiles it with ``-O2`` and link time optimisation (when the C
 compiler has it), which makes the compiler about 4% faster and the C build
 about twice as long; ``make bootstrap-c`` does that for the compiler that it
-leaves for installing (``make bootstrap-c LTO=0`` does not).  ``IDRIS2_CFLAGS``
+leaves for installing (``make bootstrap-c LTO=0`` does not).  ``IDRIS2I_1_CFLAGS``
 or ``CFLAGS`` replace these flags.
 
 Extending RefC
@@ -575,7 +575,7 @@ In your backend, use the ``Compiler.RefC`` functions ``generateCSourceFile``,
     _ <- compileCObjectFile {asLibrary = True} cSourceFile cObjectFile
     _ <- compileCFile {asShared = True} cObjectFile cSharedObjectFile
 
-To run a compiled Idris program, call the ``int main(int argc, char *argv[])``
+To run a compiled Idris2i-1 program, call the ``int main(int argc, char *argv[])``
 function in the compiled ``.so`` file, with the arguments you wish to pass to
 the running program.
 
@@ -611,7 +611,7 @@ called.
 Each ``%foreign "lang: foreignFuncName, opts"`` definition for a function
 will produce a stub, of the appropriate function pointer type. This stub will
 be called ``cName $ NS (mkNamespace lang) funcName``, where ``funcName`` is the
-fully qualified Idris name of that function.
+fully qualified Idris2i-1 name of that function.
 
 So the ``%foreign`` function
 
@@ -662,8 +662,8 @@ no lock held, and runs it again when another thread wrote the ``IORef`` in
 the meantime.
 
 A program has a single worker until it forks its first thread.  Then there
-is one worker per processor, or as many as the ``IDRIS2_WORKERS``
-environment variable says (``IDRIS2_WORKERS=1`` runs every green thread on
+is one worker per processor, or as many as the ``IDRIS2I_1_WORKERS``
+environment variable says (``IDRIS2I_1_WORKERS=1`` runs every green thread on
 the main OS thread).  The green threads run in parallel, one per worker at a
 time: a worker with nothing to run takes threads from a busy one.  A thread
 that wakes another one up (by putting a value in a channel, say) leaves it to
@@ -678,7 +678,7 @@ loop, or the start of a function that is in a cycle of calls: functions
 that call each other, or a function that calls itself other than in tail
 position).  So does a thread that runs while the sleep or the timed wait of
 another one is over and every worker is busy, so that the other one wakes
-up in time.  ``IDRIS2_PREEMPT=0`` turns both off.  With a single worker,
+up in time.  ``IDRIS2I_1_PREEMPT=0`` turns both off.  With a single worker,
 threads are only preempted for the threads whose sleep or timed wait is
 over, which then run first.  This has a few consequences:
 
@@ -687,10 +687,10 @@ over, which then run first.  This has a few consequences:
   interface, say) has no safepoint, and keeps the other threads of its
   worker waiting until an idle worker takes them over.
 
-* A program built with ``-DIDRIS2_SINGLE_WORKER`` has no safepoints at all
+* A program built with ``-DIDRIS2I_1_SINGLE_WORKER`` has no safepoints at all
   (nor a monitor): its threads are never preempted, so a thread that
   computes keeps every other one waiting, a server's among them.  Run a
-  server with ``IDRIS2_WORKERS=1`` instead, which preempts.
+  server with ``IDRIS2I_1_WORKERS=1`` instead, which preempts.
 
 * A blocking system call, such as reading from standard input, blocks the
   worker that makes it, but not the others.  A thread can wait for a file
@@ -736,14 +736,14 @@ Much of the library is not tail recursive (``map``, ``++``, ``sort``, ...),
 so working on a long list needs a deep stack.  Like in the Chez backend,
 where the stack grows as needed, the main expression runs on a large stack
 of its own: 4GB on 64-bit systems and 64MB on the others, which can be
-changed with the ``IDRIS2_MAIN_STACK_SIZE`` environment variable (in bytes).
+changed with the ``IDRIS2I_1_MAIN_STACK_SIZE`` environment variable (in bytes).
 The memory is only used as the stack grows, and ``ulimit -s`` does not apply
 to it.  If the stack cannot be allocated, the main expression runs on the
 stack of the process.
 
 Every forked thread gets a stack of its own too.  The size of these stacks
 defaults to 8MB, which matches the stack of a typical process, and can be
-changed with the ``IDRIS2_THREAD_STACK_SIZE`` environment variable (in bytes,
+changed with the ``IDRIS2I_1_THREAD_STACK_SIZE`` environment variable (in bytes,
 at least 65536).  Every stack is followed by a guard page, so that a stack
 overflow crashes the program rather than corrupting its memory.
 
@@ -760,12 +760,12 @@ HTTP server of the ``http`` library runs every handler in one.
 What is caught, and why:
 
 - ``idris_crash`` and a missing case of compiled code (``Unhandled input
-  for``, from ``idris2_crash``), a hole or an impossible case (from
-  ``idris2_crashMsg``): raised by the code of the thread, never under a lock
+  for``, from ``idris2i_1_crash``), a hole or an impossible case (from
+  ``idris2i_1_crashMsg``): raised by the code of the thread, never under a lock
   of the runtime.
-- An access out of a ``Buffer`` (``idris2_bufferRangeError``): the check comes
+- An access out of a ``Buffer`` (``idris2i_1_bufferRangeError``): the check comes
   before the access.
-- The failed checks of the support code (``idris2_crashCheck``): a division by
+- The failed checks of the support code (``idris2i_1_crashCheck``): a division by
   zero, an invalid length of an array or a buffer, an ``Integer`` shifted too
   far, a mismatch found by ``--directive refc-check-layout`` (found when the
   value is matched, before its fields are read).
@@ -780,7 +780,7 @@ What stays fatal inside a boundary, and why:
   (``SIGSEGV``, ``SIGBUS``, ``SIGFPE``, ``SIGILL``, ``SIGABRT``): they may come
   in the allocator, in ``malloc`` or under a lock, and nothing says that what
   they interrupt can be abandoned.
-- Out of memory, a broken invariant of the runtime (``IDRIS2_REFC_VERIFY``), a
+- Out of memory, a broken invariant of the runtime (``IDRIS2I_1_REFC_VERIFY``), a
   failure of the scheduler, a deadlock, a missing foreign function: the state
   of the runtime may be wrong.
 - A ``Mutex`` released by a thread that does not hold it, a ``conditionWait``
@@ -812,7 +812,7 @@ What a caught crash leaves behind:
 - what the code wrote to ``IORef``\ s, arrays, buffers and files stays
   written.  A value updated in place had one reference, that of the code that
   updated it, so nothing outside the boundary sees it half done;
-- a crash in an Idris callback of a C library abandons the frames of the
+- a crash in an Idris2i-1 callback of a C library abandons the frames of the
   library too.
 
 A program that does not use ``catchCrash`` runs as before: a crash prints its
@@ -836,7 +836,7 @@ channel: the other threads of its worker keep running.
 The runtime has a *reactor* (``support/refc/reactor.c``), which asks the
 operating system which descriptors are ready: epoll on Linux, kqueue on
 macOS and the BSDs (not tested yet), and ``poll(2)`` elsewhere, or when the
-support library is built with ``-DIDRIS2_REACTOR_POLL``.  A descriptor is
+support library is built with ``-DIDRIS2I_1_REACTOR_POLL``.  A descriptor is
 registered the first time that a thread waits for it, and the readiness is
 *edge triggered*: the reactor learns when a descriptor becomes ready, not
 that it still is.  So:
@@ -871,22 +871,22 @@ the poller), and when no worker looked
 for a millisecond, the monitor asks a worker to: it wakes an idle one up
 (the watcher may have left to run the threads that it woke up), or, when
 every worker runs a thread, asks one of them to yield at its next safepoint
-(not with ``IDRIS2_PREEMPT=0``).  So a descriptor that is ready waits about
+(not with ``IDRIS2I_1_PREEMPT=0``).  So a descriptor that is ready waits about
 a millisecond at most, or up to about 11ms when the workers have just
 become busy (the monitor looks every 10ms otherwise).  A worker that finds
 threads ready as it polls runs the first one itself, without waking up
 another worker for it.  A
 program whose threads all wait, some of them for a descriptor, is not
 reported as deadlocked: data may still come.  The waits work before the
-first ``fork``, with ``IDRIS2_WORKERS=1``, and in a program built with
-``-DIDRIS2_SINGLE_WORKER`` (which has no preemption: a thread that computes
+first ``fork``, with ``IDRIS2I_1_WORKERS=1``, and in a program built with
+``-DIDRIS2I_1_SINGLE_WORKER`` (which has no preemption: a thread that computes
 keeps the others waiting until it blocks).
 
 C code that has to make a call that blocks (a DNS lookup, say) can run it
-with ``idris2_blockingCall(fn, arg)`` (``reactor.h``): ``fn(arg)`` runs on a
+with ``idris2i_1_blockingCall(fn, arg)`` (``reactor.h``): ``fn(arg)`` runs on a
 thread of a pool of plain OS threads, while the green thread that called it
-parks.  ``fn`` must not touch Idris values nor call the runtime.  The pool
-starts threads as the calls need them, up to ``IDRIS2_BLOCKING_THREADS``
+parks.  ``fn`` must not touch Idris2i-1 values nor call the runtime.  The pool
+starts threads as the calls need them, up to ``IDRIS2I_1_BLOCKING_THREADS``
 (64 by default); more calls wait for a thread.  Without several workers the
 call runs in the calling thread.
 
@@ -924,7 +924,7 @@ Addresses (``Network.Socket.Address``) are numeric, IPv4, IPv6 or the path
 of a Unix socket, so that no call looks a name up behind the caller's back.
 ``Network.Socket.DNS.resolve`` looks a name up with ``getaddrinfo(3)``,
 which runs on the pool of blocking calls on RefC (see
-``idris2_blockingCall`` above), and ``connectHost`` resolves a name and
+``idris2i_1_blockingCall`` above), and ``connectHost`` resolves a name and
 connects to its addresses in turn.
 
 A socket of this module must be closed with its ``close``, which goes

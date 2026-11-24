@@ -116,19 +116,19 @@ prim__stringAt : Buffer -> Int -> Int -> String
 -- `Buffer` method with Node, and a loop over the bytes with the Scheme
 -- backends (`blodwen-buffer-getbyte` is defined by all of them).
 %foreign "scheme:(lambda (a ao b bo n) (let loop ((i 0)) (if (= i n) 0 (let ((x (blodwen-buffer-getbyte a (+ ao i))) (y (blodwen-buffer-getbyte b (+ bo i)))) (cond ((< x y) -1) ((> x y) 1) (else (loop (+ i 1))))))))"
-         "RefC:idris2_bufferCompare"
+         "RefC:idris2i_1_bufferCompare"
          "node:lambda:(a,ao,b,bo,n)=>a.compare(b,bo,bo+n,ao,ao+n)"
 prim__compareRange : Buffer -> Int -> Buffer -> Int -> Int -> Int
 
 %foreign "scheme:(lambda (b o n w) (let loop ((i 0)) (cond ((= i n) -1) ((= (blodwen-buffer-getbyte b (+ o i)) w) i) (else (loop (+ i 1))))))"
-         "RefC:idris2_bufferFindByte"
+         "RefC:idris2i_1_bufferFindByte"
          "node:lambda:(b,o,n,w)=>b.subarray(o,o+n).indexOf(w)"
 prim__findByte : Buffer -> Int -> Int -> Bits8 -> Int
 
 -- (with Node, `Int` is a 32-bit number, and `Math.imul` has the low 32 bits
 -- of the product, as the `Int` multiplication of Node has)
 %foreign "scheme:(lambda (h b o n) (let loop ((i 0) (h h)) (if (= i n) h (loop (+ i 1) (bitwise-and (* (bitwise-xor h (blodwen-buffer-getbyte b (+ o i))) 16777619) 2147483647)))))"
-         "RefC:idris2_bufferHashFNV31"
+         "RefC:idris2i_1_bufferHashFNV31"
          "node:lambda:(h,b,o,n)=>{for(let i=o;i<o+n;i++){h=Math.imul(h^b[i],16777619)&2147483647;}return h;}"
 prim__hashRange : Int -> Buffer -> Int -> Int -> Int
 

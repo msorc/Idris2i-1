@@ -2,7 +2,7 @@ module Syntax.WithProof
 
 export prefix 10 @@
 
-||| Until Idris2 supports the 'with (...) proof p' construct, here's a
+||| Until Idris2i-1 supports the 'with (...) proof p' construct, here's a
 ||| poor-man's replacement.
 public export
 (@@) : (t : a) -> (u : a ** t = u)

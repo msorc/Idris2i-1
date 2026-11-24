@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
 run Specifiers.idr
-idris2 Specifiers.idr -o build/foo
-idris2 < input
+idris2i-1 Specifiers.idr -o build/foo
+idris2i-1 < input

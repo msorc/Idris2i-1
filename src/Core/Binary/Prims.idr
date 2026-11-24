@@ -320,7 +320,7 @@ TTC a => TTC (List a) where
     where
       ||| Tail-recursive length as buffer sizes can get large
       |||
-      ||| Once we port to Idris2, can use Data.List.TailRec.length instead
+      ||| Once we port to Idris2i-1, can use Data.List.TailRec.length instead
       length_aux : List a -> Int -> Int
       length_aux [] len = len
       length_aux (_::xs) len = length_aux xs (1 + len)
@@ -502,7 +502,7 @@ TTC a => TTC (SnocList a) where
     where
       ||| Tail-recursive length as buffer sizes can get large
       |||
-      ||| Once we port to Idris2, can use Data.List.TailRec.length instead
+      ||| Once we port to Idris2i-1, can use Data.List.TailRec.length instead
       length_aux : SnocList a -> Int -> Int
       length_aux [<] len = len
       length_aux (xs :< _) len = length_aux xs (1 + len)

@@ -49,7 +49,7 @@ findInputs (_ :: fs) = findInputs fs
 splitPaths : String -> List1 String
 splitPaths = map trim . split (==pathSeparator)
 
--- Add extra data from the "IDRIS2_x" environment variables
+-- Add extra data from the "IDRIS2I_1_x" environment variables
 updateEnv : {auto c : Ref Ctxt Defs} ->
             {auto o : Ref ROpts REPLOpts} ->
             Core ()
@@ -57,42 +57,42 @@ updateEnv
     = do defs <- get Ctxt
          noColor <- coreLift [ isJust noc || not tty | noc <- idrisGetEnv "NO_COLOR", tty <- isTTY stdout ]
          when noColor $ setColor False
-         bprefix <- coreLift $ idrisGetEnv "IDRIS2_PREFIX"
+         bprefix <- coreLift $ idrisGetEnv "IDRIS2I_1_PREFIX"
          setPrefix (fromMaybe yprefix bprefix)
-         bpath <- coreLift $ idrisGetEnv "IDRIS2_PATH"
+         bpath <- coreLift $ idrisGetEnv "IDRIS2I_1_PATH"
          whenJust bpath $ traverseList1_ addExtraDir . splitPaths
-         bdata <- coreLift $ idrisGetEnv "IDRIS2_DATA"
+         bdata <- coreLift $ idrisGetEnv "IDRIS2I_1_DATA"
          whenJust bdata $ traverseList1_ addDataDir . splitPaths
-         blibs <- coreLift $ idrisGetEnv "IDRIS2_LIBS"
+         blibs <- coreLift $ idrisGetEnv "IDRIS2I_1_LIBS"
          whenJust blibs $ traverseList1_ addLibDir . splitPaths
-         pdirs <- coreLift $ idrisGetEnv "IDRIS2_PACKAGE_PATH"
+         pdirs <- coreLift $ idrisGetEnv "IDRIS2I_1_PACKAGE_PATH"
          whenJust pdirs $ traverseList1_ addPackageSearchPath . splitPaths
-         cg <- coreLift $ idrisGetEnv "IDRIS2_CG"
+         cg <- coreLift $ idrisGetEnv "IDRIS2I_1_CG"
          whenJust cg $ \ e => case getCG (options defs) e of
            Just cg => setCG cg
            Nothing => throw (InternalError ("Unknown code generator " ++ show e))
-         cacheMB <- coreLift $ idrisGetEnv "IDRIS2_TTC_CACHE_MB"
+         cacheMB <- coreLift $ idrisGetEnv "IDRIS2I_1_TTC_CACHE_MB"
          whenJust (cacheMB >>= parsePositive {a = Int}) $ \ mb =>
            update Ctxt { ttcCache->limit := mb * 1024 * 1024 }
-         inccgs <- coreLift $ idrisGetEnv "IDRIS2_INC_CGS"
+         inccgs <- coreLift $ idrisGetEnv "IDRIS2I_1_INC_CGS"
          whenJust inccgs $ \ cgs =>
            traverseList1_ (setIncrementalCG False) $
              map trim (split (==',') cgs)
-         -- IDRIS2_PATH goes first so that it overrides this if there's
-         -- any conflicts. In particular, that means that setting IDRIS2_PATH
+         -- IDRIS2I_1_PATH goes first so that it overrides this if there's
+         -- any conflicts. In particular, that means that setting IDRIS2I_1_PATH
          -- for the tests means they test the local version not the installed
          -- version
          defs <- get Ctxt
          -- add global package path to the package search paths (after those
-         -- added by the user with IDRIS2_PACKAGE_PATH)
+         -- added by the user with IDRIS2I_1_PACKAGE_PATH)
          addPackageSearchPath !pkgGlobalDirectory
          -- These might fail while bootstrapping
          catch (addPkgDir "prelude" anyBounds) (const (pure ()))
          catch (addPkgDir "base" anyBounds) (const (pure ()))
          addDataDir (prefix_dir (dirs (options defs)) </>
-                        ("idris2-" ++ showVersion False version) </> "support")
+                        ("idris2i-1-" ++ showVersion False version) </> "support")
          addLibDir (prefix_dir (dirs (options defs)) </>
-                        ("idris2-" ++ showVersion False version) </> "lib")
+                        ("idris2i-1-" ++ showVersion False version) </> "lib")
          Just cwd <- coreLift $ currentDir
               | Nothing => throw (InternalError "Can't get current directory")
          addLibDir cwd
@@ -140,7 +140,7 @@ banner = #"""
     _/ // /_/ / /  / (__  )   / __/      https://www.idris-lang.org
    /___/\__,_/_/  /_/____/   /____/      Type :? for help
 
-  Welcome to Idris 2.  Enjoy yourself!
+  Welcome to Idris2i-1.  Enjoy yourself!
   """#
 
 checkVerbose : List CLOpt -> Bool

@@ -1,0 +1,29 @@
+. ../../../testutils.sh
+
+# the output, then the exit code
+code() {
+  idris2i_1_no_clean "$@" > log.txt 2>&1
+  status=$?
+  clean_names < log.txt
+  echo "exit code: $status"
+}
+
+# After an error in the files being loaded, nothing is compiled or run: the
+# error is the only output and the exit code is not 0
+echo "--- -o"
+code -p contrib -o bad Main.idr
+[ -e build/exec/bad ] && echo "an executable was made"
+
+echo "--- --exec"
+code -p contrib --exec main Main.idr
+
+echo "--- --build"
+code --build bad.ipkg
+[ -e build/exec/bad ] && echo "an executable was made"
+
+# A program with a hole and no error still compiles, with a warning
+echo "--- hole"
+code -o hole Hole.idr
+./build/exec/hole
+
+rm -rf build log.txt

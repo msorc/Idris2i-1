@@ -4,4 +4,4 @@ equality on all of it: add `DecEq` implementations for `Ty`, `Op`, `Term n`, `Ro
 
 They must be total: keep `%default total`, and use no `believe_me`, `assert_total`,
 `assert_smaller`, `idris_crash`, `partial` or `covering`. Do not change the data
-declarations. `idris2 --check Syntax.idr` must succeed.
+declarations. `idris2i-1 --check Syntax.idr` must succeed.

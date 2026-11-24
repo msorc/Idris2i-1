@@ -5,74 +5,74 @@
 (. 4 ((. 2 .) 1 .))
 (. 3 .)
 RefC leak check: 0 leaked values
-Idris2_Value *Main_bump
+Idris2i_1_Value *Main_bump
 (
-    Idris2_Value * var_0
+    Idris2i_1_Value * var_0
 )
 {
-    Idris2_Value * tmp_0 = NULL;                             // Main:21:8--21:12
-    switch (((Idris2_Constructor *)var_0)->tag) {
+    Idris2i_1_Value * tmp_0 = NULL;                          // Main:21:8--21:12
+    switch (((Idris2i_1_Constructor *)var_0)->tag) {
     case 0: { /* Main.Leaf */
-        tmp_0 = idris2_nullaryConstructor(0) /* Main.Leaf */;
+        tmp_0 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
       break;
     }
     case 1: { /* Main.Node */
-        int64_t int_2 = idris2_rawField(var_0, 2, 0, int64_t);
-        Idris2_Constructor* constructor_1 = (Idris2_Constructor*)var_0;
-        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
-            IDRIS2_STAT(reuseHit);
+        int64_t int_2 = idris2i_1_rawField(var_0, 2, 0, int64_t);
+        Idris2i_1_Constructor* constructor_1 = (Idris2i_1_Constructor*)var_0;
+        if (IDRIS2I_1_LIKELY(idris2i_1_isUnique(var_0))) {
+            IDRIS2I_1_STAT(reuseHit);
         } else {
-            IDRIS2_STAT(reuseMiss);
-            constructor_1 = idris2_newRawConstructor(2, 1, 1);
-            constructor_1->args[0] = idris2_newReference(((Idris2_Constructor*)var_0)->args[0]);
-            constructor_1->args[1] = idris2_newReference(((Idris2_Constructor*)var_0)->args[1]);
-            idris2_copyRawFields(constructor_1, var_0, 2, 1);
-            idris2_dropSharedReference(var_0);
+            IDRIS2I_1_STAT(reuseMiss);
+            constructor_1 = idris2i_1_newRawConstructor(2, 1, 1);
+            constructor_1->args[0] = idris2i_1_newReference(((Idris2i_1_Constructor*)var_0)->args[0]);
+            constructor_1->args[1] = idris2i_1_newReference(((Idris2i_1_Constructor*)var_0)->args[1]);
+            idris2i_1_copyRawFields(constructor_1, var_0, 2, 1);
+            idris2i_1_dropSharedReference(var_0);
         }
-        Idris2_Value *var_1 = constructor_1->args[0];
-        Idris2_Value *var_3 = constructor_1->args[1];
+        Idris2i_1_Value *var_1 = constructor_1->args[0];
+        Idris2i_1_Value *var_3 = constructor_1->args[1];
         int64_t int_4 = INT64_C(1);
         int64_t primVar_2 = ((int64_t)((uint64_t)(int_2) + (uint64_t)(int_4)));
         int64_t int_5 = primVar_2;                           // Main:23:21--23:25
          // constructor Main.Node                            // Main:23:21--23:25
-        idris2_rawField(constructor_1, 2, 0, int64_t) = int_5;
-        tmp_0 = (Idris2_Value*)constructor_1;
+        idris2i_1_rawField(constructor_1, 2, 0, int64_t) = int_5;
+        tmp_0 = (Idris2i_1_Value*)constructor_1;
       break;
     }
     }
     return tmp_0;
 }
-Idris2_Value *Main_dropLeft
+Idris2i_1_Value *Main_dropLeft
 (
-    Idris2_Value * var_0
+    Idris2i_1_Value * var_0
 )
 {
-    Idris2_Value * tmp_0 = NULL;                             // Main:31:12--31:16
-    switch (((Idris2_Constructor *)var_0)->tag) {
+    Idris2i_1_Value * tmp_0 = NULL;                          // Main:31:12--31:16
+    switch (((Idris2i_1_Constructor *)var_0)->tag) {
     case 0: { /* Main.Leaf */
-        tmp_0 = idris2_nullaryConstructor(0) /* Main.Leaf */;
+        tmp_0 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
       break;
     }
     case 1: { /* Main.Node */
-        int64_t int_2 = idris2_rawField(var_0, 2, 0, int64_t);
-        Idris2_Value *var_1 = ((Idris2_Constructor*)var_0)->args[0];
-        Idris2_Constructor* constructor_1 = (Idris2_Constructor*)var_0;
-        if (IDRIS2_LIKELY(idris2_isUnique(var_0))) {
-            IDRIS2_STAT(reuseHit);
-            idris2_removeReference(var_1);
+        int64_t int_2 = idris2i_1_rawField(var_0, 2, 0, int64_t);
+        Idris2i_1_Value *var_1 = ((Idris2i_1_Constructor*)var_0)->args[0];
+        Idris2i_1_Constructor* constructor_1 = (Idris2i_1_Constructor*)var_0;
+        if (IDRIS2I_1_LIKELY(idris2i_1_isUnique(var_0))) {
+            IDRIS2I_1_STAT(reuseHit);
+            idris2i_1_removeReference(var_1);
         } else {
-            IDRIS2_STAT(reuseMiss);
-            constructor_1 = idris2_newRawConstructor(2, 1, 1);
+            IDRIS2I_1_STAT(reuseMiss);
+            constructor_1 = idris2i_1_newRawConstructor(2, 1, 1);
             constructor_1->args[0] = NULL;
-            constructor_1->args[1] = idris2_newReference(((Idris2_Constructor*)var_0)->args[1]);
-            idris2_copyRawFields(constructor_1, var_0, 2, 1);
-            idris2_dropSharedReference(var_0);
+            constructor_1->args[1] = idris2i_1_newReference(((Idris2i_1_Constructor*)var_0)->args[1]);
+            idris2i_1_copyRawFields(constructor_1, var_0, 2, 1);
+            idris2i_1_dropSharedReference(var_0);
         }
-        Idris2_Value *var_3 = constructor_1->args[1];
-        Idris2_Value * var_4 = idris2_nullaryConstructor(0) /* Main.Leaf */;
+        Idris2i_1_Value *var_3 = constructor_1->args[1];
+        Idris2i_1_Value * var_4 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
          // constructor Main.Node                            // Main:33:25--33:29
         constructor_1->args[0] = var_4;
-        tmp_0 = (Idris2_Value*)constructor_1;
+        tmp_0 = (Idris2i_1_Value*)constructor_1;
       break;
     }
     }
@@ -84,42 +84,42 @@ Idris2_Value *Main_dropLeft
 ((((. 1 (. 3 .)) 4 (. 5 .)) 7 (. 8 .)) 9 .)
 (. 4 ((. 2 .) 1 .))
 (. 3 .)
-Idris2_Value *Main_dropLeft
+Idris2i_1_Value *Main_dropLeft
 (
-    Idris2_Value * var_0
+    Idris2i_1_Value * var_0
 )
 {
-    Idris2_Value * tmp_0 = NULL;                             // Main:31:12--31:16
-    switch (((Idris2_Constructor *)var_0)->tag) {
+    Idris2i_1_Value * tmp_0 = NULL;                          // Main:31:12--31:16
+    switch (((Idris2i_1_Constructor *)var_0)->tag) {
     case 0: { /* Main.Leaf */
-        tmp_0 = idris2_nullaryConstructor(0) /* Main.Leaf */;
+        tmp_0 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
       break;
     }
     case 1: { /* Main.Node */
-        int64_t int_2 = idris2_rawField(var_0, 2, 0, int64_t);
-        Idris2_Value *var_1 = ((Idris2_Constructor*)var_0)->args[0];
-        Idris2_Value *var_3 = ((Idris2_Constructor*)var_0)->args[1];
-        Idris2_Constructor* constructor_1 = NULL;
-        if (idris2_isUnique(var_0)) {
-            constructor_1 = (Idris2_Constructor*)var_0;
-            IDRIS2_STAT(reuseHit);
-            idris2_removeReference(var_1);
+        int64_t int_2 = idris2i_1_rawField(var_0, 2, 0, int64_t);
+        Idris2i_1_Value *var_1 = ((Idris2i_1_Constructor*)var_0)->args[0];
+        Idris2i_1_Value *var_3 = ((Idris2i_1_Constructor*)var_0)->args[1];
+        Idris2i_1_Constructor* constructor_1 = NULL;
+        if (idris2i_1_isUnique(var_0)) {
+            constructor_1 = (Idris2i_1_Constructor*)var_0;
+            IDRIS2I_1_STAT(reuseHit);
+            idris2i_1_removeReference(var_1);
         }
         else {
-            IDRIS2_STAT(reuseMiss);
-            idris2_newReference(var_3);
-            idris2_removeReference(var_0);
+            IDRIS2I_1_STAT(reuseMiss);
+            idris2i_1_newReference(var_3);
+            idris2i_1_removeReference(var_0);
         }
-        Idris2_Value * var_4 = idris2_nullaryConstructor(0) /* Main.Leaf */;
+        Idris2i_1_Value * var_4 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
          // constructor Main.Node                            // Main:33:25--33:29
         if (! constructor_1) {                               // Main:33:25--33:29
-            constructor_1 = idris2_newRawConstructor(2, 1, 1);
+            constructor_1 = idris2i_1_newRawConstructor(2, 1, 1);
                                                              // Main:33:25--33:29
-            idris2_rawField(constructor_1, 2, 0, int64_t) = int_2;
+            idris2i_1_rawField(constructor_1, 2, 0, int64_t) = int_2;
         }                                                    // Main:33:25--33:29
         constructor_1->args[0] = var_4;
         constructor_1->args[1] = var_3;
-        tmp_0 = (Idris2_Value*)constructor_1;
+        tmp_0 = (Idris2i_1_Value*)constructor_1;
       break;
     }
     }

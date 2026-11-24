@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Measure what type checking costs: run a compiler on a corpus of Idris 2
+# Measure what type checking costs: run a compiler on a corpus of Idris2i-1
 # sources in a few scenarios (a clean build, a rebuild after an edit, ...),
 # and append to a CSV the instructions and cycles (user space, from
 # `perf stat`, child processes included), the peak RSS (of the largest
@@ -9,11 +9,11 @@
 # 50% or more when anything else runs on the machine.
 #
 # Usage: tc-perf.sh [OPTION]... [CORPUS]...
-#   -c IDRIS2   the compiler (default: idris2 on the PATH)
+#   -c IDRIS2I_1   the compiler (default: idris2i-1 on the PATH)
 #   -o FILE     append the results to FILE (default: tc-perf.csv)
-#   -l LABEL    the label of this compiler in the CSV (default: idris2)
+#   -l LABEL    the label of this compiler in the CSV (default: idris2i-1)
 #   -d DIR      the work directory (default: ./tc-perf-work)
-#   -r TREE     the Idris 2 source tree to take the corpora from (default:
+#   -r TREE     the Idris2i-1 source tree to take the corpora from (default:
 #               the tree this script is in)
 #   -j N        the processes of the scenario clean-jN (default: 6)
 #   -n RUNS     runs of each scenario (default: 1)
@@ -23,22 +23,22 @@
 #               -X --timing-summary
 #
 # The corpora (default: compiler base contrib perf):
-#   compiler    the compiler itself (idris2.ipkg: the modules of the compiler
+#   compiler    the compiler itself (idris2i-1.ipkg: the modules of the compiler
 #               executable)
 #   base        libs/base
 #   contrib     libs/contrib
-#   perf        each of the single-file tests of tests/idris2/perf, alone
+#   perf        each of the single-file tests of tests/idris2i-1/perf, alone
 #               (only the clean-j1 scenario)
 #
 # The scenarios:
-#   clean-j1    build everything, one process (IDRIS2_BUILD_JOBS=1)
+#   clean-j1    build everything, one process (IDRIS2I_1_BUILD_JOBS=1)
 #   noop        build again, nothing changed
 #   leaf        build again after touching a module that no module imports
 #   comment     build again after adding a comment to a module that most
 #               modules import (its interface does not change)
 #   iface       build again after adding an exported definition to that
 #               module (its interface changes)
-#   clean-jN    build everything, N processes (IDRIS2_BUILD_JOBS=N)
+#   clean-jN    build everything, N processes (IDRIS2I_1_BUILD_JOBS=N)
 #
 # Each corpus is copied to the work directory and type checked there with
 # `--typecheck` (`--check` for perf), so that what is built in the source
@@ -57,9 +57,9 @@ set -u
 
 here="$(cd "$(dirname "$0")" && pwd)"
 TREE="$(cd "$here/../.." && pwd)"
-IDRIS2=idris2
+IDRIS2I_1=idris2i-1
 OUT=tc-perf.csv
-LABEL=idris2
+LABEL=idris2i-1
 WORK="$PWD/tc-perf-work"
 JOBS=6
 RUNS=1
@@ -73,7 +73,7 @@ usage() {
 
 while getopts ":c:o:l:d:r:j:n:s:X:h" opt; do
   case "$opt" in
-    c) IDRIS2="$OPTARG" ;;
+    c) IDRIS2I_1="$OPTARG" ;;
     o) OUT="$OPTARG" ;;
     l) LABEL="$OPTARG" ;;
     d) WORK="$OPTARG" ;;
@@ -92,8 +92,8 @@ shift $((OPTIND - 1))
 case "$OUT" in /*) ;; *) OUT="$PWD/$OUT" ;; esac
 case "$WORK" in /*) ;; *) WORK="$PWD/$WORK" ;; esac
 case "$TREE" in /*) ;; *) TREE="$PWD/$TREE" ;; esac
-if [ "${IDRIS2#*/}" != "$IDRIS2" ]; then
-  IDRIS2="$(cd "$(dirname "$IDRIS2")" && pwd)/$(basename "$IDRIS2")"
+if [ "${IDRIS2I_1#*/}" != "$IDRIS2I_1" ]; then
+  IDRIS2I_1="$(cd "$(dirname "$IDRIS2I_1")" && pwd)/$(basename "$IDRIS2I_1")"
 fi
 
 if [ $# -gt 0 ]; then CORPORA=("$@"); else CORPORA=(compiler base contrib perf); fi
@@ -131,21 +131,21 @@ fi
 
 # A clean environment for the compiler: only the libraries of PREFIX
 clean_env() {
-  env -u IDRIS2_PATH -u IDRIS2_PACKAGE_PATH -u IDRIS2_LIBS -u IDRIS2_DATA \
-      -u IDRIS2_BUILD_JOBS -u IDRIS2_CG "$@"
+  env -u IDRIS2I_1_PATH -u IDRIS2I_1_PACKAGE_PATH -u IDRIS2I_1_LIBS -u IDRIS2I_1_DATA \
+      -u IDRIS2I_1_BUILD_JOBS -u IDRIS2I_1_CG "$@"
 }
 
 # Build and install the libraries a corpus needs with the compiler, in
 # stages: prefix-prelude (for base), prefix-base (for contrib), prefix-full
 # (for the compiler and perf). Not measured.
-version="$("$IDRIS2" --version 2>/dev/null)"
+version="$("$IDRIS2I_1" --version 2>/dev/null)"
 prepare_prefixes() {
   local stamp="$WORK/$LABEL/prefix.stamp"
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$version" ] &&
      [ -d "$WORK/$LABEL/prefix-full" ]; then
     return 0
   fi
-  echo "building the libraries with $IDRIS2 ($version)" >&2
+  echo "building the libraries with $IDRIS2I_1 ($version)" >&2
   local lw="$WORK/$LABEL/libsrc" p="$WORK/$LABEL/prefix"
   rm -rf "${WORK:?}/$LABEL"/prefix* "${lw:?}"
   mkdir -p "$lw" "$p"
@@ -155,8 +155,8 @@ prepare_prefixes() {
   for lib in prelude base linear network contrib; do
     rm -rf "${lw:?}/$lib/build"
     (cd "$lw/$lib" &&
-       clean_env IDRIS2_PREFIX="$p" IDRIS2_BUILD_JOBS=6 \
-         "$IDRIS2" --install "$lib.ipkg") > "$WORK/$LABEL/logs/install-$lib.log" 2>&1 ||
+       clean_env IDRIS2I_1_PREFIX="$p" IDRIS2I_1_BUILD_JOBS=6 \
+         "$IDRIS2I_1" --install "$lib.ipkg") > "$WORK/$LABEL/logs/install-$lib.log" 2>&1 ||
       { echo "building $lib failed, see $WORK/$LABEL/logs/install-$lib.log" >&2; exit 1; }
     case "$lib" in
       prelude) cp -a "$p" "$WORK/$LABEL/prefix-prelude" ;;
@@ -182,20 +182,20 @@ copy_corpus() {
   mkdir -p "$dir"
   case "$corpus" in
     compiler)
-      cp -a "$TREE/src" "$TREE/idris2.ipkg" "$dir/"
+      cp -a "$TREE/src" "$TREE/idris2i-1.ipkg" "$dir/"
       if [ ! -f "$dir/src/IdrisPaths.idr" ]; then
         echo "no src/IdrisPaths.idr in $TREE: run make there first" >&2
         exit 1
       fi ;;
     base|contrib) cp -a "$TREE/libs/$corpus/." "$dir/" ;;
-    perf/*) cp -a "$TREE/tests/idris2/$corpus/." "$dir/" ;;
+    perf/*) cp -a "$TREE/tests/idris2i-1/$corpus/." "$dir/" ;;
   esac
   rm -rf "${dir:?}/build"
 }
 
 ipkgOf() {
   case "$1" in
-    compiler) echo idris2.ipkg ;;
+    compiler) echo idris2i-1.ipkg ;;
     *) echo "$1.ipkg" ;;
   esac
 }
@@ -209,7 +209,7 @@ measure() {
   local perfout="$WORK/perf.$$" rssout="$WORK/rss.$$"
   rm -f "$perfout" "$rssout"
   (cd "$dir" &&
-     clean_env IDRIS2_PREFIX="$prefix" IDRIS2_BUILD_JOBS="$jobs" \
+     clean_env IDRIS2I_1_PREFIX="$prefix" IDRIS2I_1_BUILD_JOBS="$jobs" \
        perf stat -x, -e instructions:u,cycles:u -o "$perfout" -- \
          "$MAXRSS" "$rssout" -- "$@" > "$log" 2>&1 < /dev/null)
   local status=$?
@@ -225,7 +225,7 @@ prepare_prefixes
 
 for corpus in "${CORPORA[@]}"; do
   if [ "$corpus" = perf ]; then
-    for d in "$TREE"/tests/idris2/perf/*/; do
+    for d in "$TREE"/tests/idris2i-1/perf/*/; do
       srcs=("$d"*.idr)
       [ "${#srcs[@]}" -eq 1 ] || continue
       name="perf/$(basename "$d")"
@@ -234,7 +234,7 @@ for corpus in "${CORPORA[@]}"; do
       for run in $(seq 1 "$RUNS"); do
         copy_corpus "$name" "$dir"
         measure "$name" clean-j1 "$run" "$dir" "$(prefixOf perf)" 1 \
-          "$IDRIS2" "${EXTRA[@]}" --check "$file"
+          "$IDRIS2I_1" "${EXTRA[@]}" --check "$file"
       done
     done
     continue
@@ -270,15 +270,15 @@ for corpus in "${CORPORA[@]}"; do
            fi ;;
       esac
       measure "$corpus" "$scen" "$run" "$dir" "$prefix" "$jobs" \
-        "$IDRIS2" "${EXTRA[@]}" --typecheck "$ipkg"
+        "$IDRIS2I_1" "${EXTRA[@]}" --typecheck "$ipkg"
       built=true
       # back to the sources as they were, for the next scenarios
       case "$scen" in
         comment|iface)
           cp -p "$orig" "$dir/$root"
           touch "$dir/$root"
-          (cd "$dir" && clean_env IDRIS2_PREFIX="$prefix" IDRIS2_BUILD_JOBS="$JOBS" \
-             "$IDRIS2" --typecheck "$ipkg" > /dev/null 2>&1 < /dev/null) ;;
+          (cd "$dir" && clean_env IDRIS2I_1_PREFIX="$prefix" IDRIS2I_1_BUILD_JOBS="$JOBS" \
+             "$IDRIS2I_1" --typecheck "$ipkg" > /dev/null 2>&1 < /dev/null) ;;
       esac
     done
   done

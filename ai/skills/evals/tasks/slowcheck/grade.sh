@@ -6,7 +6,7 @@ A3="checking takes at most a fifth of the processor time of the original"
 A4="the data is still in the file (all 70 prices)"
 
 rm -rf build
-assert "idris2 Prices.idr -o prices succeeds" "$IDRIS" --no-color Prices.idr -o prices
+assert "idris2i-1 Prices.idr -o prices succeeds" "$IDRIS" --no-color Prices.idr -o prices
 if [ ! -x build/exec/prices ]; then
   fail_rest "no executable" "$A2" "$A3" "$A4"
   exit 0

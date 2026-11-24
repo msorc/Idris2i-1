@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
+idris2i-1 -o main Main.idr
 $VALGRIND ./build/exec/main
 awk -v RS= '/Value \*Main_insert/' build/exec/main.c

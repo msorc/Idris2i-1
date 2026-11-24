@@ -7,11 +7,11 @@
 # with the C compiler of a long term support distribution.
 #
 # It runs when one of the inputs of the bootstraps changes: the
-# generated code (bootstrap/idris2_app/idris2.ss, idris2.rkt and
-# idris2.c.xz), the scripts that build from it and the rest of bootstrap/,
+# generated code (bootstrap/idris2i-1_app/idris2i-1.ss, idris2i-1.rkt and
+# idris2i-1.c.xz), the scripts that build from it and the rest of bootstrap/,
 # the support libraries (the checked-in C is compiled against the headers
 # of support/refc and support/c as they are now, and every bootstrap links
-# libidris2_support), and the Makefile and config.mk that drive them.
+# libidris2i_1_support), and the Makefile and config.mk that drive them.
 #
 # Note that we are *not* running on ubuntu-latest so this needs manual
 # upgrades if we want to jump on a newer github actions environment.
@@ -66,7 +66,7 @@ jobs:
       commit_message:
         echo "${{ steps.get_commit_message.outputs.commit_message }}"
 
-  # Chez Scheme: bootstrap/idris2_app/idris2.ss
+  # Chez Scheme: bootstrap/idris2i-1_app/idris2i-1.ss
 
   bootstrap-chez:
     needs: initialise
@@ -74,7 +74,7 @@ jobs:
     if: |
       !contains(needs.initialise.outputs.commit_message, '[ci: skip]')
     env:
-      IDRIS2_CG: chez
+      IDRIS2I_1_CG: chez
       SCHEME: scheme
     steps:
       - name: Checkout
@@ -83,11 +83,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y chezscheme
-          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.idris2i-1/bin" >> "$GITHUB_PATH"
       - name: Build bootstrap
         run: make bootstrap
 
-  # Racket: bootstrap/idris2_app/idris2.rkt
+  # Racket: bootstrap/idris2i-1_app/idris2i-1.rkt
 
   bootstrap-racket:
     needs: initialise
@@ -95,7 +95,7 @@ jobs:
     if: |
       !contains(needs.initialise.outputs.commit_message, '[ci: skip]')
     env:
-      IDRIS2_CG: racket
+      IDRIS2I_1_CG: racket
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -103,11 +103,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y racket
-          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.idris2i-1/bin" >> "$GITHUB_PATH"
       - name: Build bootstrap
         run: make bootstrap-racket
 
-  # C (RefC): bootstrap/idris2_app/idris2.c.xz.  The main yml file also
+  # C (RefC): bootstrap/idris2i-1_app/idris2i-1.c.xz.  The main yml file also
   # tests the compiler that this builds, here it is only built.
 
   bootstrap-c:
@@ -116,7 +116,7 @@ jobs:
     if: |
       !contains(needs.initialise.outputs.commit_message, '[ci: skip]')
     env:
-      IDRIS2_CG: refc
+      IDRIS2I_1_CG: refc
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -124,7 +124,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgmp-dev xz-utils
-          echo "$HOME/.idris2/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.idris2i-1/bin" >> "$GITHUB_PATH"
       - name: Check that no Scheme is available
         run: "! command -v chez && ! command -v scheme && ! command -v racket"
       - name: Build bootstrap

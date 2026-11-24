@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
+idris2i-1 -o main Main.idr
 
 mkinput() {
   printf 'αβγ → ok\r\n'

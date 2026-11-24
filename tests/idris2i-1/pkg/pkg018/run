@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+idris2i-1 --build bad.ipkg 2>&1
+idris2i-1 --build bad2.ipkg 2>&1

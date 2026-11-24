@@ -37,6 +37,6 @@ let
   };
 in withTests testsTemplate templateBuildDefault
 // withTests testsTemplateWithDeps templateBuildWithDeps // {
-  idris2Tests =
+  idris2i_1Tests =
     idris.packages.${system}.default.overrideAttrs (a: { doCheck = true; });
 }

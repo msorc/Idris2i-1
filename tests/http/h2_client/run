@@ -13,10 +13,10 @@ h2 ../client_basic/Main.idr | sed -e '/-- raw servers/,/^  closeIdle c$/{/^  clo
 h2 ../server_stream/Main.idr > build/stream/Main.idr
 cp ../common/HttpTest.idr build/basic/
 cp ../common/HttpTest.idr build/stream/
-(cd build/basic && idris2 -p contrib -p network -p http -o main Main.idr)
-(cd build/stream && idris2 -p contrib -p network -p http -o main Main.idr)
+(cd build/basic && idris2i-1 -p contrib -p network -p http -o main Main.idr)
+(cd build/stream && idris2i-1 -p contrib -p network -p http -o main Main.idr)
 for w in 1 4; do
   echo "=== $w workers"
-  IDRIS2_WORKERS=$w timeout 120 build/basic/build/exec/main
-  IDRIS2_WORKERS=$w timeout 120 build/stream/build/exec/main
+  IDRIS2I_1_WORKERS=$w timeout 120 build/basic/build/exec/main
+  IDRIS2I_1_WORKERS=$w timeout 120 build/stream/build/exec/main
 done

@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 -o literals Literals.idr
+idris2i-1 -o literals Literals.idr
 ./build/exec/literals
-idris2 --cg javascript -o literals.js Literals.idr
+idris2i-1 --cg javascript -o literals.js Literals.idr
 node ./build/exec/literals.js | grep -v '^$'

@@ -6,7 +6,7 @@
 # anything else runs on the machine (a compile, say).
 #
 # Usage: refc-perf.sh [OPTION]... [BENCHMARK]...
-#   -c IDRIS2   the compiler (default: idris2 on the PATH)
+#   -c IDRIS2I_1   the compiler (default: idris2i-1 on the PATH)
 #   -o FILE     append the results to FILE (default: refc-perf.csv)
 #   -l LABEL    the label of this configuration in the CSV (default: refc)
 #   -d DIR      the work directory for the builds (default: ./refc-perf-work)
@@ -21,12 +21,12 @@
 # The CSV has the columns
 #   label,benchmark,run,instructions,cycles,elapsed_s,maxrss_kb,status
 #
-# Set IDRIS2_PREFIX (and IDRIS2_CFLAGS) as for any build.
+# Set IDRIS2I_1_PREFIX (and IDRIS2I_1_CFLAGS) as for any build.
 
 set -u
 
 here="$(cd "$(dirname "$0")" && pwd)"
-IDRIS2=idris2
+IDRIS2I_1=idris2i-1
 OUT=refc-perf.csv
 LABEL=refc
 WORK="$PWD/refc-perf-work"
@@ -44,7 +44,7 @@ usage() {
 
 while getopts ":c:o:l:d:D:X:n:fBe:h" opt; do
   case "$opt" in
-    c) IDRIS2="$OPTARG" ;;
+    c) IDRIS2I_1="$OPTARG" ;;
     o) OUT="$OPTARG" ;;
     l) LABEL="$OPTARG" ;;
     d) WORK="$OPTARG" ;;
@@ -98,11 +98,11 @@ for b in "${BENCHES[@]}"; do
     echo "building $b ($LABEL)" >&2
     rm -f "$exe"
     (cd "$src" &&
-       "$IDRIS2" --cg refc "${DIRECTIVES[@]}" "${EXTRA[@]}" \
+       "$IDRIS2I_1" --cg refc "${DIRECTIVES[@]}" "${EXTRA[@]}" \
          --build-dir "$WORK/$LABEL/$b/build" \
          --output-dir "$WORK/$LABEL/$b/exec" \
          -o "$b" "$b.idr") >&2
-    # (idris2 exits with 0 even when the C compiler fails)
+    # (idris2i-1 exits with 0 even when the C compiler fails)
     if [ ! -x "$exe" ]; then
       echo "building $b failed" >&2
       continue

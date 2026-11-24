@@ -1,10 +1,10 @@
 #!/bin/sh
 # Type-check every Idris example in the skills.
 #
-#   check.sh [-q] [-c IDRIS2] [PATH...]
+#   check.sh [-q] [-c IDRIS2I_1] [PATH...]
 #
 #   -q         print only failures and one final line
-#   -c IDRIS2  compiler to use (default: $IDRIS2, idris2 on PATH, ~/.idris2/bin/idris2)
+#   -c IDRIS2I_1  compiler to use (default: $IDRIS2I_1, idris2i-1 on PATH, ~/.idris2i-1/bin/idris2i-1)
 #   PATH       skill folders or files to check (default: all skills)
 #
 # Two kinds of file are checked:
@@ -21,24 +21,24 @@
 
 here=$(cd "$(dirname "$0")" && pwd)
 quiet=0
-idris=${IDRIS2:-}
+idris=${IDRIS2I_1:-}
 
 while getopts qc: opt; do
   case $opt in
     q) quiet=1 ;;
     c) idris=$OPTARG ;;
-    *) echo "usage: check.sh [-q] [-c IDRIS2] [PATH...]" >&2; exit 2 ;;
+    *) echo "usage: check.sh [-q] [-c IDRIS2I_1] [PATH...]" >&2; exit 2 ;;
   esac
 done
 shift $((OPTIND - 1))
 
 if [ -z "$idris" ]; then
-  if command -v idris2 >/dev/null 2>&1; then
-    idris=idris2
-  elif [ -x "$HOME/.idris2/bin/idris2" ]; then
-    idris=$HOME/.idris2/bin/idris2
+  if command -v idris2i-1 >/dev/null 2>&1; then
+    idris=idris2i-1
+  elif [ -x "$HOME/.idris2i-1/bin/idris2i-1" ]; then
+    idris=$HOME/.idris2i-1/bin/idris2i-1
   else
-    echo "check.sh: no idris2 found; pass -c PATH" >&2
+    echo "check.sh: no idris2i-1 found; pass -c PATH" >&2
     exit 2
   fi
 fi

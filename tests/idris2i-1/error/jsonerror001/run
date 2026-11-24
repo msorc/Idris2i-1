@@ -1,0 +1,43 @@
+. ../../../testutils.sh
+
+# One JSON object per diagnostic on stdout; progress lines go to stderr
+for f in Undefined Mismatch Warning Ok; do
+  echo "--- $f"
+  idris2i_1_no_clean --error-format json --check $f.idr 2>/dev/null
+  echo "exit code: $?"
+done
+
+rm -rf build
+echo "--- progress lines are on stderr"
+idris2i_1_no_clean --error-format json --check Ok.idr 2>&1 >/dev/null
+
+rm -rf build
+echo "--- warnings as errors"
+idris2i_1_no_clean --error-format json -Werror --check Warning.idr 2>/dev/null
+echo "exit code: $?"
+
+rm -rf build
+echo "--- build a package"
+idris2i_1_no_clean --error-format json --build broken.ipkg 2>/dev/null
+echo "exit code: $?"
+
+rm -rf build
+echo "--- typecheck a package"
+idris2i_1_no_clean --error-format json --typecheck broken.ipkg 2>/dev/null
+echo "exit code: $?"
+
+echo "--- REPL command"
+idris2i_1_no_clean --error-format json Ok.idr --client 'oops' 2>/dev/null
+echo "exit code: $?"
+
+echo "--- missing file"
+idris2i_1_no_clean --error-format json --check Missing.idr 2>/dev/null
+echo "exit code: $?"
+
+echo "--- human is the default"
+idris2i_1_no_clean --error-format human --check Undefined.idr 2>/dev/null
+echo "exit code: $?"
+
+echo "--- bad format"
+idris2i_1_no_clean --error-format xml --check Ok.idr 2>&1
+echo "exit code: $?"

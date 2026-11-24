@@ -1,0 +1,5 @@
+. ../../../testutils.sh
+
+idris2i-1 --exec main Main.idr -p idris2i-1 > output
+diff expected output
+cmp expected output

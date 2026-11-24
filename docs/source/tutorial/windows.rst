@@ -6,7 +6,7 @@ Prerequisites for Windows
 MSYS2
 -----
 
-To build Idris 2 on Windows, a Unix-like environment is needed for
+To build Idris2i-1 on Windows, a Unix-like environment is needed for
 all the utilities used during the build. `MSYS2 <https://www.msys2.org>`_ provides that for us.
 
     1. Download the latest version of MSYS2.
@@ -32,7 +32,7 @@ Chez Scheme
 Chez Scheme has a ready-made installer at `GitHub <https://github.com/cisco/ChezScheme/releases>`_.
 
     1. Download the installer and run it. Do not install it in a path with spaces - currently,
-       Idris2 has trouble with them.
+       Idris2i-1 has trouble with them.
     2. Add the threaded 64-bit Scheme binary to the PATH. It is the
        ``\bin\ta6nt`` subdirectory where Chez Scheme was installed. So if you used "C:\Chez", it
        will be in ``C:\Chez\bin\ta6nt``.
@@ -43,11 +43,11 @@ Building
 1. Start a fresh MSYS2 shell so that it knows about your
    modified PATH (it's important to use Mingw64 to get
    access to the right compilers).
-2. Navigate to the Idris2 directory.
-3. Set the SCHEME environment variable that Idris2 needs
+2. Navigate to the Idris2i-1 directory.
+3. Set the SCHEME environment variable that Idris2i-1 needs
    ``export SCHEME=scheme``. This can be set permanently in the
    bash profile file or the Windows settings.
-4. Now ``make bootstrap && make install`` should build Idris2 and
-   install it in ``home/<username>/.idris2/bin`` under your MSYS2
+4. Now ``make bootstrap && make install`` should build Idris2i-1 and
+   install it in ``home/<username>/.idris2i-1/bin`` under your MSYS2
    installation. If you add that to the PATH in Windows settings, it
    will be usable from any command line (including Powershell or DOS) that you open.

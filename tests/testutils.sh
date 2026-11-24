@@ -4,7 +4,7 @@
 # It provides a number of test utilities.
 # Usage: . ../../testutils.sh
 
-idris2="$1"
+idris2i_1="$1"
 
 # Delete build files between runs to prevent unexpected differences.
 # As this is at the top-level, this is run when this script is imported.
@@ -25,24 +25,24 @@ fi
 
 # set to number of seconds to enforce a timeout
 TIMEOUT=
-idris2_no_clean() {
+idris2i_1_no_clean() {
     if [ -z "$TIMEOUT" ]; then
-        $idris2 --no-banner --console-width 0 --no-color "$@"
+        $idris2i_1 --no-banner --console-width 0 --no-color "$@"
     else
-        timeout "$TIMEOUT" "$idris2" --no-banner --console-width 0 --no-color "$@"
+        timeout "$TIMEOUT" "$idris2i_1" --no-banner --console-width 0 --no-color "$@"
     fi
 }
 
-idris2() {
-    idris2_no_clean "$@" | clean_names
+idris2i-1() {
+    idris2i_1_no_clean "$@" | clean_names
 }
 
 check() {
-    idris2 --check "$@"
+    idris2i-1 --check "$@"
 }
 
 run() {
-    idris2 --exec main "$@"
+    idris2i-1 --exec main "$@"
 }
 
 safesort() {
@@ -129,11 +129,11 @@ clean_names() {
 }
 
 clean_version() {
-    sed -e "s/$NAME_VERSION/idris2-x.y.z/g"
+    sed -e "s/$NAME_VERSION/idris2i-1-x.y.z/g"
 }
 
 append_package_path() {
-    export IDRIS2_PACKAGE_PATH="$IDRIS2_PACKAGE_PATH$SEP$1"
+    export IDRIS2I_1_PACKAGE_PATH="$IDRIS2I_1_PACKAGE_PATH$SEP$1"
 }
 
 # Folder containing the currently running test
@@ -146,22 +146,22 @@ else
 fi
 
 # Set variables for hygiene testing
-if [ -z "$PREFIX_CHANGED" ] && [ -n "$IDRIS2_PREFIX" ]; then
-    OLD_PREFIX="$IDRIS2_PREFIX"
+if [ -z "$PREFIX_CHANGED" ] && [ -n "$IDRIS2I_1_PREFIX" ]; then
+    OLD_PREFIX="$IDRIS2I_1_PREFIX"
     NEW_PREFIX="$test_dir/prefix"
 
     OLD_PP="$OLD_PREFIX/$NAME_VERSION"
     NEW_PP="$NEW_PREFIX/$NAME_VERSION"
 
     # Set where to look to installed stuff
-    export IDRIS2_PACKAGE_PATH="$OLD_PP$SEP$NEW_PP"
-    # Use TEST_IDRIS2_LIBS and TEST_IDRIS2_DATA to pass locations for
-    # prebuilt libidris2_support and its DATA files.
-    export IDRIS2_LIBS="$OLD_PP/lib$SEP$NEW_PP/lib$SEP$TEST_IDRIS2_LIBS"
-    export IDRIS2_DATA="$OLD_PP/support$SEP$NEW_PP/support$SEP$TEST_IDRIS2_DATA"
+    export IDRIS2I_1_PACKAGE_PATH="$OLD_PP$SEP$NEW_PP"
+    # Use TEST_IDRIS2I_1_LIBS and TEST_IDRIS2I_1_DATA to pass locations for
+    # prebuilt libidris2i_1_support and its DATA files.
+    export IDRIS2I_1_LIBS="$OLD_PP/lib$SEP$NEW_PP/lib$SEP$TEST_IDRIS2I_1_LIBS"
+    export IDRIS2I_1_DATA="$OLD_PP/support$SEP$NEW_PP/support$SEP$TEST_IDRIS2I_1_DATA"
 
     # Set where to install stuff
-    export IDRIS2_PREFIX="$NEW_PREFIX"
+    export IDRIS2I_1_PREFIX="$NEW_PREFIX"
 
     # Save from re-sourcing this file several times
     export PREFIX_CHANGED=1

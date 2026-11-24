@@ -5,7 +5,7 @@
 ||| https://doi.org/10.1145/3571196
 |||
 ||| The original paper relies on Coq's impredicative Set axiom,
-||| something we don't have access to in Idris 2. We can however
+||| something we don't have access to in Idris2i-1. We can however
 ||| reproduce the results by ignoring the type levels
 
 module Control.DivideAndConquer

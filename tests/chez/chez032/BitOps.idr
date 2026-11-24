@@ -1,6 +1,6 @@
 -- Tests bitwise ops for the different data types
 --
--- The tests in `idris2/basic055`, `chez/chez032` and `node/node024` are the
+-- The tests in `idris2i-1/basic055`, `chez/chez032` and `node/node024` are the
 -- same and should all have the same output.
 
 import Data.Stream

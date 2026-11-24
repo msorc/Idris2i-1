@@ -1,5 +1,5 @@
 {
-  description = "Idris2 flake";
+  description = "Idris2i-1 flake";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.idris-emacs-src = {
@@ -10,32 +10,32 @@
 
   outputs = { self, nixpkgs, flake-utils, idris-emacs-src }:
     let
-      idris2Version = "0.8.0";
+      idris2i_1Version = "0.8.0";
       lib = import ./nix/lib.nix;
       sys-agnostic = rec {
         templates.pkg = {
           path = ./nix/templates/pkg;
-          description = "A custom Idris 2 package";
+          description = "A custom Idris2i-1 package";
         };
         templates.pkgWithDeps = {
           path = ./nix/templates/pkgWithDeps;
-          description = "A custom Idris 2 package with dependencies";
+          description = "A custom Idris2i-1 package with dependencies";
         };
         defaultTemplate = templates.pkg;
-        version = idris2Version;
+        version = idris2i_1Version;
         overlays.default = final: prev:
           let
             outputPackages = prev.lib.filterAttrs
-              (n: _: n != "default" && n != "idris2Api")
+              (n: _: n != "default" && n != "idris2i_1Api")
               self.packages.${prev.system};
-            idris2Api = final.callPackage ./nix/idris2Api.nix {
-              inherit (final.idris2Packages) buildIdris;
-              inherit idris2Version;
+            idris2i_1Api = final.callPackage ./nix/idris2i_1Api.nix {
+              inherit (final.idris2i_1Packages) buildIdris;
+              inherit idris2i_1Version;
             };
           in
            {
-             idris2Packages = prev.idris2Packages // outputPackages // { inherit idris2Api; };
-             idris2 = final.idris2Packages.idris2;
+             idris2i_1Packages = prev.idris2i_1Packages // outputPackages // { inherit idris2i_1Api; };
+             idris2i-1 = final.idris2i_1Packages.idris2i-1;
            };
       };
       per-system = { config ? { }, overlays ? [ ] }:
@@ -48,25 +48,25 @@
             pkgs.chez
           else
             pkgs.chez-racket;
-          idris2Support = pkgs.callPackage ./nix/support.nix { inherit idris2Version; };
-          idris2Bootstrap = pkgs.callPackage ./nix/package.nix {
-            inherit idris2Version chez;
-            idris2Bootstrap = null;
-            support = idris2Support;
+          idris2i_1Support = pkgs.callPackage ./nix/support.nix { inherit idris2i_1Version; };
+          idris2i_1Bootstrap = pkgs.callPackage ./nix/package.nix {
+            inherit idris2i_1Version chez;
+            idris2i_1Bootstrap = null;
+            support = idris2i_1Support;
             srcRev = self.shortRev or "dirty";
           };
-          idris2Pkg = pkgs.callPackage ./nix/package.nix {
-            inherit idris2Version chez idris2Bootstrap;
-            support = idris2Support;
+          idris2i_1Pkg = pkgs.callPackage ./nix/package.nix {
+            inherit idris2i_1Version chez idris2i_1Bootstrap;
+            support = idris2i_1Support;
             srcRev = self.shortRev or "dirty";
           };
           buildIdris = pkgs.callPackage ./nix/buildIdris.nix {
-            inherit idris2Version;
-            idris2 = idris2Pkg;
-            support = idris2Support;
+            inherit idris2i_1Version;
+            idris2i-1 = idris2i_1Pkg;
+            support = idris2i_1Support;
           };
-          idris2ApiPkg = pkgs.callPackage ./nix/idris2Api.nix {
-            inherit idris2Version buildIdris;
+          idris2i_1ApiPkg = pkgs.callPackage ./nix/idris2i_1Api.nix {
+            inherit idris2i_1Version buildIdris;
           };
         in {
           checks = import ./nix/test.nix {
@@ -75,16 +75,16 @@
             idris = self;
           };
           packages = rec {
-            support = idris2Support;
-            idris2 = idris2Pkg;
-            idris2Api = idris2ApiPkg.library { withSource = true; };
-            default = idris2;
+            support = idris2i_1Support;
+            idris2i-1 = idris2i_1Pkg;
+            idris2i_1Api = idris2i_1ApiPkg.library { withSource = true; };
+            default = idris2i-1;
           } // (import ./nix/text-editor.nix {
-            inherit pkgs idris-emacs-src idris2Pkg;
+            inherit pkgs idris-emacs-src idris2i_1Pkg;
           });
           inherit buildIdris;
           devShells.default = pkgs.mkShell{
-            packages = idris2Pkg.buildInputs;
+            packages = idris2i_1Pkg.buildInputs;
           };
         };
     in lib.mkOvrOptsFlake

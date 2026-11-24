@@ -2,9 +2,9 @@
 . ../../tls/gencerts.sh
 
 mkdir -p build/src && cp ../common/HttpsTest.idr Main.idr build/src/ && cd build/src
-idris2 -p contrib -p network -p http -p tls -p http-tls -o main Main.idr
-IDRIS2_WORKERS=1 timeout 120 ./build/exec/main "$certs"
+idris2i-1 -p contrib -p network -p http -p tls -p http-tls -o main Main.idr
+IDRIS2I_1_WORKERS=1 timeout 120 ./build/exec/main "$certs"
 echo "=== 4 workers"
-IDRIS2_WORKERS=4 timeout 120 ./build/exec/main "$certs"
+IDRIS2I_1_WORKERS=4 timeout 120 ./build/exec/main "$certs"
 cd ../..
 rm -rf certs build

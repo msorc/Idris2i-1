@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr > /dev/null
+idris2i-1 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 # The foreign functions of fixed width integers have workers that take and
 # give the C integers, and the loops of `sumBytes` and `mixWords` call them
@@ -8,12 +8,12 @@ $VALGRIND ./build/exec/main
 c=build/exec/main.c
 for f in prim__peek8 prim__peek64 prim__poke8 cabs cabs32; do
   # (the worker of a `RefC:` function is `static inline`, see inlineforeign001)
-  echo "$f: $(grep "^\(static inline \)\{0,1\}[A-Za-z0-9_]* *\*\{0,1\}idris2_raw_Main_$f(" $c | sed 's/(.*//' | sort -u)"
+  echo "$f: $(grep "^\(static inline \)\{0,1\}[A-Za-z0-9_]* *\*\{0,1\}idris2i_1_raw_Main_$f(" $c | sed 's/(.*//' | sort -u)"
 done
 for f in sumBytes mixWords; do
   # (the definition of the worker, from its name to the closing brace)
-  body=$(awk -v f="idris2_raw_Main_$f" '$0 ~ (f "$") { buf = ""; on = 1 }
+  body=$(awk -v f="idris2i_1_raw_Main_$f" '$0 ~ (f "$") { buf = ""; on = 1 }
            on { buf = buf $0 "\n" } on && /^\);$/ { on = 0 } on && /^}$/ { printf "%s", buf; on = 0 }' $c)
-  echo "$f: $(echo "$body" | grep -c "idris2_raw_Main_prim__peek") reads, values made: $(echo "$body" | grep -c 'idris2_mkBits\|idris2_vp_to_\|idris2_mkInt64\|idris2_removeReference')"
+  echo "$f: $(echo "$body" | grep -c "idris2i_1_raw_Main_prim__peek") reads, values made: $(echo "$body" | grep -c 'idris2i_1_mkBits\|idris2i_1_vp_to_\|idris2i_1_mkInt64\|idris2i_1_removeReference')"
 done
 rm -rf build

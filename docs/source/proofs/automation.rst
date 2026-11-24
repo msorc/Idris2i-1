@@ -4,7 +4,7 @@
 Proof Automation
 ****************
 
-Idris has no tactic language, but elaborator reflection (the ``Elab`` monad
+Idris2i-1 has no tactic language, but elaborator reflection (the ``Elab`` monad
 of ``Language.Reflection``, run with ``%runElab`` or in a ``%macro``) lets a
 library inspect the goal and build the proof term. This section describes the
 primitives that a tactic or a solver needs, the derivers built on them, and a

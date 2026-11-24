@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 \
+idris2i-1 \
   --exec 'putStrLn "Hello!"' \
   --exec 'putStrLn "1 + 2 = \{show $ 1 + 2}"' \
   --exec 'putStrLn "Bye!"'

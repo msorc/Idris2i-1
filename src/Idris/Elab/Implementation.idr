@@ -79,12 +79,12 @@ addDefaults fc impName params allms defs body
                     -- are going to be referring to the present implementation.
                     -- That is, default method implementations could depend on
                     -- other methods.
-                    -- (See test idris2/interface014 for an example!)
+                    -- (See test idris2i-1/interface014 for an example!)
 
                     -- Similarly if any parameters appear in the clauses, they should
                     -- be substituted for the actual parameters because they are going
                     -- to be referring to unbound variables otherwise.
-                    -- (See test idris2/interface018 for an example!)
+                    -- (See test idris2i-1/interface018 for an example!)
                     let mupdates = params ++ map specialiseMeth allms
                         cs' = map (substNamesClause [] mupdates) cs in
                         extendBody ms ns

@@ -175,7 +175,7 @@ A crash of a handler (``idris_crash``, a missing case of a partial function,
 an index out of a ``Buffer``) ends only its request: the server runs every
 handler in a crash boundary (``System.Crash.catchCrash``).  The error log of
 the configuration gets the message (and the backtrace, with
-``IDRIS2_REFC_BACKTRACE=1``), the access log gets the request, and the client
+``IDRIS2I_1_REFC_BACKTRACE=1``), the access log gets the request, and the client
 gets 500 if no part of the response was sent; over HTTP/1.1 the connection is
 then closed, over HTTP/2 only the stream ends (reset with ``INTERNAL_ERROR`` if
 its response had started).  A WebSocket session that crashes is closed with
@@ -195,16 +195,16 @@ and ``http``:
 .. code-block:: bash
 
     cd samples/webservice
-    idris2 --build webservice.ipkg
+    idris2i-1 --build webservice.ipkg
     ./build/exec/webservice 8080
 
     curl -d '{"title": "write the docs"}' http://127.0.0.1:8080/todos
     curl http://127.0.0.1:8080/todos
 
 The RefC back end (the default) gives green threads and the reactor of
-non-blocking sockets.  It runs one worker per processor; ``IDRIS2_WORKERS=1``
-runs every thread on one OS thread, ``IDRIS2_WORKERS=4`` on four.  Each
-green thread has a stack of 8 MB of address space (``IDRIS2_THREAD_STACK_SIZE``)
+non-blocking sockets.  It runs one worker per processor; ``IDRIS2I_1_WORKERS=1``
+runs every thread on one OS thread, ``IDRIS2I_1_WORKERS=4`` on four.  Each
+green thread has a stack of 8 MB of address space (``IDRIS2I_1_THREAD_STACK_SIZE``)
 of which only the pages it touches use memory, so an idle connection costs
 little.  On Chez and Racket the same program works with an OS thread per
 connection, each read and write blocking its thread.
@@ -240,7 +240,7 @@ routes over TLS.  ``samples/webservice/Https.idr`` is the sample over HTTPS
     openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
       -keyout key.pem -out cert.pem -days 30 -subj /CN=localhost \
       -addext subjectAltName=DNS:localhost,IP:127.0.0.1
-    idris2 --build webservice-https.ipkg
+    idris2i-1 --build webservice-https.ipkg
     ./build/exec/webservice-https 8443 cert.pem key.pem
     curl --cacert cert.pem https://localhost:8443/todos
 

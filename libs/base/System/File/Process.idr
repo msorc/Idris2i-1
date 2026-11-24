@@ -10,41 +10,41 @@ import public System.File.Types
 %foreign "C:fflush,libc 6"
          "node:lambda:()=>0"
 prim__flush : FilePtr -> PrimIO Int
-%foreign supportC "idris2_popen"
+%foreign supportC "idris2i_1_popen"
          supportNode "popen"
 prim__popen : String -> String -> PrimIO FilePtr
-%foreign supportC "idris2_pclose"
+%foreign supportC "idris2i_1_pclose"
          supportNode "pclose"
 prim__pclose : FilePtr -> PrimIO Int
 
 data Popen2Result : Type where [external]
 
-%foreign supportC "idris2_popen2"
+%foreign supportC "idris2i_1_popen2"
          supportNode "popen2"
 prim__popen2 : String -> PrimIO (Ptr Popen2Result)
 
-%foreign supportC "idris2_popen2WaitByPid"
+%foreign supportC "idris2i_1_popen2WaitByPid"
          supportNode "popen2WaitByPid"
 covering -- significantly non-total
 prim__popen2WaitByPid : Int -> PrimIO Int
-%foreign supportC "idris2_popen2WaitByHandler"
+%foreign supportC "idris2i_1_popen2WaitByHandler"
          supportNode "popen2WaitByHandler"
 covering -- significantly non-total
 prim__popen2WaitByHandler : AnyPtr -> PrimIO Int
 
-%foreign supportC "idris2_popen2ChildPid"
+%foreign supportC "idris2i_1_popen2ChildPid"
          supportNode "popen2ChildPid"
 prim__popen2ChildPid : Ptr Popen2Result -> PrimIO Int
 
-%foreign supportC "idris2_popen2ChildHandler"
+%foreign supportC "idris2i_1_popen2ChildHandler"
          supportNode "popen2ChildHandler"
 prim__popen2ChildHandler : Ptr Popen2Result -> PrimIO AnyPtr
 
-%foreign supportC "idris2_popen2FileIn"
+%foreign supportC "idris2i_1_popen2FileIn"
          supportNode "popen2FileIn"
 prim__popen2FileIn : Ptr Popen2Result -> PrimIO FilePtr
 
-%foreign supportC "idris2_popen2FileOut"
+%foreign supportC "idris2i_1_popen2FileOut"
          supportNode "popen2FileOut"
 prim__popen2FileOut : Ptr Popen2Result -> PrimIO FilePtr
 
@@ -64,7 +64,7 @@ fflush (FHandle f)
 ||| With the NodeJS backend the process runs at the same time as the program,
 ||| as with the others, when the program runs in the worker thread that Node
 ||| programs use by default.  When it runs on the main thread
-||| (`IDRIS2_MAIN_STACK_SIZE=0`), only the Read mode is supported, and the
+||| (`IDRIS2I_1_MAIN_STACK_SIZE=0`), only the Read mode is supported, and the
 ||| process finishes execution before popen returns.
 |||
 ||| @ cmd the command to pass to the shell
@@ -111,7 +111,7 @@ record SubProcess where
 |||            its output.  It is recommended to read and write from separate threads.
 |||
 ||| On Node, this needs the worker thread that runs `main` by default: when
-||| the program runs on the main thread (`IDRIS2_MAIN_STACK_SIZE=0`), it
+||| the program runs on the main thread (`IDRIS2I_1_MAIN_STACK_SIZE=0`), it
 ||| stops with an error.
 %spec hio
 export

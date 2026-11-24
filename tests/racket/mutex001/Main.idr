@@ -1,4 +1,4 @@
--- Idris2
+-- Idris2i-1
 
 import System.Concurrency
 

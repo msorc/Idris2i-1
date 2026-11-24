@@ -5,7 +5,7 @@
 #include <time.h>
 
 // See random.h.  `lock` guards the state.
-static Idris2_SpinLock lock = 0;
+static Idris2i_1_SpinLock lock = 0;
 static uint64_t state[4];
 static int seeded = 0;
 
@@ -26,13 +26,13 @@ static void seed_locked(uint64_t seed) {
 }
 
 static uint64_t next(void) {
-  idris2_spinLock(&lock);
+  idris2i_1_spinLock(&lock);
   if (!seeded) {
     // The time of the day and the monotonic clock, in nanoseconds, and the
     // address of a variable (which changes from run to run where the address
     // space is randomised).
     uint64_t seed = (uint64_t)time(NULL) * UINT64_C(1000000007);
-    seed ^= (uint64_t)idris2_monotonicNanoseconds();
+    seed ^= (uint64_t)idris2i_1_monotonicNanoseconds();
     seed ^= (uint64_t)(uintptr_t)&seed << 20;
     seed_locked(seed);
   }
@@ -45,14 +45,14 @@ static uint64_t next(void) {
   s[0] ^= s[3];
   s[2] ^= t;
   s[3] = rotl(s[3], 45);
-  idris2_spinUnlock(&lock);
+  idris2i_1_spinUnlock(&lock);
   return result;
 }
 
 void refc_randomSeed(uint64_t seed) {
-  idris2_spinLock(&lock);
+  idris2i_1_spinLock(&lock);
   seed_locked(seed);
-  idris2_spinUnlock(&lock);
+  idris2i_1_spinUnlock(&lock);
 }
 
 uint32_t refc_randomBits32(uint32_t bound) {

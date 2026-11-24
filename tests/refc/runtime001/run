@@ -1,9 +1,9 @@
 . ../../testutils.sh
 
 # The expected output is that of the Chez backend (`--cg chez`).
-idris2 -o copydata CopyData.idr > /dev/null
+idris2i-1 -o copydata CopyData.idr > /dev/null
 $VALGRIND ./build/exec/copydata
 
-idris2 -o crash Crash.idr > /dev/null
+idris2i-1 -o crash Crash.idr > /dev/null
 ./build/exec/crash
 echo "exit code: $?"

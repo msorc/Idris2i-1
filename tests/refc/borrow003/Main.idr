@@ -4,7 +4,7 @@ import System.Concurrency
 
 data SomePointer : Type where
 
-%foreign "C:idris2_getNull, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getNull, libidris2i_1_support, idris_support.h"
 getTypedPointer : PrimIO (Ptr SomePointer)
 
 -- A borrowed list handed over to another thread: the forked action takes

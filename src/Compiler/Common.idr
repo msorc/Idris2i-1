@@ -37,11 +37,11 @@ data ControlFlow = Continue | Abort
 public export
 record Codegen where
   constructor MkCG
-  ||| Compile an Idris 2 expression, saving it to a file.
+  ||| Compile an Idris2i-1 expression, saving it to a file.
   compileExpr : Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
                 (tmpDir : String) -> (outputDir : String) ->
                 ClosedTerm -> (outfile : String) -> Core (Maybe String)
-  ||| Execute an Idris 2 expression directly. Returns the exit code of the
+  ||| Execute an Idris2i-1 expression directly. Returns the exit code of the
   ||| program: 0 when it succeeded, 128 + the number of the signal when it was
   ||| killed by one (as shells report it).
   executeExpr : Ref Ctxt Defs -> Ref Syn SyntaxInfo ->
@@ -134,9 +134,9 @@ execute {c} {s} cg tm
 -- The C library's `system`, which gives the wait status of the command.
 -- `system` of base now gives the same result as `runCommand` (128 + the
 -- number of the signal for a command killed by one), but its C part,
--- `idris2_system`, comes from the support library: a compiler built with
+-- `idris2i_1_system`, comes from the support library: a compiler built with
 -- RefC links the static support library of the compiler that builds it,
--- whose `idris2_system` can be an older one giving -1 for a killed command.
+-- whose `idris2i_1_system` can be an older one giving -1 for a killed command.
 -- So this private copy stays until the compilers that build this one are
 -- installed with the new support library; `runCommand` can then be
 -- `system` of base, lifted to `Core`.

@@ -20,7 +20,7 @@ prim__freeGreeting : Ptr String -> PrimIO ()
 
 -- Copies the C string.  An IO action, not the pure `prim__getString`, so that
 -- the copy is made before the string is freed.
-%foreign "C:idris2_getString, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getString, libidris2i_1_support, idris_support.h"
 prim__copyString : Ptr String -> PrimIO String
 
 greeting : HasIO io => String -> io (Maybe String)

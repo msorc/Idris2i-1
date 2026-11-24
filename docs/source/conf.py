@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.abspath("."))
 # -- Project information -----------------------------------------------------
 
 # General information about the project.
-project = "Idris2"
+project = "Idris2i-1"
 copyright = "2020-2026, The Idris Community"
 author = "The Idris Community"
 
@@ -87,7 +87,7 @@ master_doc = "index"
 # a list of builtin themes.
 html_theme = "sphinx_book_theme"
 
-html_title = "Idris 2.0 Documentation"
+html_title = "Idris2i-1.0 Documentation"
 html_logo = "../../icons/idris-128x128.png"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

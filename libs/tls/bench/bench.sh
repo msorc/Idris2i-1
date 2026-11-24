@@ -4,12 +4,12 @@
 # of the sending and receiving processes for a bulk transfer through TLS and
 # through a plain socket, with 1 and 4 workers.
 #
-# Usage: IDRIS2=<idris2> sh bench.sh [handshakes] [MB]   (in this directory,
+# Usage: IDRIS2I_1=<idris2i-1> sh bench.sh [handshakes] [MB]   (in this directory,
 # with the tls library built or installed for the compiler)
 set -e
 n=${1:-2000}
 mb=${2:-512}
-idris2=${IDRIS2:-idris2}
+idris2i_1=${IDRIS2I_1:-idris2i-1}
 here=$(pwd)
 work=${TMPDIR:-/tmp}/tls-bench.$$
 mkdir -p "$work"
@@ -17,7 +17,7 @@ trap 'rm -rf "$work"' EXIT
 cd "$work"
 . "$here/../../../tests/tls/gencerts.sh"
 cp "$here/Bench.idr" .
-"$idris2" -p network -p tls -o bench Bench.idr > build.log || { cat build.log; exit 1; }
+"$idris2i_1" -p network -p tls -o bench Bench.idr > build.log || { cat build.log; exit 1; }
 bench=./build/exec/bench
 
 stat() { # label, command...
@@ -35,16 +35,16 @@ echo "what,workers,instructions,task-clock ms"
 for w in 1 4; do
   for key in server rsa; do
     rm -f "$work/port"
-    IDRIS2_WORKERS=$w stat "handshakes $n server $key,$w" $bench hs-server "$certs" $key "$work/port" $n &
+    IDRIS2I_1_WORKERS=$w stat "handshakes $n server $key,$w" $bench hs-server "$certs" $key "$work/port" $n &
     p=$(waitport)
-    IDRIS2_WORKERS=$w stat "handshakes $n client $key,$w" $bench hs-client "$certs" $p $n 16
+    IDRIS2I_1_WORKERS=$w stat "handshakes $n client $key,$w" $bench hs-client "$certs" $p $n 16
     wait
   done
   for kind in tls plain; do
     rm -f "$work/port"
-    IDRIS2_WORKERS=$w stat "bulk $mb MB send $kind,$w" $bench bulk-server $kind "$certs" "$work/port" $mb &
+    IDRIS2I_1_WORKERS=$w stat "bulk $mb MB send $kind,$w" $bench bulk-server $kind "$certs" "$work/port" $mb &
     p=$(waitport)
-    IDRIS2_WORKERS=$w stat "bulk $mb MB recv $kind,$w" $bench bulk-client $kind "$certs" $p $mb
+    IDRIS2I_1_WORKERS=$w stat "bulk $mb MB recv $kind,$w" $bench bulk-client $kind "$certs" $p $mb
     wait
   done
 done

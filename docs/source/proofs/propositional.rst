@@ -1,4 +1,4 @@
-This page attempts to explain some of the techniques used in Idris to prove
+This page attempts to explain some of the techniques used in Idris2i-1 to prove
 propositional equalities.
 
 Proving Propositional Equality
@@ -77,7 +77,7 @@ Rewrite
 
 In practice, ``replace`` can be
 a little tricky to use because in general the implicit argument ``prop``
-can be hard to infer for the machine, so Idris provides a high level
+can be hard to infer for the machine, so Idris2i-1 provides a high level
 syntax which calculates the property and applies ``replace``.
 
 Example: again we supply ``p1 x`` which is a proof that ``x=2`` and the equality

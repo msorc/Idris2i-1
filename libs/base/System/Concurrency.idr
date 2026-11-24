@@ -7,7 +7,7 @@
 |||
 ||| The RefC backend implements these in terms of green threads: user level
 ||| threads that run in parallel on a pool of OS threads (one per processor,
-||| or `IDRIS2_WORKERS`).
+||| or `IDRIS2I_1_WORKERS`).
 |||
 ||| The JavaScript back ends have a single thread and no `fork`: `fork` and
 ||| `System.Future` stop the program with an error.  The other primitives work

@@ -23,10 +23,10 @@ import Libraries.Data.StringMap
 
 %default covering
 
-%foreign "C:idris2_processCPUTimeNs, libidris2_support, idris_system.h"
+%foreign "C:idris2i_1_processCPUTimeNs, libidris2i_1_support, idris_system.h"
 prim__processCPUTimeNs : PrimIO Int
 
-%foreign "C:idris2_peakRSSKiB, libidris2_support, idris_system.h"
+%foreign "C:idris2i_1_peakRSSKiB, libidris2i_1_support, idris_system.h"
 prim__peakRSSKiB : PrimIO Int
 
 ||| The processor time used by the process so far, in nanoseconds

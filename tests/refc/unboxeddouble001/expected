@@ -23,16 +23,16 @@ True
 -3.0
 [("66.7", 131.4), ("0.0", -2.0), ("1114113.0", 2228224.0), ("+nan.0", +nan.0), ("1.0000001", 2e-7), ("1e21", 2e21)]
 [17.75, 2.083333333333333, 5.555555555555556, 4.0]
-sumTo: double idris2_raw_Main_sumTo
-harmonic: double idris2_raw_Main_harmonic
-ping: Idris2_Value *idris2_raw_Main_ping
-pong: Idris2_Value *idris2_raw_Main_pong
-many: double idris2_raw_Main_many
-norm: double idris2_raw_Main_norm
-addM: double idris2_raw_Main_addM
-halfIO: double idris2_raw_Main_halfIO
-fmax: double idris2_raw_Main_fmax
-prim__copysign: double idris2_raw_Main_prim__copysign
+sumTo: double idris2i_1_raw_Main_sumTo
+harmonic: double idris2i_1_raw_Main_harmonic
+ping: Idris2i_1_Value *idris2i_1_raw_Main_ping
+pong: Idris2i_1_Value *idris2i_1_raw_Main_pong
+many: double idris2i_1_raw_Main_many
+norm: double idris2i_1_raw_Main_norm
+addM: double idris2i_1_raw_Main_addM
+halfIO: double idris2i_1_raw_Main_halfIO
+fmax: double idris2i_1_raw_Main_fmax
+prim__copysign: double idris2i_1_raw_Main_prim__copysign
 sumTo makes values: 0
 ping jumps to pong: 1
 same output with the Doubles in values

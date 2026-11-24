@@ -12,8 +12,8 @@ pre code {
 }
 </style>
 
-<img src="idris-logo-base.png" style="float:right" alt="Idris 2 logo"/>
-Welcome to Idris2!
+<img src="idris-logo-base.png" style="float:right" alt="Idris2i-1 logo"/>
+Welcome to Idris2i-1!
 ==================
 
 [Idris](https://www.idris-lang.org/) is a programming language designed to encourage
@@ -27,20 +27,20 @@ you can write a simple hello-world by opening a `Main.idr` file and writing:
 ```idris
 module Main
 
-||| My first Idris2 function
+||| My first Idris2i-1 function
 main : IO ()
-main = putStrLn "Hello, and welcome to Idris2!"
+main = putStrLn "Hello, and welcome to Idris2i-1!"
 ```
 
 You can run this example by using the `--exec ENTRYPOINT` option.
-The command `idris2 --exec main Main.idr` will compile the module and immediately run `main`.
+The command `idris2i-1 --exec main Main.idr` will compile the module and immediately run `main`.
 
 The line starting with a triple pipe (`|||`) attaches documentation to the identifier. You
-can consult it by loading the file in the REPL (`idris2 Main.idr`) and querying the compiler
+can consult it by loading the file in the REPL (`idris2i-1 Main.idr`) and querying the compiler
 using the `:doc` command: `:doc main` will return:
 
     Main.main : IO ()
-      My first Idris2 function
+      My first Idris2i-1 function
       Visibility: private
 
 You should be able to use `:doc` on identifiers (e.g. `main`, `IO`, `()`, `putStrLn`, etc.) and
@@ -71,24 +71,24 @@ For more information about specific entries, you can then use `:doc`.
 
 The `contrib` library contains a bit of everything. It will eventually be disbanded in favour of
 third-party packages once we have a convenient package manager. To use modules defined in it, you
-can pass the `-p contrib` option to `idris2`.
+can pass the `-p contrib` option to `idris2i-1`.
 
 #### [Linear](https://idris-lang.github.io/Idris2/linear)
 
 `linear` is the add-on to `base` you'll need for programs using linearity. Similarly to `contrib`,
-you will need to pass `-p linear` to `idris2` to use modules defined in it.
+you will need to pass `-p linear` to `idris2i-1` to use modules defined in it.
 
 #### [Network](https://idris-lang.github.io/Idris2/network)
 
 `network` is the add-on to `base` you'll need for programs using sockets.
 Similarly to `contrib` and `linear`, you will need to pass `-p network`
-to `idris2` to use modules defined in it.
+to `idris2i-1` to use modules defined in it.
 
 #### [Test](https://idris-lang.github.io/Idris2/test)
 
 `test` is the add-on to `base` you'll need to write test suites.
 Similarly to other add-ons, you will need to pass `-p test` to
-`idris2` to use modules defined in it.
+`idris2i-1` to use modules defined in it.
 
 #### [Papers](https://idris-lang.github.io/Idris2/papers)
 

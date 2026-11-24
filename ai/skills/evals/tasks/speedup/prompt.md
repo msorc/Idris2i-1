@@ -2,4 +2,4 @@
 seconds and I need `report 20000`. Find out why and make it fast.
 
 The output must stay exactly the same for every limit. Keep it a single file built with
-`idris2 Report.idr -o report`, pure Idris (no FFI). Tell me briefly what was slow.
+`idris2i-1 Report.idr -o report`, pure Idris2i-1 (no FFI). Tell me briefly what was slow.

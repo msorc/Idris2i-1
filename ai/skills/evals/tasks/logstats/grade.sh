@@ -8,7 +8,7 @@ the files are processed in threads that report over a channel"
 
 rm -rf build
 if [ -f build.sh ]; then
-  IDRIS2=$IDRIS PATH="$(dirname "$IDRIS"):$PATH" sh build.sh >"$GRADE_TMP/build.log" 2>&1
+  IDRIS2I_1=$IDRIS PATH="$(dirname "$IDRIS"):$PATH" sh build.sh >"$GRADE_TMP/build.log" 2>&1
 else
   "$IDRIS" --no-color Logstats.idr -o logstats >"$GRADE_TMP/build.log" 2>&1
 fi

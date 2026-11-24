@@ -90,7 +90,7 @@ mutual
   data Exp : Type where
     ||| A variable or projection. Minimal expressions
     ||| will always be inlined unless explicitly bound
-    ||| in an Idris2 `let` expression.
+    ||| in an Idris2i-1 `let` expression.
     EMinimal  : Minimal -> Exp
 
     ||| Lambda expression

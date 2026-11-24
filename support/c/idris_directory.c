@@ -10,16 +10,16 @@
 
 #include "idris_util.h"
 
-char *idris2_currentDirectory() {
+char *idris2i_1_currentDirectory() {
   char *cwd = malloc(1024); // probably ought to deal with the unlikely event of
                             // this being too small
-  IDRIS2_VERIFY(cwd, "malloc failed");
+  IDRIS2I_1_VERIFY(cwd, "malloc failed");
   return getcwd(cwd, 1024); // Freed by RTS
 }
 
-int idris2_changeDir(char *dir) { return chdir(dir); }
+int idris2i_1_changeDir(char *dir) { return chdir(dir); }
 
-int idris2_createDir(char *dir) {
+int idris2i_1_createDir(char *dir) {
 #ifdef _WIN32
   return mkdir(dir);
 #else
@@ -31,30 +31,30 @@ typedef struct {
   DIR *dirptr;
 } DirInfo;
 
-void *idris2_openDir(char *dir) {
+void *idris2i_1_openDir(char *dir) {
   DIR *d = opendir(dir);
   if (d == NULL) {
     return NULL;
   } else {
     DirInfo *di = malloc(sizeof(DirInfo));
-    IDRIS2_VERIFY(di, "malloc failed");
+    IDRIS2I_1_VERIFY(di, "malloc failed");
     di->dirptr = d;
 
     return (void *)di;
   }
 }
 
-void idris2_closeDir(void *d) {
+void idris2i_1_closeDir(void *d) {
   DirInfo *di = (DirInfo *)d;
 
-  IDRIS2_VERIFY(closedir(di->dirptr) == 0, "closedir failed: %s",
+  IDRIS2I_1_VERIFY(closedir(di->dirptr) == 0, "closedir failed: %s",
                 strerror(errno));
   free(di);
 }
 
-int idris2_removeDir(char *path) { return rmdir(path); }
+int idris2i_1_removeDir(char *path) { return rmdir(path); }
 
-char *idris2_nextDirEntry(void *d) {
+char *idris2i_1_nextDirEntry(void *d) {
   DirInfo *di = (DirInfo *)d;
   // `readdir` keeps `errno` unchanged on end of stream
   // so we need to reset `errno` to distinguish between

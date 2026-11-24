@@ -1,0 +1,7 @@
+. ../../../testutils.sh
+
+# When every candidate of an overloaded name fails, the location of the
+# error is where the name is used
+idris2i_1_no_clean --error-format json --check Overloaded.idr 2>/dev/null
+echo "exit code: $?"
+rm -rf build

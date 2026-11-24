@@ -4,9 +4,9 @@
 Packages
 ********
 
-Idris includes a simple build system for building packages and executables
+Idris2i-1 includes a simple build system for building packages and executables
 from a named package description file. These files can be used with the
-Idris compiler to manage the development process.
+Idris2i-1 compiler to manage the development process.
 
 Package Descriptions
 ====================
@@ -16,7 +16,7 @@ A package description includes the following:
 + A header, consisting of the keyword ``package`` followed by the package name.
   Package names are typically written in kebab-case (e.g. ``my-lib``,
   ``idris2-json``), and may include hyphens (``-``). This is allowed even though
-  hyphens are not valid characters in ordinary Idris identifiers. The iPKG
+  hyphens are not valid characters in ordinary Idris2i-1 identifiers. The iPKG
   format also takes a quoted version that accepts any valid filename.
 
 + Fields describing package contents, ``<field> = <value>``.
@@ -36,10 +36,10 @@ package file would be:
             , Maths.BinOps
             , Maths.HexOps
 
-Running ``idris2 --init`` will interactively create a new package file in the current directory. The generated package file lists all configurable fields with a brief description.
+Running ``idris2i-1 --init`` will interactively create a new package file in the current directory. The generated package file lists all configurable fields with a brief description.
 
 Other examples of package files can be found in the ``libs`` directory
-of the main Idris repository, in the
+of the main Idris2i-1 repository, in the
 `pack collection <https://github.com/stefan-hoeck/idris2-pack-db/blob/main/collections/HEAD.toml>`_,
 and in
 `third-party libraries <https://github.com/idris-lang/Idris2/wiki/Third-party-Libraries>`_.
@@ -48,17 +48,17 @@ and in
 Using Package files
 ===================
 
-Idris itself is aware about packages, and special commands are
+Idris2i-1 itself is aware about packages, and special commands are
 available to help with, for example, building packages, installing
 packages, and cleaning packages.  For instance, given the ``maths``
-package from earlier we can use Idris as follows:
+package from earlier we can use Idris2i-1 as follows:
 
-+ ``idris2 --build maths.ipkg`` will build all modules in the package
++ ``idris2i-1 --build maths.ipkg`` will build all modules in the package
 
-+ ``idris2 --install maths.ipkg`` will install the package, making it
-  accessible by other Idris libraries and programs.
++ ``idris2i-1 --install maths.ipkg`` will install the package, making it
+  accessible by other Idris2i-1 libraries and programs.
 
-+ ``idris2 --clean maths.ipkg`` will delete all intermediate code and
++ ``idris2i-1 --clean maths.ipkg`` will delete all intermediate code and
   executable files generated when building.
 
 Once the maths package has been installed, the command line option
@@ -67,7 +67,7 @@ For example:
 
 ::
 
-    idris2 -p maths Main.idr
+    idris2i-1 -p maths Main.idr
 
 Package Dependencies Using Atom
 ===============================

@@ -11,7 +11,7 @@ unless they say otherwise.
 
 * Everything network-related has only been run on Linux. The kqueue back end
   of the reactor (`support/refc/reactor.c`, for macOS and the BSDs) has never
-  been built or run; the `poll` fallback (`-DIDRIS2_REACTOR_POLL`) has.
+  been built or run; the `poll` fallback (`-DIDRIS2I_1_REACTOR_POLL`) has.
 * macOS and BSD paths that are written but untested: `SO_NOSIGPIPE` and the
   `fcntl` fallback of the non-blocking sockets, the `dlsym` lookup of the
   runtime hooks in `support/c/idris_net_async.c`, `getentropy` for WebSocket
@@ -29,12 +29,12 @@ unless they say otherwise.
 
 ### RefC runtime
 
-* A program built with `-DIDRIS2_SINGLE_WORKER` has no safepoints and no
+* A program built with `-DIDRIS2I_1_SINGLE_WORKER` has no safepoints and no
   monitor thread: a thread that computes starves all the others, a server
-  included. Use `IDRIS2_WORKERS=1` instead.
+  included. Use `IDRIS2I_1_WORKERS=1` instead.
 * A cycle made only of closure calls that are not tail calls (recursion
   through interface methods, for example) is not preempted. A safepoint in
-  `idris2_call_closure` would cover it and cost about 1% on the compiler.
+  `idris2i_1_call_closure` would cover it and cost about 1% on the compiler.
 * A descriptor that becomes ready can wait about 1 ms before its thread
   runs, and up to about 11 ms when all the workers have just become busy.
 * Crash boundaries (`System.Crash.catchCrash`) do not catch signals (stack
@@ -91,13 +91,13 @@ unless they say otherwise.
   check.
 * `-p pkg` on the command line does not load the packages that `pkg` depends
   on (`-p http` needs `-p contrib` too), unlike `depends` in an `.ipkg`.
-* A `..` component in `IDRIS2_PREFIX` or a package directory makes every
+* A `..` component in `IDRIS2I_1_PREFIX` or a package directory makes every
   module lookup slower (+38% on checking an empty module).
 * A long `do` block is checked in time that grows faster than its length
   (200 statements take about 1.9 s), mostly in nested delayed case blocks;
   untyped numeric literals make it much worse.
 * Type-level evaluation of a long computation is slow and deep
-  (`tests/idris2/perf/perf013`: 135 G instructions and 1.6 GB).
+  (`tests/idris2i-1/perf/perf013`: 135 G instructions and 1.6 GB).
 * Ideas measured but not built: skipping the retry of a search whose goal
   has not changed (up to 40% of the time spent in search), worker processes
   of `--jobs` that build more than one module (4 to 8%), a mutable cursor
@@ -138,7 +138,7 @@ unless they say otherwise.
 * Quantities: without quantity variables (experimental, below) a
   higher-order function over a type with linear fields needs one copy for
   linear function arguments and one for unrestricted ones (`map`, `foldr`,
-  ... in `tests/idris2/linear/linear022`); `tests/idris2/linear/linear023`
+  ... in `tests/idris2i-1/linear/linear022`); `tests/idris2i-1/linear/linear023`
   writes `map` once with `%q`. The mirror types of `libs/linear` (`LList`,
   `LMaybe`, `LEither`, ...) and the linear copies of interface methods
   (`Functor`, `Bifunctor`, `HasIO`) stay.
@@ -270,7 +270,7 @@ unless they say otherwise.
   workers), and passed when run again: a race that has not been found.
 * `tls`: session resumption and the paths where a read has to write (key
   update) are not covered by a test; there are no verification callbacks in
-  Idris.
+  Idris2i-1.
 * JSON (contrib): numbers are `Double`s, so integers above 2^53 lose
   precision. A derived decoder is fast only when the members come in the
   order of the fields, once each and with nothing else; any other document

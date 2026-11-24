@@ -1,4 +1,4 @@
-I need a small command-line tool in Idris 2 called `wordfreq`.
+I need a small command-line tool in Idris2i-1 called `wordfreq`.
 
 `wordfreq FILE` prints the 10 most frequent words of the file, one per line as
 `<count> <word>`, most frequent first; words with the same count go in alphabetical
@@ -11,4 +11,4 @@ exit with status 2. If the file cannot be read: print a message on standard erro
 exit with status 1.
 
 Make it a package: `wordfreq.ipkg` in the current directory, sources under `src/`, so
-that `idris2 --build wordfreq.ipkg` produces `build/exec/wordfreq`.
+that `idris2i-1 --build wordfreq.ipkg` produces `build/exec/wordfreq`.

@@ -19,16 +19,16 @@ out="$root/build/bench"
 here="$root/benchmark/http"
 conns=${CONNS:-64}
 # the libraries of the build tree
-export IDRIS2_PREFIX=${IDRIS2_PREFIX:-$root/build/env}
+export IDRIS2I_1_PREFIX=${IDRIS2I_1_PREFIX:-$root/build/env}
 dur=${DURATION:-10s}
 mkdir -p "$out/idris"
 (cd "$here" && go build -o "$out/loadgen" ./loadgen && go build -o "$out/goserver" ./goserver)
 cp "$here/idris/Main.idr" "$here/idris/Routes.idr" "$here/idris/Https.idr" "$here/idris/H2Load.idr" "$out/idris/"
-(cd "$out/idris" && "$root/build/exec/idris2" -p contrib -p network -p http -o server Main.idr)
-(cd "$out/idris" && "$root/build/exec/idris2" -p contrib -p network -p http -o h2load H2Load.idr)
+(cd "$out/idris" && "$root/build/exec/idris2i-1" -p contrib -p network -p http -o server Main.idr)
+(cd "$out/idris" && "$root/build/exec/idris2i-1" -p contrib -p network -p http -o h2load H2Load.idr)
 https=${HTTPS:-1}
-if [ "$https" = 1 ] && ls -d "$IDRIS2_PREFIX"/idris2-*/http-tls-* > /dev/null 2>&1 && command -v openssl > /dev/null; then
-  (cd "$out/idris" && "$root/build/exec/idris2" -p contrib -p network -p http -p tls -p http-tls -o https-server Https.idr)
+if [ "$https" = 1 ] && ls -d "$IDRIS2I_1_PREFIX"/idris2i-1-*/http-tls-* > /dev/null 2>&1 && command -v openssl > /dev/null; then
+  (cd "$out/idris" && "$root/build/exec/idris2i-1" -p contrib -p network -p http -p tls -p http-tls -o https-server Https.idr)
   openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout "$out/key.pem" \
     -out "$out/cert.pem" -days 2 -subj /CN=localhost -addext subjectAltName=IP:127.0.0.1 2> /dev/null
 else
@@ -81,7 +81,7 @@ idle() { # idle <label> <n>
 
 echo "server | req/s | CPU s/100k req | instr/req | peak RSS kB"
 for w in 1 4; do
-  start idris env IDRIS2_WORKERS=$w "$out/idris/build/exec/server"
+  start idris env IDRIS2I_1_WORKERS=$w "$out/idris/build/exec/server"
   load "idris W=$w hello" -path /hello
   load "idris W=$w json" -method POST -path /json -body "$here/body.json"
   kill $pid; wait $pid 2>/dev/null || true
@@ -96,9 +96,9 @@ done
 # load generator (Go's net/http has no h2c without golang.org/x/net):
 # 1 connection with 64 streams, and 64 connections with 1 stream each
 secs=${dur%s}
-h2gen() { IDRIS2_WORKERS=4 "$out/idris/build/exec/h2load" $port "$@"; }
+h2gen() { IDRIS2I_1_WORKERS=4 "$out/idris/build/exec/h2load" $port "$@"; }
 for w in 1 4; do
-  start idris env IDRIS2_WORKERS=$w "$out/idris/build/exec/server"
+  start idris env IDRIS2I_1_WORKERS=$w "$out/idris/build/exec/server"
   gen "idris W=$w h2c hello 1x64" h2gen 1 64 $secs /hello
   gen "idris W=$w h2c json 1x64" h2gen 1 64 $secs /json "$here/body.json"
   gen "idris W=$w h2c hello 64x1" h2gen 64 1 $secs /hello
@@ -115,7 +115,7 @@ if [ "$https" = 1 ]; then
     sleep 0.5
   }
   for w in 1 4; do
-    startTLS IDRIS2_WORKERS=$w "$out/idris/build/exec/https-server"
+    startTLS IDRIS2I_1_WORKERS=$w "$out/idris/build/exec/https-server"
     load "idris W=$w https hello" -tls -path /hello
     load "idris W=$w https json" -tls -method POST -path /json -body "$here/body.json"
     gen "idris W=$w h2 hello 1x64" "$out/loadgen" -addr 127.0.0.1:$port -h2 -conns 1 -streams 64 -duration $dur -path /hello
@@ -137,7 +137,7 @@ if [ "$https" = 1 ]; then
 fi
 ulimit -n 20000 2>/dev/null || true
 for n in 100 5000; do
-  start idris env IDRIS2_WORKERS=4 "$out/idris/build/exec/server"
+  start idris env IDRIS2I_1_WORKERS=4 "$out/idris/build/exec/server"
   r0=$(rss $pid)
   idle "idris (RSS at start $r0 kB)" $n
   kill $pid; wait $pid 2>/dev/null || true

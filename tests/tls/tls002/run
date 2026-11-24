@@ -2,8 +2,8 @@
 . ../gencerts.sh
 
 ulimit -n 4096 2>/dev/null
-idris2 -p network -p tls -o main Main.idr
-IDRIS2_WORKERS=1 ./build/exec/main "$certs"
-IDRIS2_WORKERS=4 ./build/exec/main "$certs"
+idris2i-1 -p network -p tls -o main Main.idr
+IDRIS2I_1_WORKERS=1 ./build/exec/main "$certs"
+IDRIS2I_1_WORKERS=4 ./build/exec/main "$certs"
 
 rm -rf certs

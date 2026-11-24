@@ -6,10 +6,10 @@
 # C compiler for 32 bit x86 with a 32 bit GMP, which most machines do not
 # have: without one, the test runs the native program, which prints the same.
 
-idris2 -o bits32 Main.idr
+idris2i-1 -o bits32 Main.idr
 
 support=../../../support
-cc=${IDRIS2_CC:-${CC:-cc}}
+cc=${IDRIS2I_1_CC:-${CC:-cc}}
 
 # The 32 bit gmp.h is not always the one that the compiler finds first.
 gmpinc=

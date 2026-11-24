@@ -269,9 +269,9 @@ Implemented (``Compiler.RefC.RefC``, ``RawLayout``; ``Compiler.RefC.Unbox``,
 differs from the plan below:
 
 - **Layout.** Every ``rawField`` type is 8 bytes, so the raw fields are in
-  field order, 8 bytes each, from ``IDRIS2_RAW_OFFSET(np)`` (the end of the
-  pointer fields rounded up to 8): ``idris2_rawField(c, np, j, T)`` and
-  ``idris2_newRawConstructor(np, nr, tag)`` in ``memoryManagement.h``.  No
+  field order, 8 bytes each, from ``IDRIS2I_1_RAW_OFFSET(np)`` (the end of the
+  pointer fields rounded up to 8): ``idris2i_1_rawField(c, np, j, T)`` and
+  ``idris2i_1_newRawConstructor(np, nr, tag)`` in ``memoryManagement.h``.  No
   struct per constructor is declared.  The constructors told apart by their
   names (tag -1) keep boxed fields.
 - **Reading.** The raw fields that a branch uses are read first, before the
@@ -281,7 +281,7 @@ differs from the plan below:
   owns.  ``valueType`` now sees through a ``case`` on constructors, so the
   projection of a raw field (``p.x``, a ``case`` in a ``let``) is a C number.
 - **Building.** A raw field is stored from a C number, from the value of a
-  variable that is not one (``idris2_vp_to_Double``), which is released when
+  variable that is not one (``idris2i_1_vp_to_Double``), which is released when
   only raw fields took it.  The unboxing counts a raw field of a
   constructor as a use as a C number, so parameters and ``let``\ s stored
   there stay unboxed.
@@ -289,7 +289,7 @@ differs from the plan below:
   layout, so a cell is taken over by a constructor whose fields are in the
   same slots only.  A raw field given the number read from the same slot of
   the cell taken over is not stored again; the copy made when the cell is
-  shared copies the raw fields with ``idris2_copyRawFields``.
+  shared copies the raw fields with ``idris2i_1_copyRawFields``.
 - **Static values.** A constant with raw fields whose raw fields are
   literals is static data (see the follow-up below).
 - **Tail recursion modulo cons.** The hole is the pointer slot of the
@@ -357,24 +357,24 @@ agree, since a cell is laid out by the table of the constructor that its
 Memory layout
 -------------
 
-A cell keeps the layout of ``Idris2_Constructor`` up to its pointer fields:
+A cell keeps the layout of ``Idris2i_1_Constructor`` up to its pointer fields:
 
 .. code-block:: c
 
     struct {
-      Idris2_header header;   // count, CONSTRUCTOR_TAG, size class, flags
+      Idris2i_1_header header;   // count, CONSTRUCTOR_TAG, size class, flags
       uint16_t total;         // the number of POINTER fields
       int16_t tag;
-      Idris2_Value *args[np]; // the boxed fields, in their order
+      Idris2i_1_Value *args[np]; // the boxed fields, in their order
       // (a named constructor, tag -1: its name, as now, in args[np])
       // the raw fields: largest first, each aligned to its size
     };
 
 - ``total`` is the number of pointer fields, so the release walk
-  (``idris2_releaseValue``), the marking of shared values
-  (``idris2_markShared``), the leak walk and the debug printer, which loop
+  (``idris2i_1_releaseValue``), the marking of shared values
+  (``idris2i_1_markShared``), the leak walk and the debug printer, which loop
   over ``args[0 .. total-1]``, need no change and never look at a raw field.
-- ``idris2_freeValue`` uses the size class in the header, not ``total``:
+- ``idris2i_1_freeValue`` uses the size class in the header, not ``total``:
   freeing needs no change either.
 - The raw fields are sorted by decreasing size (8, 4, 2, 1 bytes), ties kept
   in field order, so that there is no padding between them; the first starts
@@ -383,10 +383,10 @@ A cell keeps the layout of ``Idris2_Constructor`` up to its pointer fields:
   bit platforms (``args`` of 4 bytes) there may be 4 bytes of padding before
   an 8 byte field: ``double`` and ``int64_t`` need 8 byte alignment on some 32
   bit ABIs (ARM EABI).  The cells of the pools are 8 byte aligned
-  (``IDRIS2_ALLOC_UNIT``), but ``idris2_allocLarge`` (cells of more than 256
+  (``IDRIS2I_1_ALLOC_UNIT``), but ``idris2i_1_allocLarge`` (cells of more than 256
   bytes) aligns to ``sizeof(void *)``, which must become 8.  The
   generated code declares one C struct per constructor with raw fields
-  (``struct Idris2_con_Main_MkParticle``) and lets the C compiler place the
+  (``struct Idris2i_1_con_Main_MkParticle``) and lets the C compiler place the
   fields (``offsetof``); the order above is only to make the structs small.
 - ``MkParticle`` is 8 + 4 × 8 + 8 = 48 bytes (one cell of 6 units) instead of
   a 48 byte cell and four 16 byte boxes.
@@ -401,9 +401,9 @@ constructor that is not in the definitions of the unit being compiled, as
 with incremental compilation).  Then:
 
 - **Construction** (``ACon``): allocate ``sizeof`` the constructor's struct
-  (a new ``idris2_newConstructorSized(bytes, np, tag)``), store the pointer
+  (a new ``idris2i_1_newConstructorSized(bytes, np, tag)``), store the pointer
   fields as now, store each raw field from its C value: from an unboxed local
-  directly, from a value with ``idris2_vp_to_Double`` & co. followed by the
+  directly, from a value with ``idris2i_1_vp_to_Double`` & co. followed by the
   release of the value (the release is usually of an immediate, or of a box
   that is freed at once).
 - **Matching** (``AConCase``): a raw field is bound as an unboxed local of its
@@ -419,11 +419,11 @@ with incremental compilation).  Then:
   field, so two constructors of the same size can share a cell whatever
   their numbers of pointer fields.
 - **Static values** (``StaticVal``): a constant with raw fields is a static
-  instance of the constructor's struct with the ``IDRIS2_STOCKVAL`` header.
+  instance of the constructor's struct with the ``IDRIS2I_1_STOCKVAL`` header.
 - **TRMC** (``refc-no-trmc``): a hole is a pointer field, so only a
   ``FBoxed`` field may be the hole of a call (the recursive positions are of
   the data type, hence boxed; this must be checked, not assumed).
-- **Workers** (``idris2_raw_*``): unchanged.  The parameter types that
+- **Workers** (``idris2i_1_raw_*``): unchanged.  The parameter types that
   ``Unbox.idr`` reads from the context are not affected.
 - **Intrinsic renaming**: done ahead of stage A (``NoIntrinsic``, see
   `Intrinsic constructors and the identity optimisation`_).
@@ -433,8 +433,8 @@ Correctness on the existing paths
 
 - **Polymorphic code** never looks inside a cell without matching on its
   constructor, and a match names the constructor: generic code (``map`` over
-  a ``List Particle``) moves cells as ``Idris2_Value *``, which they still
-  are.  Closures, ``idris2_dispatch`` and partial applications hold cells as
+  a ``List Particle``) moves cells as ``Idris2i_1_Value *``, which they still
+  are.  Closures, ``idris2i_1_dispatch`` and partial applications hold cells as
   values; a raw field is never a closure argument.
 - **Thread sharing**: the shared flag is set by the walk over the pointer
   fields; raw fields hold no reference, so nothing more is shared.  Counts of
@@ -451,7 +451,7 @@ Correctness on the existing paths
   ``NoIntrinsic``.
 - **FFI and ``%export``**: a C function that receives a constructor (through
   ``AnyPtr`` or a ``CFUser`` type) and reads ``args[i]``, or builds one with
-  ``idris2_newConstructor``, breaks for types with raw fields.  The runtime
+  ``idris2i_1_newConstructor``, breaks for types with raw fields.  The runtime
   itself builds only constructors of boxed fields (lists of strings, pairs of
   strings, ``Just``).  The generated header gives the structs of the
   constructors with raw fields, and the RefC FFI documentation must say to
@@ -517,34 +517,34 @@ The runtime: review
 The paths of the runtime that look inside a constructor cell, checked for
 the assumption that a cell is ``header + total * sizeof(void *)`` bytes:
 
-- ``releaseOne`` (``idris2_releaseValue``, ``releaseDeep``):
-  ``args[0 .. total-1]``, then ``idris2_freeValue``, which takes the size
+- ``releaseOne`` (``idris2i_1_releaseValue``, ``releaseDeep``):
+  ``args[0 .. total-1]``, then ``idris2i_1_freeValue``, which takes the size
   from the class in the header (``cls`` 0: a large value, ``free``).
-- ``idris2_markShared``, the leak walk (``leakCheck``) and the debug printer
+- ``idris2i_1_markShared``, the leak walk (``leakCheck``) and the debug printer
   (``describeValue``): ``args[0 .. total-1]``.  The printer says "(1
   field)" for a cell with one pointer field and raw fields: it counts the
   pointer fields only.
-- ``idris2_constructorName`` reads ``args[total]``: a named constructor
+- ``idris2i_1_constructorName`` reads ``args[total]``: a named constructor
   (tag -1) keeps its name right after its pointer fields, before the raw
   fields.
-- ``idris2_removeReuseConstructor`` and the reuse in the generated code:
-  a count and ``idris2_freeValue``.  With ``refc-size-reuse`` the key of a
+- ``idris2i_1_removeReuseConstructor`` and the reuse in the generated code:
+  a count and ``idris2i_1_freeValue``.  With ``refc-size-reuse`` the key of a
   reusable cell must be its size in bytes (``RefC.idr``, stage A).
-- ``idris2_newConstructor`` and ``idris2_newNamedConstructor`` compute the
-  size from ``total``: stage A adds ``idris2_newConstructorSized``; the
+- ``idris2i_1_newConstructor`` and ``idris2i_1_newNamedConstructor`` compute the
+  size from ``total``: stage A adds ``idris2i_1_newConstructorSized``; the
   runtime's own uses (lists and pairs of strings, ``Just``, futures) have
   boxed fields only.
-- The statistics (``IDRIS2_REFC_STATS``) count allocations by class, not by
+- The statistics (``IDRIS2I_1_REFC_STATS``) count allocations by class, not by
   field.
-- Static values (``IDRIS2_STATIC_CONSTRUCTOR``, the predefined nullary
-  constructors) are never walked (immortal, and ``idris2_markShared`` skips
-  ``IDRIS2_STATIC_FLAG``).
+- Static values (``IDRIS2I_1_STATIC_CONSTRUCTOR``, the predefined nullary
+  constructors) are never walked (immortal, and ``idris2i_1_markShared`` skips
+  ``IDRIS2I_1_STATIC_FLAG``).
 
 Nothing else in ``support/refc`` reads ``total`` or ``args`` of a
 constructor (``git grep``).  One fix was needed:
-``idris2_allocLarge`` (values of more than 256 bytes, and every value under
-Valgrind or with ``IDRIS2_REFC_NO_POOLS``) aligned to ``sizeof(void *)``,
-4 bytes on 32 bit platforms; it now aligns to 8 (``IDRIS2_LARGE_ALIGN``),
+``idris2i_1_allocLarge`` (values of more than 256 bytes, and every value under
+Valgrind or with ``IDRIS2I_1_REFC_NO_POOLS``) aligned to ``sizeof(void *)``,
+4 bytes on 32 bit platforms; it now aligns to 8 (``IDRIS2I_1_LARGE_ALIGN``),
 like the pools.  ``tests/refc/rawcells001`` builds cells of stage A by hand
 against the runtime's sources (no code generator), with raw bytes that look
 like pointers to live values, and checks release, shared-flag marking, the
@@ -630,20 +630,20 @@ What is in place:
   directly or by public imports): a definition whose value is the layout
   code (``2 + 256 * fields + 2^24 * tag``) and a hint.  A record declared in
   a module that does not load it gets the default.
-- **The arrays.** In RefC an ``Idris2_Array`` has a ``layout``.  With 0 it
+- **The arrays.** In RefC an ``Idris2i_1_Array`` has a ``layout``.  With 0 it
   is the array of values of before.  Otherwise each slot is a word (1 when
   it holds an element) and the element inline: 8 bytes for a primitive, the
   raw fields of the record (its cell's raw area, 8 bytes each).  Release,
   the marking of shared values and the leak check do not look into such
   slots (they hold no value).  A shared array's slots are copied under its
-  lock.  ``idris2_arrayCopy`` copies bytes between arrays of the same
+  lock.  ``idris2i_1_arrayCopy`` copies bytes between arrays of the same
   layout, and element by element through values otherwise.
 - **Why creation and access cannot disagree.** The layout is a field of the
   array, set when it is made, and never changes.  Every access takes the
   layout that its caller expects and compares it with the array's
-  (``idris2_slotGet`` in prim.h): the inline access is taken only when they
+  (``idris2i_1_slotGet`` in prim.h): the inline access is taken only when they
   are the same and not 0; otherwise the access goes by the array's own
-  layout (``idris2_slotGetGeneric``), whatever the caller expected.  So an
+  layout (``idris2i_1_slotGetGeneric``), whatever the caller expected.  So an
   array made by generic code (layout 0) and read by code that knows its
   elements, or the reverse, is read right; the tests make and read arrays
   both ways, copy between them in both directions, and overlap a copy.  The
@@ -695,7 +695,7 @@ Opt-in in the API, and automatic in the back end:
   for that: in ``Data.IOArray.Prims`` they changed the order of the
   definitions, and above the old functions their source locations.)  In a
   program that uses them, ``prim__arrayGet`` and ``prim__arraySet`` go by
-  the array's layout (``idris2_arrayGetAny``, ``idris2_arraySetAny``), as a
+  the array's layout (``idris2i_1_arrayGetAny``, ``idris2i_1_arraySetAny``), as a
   flat array can be given to them.  ``--directive refc-no-flat-arrays``
   turns the flat arrays off (the slot primitives make and access arrays of
   values); ``--directive refc-flat-arrays`` is accepted and changes nothing,
@@ -756,7 +756,7 @@ Opt-in in the API, and automatic in the back end:
 - **Reads of whole elements.** An element read by its fields starts with
   its snapshot, one more component (``slotSnap``, the read's ``case`` with
   ``slotSnap`` at the leaf and NULL elsewhere): when the array is read
-  inline it is a tag (``IDRIS2_SLOT_INLINE``, an unboxed pointer, never
+  inline it is a tag (``IDRIS2I_1_SLOT_INLINE``, an unboxed pointer, never
   counted), and the other components read the slot; otherwise it is the
   slot's value, the ``Maybe``, taken once (under the lock of a shared
   array), and they read it, and it is released after the last.  So the
@@ -890,12 +890,12 @@ the accesses.  The C per element access:
         char *slot = a->slots + i * 48;  /* after the bounds check */
         tag = slot[0]; px = *(double *)(slot + 8); /* ... */
       } else {
-        v = idris2_flatGetGeneric(a, i); /* as below */
+        v = idris2i_1_flatGetGeneric(a, i); /* as below */
       }
 
   This is phase 0's access plus one load and a compare that is always true
   in practice.
-- **Descriptor not known** (generic code): ``idris2_flatGetGeneric(a, i)``,
+- **Descriptor not known** (generic code): ``idris2i_1_flatGetGeneric(a, i)``,
   a call that boxes the slot into a ``Just`` cell and a record cell (two
   allocations per read; a write unboxes and frees the cells it is given if
   they are unique).
@@ -1026,7 +1026,7 @@ The values read from a flat array must stay flat, or the array gains nothing
   member.  It is boxed (a stage A cell) only where it escapes: stored in a
   boxed field, passed to an unknown function or a closure, returned from a
   function whose result is a value.
-- Workers (``idris2_raw_*``) take and return flat records as C structs, as
+- Workers (``idris2i_1_raw_*``) take and return flat records as C structs, as
   they take C integers now.  Phase 0 showed that a flat value is a "copyable
   value": a record read from an array and kept there is copied, not shared,
   and needs no ownership (it is not linear).
@@ -1037,7 +1037,7 @@ The values read from a flat array must stay flat, or the array gains nothing
   SysV ABI, and GCC refuses the jump ("callee required more stack slots than
   the caller").  The proposal: a jump that passes a flat value larger than
   two registers writes it into a buffer of the worker (like the arguments of
-  ``idris2_pendingTailCall``) and passes its address; the callee copies it
+  ``idris2i_1_pendingTailCall``) and passes its address; the callee copies it
   out before anything else.  This keeps the jump without an allocation, and
   is correct because nothing runs between the copy in and the copy out.
   Phase 0 instead used plain calls (safe there only because the depth was

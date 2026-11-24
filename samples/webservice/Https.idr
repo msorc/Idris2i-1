@@ -1,7 +1,7 @@
 ||| The sample web service of Main.idr over HTTPS, with the `http-tls`
 ||| library (built with the `tls` library, when OpenSSL 3 is there).
 |||
-|||     idris2 --build webservice-https.ipkg
+|||     idris2i-1 --build webservice-https.ipkg
 |||     ./build/exec/webservice-https 8443 cert.pem key.pem
 |||
 ||| The certificate file has the certificate of the server first, then the

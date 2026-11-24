@@ -92,7 +92,7 @@ To see more debug information from the REPL there are several options one can se
 Compiler Flags
 ==============
 
-There are several 'hidden' compiler flags that can help expose Idris' inner workings.
+There are several 'hidden' compiler flags that can help expose Idris2i-1's inner workings.
 
 .. csv-table:: Logging Categories
    :header: "command", "description"

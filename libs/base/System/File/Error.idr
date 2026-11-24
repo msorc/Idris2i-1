@@ -7,11 +7,11 @@ import public System.File.Types
 
 %default total
 
-%foreign supportC "idris2_fileError"
+%foreign supportC "idris2i_1_fileError"
          "node:lambda:f=>(f.err?1:0)"
 prim__error : FilePtr -> PrimIO Int
 
-%foreign supportC "idris2_fileErrno"
+%foreign supportC "idris2i_1_fileErrno"
          supportNode "fileErrno"
 prim__fileErrno : PrimIO Int
 

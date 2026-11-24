@@ -9,7 +9,7 @@
 
 # the units of the program that are generated
 build() {
-  idris2 --cg chez-sep --log compiler.scheme.chez:3 -o prog Main.idr |
+  idris2i-1 --cg chez-sep --log compiler.scheme.chez:3 -o prog Main.idr |
     sed -n 's/^LOG compiler.scheme.chez:3: Generating code for //p' |
     grep -E '^(Main|Lib-)' | sort | tr '\n' ' '
   echo

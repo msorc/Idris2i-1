@@ -11,7 +11,7 @@ Foreign Function Interface
 
    More information concerning the CC0 can be found online at: http://creativecommons.org/publicdomain/zero/1.0/
 
-Idris 2 is designed to support multiple code generators. The default target is
+Idris2i-1 is designed to support multiple code generators. The default target is
 C (the RefC code generator), with Chez Scheme, Racket and Gambit code generators also supported. However, the
 intention is, as with Idris 1, to support multiple targets on multiple platforms,
 including e.g. JavaScript, JVM, .NET, and others yet to be invented.
@@ -19,7 +19,7 @@ This makes the design of a foreign function interface (FFI), which calls
 functions in other languages, a little challenging, since ideally it will
 support all possible targets!
 
-To this end, the Idris 2 FFI aims to be flexible and adaptable, while still
+To this end, the Idris2i-1 FFI aims to be flexible and adaptable, while still
 supporting most common requirements without too much need for "glue" code in
 the foreign language.
 

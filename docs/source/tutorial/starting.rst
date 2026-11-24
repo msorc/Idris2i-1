@@ -15,11 +15,11 @@ Installing from Source
 Prerequisites
 -------------
 
-Idris 2 is implemented in Idris 2 itself, so to bootstrap it you build from
+Idris2i-1 is implemented in Idris2i-1 itself, so to bootstrap it you build from
 code that it generated for itself: C or Scheme.
 
 In every case you need a C compiler (``gcc`` or ``clang``), ``make`` and the
-GMP library with its headers: by default, Idris compiles programs to
+GMP library with its headers: by default, Idris2i-1 compiles programs to
 executables via C (see :doc:`../backends/refc`).  That is all that the
 bootstrap from C needs, apart from ``xz``.
 
@@ -60,7 +60,7 @@ follows::
 
 Once you've successfully bootstrapped with any of the above commands, you can
 install with the command ``make install``.  This will, by default, install
-into ``${HOME}/.idris2``. You can change this by editing the options in
+into ``${HOME}/.idris2i-1``. You can change this by editing the options in
 ``config.mk``. For example, to install into ``/usr/local``, you can edit the
 ``PREFIX`` as follows::
 
@@ -76,25 +76,25 @@ Installing from a Package Manager
 Installing Using Homebrew
 -------------------------
 
-If you are Homebrew user you can install Idris 2 together with all the requirements
+If you are Homebrew user you can install Idris2i-1 together with all the requirements
 by running following command::
 
-    brew install idris2
+    brew install idris2i-1
 
 Installing Using Yay
 -------------------------
 
-If you are an Arch based distro user, you can install Idris 2 together with all the requirements
+If you are an Arch based distro user, you can install Idris2i-1 together with all the requirements
 by running following command::
 
-    yay -S idris2
+    yay -S idris2i-1
 
 Installing Using DNF
 --------------------
 
-If you are using a Fedora based distro or EPEL you can install idris2 with::
+If you are using a Fedora based distro or EPEL you can install idris2i-1 with::
 
-    sudo dnf install idris2
+    sudo dnf install idris2i-1
 
 See the `Fedora package page <https://src.fedoraproject.org/rpms/idris2>`_ for details.
 
@@ -102,7 +102,7 @@ Checking Installation
 =====================
 
 To check that installation has succeeded, and to write your first
-Idris program, create a file called ``hello.idr`` containing the
+Idris2i-1 program, create a file called ``hello.idr`` containing the
 following text:
 
 .. code-block:: idris
@@ -115,19 +115,19 @@ following text:
 If you are familiar with Haskell, it should be fairly clear what the
 program is doing and how it works, but if not, we will explain the
 details later. You can compile the program to an executable by
-entering ``idris2 hello.idr -o hello`` at the shell prompt. This will,
+entering ``idris2i-1 hello.idr -o hello`` at the shell prompt. This will,
 by default, create an executable called ``hello``, compiled from generated
 C code, in the destination directory ``build/exec``
 which you can run:
 
 ::
 
-    $ idris2 hello.idr -o hello
+    $ idris2i-1 hello.idr -o hello
     $ ./build/exec/hello
     Hello world
 
 Please note that the dollar sign ``$`` indicates the shell prompt!
-Some useful options to the Idris command are:
+Some useful options to the Idris2i-1 command are:
 
 - ``-o prog`` to compile to an executable called ``prog``.
 
@@ -143,7 +143,7 @@ Section :ref:`sect-execs`.
 The Interactive Environment
 ===========================
 
-Entering ``idris2`` at the shell prompt starts up the interactive
+Entering ``idris2i-1`` at the shell prompt starts up the interactive
 environment. You should see something like the following:
 
 .. literalinclude:: ../listing/idris-prompt-start.txt

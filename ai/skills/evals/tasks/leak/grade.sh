@@ -4,11 +4,11 @@
 A2="same output as the original for 1000 and 77777 rounds"
 A3="2000000 rounds: right output, peak memory under 16 MB"
 A4="memory does not grow with the rounds (peak for 400000 within 8 MB of the peak for 50000)"
-A5="nothing is left allocated at exit (IDRIS2_REFC_LEAKCHECK reports 0 leaked values)"
+A5="nothing is left allocated at exit (IDRIS2I_1_REFC_LEAKCHECK reports 0 leaked values)"
 A6="pure Idris: no %foreign, no believe_me"
 
 rm -rf build
-assert "idris2 Hub.idr -o hub succeeds" "$IDRIS" --no-color Hub.idr -o hub
+assert "idris2i-1 Hub.idr -o hub succeeds" "$IDRIS" --no-color Hub.idr -o hub
 if [ ! -x build/exec/hub ]; then
   fail_rest "no executable" "$A2" "$A3" "$A4" "$A5" "$A6"
   exit 0
@@ -41,7 +41,7 @@ if [ $((mid - small)) -lt 8192 ] 2>/dev/null; then
 else
   fail "$A4" "$small KB for 50000 rounds, $mid KB for 400000"
 fi
-IDRIS2_REFC_LEAKCHECK=1 timeout 60 ./build/exec/hub 5000 >/dev/null 2>"$GRADE_TMP/leak"
+IDRIS2I_1_REFC_LEAKCHECK=1 timeout 60 ./build/exec/hub 5000 >/dev/null 2>"$GRADE_TMP/leak"
 if grep -q 'leak check: 0 leaked values' "$GRADE_TMP/leak"; then
   pass "$A5" "$(head -n 1 "$GRADE_TMP/leak")"
 else

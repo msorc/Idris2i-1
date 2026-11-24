@@ -56,24 +56,24 @@ Eq WaitResult where
   WaitError a == WaitError b = a == b
   _ == _ = False
 
-%foreign "RefC:idris2_monotonicNanoseconds"
-         "C:idris2_fdMonotonicNanoseconds, libidris2_support, idris_fd.h"
+%foreign "RefC:idris2i_1_monotonicNanoseconds"
+         "C:idris2i_1_fdMonotonicNanoseconds, libidris2i_1_support, idris_fd.h"
          "javascript:lambda:() => { throw new Error('System.IO.Wait is not supported by the JavaScript back ends') }"
 prim__now : PrimIO Int64
 
-%foreign "RefC:idris2_ioWait"
-         "C__collect_safe:idris2_fdWaitBlocking, libidris2_support, idris_fd.h"
-         "C:idris2_fdWaitBlocking, libidris2_support, idris_fd.h"
+%foreign "RefC:idris2i_1_ioWait"
+         "C__collect_safe:idris2i_1_fdWaitBlocking, libidris2i_1_support, idris_fd.h"
+         "C:idris2i_1_fdWaitBlocking, libidris2i_1_support, idris_fd.h"
          "javascript:lambda:() => { throw new Error('System.IO.Wait is not supported by the JavaScript back ends') }"
 prim__ioWait : (fd : Int) -> (event : Int) -> (deadline : Int64) -> PrimIO Int
 
-%foreign "RefC:idris2_ioClose"
-         "C:idris2_fdClose, libidris2_support, idris_fd.h"
+%foreign "RefC:idris2i_1_ioClose"
+         "C:idris2i_1_fdClose, libidris2i_1_support, idris_fd.h"
          "javascript:lambda:() => { throw new Error('System.IO.Wait is not supported by the JavaScript back ends') }"
 prim__ioClose : (fd : Int) -> PrimIO Int
 
-%foreign "RefC:idris2_ioForget"
-         "C:idris2_fdForget, libidris2_support, idris_fd.h"
+%foreign "RefC:idris2i_1_ioForget"
+         "C:idris2i_1_fdForget, libidris2i_1_support, idris_fd.h"
          "javascript:lambda:() => { throw new Error('System.IO.Wait is not supported by the JavaScript back ends') }"
 prim__ioForget : (fd : Int) -> PrimIO ()
 

@@ -3,7 +3,7 @@ Running example: Addition of Natural Numbers
 ********************************************
 
 Throughout this tutorial, we will be working with the following
-function, defined in the Idris prelude, which defines addition on
+function, defined in the Idris2i-1 prelude, which defines addition on
 natural numbers:
 
 .. code-block:: idris
@@ -15,7 +15,7 @@ natural numbers:
 It is defined by the above equations, meaning that we have for free the
 properties that adding ``m`` to zero always results in ``m``, and that
 adding ``m`` to any non-zero number ``S k`` always results in
-``S (plus k m)``. We can see this by evaluation at the Idris REPL (i.e.
+``S (plus k m)``. We can see this by evaluation at the Idris2i-1 REPL (i.e.
 the prompt, the read-eval-print loop):
 
 .. code-block:: idris
@@ -26,7 +26,7 @@ the prompt, the read-eval-print loop):
     Idris> \k,m => plus (S k) m
     \k => \m => S (plus k m)
 
-Note that unlike many other language REPLs, the Idris REPL performs
+Note that unlike many other language REPLs, the Idris2i-1 REPL performs
 evaluation on *open* terms, meaning that it can reduce terms which
 appear inside lambda bindings, like those above. Therefore, we can
 introduce unknowns ``k`` and ``m`` as lambda bindings and see how
@@ -41,13 +41,13 @@ example:
 -  It is *associative*, that is for all ``Nat`` inputs ``n``, ``m`` and
    ``p``, we know that ``plus n (plus m p) = plus (plus m n) p``.
 
-We can use these properties in an Idris program, but in order to do so
+We can use these properties in an Idris2i-1 program, but in order to do so
 we must *prove* them.
 
 Equality Proofs
 ===============
 
-Idris defines a propositional equality type as follows:
+Idris2i-1 defines a propositional equality type as follows:
 
 .. code-block:: idris
 
@@ -79,7 +79,7 @@ However, trying to prove that ``4 = 5`` results in failure:
     four_eq_five = Refl
 
 The type ``4 = 5`` is a perfectly valid type, but is uninhabited, so
-when trying to type check this definition, Idris gives the following
+when trying to type check this definition, Idris2i-1 gives the following
 error:
 
 ::
@@ -93,16 +93,16 @@ error:
 Type checking equality proofs
 -----------------------------
 
-An important step in type checking Idris programs is *unification*,
+An important step in type checking Idris2i-1 programs is *unification*,
 which attempts to resolve implicit arguments such as the implicit
 argument ``x`` in ``Refl``. As far as our understanding of type checking
 proofs is concerned, it suffices to know that unifying two terms
 involves reducing both to normal form then trying to find an assignment
 to implicit arguments which will make those normal forms equal.
 
-When type checking ``Refl``, Idris requires that the type is of the form
+When type checking ``Refl``, Idris2i-1 requires that the type is of the form
 ``x = x``, as we see from the type of ``Refl``. In the case of
-``four_eq_five``, Idris will try to unify the expected type ``4 = 5``
+``four_eq_five``, Idris2i-1 will try to unify the expected type ``4 = 5``
 with the type of ``Refl``, ``x = x``, notice that a solution requires
 that ``x`` be both ``4`` and ``5``, and therefore fail.
 
@@ -123,7 +123,7 @@ following equalities directly:
 Heterogeneous Equality
 ======================
 
-Equality in Idris is *heterogeneous*, meaning that we can even propose
+Equality in Idris2i-1 is *heterogeneous*, meaning that we can even propose
 equalities between values in different types:
 
 .. code-block:: idris
@@ -164,7 +164,7 @@ Properties of ``plus``
 ======================
 
 Using the ``(=)`` type, we can now state the properties of ``plus``
-given above as Idris type declarations:
+given above as Idris2i-1 type declarations:
 
 .. code-block:: idris
 
@@ -172,7 +172,7 @@ given above as Idris type declarations:
     plus_assoc : (n, m, p : Nat) -> plus n (plus m p) = plus (plus n m) p
 
 Both of these properties (and many others) are proved for natural number
-addition in the Idris standard library, using ``(+)`` from the ``Num``
+addition in the Idris2i-1 standard library, using ``(+)`` from the ``Num``
 interface rather than using ``plus`` directly. They have the names
 ``plusCommutative`` and ``plusAssociative`` respectively.
 

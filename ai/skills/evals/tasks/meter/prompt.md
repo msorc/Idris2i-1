@@ -5,6 +5,6 @@ it does now (I measure with `perf stat -e instructions:u`). Find out where the
 instructions go and bring it under the budget.
 
 The output must stay exactly the same for every number of readings. Keep it a single
-file built with `idris2 Meter.idr -o meter` (the default C back end), pure Idris (no
+file built with `idris2i-1 Meter.idr -o meter` (the default C back end), pure Idris2i-1 (no
 FFI, no C compiler flags). Tell me briefly what was expensive, with the numbers you
 measured.

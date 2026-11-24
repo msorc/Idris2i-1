@@ -166,20 +166,20 @@ typedef void (*ForgetFn)(int64_t);
 
 #if defined(__ELF__)
 
-extern int idris2_blockingCall(void (*fn)(void *), void *arg)
+extern int idris2i_1_blockingCall(void (*fn)(void *), void *arg)
     __attribute__((weak));
-extern void idris2_ioForget(int64_t fd) __attribute__((weak));
+extern void idris2i_1_ioForget(int64_t fd) __attribute__((weak));
 
-static BlockingCallFn blocking_call_fn(void) { return idris2_blockingCall; }
-static ForgetFn forget_fn(void) { return idris2_ioForget; }
+static BlockingCallFn blocking_call_fn(void) { return idris2i_1_blockingCall; }
+static ForgetFn forget_fn(void) { return idris2i_1_ioForget; }
 
 #elif defined(__APPLE__)
 
 static BlockingCallFn blocking_call_fn(void) {
-  return (BlockingCallFn)dlsym(RTLD_DEFAULT, "idris2_blockingCall");
+  return (BlockingCallFn)dlsym(RTLD_DEFAULT, "idris2i_1_blockingCall");
 }
 static ForgetFn forget_fn(void) {
-  return (ForgetFn)dlsym(RTLD_DEFAULT, "idris2_ioForget");
+  return (ForgetFn)dlsym(RTLD_DEFAULT, "idris2i_1_ioForget");
 }
 
 #else

@@ -6,5 +6,5 @@ memory and fix it.
 `hub 2000000` must peak under 16 MB (I measure with `/usr/bin/time -f %M`), and
 nothing may be left allocated when the program exits. The output must stay exactly the
 same for every number of rounds. Keep it a single file built with
-`idris2 Hub.idr -o hub` (the default C back end), pure Idris (no FFI). Tell me briefly
+`idris2i-1 Hub.idr -o hub` (the default C back end), pure Idris2i-1 (no FFI). Tell me briefly
 what was holding the memory.

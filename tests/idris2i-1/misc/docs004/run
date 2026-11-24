@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+idris2i-1 DocImpl.idr < input
+idris2i-1 --no-prelude List.idr < input2

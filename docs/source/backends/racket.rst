@@ -8,11 +8,11 @@ The Racket code generator is accessed via a REPL command:
 
     Main> :set cg racket
 
-Alternatively, you can set it via the ``IDRIS2_CG`` environment variable:
+Alternatively, you can set it via the ``IDRIS2I_1_CG`` environment variable:
 
 ::
 
-    $ export IDRIS2_CG=racket
+    $ export IDRIS2I_1_CG=racket
 
 You can compile an expression ``expr`` of type ``IO ()`` to an executable as
 follows, at the REPL:
@@ -68,7 +68,7 @@ Racket Directives
 
   .. code-block::
 
-    $ idris2 --codegen chez --directive extraRuntime=/path/to/extensions.scm -o main Main.idr
+    $ idris2i-1 --codegen chez --directive extraRuntime=/path/to/extensions.scm -o main Main.idr
 
 * ``--directive lazy=weakMemo``
 

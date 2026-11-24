@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+idris2i-1 --exec main Collide.idr
+idris2i-1 --spec-interfaces --exec main Collide.idr

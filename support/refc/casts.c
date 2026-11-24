@@ -4,86 +4,86 @@
 
 #include <inttypes.h>
 
-Idris2_Value *idris2_mkValidChar(int64_t c) {
-  return idris2_mkChar(idris2_isValidCodePoint(c) ? c : 0);
+Idris2i_1_Value *idris2i_1_mkValidChar(int64_t c) {
+  return idris2i_1_mkChar(idris2i_1_isValidCodePoint(c) ? c : 0);
 }
 
 /*  conversions from Int8  */
-Idris2_Value *idris2_cast_Int8_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromInt64(idris2_vp_to_Int8(input));
+Idris2i_1_Value *idris2i_1_cast_Int8_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromInt64(idris2i_1_vp_to_Int8(input));
 }
 
-Idris2_Value *idris2_cast_Int8_to_string(Idris2_Value *input) {
-  int8_t x = idris2_vp_to_Int8(input);
+Idris2i_1_Value *idris2i_1_cast_Int8_to_string(Idris2i_1_Value *input) {
+  int8_t x = idris2i_1_vp_to_Int8(input);
 
   int l = snprintf(NULL, 0, "%" PRId8 "", x);
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  Idris2i_1_String *retVal = idris2i_1_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRId8 "", x);
-  idris2_setAscii(retVal);
+  idris2i_1_setAscii(retVal);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
 /*  conversions from Int16  */
-Idris2_Value *idris2_cast_Int16_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromInt64(idris2_vp_to_Int16(input));
+Idris2i_1_Value *idris2i_1_cast_Int16_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromInt64(idris2i_1_vp_to_Int16(input));
 }
 
-Idris2_Value *idris2_cast_Int16_to_string(Idris2_Value *input) {
-  int16_t x = idris2_vp_to_Int16(input);
+Idris2i_1_Value *idris2i_1_cast_Int16_to_string(Idris2i_1_Value *input) {
+  int16_t x = idris2i_1_vp_to_Int16(input);
 
   int l = snprintf(NULL, 0, "%" PRId16 "", x);
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  Idris2i_1_String *retVal = idris2i_1_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRId16 "", x);
-  idris2_setAscii(retVal);
+  idris2i_1_setAscii(retVal);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
 /*  conversions from Int32  */
-Idris2_Value *idris2_cast_Int32_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromInt64(idris2_vp_to_Int32(input));
+Idris2i_1_Value *idris2i_1_cast_Int32_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromInt64(idris2i_1_vp_to_Int32(input));
 }
 
-Idris2_Value *idris2_cast_Int32_to_string(Idris2_Value *input) {
-  int32_t x = idris2_vp_to_Int32(input);
+Idris2i_1_Value *idris2i_1_cast_Int32_to_string(Idris2i_1_Value *input) {
+  int32_t x = idris2i_1_vp_to_Int32(input);
 
   int l = snprintf(NULL, 0, "%" PRId32 "", x);
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  Idris2i_1_String *retVal = idris2i_1_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRId32 "", x);
-  idris2_setAscii(retVal);
+  idris2i_1_setAscii(retVal);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
 /*  conversions from Int64  */
-Idris2_Value *idris2_cast_Int64_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromInt64(idris2_vp_to_Int64(input));
+Idris2i_1_Value *idris2i_1_cast_Int64_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromInt64(idris2i_1_vp_to_Int64(input));
 }
 
-Idris2_Value *idris2_cast_Int64_to_string(Idris2_Value *input) {
-  int64_t from = idris2_vp_to_Int64(input);
+Idris2i_1_Value *idris2i_1_cast_Int64_to_string(Idris2i_1_Value *input) {
+  int64_t from = idris2i_1_vp_to_Int64(input);
   int l = snprintf(NULL, 0, "%" PRId64 "", from);
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  Idris2i_1_String *retVal = idris2i_1_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRId64 "", from);
-  idris2_setAscii(retVal);
+  idris2i_1_setAscii(retVal);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
 // (A NaN or an infinity, which the Chez backend raises an exception for and
 // GMP a SIGFPE, is 0, as in the casts to the fixed width integers.)
-Idris2_Value *idris2_mkIntegerFromDouble(double d) {
+Idris2i_1_Value *idris2i_1_mkIntegerFromDouble(double d) {
   if (!isfinite(d))
-    return idris2_mkIntegerFromInt64(0);
-  Idris2_Integer *retVal = idris2_mkInteger();
+    return idris2i_1_mkIntegerFromInt64(0);
+  Idris2i_1_Integer *retVal = idris2i_1_mkInteger();
   mpz_set_d(retVal->i, d);
 
-  return idris2_normaliseInteger(retVal);
+  return idris2i_1_normaliseInteger(retVal);
 }
 
-Idris2_Value *idris2_cast_Double_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromDouble(idris2_vp_to_Double(input));
+Idris2i_1_Value *idris2i_1_cast_Double_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromDouble(idris2i_1_vp_to_Double(input));
 }
 
 /*
@@ -233,16 +233,16 @@ static void formatDouble(double x, char *out) {
   }
 }
 
-Idris2_Value *idris2_cast_Double_to_string(Idris2_Value *input) {
+Idris2i_1_Value *idris2i_1_cast_Double_to_string(Idris2i_1_Value *input) {
   char buf[64];
-  formatDouble(idris2_vp_to_Double(input), buf);
-  Idris2_String *retVal = idris2_mkString(buf);
-  idris2_setAscii(retVal);
-  return (Idris2_Value *)retVal;
+  formatDouble(idris2i_1_vp_to_Double(input), buf);
+  Idris2i_1_String *retVal = idris2i_1_mkString(buf);
+  idris2i_1_setAscii(retVal);
+  return (Idris2i_1_Value *)retVal;
 }
 
 // The Double truncated towards zero, modulo 2^64.
-uint64_t idris2_double_to_wrapped(double d) {
+uint64_t idris2i_1_double_to_wrapped(double d) {
   if (!isfinite(d))
     return 0;
   if (d >= -9223372036854775808.0 && d < 9223372036854775808.0)
@@ -255,32 +255,32 @@ uint64_t idris2_double_to_wrapped(double d) {
   return t < 0 ? -m : m;
 }
 
-int64_t idris2_double_to_char_code(double d) {
+int64_t idris2i_1_double_to_char_code(double d) {
   if (!(d > -1.0 && d < 1114112.0))
     return -1;
   return (int64_t)d;
 }
 
-Idris2_Value *idris2_cast_Char_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromInt64(idris2_vp_to_Char(input));
+Idris2i_1_Value *idris2i_1_cast_Char_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromInt64(idris2i_1_vp_to_Char(input));
 }
 
-Idris2_Value *idris2_cast_Char_to_string(Idris2_Value *input) {
-  uint32_t c = idris2_vp_to_Char(input);
-  Idris2_String *retVal =
-      idris2_mkEmptyString(idris2_utf8_encodedLength(c) + 1);
-  idris2_utf8_encode(c, retVal->str);
-  if (idris2_isValidCodePoint(c))
-    idris2_setCodePoints(retVal, 1);
+Idris2i_1_Value *idris2i_1_cast_Char_to_string(Idris2i_1_Value *input) {
+  uint32_t c = idris2i_1_vp_to_Char(input);
+  Idris2i_1_String *retVal =
+      idris2i_1_mkEmptyString(idris2i_1_utf8_encodedLength(c) + 1);
+  idris2i_1_utf8_encode(c, retVal->str);
+  if (idris2i_1_isValidCodePoint(c))
+    idris2i_1_setCodePoints(retVal, 1);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
-Idris2_Value *idris2_cast_string_to_Char(Idris2_Value *input) {
-  char const *s = ((Idris2_String *)input)->str;
-  return idris2_mkChar(((Idris2_String *)input)->len == 0
+Idris2i_1_Value *idris2i_1_cast_string_to_Char(Idris2i_1_Value *input) {
+  char const *s = ((Idris2i_1_String *)input)->str;
+  return idris2i_1_mkChar(((Idris2i_1_String *)input)->len == 0
                            ? 0
-                           : idris2_utf8_decode(&s));
+                           : idris2i_1_utf8_decode(&s));
 }
 
 /* Conversions from String, like the Chez backend: the whole string is read
@@ -288,10 +288,10 @@ Idris2_Value *idris2_cast_string_to_Char(Idris2_Value *input) {
    `cast-string-int` in support.ss); anything else is 0.  The number is
    truncated towards zero, and wrapped around to fit a fixed size type. */
 
-enum { IDRIS2_NOT_A_NUMBER, IDRIS2_INTEGER_SYNTAX, IDRIS2_DECIMAL_SYNTAX,
-       IDRIS2_FRACTION_SYNTAX };
+enum { IDRIS2I_1_NOT_A_NUMBER, IDRIS2I_1_INTEGER_SYNTAX, IDRIS2I_1_DECIMAL_SYNTAX,
+       IDRIS2I_1_FRACTION_SYNTAX };
 
-static size_t idris2_digits(char const *s) {
+static size_t idris2i_1_digits(char const *s) {
   size_t n = 0;
   while (s[n] >= '0' && s[n] <= '9')
     ++n;
@@ -299,47 +299,47 @@ static size_t idris2_digits(char const *s) {
 }
 
 // The kind of number that `s` is written as.
-static int idris2_numberSyntax(char const *s) {
+static int idris2i_1_numberSyntax(char const *s) {
   char const *p = s;
   if (*p == '+' || *p == '-')
     ++p;
-  size_t whole = idris2_digits(p);
+  size_t whole = idris2i_1_digits(p);
   p += whole;
   if (*p == '\0')
-    return whole > 0 ? IDRIS2_INTEGER_SYNTAX : IDRIS2_NOT_A_NUMBER;
+    return whole > 0 ? IDRIS2I_1_INTEGER_SYNTAX : IDRIS2I_1_NOT_A_NUMBER;
   if (*p == '/') {
     // (a fraction with a zero denominator is no number for Scheme either)
-    size_t denom = idris2_digits(p + 1);
+    size_t denom = idris2i_1_digits(p + 1);
     size_t zeros = 0;
     while (zeros < denom && p[1 + zeros] == '0')
       ++zeros;
     return whole > 0 && denom > zeros && p[1 + denom] == '\0'
-               ? IDRIS2_FRACTION_SYNTAX
-               : IDRIS2_NOT_A_NUMBER;
+               ? IDRIS2I_1_FRACTION_SYNTAX
+               : IDRIS2I_1_NOT_A_NUMBER;
   }
   size_t frac = 0;
   if (*p == '.') {
-    frac = idris2_digits(p + 1);
+    frac = idris2i_1_digits(p + 1);
     p += 1 + frac;
   }
   if (whole + frac == 0)
-    return IDRIS2_NOT_A_NUMBER;
+    return IDRIS2I_1_NOT_A_NUMBER;
   if (*p == 'e' || *p == 'E') {
     ++p;
     if (*p == '+' || *p == '-')
       ++p;
-    size_t e = idris2_digits(p);
+    size_t e = idris2i_1_digits(p);
     if (e == 0)
-      return IDRIS2_NOT_A_NUMBER;
+      return IDRIS2I_1_NOT_A_NUMBER;
     p += e;
   }
   // (a mantissa width, `|<bits>`, as `show` writes after a subnormal Double)
   if (*p == '|') {
-    size_t width = idris2_digits(p + 1);
-    return width > 0 && p[1 + width] == '\0' ? IDRIS2_DECIMAL_SYNTAX
-                                              : IDRIS2_NOT_A_NUMBER;
+    size_t width = idris2i_1_digits(p + 1);
+    return width > 0 && p[1 + width] == '\0' ? IDRIS2I_1_DECIMAL_SYNTAX
+                                              : IDRIS2I_1_NOT_A_NUMBER;
   }
-  return *p == '\0' ? IDRIS2_DECIMAL_SYNTAX : IDRIS2_NOT_A_NUMBER;
+  return *p == '\0' ? IDRIS2I_1_DECIMAL_SYNTAX : IDRIS2I_1_NOT_A_NUMBER;
 }
 
 // The Double nearest to num/den (den > 0), the even one of two at the same
@@ -348,7 +348,7 @@ static int idris2_numberSyntax(char const *s) {
 // the division is not exact: then the bits below the 53 of the result (or
 // below 2^-1074, for a subnormal result) tell which way to round, and a
 // remainder is never taken for a tie.
-static double idris2_fractionToDouble(mpz_srcptr num, mpz_srcptr den) {
+static double idris2i_1_fractionToDouble(mpz_srcptr num, mpz_srcptr den) {
   int sign = mpz_sgn(num);
   if (sign == 0)
     return 0.0;
@@ -368,7 +368,7 @@ static double idris2_fractionToDouble(mpz_srcptr num, mpz_srcptr den) {
     mpz_mul_2exp(b, b, (mp_bitcnt_t)-e);
   mpz_tdiv_qr(a, r, a, b);
   // (the quotient has at most 56 bits)
-  uint64_t quot = idris2_mpzLow64(a) | (mpz_sgn(r) != 0);
+  uint64_t quot = idris2i_1_mpzLow64(a) | (mpz_sgn(r) != 0);
   mpz_clears(a, b, r, NULL);
 
   int bits = 64 - __builtin_clzll(quot);
@@ -382,11 +382,11 @@ static double idris2_fractionToDouble(mpz_srcptr num, mpz_srcptr den) {
   return sign < 0 ? -d : d;
 }
 
-// A decimal number (see idris2_numberSyntax) as a Double.  Without a mantissa
+// A decimal number (see idris2i_1_numberSyntax) as a Double.  Without a mantissa
 // width, that is what strtod reads.  With one, `x|p`, the exact value of x is
 // rounded to p bits first (to the nearest, ties to even), then to a Double, as
 // Chez does (so that a subnormal one reads back as `show` writes it).
-static double idris2_decimalToDouble(char const *s) {
+static double idris2i_1_decimalToDouble(char const *s) {
   char const *bar = strchr(s, '|');
   if (bar == NULL)
     return strtod(s, NULL);
@@ -399,7 +399,7 @@ static double idris2_decimalToDouble(char const *s) {
   // of their last one
   size_t len = (size_t)(bar - p);
   char *digits = malloc(len + 1);
-  IDRIS2_REFC_VERIFY(digits, "malloc failed");
+  IDRIS2I_1_REFC_VERIFY(digits, "malloc failed");
   size_t nd = 0;
   long long exp10 = 0;
   int point = 0;
@@ -488,7 +488,7 @@ static double idris2_decimalToDouble(char const *s) {
         mpz_mul_2exp(num, a, (mp_bitcnt_t)-sh);
       }
     }
-    d = idris2_fractionToDouble(num, den);
+    d = idris2i_1_fractionToDouble(num, den);
     mpz_clears(num, den, a, b, r, NULL);
   }
   free(digits);
@@ -497,31 +497,31 @@ static double idris2_decimalToDouble(char const *s) {
 
 // The digits of an integer or of a fraction, for GMP (which does not take a
 // '+' sign).
-static char const *idris2_gmpDigits(char const *s) {
+static char const *idris2i_1_gmpDigits(char const *s) {
   return *s == '+' ? s + 1 : s;
 }
 
 // The number in `s`, truncated towards zero, in `out` (which is initialised).
-static void idris2_parseInteger(Idris2_String *str, mpz_t out) {
+static void idris2i_1_parseInteger(Idris2i_1_String *str, mpz_t out) {
   char const *s = str->str;
   // (a string with a NUL character in it is not a number)
-  switch (strlen(s) == str->len ? idris2_numberSyntax(s)
-                                : IDRIS2_NOT_A_NUMBER) {
-  case IDRIS2_INTEGER_SYNTAX:
-    mpz_set_str(out, idris2_gmpDigits(s), 10);
+  switch (strlen(s) == str->len ? idris2i_1_numberSyntax(s)
+                                : IDRIS2I_1_NOT_A_NUMBER) {
+  case IDRIS2I_1_INTEGER_SYNTAX:
+    mpz_set_str(out, idris2i_1_gmpDigits(s), 10);
     break;
-  case IDRIS2_DECIMAL_SYNTAX: {
-    double d = idris2_decimalToDouble(s);
+  case IDRIS2I_1_DECIMAL_SYNTAX: {
+    double d = idris2i_1_decimalToDouble(s);
     if (isfinite(d))
       mpz_set_d(out, trunc(d));
     else
       mpz_set_ui(out, 0);
     break;
   }
-  case IDRIS2_FRACTION_SYNTAX: {
+  case IDRIS2I_1_FRACTION_SYNTAX: {
     mpq_t q;
     mpq_init(q);
-    mpq_set_str(q, idris2_gmpDigits(s), 10);
+    mpq_set_str(q, idris2i_1_gmpDigits(s), 10);
     mpz_tdiv_q(out, mpq_numref(q), mpq_denref(q));
     mpq_clear(q);
     break;
@@ -531,129 +531,129 @@ static void idris2_parseInteger(Idris2_String *str, mpz_t out) {
   }
 }
 
-Idris2_Value *idris2_cast_string_to_Integer(Idris2_Value *input) {
-  Idris2_Integer *retVal = idris2_mkInteger();
-  idris2_parseInteger((Idris2_String *)input, retVal->i);
-  return idris2_normaliseInteger(retVal);
+Idris2i_1_Value *idris2i_1_cast_string_to_Integer(Idris2i_1_Value *input) {
+  Idris2i_1_Integer *retVal = idris2i_1_mkInteger();
+  idris2i_1_parseInteger((Idris2i_1_String *)input, retVal->i);
+  return idris2i_1_normaliseInteger(retVal);
 }
 
 // A string to a fixed size integer: through an Integer, which wraps around.
-#define IDRIS2_CAST_STRING_TO(ty)                                              \
-  Idris2_Value *idris2_cast_string_to_##ty(Idris2_Value *input) {              \
-    Idris2_Value *i = idris2_cast_string_to_Integer(input);                    \
-    Idris2_Value *r = idris2_cast_Integer_to_##ty(i);                          \
-    idris2_removeReference(i);                                                 \
+#define IDRIS2I_1_CAST_STRING_TO(ty)                                              \
+  Idris2i_1_Value *idris2i_1_cast_string_to_##ty(Idris2i_1_Value *input) {              \
+    Idris2i_1_Value *i = idris2i_1_cast_string_to_Integer(input);                    \
+    Idris2i_1_Value *r = idris2i_1_cast_Integer_to_##ty(i);                          \
+    idris2i_1_removeReference(i);                                                 \
     return r;                                                                  \
   }
-IDRIS2_CAST_STRING_TO(Bits8)
-IDRIS2_CAST_STRING_TO(Bits16)
-IDRIS2_CAST_STRING_TO(Bits32)
-IDRIS2_CAST_STRING_TO(Bits64)
-IDRIS2_CAST_STRING_TO(Int8)
-IDRIS2_CAST_STRING_TO(Int16)
-IDRIS2_CAST_STRING_TO(Int32)
-IDRIS2_CAST_STRING_TO(Int64)
+IDRIS2I_1_CAST_STRING_TO(Bits8)
+IDRIS2I_1_CAST_STRING_TO(Bits16)
+IDRIS2I_1_CAST_STRING_TO(Bits32)
+IDRIS2I_1_CAST_STRING_TO(Bits64)
+IDRIS2I_1_CAST_STRING_TO(Int8)
+IDRIS2I_1_CAST_STRING_TO(Int16)
+IDRIS2I_1_CAST_STRING_TO(Int32)
+IDRIS2I_1_CAST_STRING_TO(Int64)
 
 // Is `s` the letters of `word` (in lower case), in any case?
-static int idris2_isWord(char const *s, char const *word) {
+static int idris2i_1_isWord(char const *s, char const *word) {
   for (; *word != '\0'; ++s, ++word)
     if (*s != *word && !(*word >= 'a' && *word <= 'z' && *s == *word - 32))
       return 0;
   return *s == '\0';
 }
 
-Idris2_Value *idris2_cast_string_to_Double(Idris2_Value *input) {
-  char const *s = ((Idris2_String *)input)->str;
-  int wellFormed = strlen(s) == ((Idris2_String *)input)->len;
+Idris2i_1_Value *idris2i_1_cast_string_to_Double(Idris2i_1_Value *input) {
+  char const *s = ((Idris2i_1_String *)input)->str;
+  int wellFormed = strlen(s) == ((Idris2i_1_String *)input)->len;
   // The values that are no numbers, written as `show` (and Scheme) writes
   // them: a sign, then `inf.0` or `nan.0` in any case, and nothing else
   // (`inf`, `nan` and `Infinity`, which strtod reads, are not numbers).
   if (wellFormed && (s[0] == '+' || s[0] == '-')) {
-    if (idris2_isWord(s + 1, "inf.0"))
-      return idris2_mkDouble(s[0] == '-' ? -INFINITY : INFINITY);
-    if (idris2_isWord(s + 1, "nan.0"))
-      return idris2_mkDouble(NAN);
+    if (idris2i_1_isWord(s + 1, "inf.0"))
+      return idris2i_1_mkDouble(s[0] == '-' ? -INFINITY : INFINITY);
+    if (idris2i_1_isWord(s + 1, "nan.0"))
+      return idris2i_1_mkDouble(NAN);
   }
-  switch (wellFormed ? idris2_numberSyntax(s) : IDRIS2_NOT_A_NUMBER) {
-  case IDRIS2_INTEGER_SYNTAX:
-    return idris2_mkDouble(strtod(s, NULL));
-  case IDRIS2_DECIMAL_SYNTAX:
-    return idris2_mkDouble(idris2_decimalToDouble(s));
-  case IDRIS2_FRACTION_SYNTAX: {
+  switch (wellFormed ? idris2i_1_numberSyntax(s) : IDRIS2I_1_NOT_A_NUMBER) {
+  case IDRIS2I_1_INTEGER_SYNTAX:
+    return idris2i_1_mkDouble(strtod(s, NULL));
+  case IDRIS2I_1_DECIMAL_SYNTAX:
+    return idris2i_1_mkDouble(idris2i_1_decimalToDouble(s));
+  case IDRIS2I_1_FRACTION_SYNTAX: {
     mpq_t q;
     mpq_init(q);
-    mpq_set_str(q, idris2_gmpDigits(s), 10);
-    double d = idris2_fractionToDouble(mpq_numref(q), mpq_denref(q));
+    mpq_set_str(q, idris2i_1_gmpDigits(s), 10);
+    double d = idris2i_1_fractionToDouble(mpq_numref(q), mpq_denref(q));
     mpq_clear(q);
-    return idris2_mkDouble(d);
+    return idris2i_1_mkDouble(d);
   }
   default:
-    return idris2_mkDouble(0.0);
+    return idris2i_1_mkDouble(0.0);
   }
 }
 
 /*  conversions from Bits8  */
-Idris2_Value *idris2_cast_Bits8_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromUInt64(idris2_vp_to_Bits8(input));
+Idris2i_1_Value *idris2i_1_cast_Bits8_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromUInt64(idris2i_1_vp_to_Bits8(input));
 }
 
-Idris2_Value *idris2_cast_Bits8_to_string(Idris2_Value *input) {
-  uint8_t x = idris2_vp_to_Bits8(input);
+Idris2i_1_Value *idris2i_1_cast_Bits8_to_string(Idris2i_1_Value *input) {
+  uint8_t x = idris2i_1_vp_to_Bits8(input);
 
   int l = snprintf(NULL, 0, "%" PRIu8 "", x);
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  Idris2i_1_String *retVal = idris2i_1_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRIu8 "", x);
-  idris2_setAscii(retVal);
+  idris2i_1_setAscii(retVal);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
 /*  conversions from Bits16  */
-Idris2_Value *idris2_cast_Bits16_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromUInt64(idris2_vp_to_Bits16(input));
+Idris2i_1_Value *idris2i_1_cast_Bits16_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromUInt64(idris2i_1_vp_to_Bits16(input));
 }
 
-Idris2_Value *idris2_cast_Bits16_to_string(Idris2_Value *input) {
-  uint16_t x = idris2_vp_to_Bits16(input);
+Idris2i_1_Value *idris2i_1_cast_Bits16_to_string(Idris2i_1_Value *input) {
+  uint16_t x = idris2i_1_vp_to_Bits16(input);
 
   int l = snprintf(NULL, 0, "%" PRIu16 "", x);
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  Idris2i_1_String *retVal = idris2i_1_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRIu16 "", x);
-  idris2_setAscii(retVal);
+  idris2i_1_setAscii(retVal);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
 /*  conversions from Bits32  */
-Idris2_Value *idris2_cast_Bits32_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromUInt64(idris2_vp_to_Bits32(input));
+Idris2i_1_Value *idris2i_1_cast_Bits32_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromUInt64(idris2i_1_vp_to_Bits32(input));
 }
 
-Idris2_Value *idris2_cast_Bits32_to_string(Idris2_Value *input) {
-  uint32_t x = idris2_vp_to_Bits32(input);
+Idris2i_1_Value *idris2i_1_cast_Bits32_to_string(Idris2i_1_Value *input) {
+  uint32_t x = idris2i_1_vp_to_Bits32(input);
 
   int l = snprintf(NULL, 0, "%" PRIu32 "", x);
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  Idris2i_1_String *retVal = idris2i_1_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRIu32 "", x);
-  idris2_setAscii(retVal);
+  idris2i_1_setAscii(retVal);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
 /*  conversions from Bits64  */
-Idris2_Value *idris2_cast_Bits64_to_Integer(Idris2_Value *input) {
-  return idris2_mkIntegerFromUInt64(idris2_vp_to_Bits64(input));
+Idris2i_1_Value *idris2i_1_cast_Bits64_to_Integer(Idris2i_1_Value *input) {
+  return idris2i_1_mkIntegerFromUInt64(idris2i_1_vp_to_Bits64(input));
 }
 
-Idris2_Value *idris2_cast_Bits64_to_string(Idris2_Value *input) {
-  uint64_t x = idris2_vp_to_Bits64(input);
+Idris2i_1_Value *idris2i_1_cast_Bits64_to_string(Idris2i_1_Value *input) {
+  uint64_t x = idris2i_1_vp_to_Bits64(input);
 
   int l = snprintf(NULL, 0, "%" PRIu64 "", x);
-  Idris2_String *retVal = idris2_mkEmptyString(l + 1);
+  Idris2i_1_String *retVal = idris2i_1_mkEmptyString(l + 1);
   sprintf(retVal->str, "%" PRIu64 "", x);
-  idris2_setAscii(retVal);
+  idris2i_1_setAscii(retVal);
 
-  return (Idris2_Value *)retVal;
+  return (Idris2i_1_Value *)retVal;
 }
 
 /*  conversions from Integer */
@@ -661,90 +661,90 @@ uint64_t mpz_get_lsb(mpz_srcptr i, mp_bitcnt_t b) {
   mpz_t r;
   mpz_init(r);
   mpz_fdiv_r_2exp(r, i, b);
-  uint64_t retVal = idris2_mpzLow64(r);
+  uint64_t retVal = idris2i_1_mpzLow64(r);
   mpz_clear(r);
   return retVal;
 }
 
-uint64_t idris2_integerLow64Slow(Idris2_Value *input) {
-  IDRIS2_INTEGER_MPZ(fromi, input);
+uint64_t idris2i_1_integerLow64Slow(Idris2i_1_Value *input) {
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
   return mpz_get_lsb(fromi, 64);
 }
 
-Idris2_Value *idris2_cast_Integer_to_Bits8(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkBits8((uint8_t)n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Bits8(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkBits8((uint8_t)n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkBits8((uint8_t)mpz_get_lsb(fromi, 8));
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  return (Idris2i_1_Value *)idris2i_1_mkBits8((uint8_t)mpz_get_lsb(fromi, 8));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Bits16(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkBits16((uint16_t)n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Bits16(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkBits16((uint16_t)n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkBits16((uint16_t)mpz_get_lsb(fromi, 16));
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  return (Idris2i_1_Value *)idris2i_1_mkBits16((uint16_t)mpz_get_lsb(fromi, 16));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Bits32(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkBits32((uint32_t)n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Bits32(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkBits32((uint32_t)n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkBits32((uint32_t)mpz_get_lsb(fromi, 32));
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  return (Idris2i_1_Value *)idris2i_1_mkBits32((uint32_t)mpz_get_lsb(fromi, 32));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Bits64(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkBits64((uint64_t)n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Bits64(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkBits64((uint64_t)n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkBits64((uint64_t)mpz_get_lsb(fromi, 64));
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  return (Idris2i_1_Value *)idris2i_1_mkBits64((uint64_t)mpz_get_lsb(fromi, 64));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Int8(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkInt8((int8_t)n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Int8(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkInt8((int8_t)n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkInt8((int8_t)mpz_get_lsb(fromi, 8));
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  return (Idris2i_1_Value *)idris2i_1_mkInt8((int8_t)mpz_get_lsb(fromi, 8));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Int16(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkInt16((int16_t)n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Int16(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkInt16((int16_t)n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkInt16((int16_t)mpz_get_lsb(fromi, 16));
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  return (Idris2i_1_Value *)idris2i_1_mkInt16((int16_t)mpz_get_lsb(fromi, 16));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Int32(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkInt32((int32_t)n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Int32(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkInt32((int32_t)n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkInt32((int32_t)mpz_get_lsb(fromi, 32));
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  return (Idris2i_1_Value *)idris2i_1_mkInt32((int32_t)mpz_get_lsb(fromi, 32));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Int64(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkInt64(n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Int64(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkInt64(n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  return (Idris2_Value *)idris2_mkInt64((int64_t)mpz_get_lsb(fromi, 64));
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  return (Idris2i_1_Value *)idris2i_1_mkInt64((int64_t)mpz_get_lsb(fromi, 64));
 }
 
-double idris2_integerToDoubleSlow(Idris2_Value *input) {
-  IDRIS2_INTEGER_MPZ(fromi, input);
+double idris2i_1_integerToDoubleSlow(Idris2i_1_Value *input) {
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
   // mpz_get_d truncates, but the other backends round to the nearest Double,
   // as strtod does.
   if (mpz_fits_slong_p(fromi) && sizeof(long) >= 8)
@@ -755,24 +755,24 @@ double idris2_integerToDoubleSlow(Idris2_Value *input) {
   return d;
 }
 
-Idris2_Value *idris2_cast_Integer_to_Double(Idris2_Value *input) {
-  return (Idris2_Value *)idris2_mkDouble(idris2_integerToDouble(input));
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Double(Idris2i_1_Value *input) {
+  return (Idris2i_1_Value *)idris2i_1_mkDouble(idris2i_1_integerToDouble(input));
 }
 
-Idris2_Value *idris2_cast_Integer_to_Char(Idris2_Value *input) {
-  if (idris2_isSmallInteger(input)) {
-    int64_t n = idris2_smallInteger(input);
-    return (Idris2_Value *)idris2_mkValidChar(n);
+Idris2i_1_Value *idris2i_1_cast_Integer_to_Char(Idris2i_1_Value *input) {
+  if (idris2i_1_isSmallInteger(input)) {
+    int64_t n = idris2i_1_smallInteger(input);
+    return (Idris2i_1_Value *)idris2i_1_mkValidChar(n);
   }
-  IDRIS2_INTEGER_MPZ(fromi, input);
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
   if (!mpz_fits_slong_p(fromi))
-    return idris2_mkChar(0);
-  return idris2_mkValidChar(mpz_get_si(fromi));
+    return idris2i_1_mkChar(0);
+  return idris2i_1_mkValidChar(mpz_get_si(fromi));
 }
 
-Idris2_Value *idris2_cast_Integer_to_string(Idris2_Value *input) {
-  IDRIS2_INTEGER_MPZ(fromi, input);
-  Idris2_String *retVal = idris2_mkStringOwned(mpz_get_str(NULL, 10, fromi));
-  idris2_setAscii(retVal);
-  return (Idris2_Value *)retVal;
+Idris2i_1_Value *idris2i_1_cast_Integer_to_string(Idris2i_1_Value *input) {
+  IDRIS2I_1_INTEGER_MPZ(fromi, input);
+  Idris2i_1_String *retVal = idris2i_1_mkStringOwned(mpz_get_str(NULL, 10, fromi));
+  idris2i_1_setAscii(retVal);
+  return (Idris2i_1_Value *)retVal;
 }

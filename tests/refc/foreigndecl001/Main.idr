@@ -6,14 +6,14 @@ import System.File.Error
 
 main : IO ()
 main = do
-  ok <- setEnv "IDRIS2_FOREIGNDECL" "yes" True
+  ok <- setEnv "IDRIS2I_1_FOREIGNDECL" "yes" True
   printLn ok
-  getEnv "IDRIS2_FOREIGNDECL" >>= printLn
-  ok <- setEnv "IDRIS2_FOREIGNDECL" "no" False
-  getEnv "IDRIS2_FOREIGNDECL" >>= printLn
-  ok <- unsetEnv "IDRIS2_FOREIGNDECL"
+  getEnv "IDRIS2I_1_FOREIGNDECL" >>= printLn
+  ok <- setEnv "IDRIS2I_1_FOREIGNDECL" "no" False
+  getEnv "IDRIS2I_1_FOREIGNDECL" >>= printLn
+  ok <- unsetEnv "IDRIS2I_1_FOREIGNDECL"
   printLn ok
-  getEnv "IDRIS2_FOREIGNDECL" >>= printLn
+  getEnv "IDRIS2I_1_FOREIGNDECL" >>= printLn
   -- (stdin is not a terminal here)
   Left _ <- enableRawMode
     | Right () => putStrLn "raw mode on a terminal?"

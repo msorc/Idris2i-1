@@ -1,0 +1,6 @@
+. ../../../testutils.sh
+
+idris2i-1 -p idris2i-1 -p contrib -p network LazyCodegen.idr -o lazy-idris2i-1
+./build/exec/lazy-idris2i-1 --cg lazy Hello.idr -o hello > output
+diff expected output
+cmp -n 15 expected output

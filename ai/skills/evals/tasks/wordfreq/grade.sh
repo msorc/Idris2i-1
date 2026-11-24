@@ -1,7 +1,7 @@
 #!/bin/sh
 . "$(dirname "$0")/../../lib.sh"
 
-assert "idris2 --build wordfreq.ipkg succeeds" "$IDRIS" --build wordfreq.ipkg
+assert "idris2i-1 --build wordfreq.ipkg succeeds" "$IDRIS" --build wordfreq.ipkg
 exe=./build/exec/wordfreq
 if [ ! -x "$exe" ]; then
   for t in "output on the sample text matches the reference" \

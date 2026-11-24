@@ -8,7 +8,7 @@
 ||| constant (the implementation of `Flat` of the type of the elements, a
 ||| literal after the newtypes are compiled away), it is replaced by a copy
 ||| that has the constant instead of the parameter, so that its accesses are
-||| inline (see idris2_slotGet in prim.h); the copy calls copies in turn.
+||| inline (see idris2i_1_slotGet in prim.h); the copy calls copies in turn.
 |||
 ||| This is done here, on the definitions of the program, rather than by the
 ||| specialisation of the elaborator (`%spec`, `--spec-interfaces`): a copy

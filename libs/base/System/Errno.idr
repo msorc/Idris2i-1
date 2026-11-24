@@ -3,11 +3,11 @@ module System.Errno
 
 %default total
 
-%foreign "C:idris2_getErrno, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getErrno, libidris2i_1_support, idris_support.h"
          "node:support:getErrno,support_system"
 prim__getErrno : PrimIO Int
 
-%foreign "C:idris2_strerror, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_strerror, libidris2i_1_support, idris_support.h"
          "node:support:strerror,support_system"
 prim__strerror : Int -> PrimIO String
 

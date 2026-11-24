@@ -1,7 +1,7 @@
 . ../../testutils.sh
 
 ulimit -c 0
-idris2 -o crash Main.idr > /dev/null
+idris2i-1 -o crash Main.idr > /dev/null
 ./build/exec/crash
 echo "exit code: $?"
 # `exit` inside a boundary exits

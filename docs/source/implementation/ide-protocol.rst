@@ -2,12 +2,12 @@
 The IDE Protocol
 ********************
 
-The Idris REPL has two modes of interaction: a human-readable syntax designed for direct use in a terminal, and a machine-readable syntax designed for using Idris as a backend for external tools.
+The Idris2i-1 REPL has two modes of interaction: a human-readable syntax designed for direct use in a terminal, and a machine-readable syntax designed for using Idris2i-1 as a backend for external tools.
 
-The IDE-Protocol is versioned separately from the Idris compiler.
-The first version of Idris (written in Haskell and is at v1.3.3) implements version one of the IDE Protocol, and Idris2 (self-hosting and is at v.0.3.0) implements version two of the IDE Protocol.
+The IDE-Protocol is versioned separately from the Idris2i-1 compiler.
+The first version of Idris (written in Haskell and is at v1.3.3) implements version one of the IDE Protocol, and Idris 2 (self-hosting and is at v.0.3.0) implements version two of the IDE Protocol.
 
-The protocol and its serialisation/deserialisation routines are part of the `Protocol` submodule hierarchy and are packaged in the `idris2protocols.ipkg` package.
+The protocol and its serialisation/deserialisation routines are part of the `Protocol` submodule hierarchy and are packaged in the `idris2i_1protocols.ipkg` package.
 
 Starting IDE Mode
 -----------------
@@ -15,23 +15,23 @@ Starting IDE Mode
 To initiate the IDE-Protocol on stdin/stdout, use the ``--ide-mode`` command line option.
 To run the protocol over a TCP socket, use the ``--ide-mode-socket`` option: ::
 
-  idris2 --ide-mode-socket
+  idris2i-1 --ide-mode-socket
   53864
 
 By default this will chose an open port, print the number of the port to stdout followed by a newline, and listen to that socket on localhost.
 You may optionally specify the hostname and port to listen to: ::
 
-  idris2 --ide-mode-socket localhost:12345
+  idris2i-1 --ide-mode-socket localhost:12345
   12345
 
-The IDE-Protocol will run on that socket, and Idris will exit when the client disconnects from the socket.
+The IDE-Protocol will run on that socket, and Idris2i-1 will exit when the client disconnects from the socket.
 
 
 Protocol Overview
 -----------------
 
-The communication protocol is of asynchronous request-reply style: a single request from the client is handled by Idris at a time.
-Idris waits for a request on its standard input stream, and outputs the answer or answers to standard output.
+The communication protocol is of asynchronous request-reply style: a single request from the client is handled by Idris2i-1 at a time.
+Idris2i-1 waits for a request on its standard input stream, and outputs the answer or answers to standard output.
 The result of a request can be either success, failure, or intermediate output; and furthermore, before the result is delivered, there might be additional meta-messages.
 
 
@@ -50,7 +50,7 @@ An example interaction from loading the file ``/home/hannes/empty.idr`` looks as
 
 The first message is the request from idris-mode to load the specific file, which length is hex 2a, decimal 42 (including the newline at the end).
 The request identifier is set to 1.
-The first message from Idris is to write the string ``Type checking /home/hannes/empty.idr``, another is to set the prompt to ``*/home/hannes/empty``.
+The first message from Idris2i-1 is to write the string ``Type checking /home/hannes/empty.idr``, another is to set the prompt to ``*/home/hannes/empty``.
 The answer, starting with ``:return`` is ``ok``, and additional information is that the file was loaded.
 
 There are three atoms in the wire language: numbers, strings, and symbols.
@@ -63,13 +63,13 @@ The syntax is::
 where ``NUM`` is either 0 or a positive integer, ``ALPHA`` is an alphabetical character, and ``STR`` is the contents of a string, with ``"`` escaped by a backslash.
 The atom ``nil`` is accepted instead of ``()`` for compatibility with some regexp pretty-printing routines.
 
-The state of the Idris process is mainly the active file, which needs to be kept synchronised between the editor and Idris.
+The state of the Idris2i-1 process is mainly the active file, which needs to be kept synchronised between the editor and Idris2i-1.
 This is achieved by the already seen ``:load-file`` command.
 
 Protocol Versioning
 -------------------
 
-When interacting with Idris through the IDE Protocol the initial message sent by the running Idris Process is the version (major and minor) of the IDE Protocol being used.
+When interacting with Idris2i-1 through the IDE Protocol the initial message sent by the running Idris2i-1 Process is the version (major and minor) of the IDE Protocol being used.
 
 The expected message has the following format:
 
@@ -92,10 +92,10 @@ They are compatible with Version 1 and 2.0 of the protocol unless otherwise stat
     Version 2 of the IDE Protocol requires that the path is quoted, as in ``(:cd "a/b/c")`` and not ``(:cd a/b/c)``.
 
   ``(:interpret STRING)``
-    Interpret ``STRING`` at the Idris REPL, returning a highlighted result.
+    Interpret ``STRING`` at the Idris2i-1 REPL, returning a highlighted result.
 
   ``(:type-of STRING)``
-    Return the type of the name, written with Idris syntax in the ``STRING``.
+    Return the type of the name, written with Idris2i-1 syntax in the ``STRING``.
     The reply may contain highlighting information.
 
   ``(:case-split LINE NAME)``
@@ -127,7 +127,7 @@ They are compatible with Version 1 and 2.0 of the protocol unless otherwise stat
   ``(:proof-search LINE NAME HINTS)``
     Attempt to fill out the hole on ``LINE`` named ``NAME`` by proof search.
     ``HINTS`` is a possibly-empty list of additional things to try while searching.
-    This operation is also called ``ExprSearch`` in the Idris 2 API.
+    This operation is also called ``ExprSearch`` in the Idris2i-1 API.
 
   ``(:refine LINE NAME TM)``
     Refine the hole on ``LINE`` named ``NAME`` by using the term ``TM``.
@@ -174,7 +174,7 @@ They are compatible with Version 1 and 2.0 of the protocol unless otherwise stat
     Search names, types and documentations which contain ``NAME``. Return the result of tab-completing ``NAME`` as a REPL command.
 
   ``:version``
-    Return the version information of the Idris compiler.
+    Return the version information of the Idris2i-1 compiler.
 
 New For Version 2
 -----------------
@@ -219,9 +219,9 @@ Warnings include compiler errors that don't cause the compiler to stop.
 Output Highlighting
 -------------------
 
-Idris mode supports highlighting the output from Idris.
-In reality, this highlighting is controlled by the Idris compiler.
-Some of the return forms from Idris support an optional extra parameter: a list mapping spans of text to metadata about that text.
+Idris mode supports highlighting the output from Idris2i-1.
+In reality, this highlighting is controlled by the Idris2i-1 compiler.
+Some of the return forms from Idris2i-1 support an optional extra parameter: a list mapping spans of text to metadata about that text.
 Clients can then use this list both to highlight the displayed output and to enable richer interaction by having more metadata present.
 For example, the Emacs mode allows right-clicking identifiers to get a menu with access to documentation and type signatures.
 
@@ -233,7 +233,7 @@ The head of each list is a key that denotes what kind of metadata is in the list
 
 The following keys are available:
   ``name``
-    gives a reference to the fully-qualified Idris name
+    gives a reference to the fully-qualified Idris2i-1 name
   ``implicit``
     provides a Boolean value that is True if the region is the name of an implicit argument
   ``decor``
@@ -274,13 +274,13 @@ The following keys are available:
     states that the region is antiquoted.
 
   ``tt-term``
-    A serialised representation of the Idris core term corresponding to the region of text.
+    A serialised representation of the Idris2i-1 core term corresponding to the region of text.
 
 Source Code Highlighting
 ------------------------
 
-Idris supports instructing editors how to colour their code.
-When elaborating source code or REPL input, Idris will locate regions of the source code corresponding to names, and emit information about these names using the same metadata as output highlighting.
+Idris2i-1 supports instructing editors how to colour their code.
+When elaborating source code or REPL input, Idris2i-1 will locate regions of the source code corresponding to names, and emit information about these names using the same metadata as output highlighting.
 
 These messages will arrive as replies to the command that caused elaboration to occur, such as ``:load-file`` or ``:interpret``.
 They have the format: ::

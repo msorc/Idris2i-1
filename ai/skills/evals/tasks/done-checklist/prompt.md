@@ -1,4 +1,4 @@
-I changed the wording of the "Undefined name" error message in the Idris 2 compiler
+I changed the wording of the "Undefined name" error message in the Idris2i-1 compiler
 checked out at `REPO`, and now a few dozen golden tests fail because their expected
 output has the old wording. Nothing is committed yet.
 

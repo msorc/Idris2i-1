@@ -1,12 +1,12 @@
 .. _tutorial-index:
 
-#########################
-A Crash Course in Idris 2
-#########################
+###########################
+A Crash Course in Idris2i-1
+###########################
 
-This is a crash course in Idris 2 (sort of a tutorial, but rather less
+This is a crash course in Idris2i-1 (sort of a tutorial, but rather less
 gentle I'm afraid!).
-It provides a brief introduction to programming in the Idris Language.
+It provides a brief introduction to programming in the Idris2i-1 Language.
 It covers the core language features, assuming some experience with an
 existing functional programming language such as Haskell or OCaml.
 

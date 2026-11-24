@@ -1,0 +1,62 @@
+[
+  {
+    "query": "bind libsqlite3 from Idris2i-1: open a database, run one query with a callback per row, close it",
+    "should_trigger": true
+  },
+  {
+    "query": "how do I call the C function `double hypot(double, double)` from Idris2i-1? I only need that one function from libm",
+    "should_trigger": true
+  },
+  {
+    "query": "my Idris2i-1 program segfaults right after a %foreign call that returns a char* from a C library I wrapped, the string is freed by the library",
+    "should_trigger": true
+  },
+  {
+    "query": "I have mylib.a and mylib.h, how do I link them into an Idris2i-1 executable built with the default backend",
+    "should_trigger": true
+  },
+  {
+    "query": "pass an Idris function as a callback to a C API that takes `void (*cb)(int, void*)` — what does the %foreign declaration look like",
+    "should_trigger": true
+  },
+  {
+    "query": "read fields of a C struct `struct stat` returned through an out-parameter in Idris2i-1",
+    "should_trigger": true
+  },
+  {
+    "query": "%foreign \"C:puts,libc\" gives me a C compiler error about implicit declaration when building my idris program, why",
+    "should_trigger": true
+  },
+  {
+    "query": "write Idris2i-1 bindings for zlib compress/uncompress working on Buffers",
+    "should_trigger": true
+  },
+  {
+    "query": "how do I call a JavaScript function from Idris2i-1 when compiling with the node backend, something like Date.now()",
+    "should_trigger": true
+  },
+  {
+    "query": "who owns the memory when an Idris2i-1 foreign function returns `Ptr String`, do I have to free it and how",
+    "should_trigger": true
+  },
+  {
+    "query": "bind libsqlite3 from Rust with bindgen: open a database, run one query with a callback per row",
+    "should_trigger": false
+  },
+  {
+    "query": "how do I call a C function from Haskell with foreign import ccall, I need hypot from libm",
+    "should_trigger": false
+  },
+  {
+    "query": "write an Idris2i-1 function that parses an Int from a String and returns Maybe Int",
+    "should_trigger": false
+  },
+  {
+    "query": "my Idris2i-1 HTTP server returns 500 on every request to /items, here is the handler",
+    "should_trigger": false
+  },
+  {
+    "query": "explain what an FFI is and why languages need one, for a blog post, no code",
+    "should_trigger": false
+  }
+]

@@ -274,9 +274,9 @@ elaborator scripts, ``E11`` parsing, ``E12`` modules, files and packages,
   it often;
 * every code has an entry in ``registry``, with a title, and the common
   ones an explanation: what it means, an example of the mistake, and the
-  usual fixes. ``idris2 --explain E0101`` and ``:explain E0101`` print it,
+  usual fixes. ``idris2i-1 --explain E0101`` and ``:explain E0101`` print it,
   and ``docs/source/reference/error-codes.rst`` is printed from it
-  (``idris2 --list-error-codes``; the test ``idris2/error/errorcodes001``
+  (``idris2i-1 --list-error-codes``; the test ``idris2i-1/error/errorcodes001``
   fails when the page is out of date).
 
 The code is printed in brackets at the end of the first line of the message
@@ -310,7 +310,7 @@ file next to its ``expected`` file. For each of them, read
 change is the one you meant. Never copy all of them unread: a test failing
 for another reason looks the same in the list. Tests under ``tests/ttimp/``
 print errors in their raw ``show`` form and are usually not affected. Check
-``tests/idris2/error/jsonerror001`` (the ``message`` field of JSON
+``tests/idris2i-1/error/jsonerror001`` (the ``message`` field of JSON
 diagnostics) and the IDE mode tests, which carry the same text. Make a
 change that only touches white space or wording in many files a commit of
 its own, so that it can be reviewed apart from changes of substance.

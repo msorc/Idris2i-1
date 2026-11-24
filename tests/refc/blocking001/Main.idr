@@ -1,5 +1,5 @@
 -- 100 green threads, each in a call that blocks its OS thread for 50ms,
--- run through idris2_blockingCall on a pool of 4 threads: they take about
+-- run through idris2i_1_blockingCall on a pool of 4 threads: they take about
 -- 100 * 50ms / 4, not 100 * 50ms / (the number of workers), and the other
 -- threads keep running meanwhile.
 import Data.IORef

@@ -1,0 +1,16 @@
+. ../../../testutils.sh
+
+# A module whose TTC was written by another version of the compiler is
+# rebuilt, even though its source has not changed. Its dependents are not,
+# because its interface stays the same.
+
+check B.idr
+echo "--- nothing changed"
+check B.idr
+
+# pretend that another compiler wrote A.ttc, by overwriting the compiler
+# version stored in it with a string of the same length
+VERSION="$($idris2i_1 --version | sed 's/.*version //')"
+VERSION="$VERSION" perl -pi -e 's/\Q$ENV{VERSION}\E/"X" x length($&)/ge' build/ttc/*/A.ttc
+echo "--- A.ttc written by another compiler"
+check B.idr

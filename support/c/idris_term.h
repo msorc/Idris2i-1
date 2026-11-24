@@ -1,10 +1,10 @@
 #pragma once
 
-void idris2_setupTerm();
-int idris2_getTermCols();
-int idris2_getTermLines();
+void idris2i_1_setupTerm();
+int idris2i_1_getTermCols();
+int idris2i_1_getTermLines();
 
-int idris2_termRawOn();
-void idris2_termRawOff();
-int idris2_readKey();
-int idris2_keyPending();
+int idris2i_1_termRawOn();
+void idris2i_1_termRawOff();
+int idris2i_1_readKey();
+int idris2i_1_keyPending();

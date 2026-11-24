@@ -2,7 +2,7 @@ the archive is installed
 the header is installed
 --- first build
 42
-prefix/idris2-x.y.z/clib-0.1.0/lib/libanswer.a
+prefix/idris2i-1-x.y.z/clib-0.1.0/lib/libanswer.a
 --- nothing changed
 The executable app is up to date, not compiling it again
 --- the archive changed

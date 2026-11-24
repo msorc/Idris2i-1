@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2 --quiet -o fold Fold.idr
+idris2i-1 --quiet -o fold Fold.idr
 run Check.idr

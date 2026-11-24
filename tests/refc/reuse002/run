@@ -1,7 +1,7 @@
 . ../../testutils.sh
 
-idris2 --directive refc-size-reuse -o main Main.idr
-IDRIS2_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
+idris2i-1 --directive refc-size-reuse -o main Main.idr
+IDRIS2I_1_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
 grep "leaked values" leaks.txt | sed 's/,.*//'
 # Main.turn takes the cell over: the tag is set, the fields are stored
 # only where they move.

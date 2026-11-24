@@ -1,5 +1,5 @@
-Write a small HTTP service in Idris 2, as a package: `sumsvc.ipkg` in the current
-directory, sources under `src/`, so that `idris2 --build sumsvc.ipkg` produces
+Write a small HTTP service in Idris2i-1, as a package: `sumsvc.ipkg` in the current
+directory, sources under `src/`, so that `idris2i-1 --build sumsvc.ipkg` produces
 `build/exec/sumsvc`.
 
 `sumsvc PORT` listens on `127.0.0.1:PORT` and serves until it is killed:

@@ -92,14 +92,14 @@ cUserName (Basic n) = cCleanString n
 cUserName (Field n) = "rec__" ++ cCleanString n
 cUserName Underscore = cCleanString "_"
 
--- The names that begin with `idris2_` (in any case) are those of the support
--- library (`idris2_newValue`, `Idris2_Value`, `IDRIS2_MUSTTAIL`) and those that
+-- The names that begin with `idris2i_1_` (in any case) are those of the support
+-- library (`idris2i_1_newValue`, `Idris2i_1_Value`, `IDRIS2I_1_MUSTTAIL`) and those that
 -- the code generator makes besides the C names of the definitions (`cafName`,
--- `borrowName`, `idris2_constr_...`, `idris2_static_closure_...`, the
+-- `borrowName`, `idris2i_1_constr_...`, `idris2i_1_static_closure_...`, the
 -- constants, and the local variables that are not numbered, like
--- `idris2_trmc_hole`): a C name of a definition that would begin with it
--- (that of a definition of the namespace `idris2`) is given another
--- beginning, `idris2_user_`, which they never have.  (The C name of a
+-- `idris2i_1_trmc_hole`): a C name of a definition that would begin with it
+-- (that of a definition of the namespace `idris2i-1`) is given another
+-- beginning, `idris2i_1_user_`, which they never have.  (The C name of a
 -- definition has a `_` after its namespace, and the numbered local variables,
 -- like `var_3`, a number after the only `_`: they never are the name of a
 -- definition either.)
@@ -107,8 +107,8 @@ userCName : String -> String
 userCName s
     = -- (most names are told apart by their first character)
       if (let c = substr 0 1 s in c == "i" || c == "I")
-           && toLower (substr 0 7 s) == "idris2_"
-         then "idris2_user_" ++ s
+           && toLower (substr 0 10 s) == "idris2i_1_"
+         then "idris2i_1_user_" ++ s
          else s
 
 export
@@ -126,12 +126,12 @@ cName (Resolved i) = "fn__" ++ cCleanString (show i)
 ||| The C name of the function that computes the value of a definition without
 ||| arguments (a CAF, see `createCFunctions`), whose C name is `cn`.
 cafName : String -> String
-cafName cn = "idris2_caf_" ++ cn
+cafName cn = "idris2i_1_caf_" ++ cn
 
 ||| The C name of the variant of a foreign function that borrows its arguments
 ||| (see `createCFunctions`), whose C name is `cn`.
 borrowName : String -> String
-borrowName cn = "idris2_borrow_" ++ cn
+borrowName cn = "idris2i_1_borrow_" ++ cn
 
 -- A character is its code point; RefC stores it unboxed, in at least 32 bits.
 escapeChar : Char -> String
@@ -202,45 +202,45 @@ cPrimType WorldType = "void"
 
 ||| Generate scheme for a primitive function.
 cOp : {0 arity : Nat} -> PrimFn arity -> Vect arity String -> String
-cOp (Neg ty)      [x]       = "idris2_negate_"  ++  cPrimType ty ++ "(" ++ x ++ ")"
+cOp (Neg ty)      [x]       = "idris2i_1_negate_"  ++  cPrimType ty ++ "(" ++ x ++ ")"
 cOp StrLength     [x]       = "stringLength(" ++ x ++ ")"
 cOp StrHead       [x]       = "head(" ++ x ++ ")"
 cOp StrTail       [x]       = "tail(" ++ x ++ ")"
 cOp StrReverse    [x]       = "reverse(" ++ x ++ ")"
-cOp (Cast i o)    [x]       = "idris2_cast_" ++ (cPrimType i) ++ "_to_" ++ (cPrimType o) ++ "(" ++ x ++ ")"
-cOp DoubleExp     [x]       = "idris2_mkDouble(exp(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleLog     [x]       = "idris2_mkDouble(log(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoublePow     [x, y]    = "idris2_mkDouble(pow(idris2_vp_to_Double(" ++ x ++ "), idris2_vp_to_Double(" ++ y ++ ")))"
-cOp DoubleSin     [x]       = "idris2_mkDouble(sin(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleCos     [x]       = "idris2_mkDouble(cos(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleTan     [x]       = "idris2_mkDouble(tan(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleASin    [x]       = "idris2_mkDouble(asin(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleACos    [x]       = "idris2_mkDouble(acos(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleATan    [x]       = "idris2_mkDouble(atan(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleSqrt    [x]       = "idris2_mkDouble(sqrt(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleFloor   [x]       = "idris2_mkDouble(floor(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp DoubleCeiling [x]       = "idris2_mkDouble(ceil(idris2_vp_to_Double(" ++ x ++ ")))"
-cOp (Add ty)      [x, y]    = "idris2_add_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (Sub ty)      [x, y]    = "idris2_sub_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (Mul ty)      [x, y]    = "idris2_mul_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (Div ty)      [x, y]    = "idris2_div_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (Mod ty)      [x, y]    = "idris2_mod_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (ShiftL ty)   [x, y]    = "idris2_shiftl_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (ShiftR ty)   [x, y]    = "idris2_shiftr_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (BAnd ty)     [x, y]    = "idris2_and_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (BOr ty)      [x, y]    = "idris2_or_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (BXOr ty)     [x, y]    = "idris2_xor_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (LT ty)       [x, y]    = "idris2_lt_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (GT ty)       [x, y]    = "idris2_gt_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (EQ ty)       [x, y]    = "idris2_eq_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (LTE ty)      [x, y]    = "idris2_lte_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
-cOp (GTE ty)      [x, y]    = "idris2_gte_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (Cast i o)    [x]       = "idris2i_1_cast_" ++ (cPrimType i) ++ "_to_" ++ (cPrimType o) ++ "(" ++ x ++ ")"
+cOp DoubleExp     [x]       = "idris2i_1_mkDouble(exp(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleLog     [x]       = "idris2i_1_mkDouble(log(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoublePow     [x, y]    = "idris2i_1_mkDouble(pow(idris2i_1_vp_to_Double(" ++ x ++ "), idris2i_1_vp_to_Double(" ++ y ++ ")))"
+cOp DoubleSin     [x]       = "idris2i_1_mkDouble(sin(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleCos     [x]       = "idris2i_1_mkDouble(cos(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleTan     [x]       = "idris2i_1_mkDouble(tan(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleASin    [x]       = "idris2i_1_mkDouble(asin(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleACos    [x]       = "idris2i_1_mkDouble(acos(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleATan    [x]       = "idris2i_1_mkDouble(atan(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleSqrt    [x]       = "idris2i_1_mkDouble(sqrt(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleFloor   [x]       = "idris2i_1_mkDouble(floor(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp DoubleCeiling [x]       = "idris2i_1_mkDouble(ceil(idris2i_1_vp_to_Double(" ++ x ++ ")))"
+cOp (Add ty)      [x, y]    = "idris2i_1_add_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (Sub ty)      [x, y]    = "idris2i_1_sub_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (Mul ty)      [x, y]    = "idris2i_1_mul_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (Div ty)      [x, y]    = "idris2i_1_div_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (Mod ty)      [x, y]    = "idris2i_1_mod_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (ShiftL ty)   [x, y]    = "idris2i_1_shiftl_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (ShiftR ty)   [x, y]    = "idris2i_1_shiftr_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (BAnd ty)     [x, y]    = "idris2i_1_and_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (BOr ty)      [x, y]    = "idris2i_1_or_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (BXOr ty)     [x, y]    = "idris2i_1_xor_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (LT ty)       [x, y]    = "idris2i_1_lt_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (GT ty)       [x, y]    = "idris2i_1_gt_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (EQ ty)       [x, y]    = "idris2i_1_eq_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (LTE ty)      [x, y]    = "idris2i_1_lte_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
+cOp (GTE ty)      [x, y]    = "idris2i_1_gte_" ++ cPrimType ty ++ "(" ++ x ++ ", " ++ y ++ ")"
 cOp StrIndex      [x, i]    = "strIndex(" ++ x ++ ", " ++ i ++ ")"
 cOp StrCons       [x, y]    = "strCons(" ++ x ++ ", " ++ y ++ ")"
 cOp StrAppend     [x, y]    = "strAppend(" ++ x ++ ", " ++ y ++ ")"
 cOp StrSubstr     [x, y, z] = "strSubstr(" ++ x ++ ", " ++ y  ++ ", " ++ z ++ ")"
-cOp BelieveMe     [_, _, x] = "idris2_newReference(" ++ x ++ ")"
-cOp Crash         [_, msg]  = "idris2_crash(" ++ msg ++ ");"
+cOp BelieveMe     [_, _, x] = "idris2i_1_newReference(" ++ x ++ ")"
+cOp Crash         [_, msg]  = "idris2i_1_crash(" ++ msg ++ ");"
 cOp fn args = show fn ++ "(" ++ (showSep ", " $ toList args) ++ ")"
 
 varName : AVar -> String
@@ -270,7 +270,7 @@ data ConstDef
   | CDB64 String
   | CDDb  String
   | CDStr String
-  | CDBI  String -- created on first use (see idris2_integerConstant)
+  | CDBI  String -- created on first use (see idris2i_1_integerConstant)
 
 constantName : ConstDef -> String
 constantName = \case
@@ -280,7 +280,7 @@ constantName = \case
   CDStr x => go "String" x
   CDBI x  => go "Integer" x
   where go : String -> String -> String
-        go x y = "idris2_constant_\{x}_\{y}"
+        go x y = "idris2i_1_constant_\{x}_\{y}"
 
 ||| What the constants of a program are told apart by: their values, but the
 ||| doubles by their C texts, as `compare` takes `-0.0` for `0.0` (and finds
@@ -379,10 +379,10 @@ record StaticVal where
 ||| has no arguments yet, and takes `arity`.
 staticClosure : {auto _ : Ref ConstDef ConstTable} -> String -> Nat -> Core StaticVal
 staticClosure fn arity = do
-    let name = "idris2_static_closure_\{fn}_\{show arity}"
-    update ConstDef { staticDefs $= insert name "IDRIS2_STATIC_CLOSURE(\{name}, \{fn}, \{show arity});"
+    let name = "idris2i_1_static_closure_\{fn}_\{show arity}"
+    update ConstDef { staticDefs $= insert name "IDRIS2I_1_STATIC_CLOSURE(\{name}, \{fn}, \{show arity});"
                     , constUses $= insert name }
-    pure (MkStaticVal "((Idris2_Value *)&\{name})" [name] 0)
+    pure (MkStaticVal "((Idris2i_1_Value *)&\{name})" [name] 0)
 
 ||| The static value of a constructor with the tag `tag` and the fields
 ||| `fields`.  Its name is made of its definition, like the names of the
@@ -392,15 +392,15 @@ staticConstructor tag fields = do
     let depth = S (foldl max 0 (map depth fields))
     let init = "\{show (length fields)}, \{show tag}, \{concat $ intersperse ", " (map expr fields)}"
     tbl <- get ConstDef
-    let prefx = "idris2_static_con\{if depth < 10 then "0" else ""}\{show depth}_\{hashName init}"
+    let prefx = "idris2i_1_static_con\{if depth < 10 then "0" else ""}\{show depth}_\{hashName init}"
     let name = fresh tbl.staticDefs prefx init 0
     let names = name :: concatMap names fields
     put ConstDef ({ staticDefs $= insert name (text name init)
                   , constUses $= (\u => foldl (flip insert) u names) } tbl)
-    pure (MkStaticVal "((Idris2_Value *)&\{name})" names depth)
+    pure (MkStaticVal "((Idris2i_1_Value *)&\{name})" names depth)
   where
     text : String -> String -> String
-    text name init = "IDRIS2_STATIC_CONSTRUCTOR(\{name}, \{init});"
+    text name init = "IDRIS2I_1_STATIC_CONSTRUCTOR(\{name}, \{init});"
 
     -- (two definitions with the same hash get different names)
     fresh : SortedMap String String -> String -> String -> Nat -> String
@@ -413,7 +413,7 @@ staticConstructor tag fields = do
 ||| The static value of a constructor with raw fields (see `RawLayout`): the
 ||| tag `tag`, the pointer fields `fields` (static values), and the raw ones,
 ||| C constant expressions of their types.  The struct has the layout of
-||| idris2_newRawConstructor: the first raw field is aligned on 8 bytes (on 32
+||| idris2i_1_newRawConstructor: the first raw field is aligned on 8 bytes (on 32
 ||| bit x86 too, where a double in a struct is aligned on 4 otherwise).
 staticRawConstructor : {auto _ : Ref ConstDef ConstTable} -> Int -> List StaticVal
                     -> List (PrimType, String) -> Core StaticVal
@@ -423,23 +423,23 @@ staticRawConstructor tag fields raws = do
     let members = concat (zipWith (\j, (t, _) =>
                     (if j == 0 then "_Alignas(8) " else "") ++ cIntType t ++ " r\{show j}; ")
                     [0 .. length raws] raws)
-    let ptrs = if np == 0 then "" else "Idris2_Value *args[\{show np}]; "
+    let ptrs = if np == 0 then "" else "Idris2i_1_Value *args[\{show np}]; "
     let ptrInit = if np == 0 then "" else ", {\{concat $ intersperse ", " (map expr fields)}}"
     let init = "\{show np}, \{show tag}\{ptrInit}, \{concat $ intersperse ", " (map snd raws)}"
     tbl <- get ConstDef
     -- (the depth first, as in `staticConstructor`: the definitions are in the
     -- order of their names, so a constructor comes after its fields)
-    let prefx = "idris2_static_con\{if depth < 10 then "0" else ""}\{show depth}_raw_\{hashName (members ++ init)}"
+    let prefx = "idris2i_1_static_con\{if depth < 10 then "0" else ""}\{show depth}_raw_\{hashName (members ++ init)}"
     let name = fresh tbl.staticDefs prefx (text members ptrs init) 0
     let names = name :: concatMap names fields
     put ConstDef ({ staticDefs $= insert name (text members ptrs init name)
                   , constUses $= (\u => foldl (flip insert) u names) } tbl)
-    pure (MkStaticVal "((Idris2_Value *)&\{name})" names depth)
+    pure (MkStaticVal "((Idris2i_1_Value *)&\{name})" names depth)
   where
     text : String -> String -> String -> String -> String
     text members ptrs init name
-        = "IDRIS2_UNUSED static const struct { Idris2_header header; uint16_t total; int16_t tag; "
-          ++ ptrs ++ members ++ "} \{name} = {IDRIS2_STOCKVAL(CONSTRUCTOR_TAG), \{init}};"
+        = "IDRIS2I_1_UNUSED static const struct { Idris2i_1_header header; uint16_t total; int16_t tag; "
+          ++ ptrs ++ members ++ "} \{name} = {IDRIS2I_1_STOCKVAL(CONSTRUCTOR_TAG), \{init}};"
 
     -- (two definitions with the same hash get different names)
     fresh : SortedMap String String -> String -> (String -> String) -> Nat -> String
@@ -460,7 +460,7 @@ staticShape _ = False
 
 ||| What a cell that a constructor may take over is chosen by: its number of
 ||| fields, and whether the constructor is told apart by its name (which takes
-||| a slot of its own, see idris2_newNamedConstructor), so that the cell has
+||| a slot of its own, see idris2i_1_newNamedConstructor), so that the cell has
 ||| the right size, with the directive `refc-size-reuse`; otherwise the name of
 ||| the constructor, as before.
 ReuseKey : Type
@@ -499,7 +499,7 @@ cellsOf k m = fromMaybe [] (lookup k m)
 -- says that they always hold a `Double`, an `Int`, an `Int64` or a `Bits64`
 -- (`rawField`) are stored raw in its cell, after its pointer fields, which
 -- `total` counts: the runtime never looks at them (see
--- idris2_newRawConstructor).  A field matched is a C number of its type (a
+-- idris2i_1_newRawConstructor).  A field matched is a C number of its type (a
 -- variable that Compiler.RefC.Unbox may keep unboxed, or a new value made
 -- from it), and one built is stored from a C number.  Not for the
 -- constructors told apart by their names (tag -1), nor with
@@ -547,13 +547,13 @@ splitFields l xs = go l.slots xs [<] [<]
 ||| The C lvalue of the raw slot `j` of the cell `c` (a C expression) of a
 ||| constructor with `np` pointer fields.
 rawSlot : String -> Nat -> Nat -> PrimType -> String
-rawSlot c np j t = "idris2_rawField(\{c}, \{show np}, \{show j}, \{cIntType t})"
+rawSlot c np j t = "idris2i_1_rawField(\{c}, \{show np}, \{show j}, \{cIntType t})"
 
 ------------------------------------------------------------------------
 -- Foreign structs (`Struct` of System.FFI)
 --
 -- A value of the type `Struct "name" [("field", Type), ...]` is a pointer to
--- a C struct that C code owns: at run time it is an `Idris2_Pointer`, like a
+-- a C struct that C code owns: at run time it is an `Idris2i_1_Pointer`, like a
 -- `Ptr`.  `getField` and `setField` read and write the fields in place.  As
 -- in the Chez backend, the layout is that of the C struct that the fields of
 -- the Idris type describe (an `Int` is an `int`, a `Struct` is a pointer to
@@ -572,7 +572,7 @@ record StructTable where
 
 ||| The C type of a foreign struct.
 structCName : String -> String
-structCName n = "struct Idris2_FFIStruct_" ++ cCleanString n
+structCName n = "struct Idris2i_1_FFIStruct_" ++ cCleanString n
 
 ||| The C name of a field of a foreign struct.
 structFieldCName : String -> String
@@ -599,37 +599,37 @@ structFieldCType _ = Nothing
 ||| The Idris value of a field of a foreign struct, read from the C
 ||| expression `field`.
 structFieldRead : CFType -> (field : String) -> String
-structFieldRead ty field = "(Idris2_Value *)" ++ case ty of
-    CFInt => "idris2_mkInt64(\{field})"
-    CFInt8 => "idris2_mkInt8(\{field})"
-    CFInt16 => "idris2_mkInt16(\{field})"
-    CFInt32 => "idris2_mkInt32(\{field})"
-    CFInt64 => "idris2_mkInt64(\{field})"
-    CFUnsigned8 => "idris2_mkBits8(\{field})"
-    CFUnsigned16 => "idris2_mkBits16(\{field})"
-    CFUnsigned32 => "idris2_mkBits32(\{field})"
-    CFUnsigned64 => "idris2_mkBits64(\{field})"
-    CFDouble => "idris2_mkDouble(\{field})"
+structFieldRead ty field = "(Idris2i_1_Value *)" ++ case ty of
+    CFInt => "idris2i_1_mkInt64(\{field})"
+    CFInt8 => "idris2i_1_mkInt8(\{field})"
+    CFInt16 => "idris2i_1_mkInt16(\{field})"
+    CFInt32 => "idris2i_1_mkInt32(\{field})"
+    CFInt64 => "idris2i_1_mkInt64(\{field})"
+    CFUnsigned8 => "idris2i_1_mkBits8(\{field})"
+    CFUnsigned16 => "idris2i_1_mkBits16(\{field})"
+    CFUnsigned32 => "idris2i_1_mkBits32(\{field})"
+    CFUnsigned64 => "idris2i_1_mkBits64(\{field})"
+    CFDouble => "idris2i_1_mkDouble(\{field})"
     -- (a C `char` is one of the first 256 characters, as in the Chez backend)
-    CFChar => "idris2_mkChar((unsigned char)\{field})"
-    _ => "idris2_makePointer(\{field})"
+    CFChar => "idris2i_1_mkChar((unsigned char)\{field})"
+    _ => "idris2i_1_makePointer(\{field})"
 
 ||| The C value to write in a field of a foreign struct, of the Idris value
 ||| of the C variable `var`.
 structFieldWrite : CFType -> (var : String) -> String
 structFieldWrite ty var = "(" ++ fromMaybe "void *" (structFieldCType ty) ++ ")" ++ case ty of
-    CFInt => "idris2_vp_to_Int64(\{var})"
-    CFInt8 => "idris2_vp_to_Int8(\{var})"
-    CFInt16 => "idris2_vp_to_Int16(\{var})"
-    CFInt32 => "idris2_vp_to_Int32(\{var})"
-    CFInt64 => "idris2_vp_to_Int64(\{var})"
-    CFUnsigned8 => "idris2_vp_to_Bits8(\{var})"
-    CFUnsigned16 => "idris2_vp_to_Bits16(\{var})"
-    CFUnsigned32 => "idris2_vp_to_Bits32(\{var})"
-    CFUnsigned64 => "idris2_vp_to_Bits64(\{var})"
-    CFDouble => "idris2_vp_to_Double(\{var})"
-    CFChar => "idris2_vp_to_Char(\{var})"
-    _ => "((Idris2_Pointer *)\{var})->p"
+    CFInt => "idris2i_1_vp_to_Int64(\{var})"
+    CFInt8 => "idris2i_1_vp_to_Int8(\{var})"
+    CFInt16 => "idris2i_1_vp_to_Int16(\{var})"
+    CFInt32 => "idris2i_1_vp_to_Int32(\{var})"
+    CFInt64 => "idris2i_1_vp_to_Int64(\{var})"
+    CFUnsigned8 => "idris2i_1_vp_to_Bits8(\{var})"
+    CFUnsigned16 => "idris2i_1_vp_to_Bits16(\{var})"
+    CFUnsigned32 => "idris2i_1_vp_to_Bits32(\{var})"
+    CFUnsigned64 => "idris2i_1_vp_to_Bits64(\{var})"
+    CFDouble => "idris2i_1_vp_to_Double(\{var})"
+    CFChar => "idris2i_1_vp_to_Char(\{var})"
+    _ => "((Idris2i_1_Pointer *)\{var})->p"
 
 ||| Add the structs of a type of the foreign function `fn` to the table.
 addStructs : (fn : Name) -> CFType -> StructTable -> Core StructTable
@@ -715,7 +715,7 @@ Eq Worker where
 
 ||| The C name of the worker of the function whose C name is `cn`.
 workerName : String -> String
-workerName cn = "idris2_raw_" ++ cn
+workerName cn = "idris2i_1_raw_" ++ cn
 
 ||| A foreign function that takes or gives a fixed width integer (`Int`,
 ||| `Bits8`, ...) or a `Double` has a worker too (see `createCFunctions`),
@@ -751,7 +751,7 @@ foreignWorker doubles std fargs ret
     result t = param t
 
 ||| Environment for precise reference counting.
-||| If variable borrowed (that is, it is not in the owned set) when used, call a function idris2_newReference.
+||| If variable borrowed (that is, it is not in the owned set) when used, call a function idris2i_1_newReference.
 ||| If variable owned, then use it directly.
 ||| Reuse Map contains the name of the reusable constructor and variable
 record Env where
@@ -815,7 +815,7 @@ record Env where
   foreignWorkers : SortedMap String Worker
   ||| The constructors with raw fields (see `RawLayout`).
   rawCons : SortedMap Name RawLayout
-  ||| `--directive refc-check-layout` (see IDRIS2_CHECK_LAYOUT)
+  ||| `--directive refc-check-layout` (see IDRIS2I_1_CHECK_LAYOUT)
   checkLayout : Bool
   ||| `--directive refc-flat-arrays`: the arrays of slots have the layouts of
   ||| their elements (see Data.IOArray.Flat)
@@ -907,7 +907,7 @@ emit fc line = do
         (No _)  => flip appendR [indentedLine, strCons ownLine comment]
 
 ||| An element of the output that is not a part of the text: it tells that the
-||| definition has a call in tail position that is a jump (IDRIS2_MUSTTAIL,
+||| definition has a call in tail position that is a jump (IDRIS2I_1_MUSTTAIL,
 ||| see `plainReturn`).
 jumpMark : String
 jumpMark = "\x03"
@@ -988,14 +988,14 @@ markJump = update OutfileText (flip snoc jumpMark)
 ||| through all the paths that reach it, until a statement that reads or
 ||| writes memory: with many branches in a row that only compute, that takes
 ||| time exponential in their number (minutes for a unit of the compiler,
-||| with GCC 16).  IDRIS2_PLAIN_RETURN stops the walk at once (see runtime.h).
+||| with GCC 16).  IDRIS2I_1_PLAIN_RETURN stops the walk at once (see runtime.h).
 plainReturn : {auto oft : Ref OutfileText Output}
            -> {auto il : Ref IndentLevel Nat}
            -> String -> Core ()
 plainReturn value = do
     ls <- reify <$> get OutfileText
     emit EmptyFC $ if any (== jumpMark) ls
-                      then "IDRIS2_PLAIN_RETURN return \{value};"
+                      then "IDRIS2I_1_PLAIN_RETURN return \{value};"
                       else "return \{value};"
 
 ||| The lines that `emit` made, without the comments about their code.
@@ -1013,13 +1013,13 @@ removeVars : {auto oft : Ref OutfileText Output}
            -> {auto il : Ref IndentLevel Nat}
            -> List String
            -> Core ()
-removeVars = applyFunctionToVars "idris2_removeReference" . filter (/= "NULL")
+removeVars = applyFunctionToVars "idris2i_1_removeReference" . filter (/= "NULL")
 
 dupVars : {auto oft : Ref OutfileText Output}
            -> {auto il : Ref IndentLevel Nat}
            -> List String
            -> Core ()
-dupVars = applyFunctionToVars "idris2_newReference" . filter (/= "NULL")
+dupVars = applyFunctionToVars "idris2i_1_newReference" . filter (/= "NULL")
 
 
 ||| Release the cells kept for constructors (see `ReuseMap`) that no
@@ -1032,8 +1032,8 @@ removeReuseConstructors : {auto oft : Ref OutfileText Output}
                         -> Core ()
 removeReuseConstructors env
     = if env.reuseCopy
-         then traverse_ (\c => emit EmptyFC "idris2_freeValue((Idris2_Value *)\{c});")
-         else applyFunctionToVars "idris2_removeReuseConstructor"
+         then traverse_ (\c => emit EmptyFC "idris2i_1_freeValue((Idris2i_1_Value *)\{c});")
+         else applyFunctionToVars "idris2i_1_removeReuseConstructor"
 
 ||| The C constant of a literal of the C integer type `t`, if the expression
 ||| is one.
@@ -1078,7 +1078,7 @@ avarToC env var =
     else if isUnboxedIn env.unboxed var then boxInt env.unboxed var
     else if contains var env.owned then varName var
         -- case when the variable is borrowed
-    else "idris2_newReference(" ++ varName var ++ ")"
+    else "idris2i_1_newReference(" ++ varName var ++ ")"
 
 avarsToC : Env -> Owned -> List AVar -> List String
 avarsToC _ _ [] = []
@@ -1091,7 +1091,7 @@ avarsToC env owned (v::vars) =
           then boxInt env.unboxed v :: avarsToC env owned vars
       else if contains v owned
           then v'::avarsToC env (delete v owned) vars
-          else "idris2_newReference(\{v'})"::avarsToC env owned vars -- when v is borrowed
+          else "idris2i_1_newReference(\{v'})"::avarsToC env owned vars -- when v is borrowed
 
 ||| The C expressions of two operands that are both consumed, as `avarToC`
 ||| gives them.  The application of a closure to itself (`f f`) consumes
@@ -1129,7 +1129,7 @@ sigArgsToC env owned ((v, False) :: rest)
     = if isStaticIn env v then varName v :: sigArgsToC env owned rest
       else if isUnboxedIn env.unboxed v then boxInt env.unboxed v :: sigArgsToC env owned rest
       else if contains v owned then varName v :: sigArgsToC env (delete v owned) rest
-      else "idris2_newReference(\{varName v})" :: sigArgsToC env owned rest
+      else "idris2i_1_newReference(\{varName v})" :: sigArgsToC env owned rest
 
 ||| Can the call be made in tail position, i.e. are no variables that we own
 ||| (or C integers, which are passed as new values) passed to borrowed
@@ -1166,7 +1166,7 @@ trampolined : Env -> String -> Nat -> String -> String
 trampolined env fn nargs call
     = if lookup fn env.valueFns == Just nargs
          then call
-         else "idris2_trampoline(\{call})"
+         else "idris2i_1_trampoline(\{call})"
 
 ||| The C arguments of the parameters that a call passes values to, whose
 ||| pairs say whether they are borrowed, and the values made for the call
@@ -1184,7 +1184,7 @@ valueArgs fc env owned ((v, True) :: rest)
     = if isUnboxedIn env.unboxed v
          then do
            t <- ("boxVar_" ++) <$> getNextCounter
-           emit fc "Idris2_Value *\{t} = \{boxInt env.unboxed v};"
+           emit fc "Idris2i_1_Value *\{t} = \{boxInt env.unboxed v};"
            (as, bs) <- valueArgs fc env owned rest
            pure (t :: as, t :: bs)
          else do
@@ -1197,7 +1197,7 @@ valueArgs fc env owned ((v, False) :: rest)
          then mapFst (boxInt env.unboxed v ::) <$> valueArgs fc env owned rest
          else if contains v owned
             then mapFst (varName v ::) <$> valueArgs fc env (delete v owned) rest
-            else mapFst ("idris2_newReference(\{varName v})" ::) <$> valueArgs fc env owned rest
+            else mapFst ("idris2i_1_newReference(\{varName v})" ::) <$> valueArgs fc env owned rest
 
 ||| A call (not in tail position) of a function that borrows some of its
 ||| parameters (see Compiler.RefC.Borrow).  The variables that we own and pass
@@ -1219,7 +1219,7 @@ borrowedCall fc env fn pairs = do
        then pure call
        else do
          r <- ("callVar_" ++) <$> getNextCounter
-         emit fc "Idris2_Value *\{r} = \{call};"
+         emit fc "Idris2i_1_Value *\{r} = \{call};"
          removeVars drops
          pure r
 
@@ -1245,9 +1245,9 @@ intArg fc env t v@(ALocal i)
                 else do
                   b <- ("boxVar_" ++) <$> getNextCounter
                   r <- ("intVar_" ++) <$> getNextCounter
-                  emit fc "Idris2_Value *\{b} = \{boxC t' (intVarName i)};"
+                  emit fc "Idris2i_1_Value *\{b} = \{boxC t' (intVarName i)};"
                   emit fc "\{cIntType t} \{r} = \{unboxC t b};"
-                  emit fc "idris2_removeReference(\{b});"
+                  emit fc "idris2i_1_removeReference(\{b});"
                   pure r
            Nothing => pure (unboxC t (varName v))
 intArg _ _ _ ANull = pure "0"
@@ -1308,7 +1308,7 @@ workerCall fc env n w args = do
        then pure call
        else do
          r <- ("callVar_" ++) <$> getNextCounter
-         emit fc "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}\{r} = \{call};"
+         emit fc "\{maybe "Idris2i_1_Value *" (\t => cIntType t ++ " ") w.rawResult}\{r} = \{call};"
          removeVars drops
          pure r
 
@@ -1330,7 +1330,7 @@ foreignWorkerCall fc env n w args = do
        then pure call
        else do
          r <- ("ffiVar_" ++) <$> getNextCounter
-         emit fc "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}\{r} = \{call};"
+         emit fc "\{maybe "Idris2i_1_Value *" (\t => cIntType t ++ " ") w.rawResult}\{r} = \{call};"
          removeVars (map varName owned)
          pure r
 
@@ -1356,8 +1356,8 @@ makeClosure : {auto a : Ref ArgCounter Nat}
 makeClosure fc n args missing = do
     let closure = "closure_\{!(getNextCounter)}"
     let nargs = length args
-    emit fc "Idris2_Value *\{closure} = (Idris2_Value *)idris2_mkClosure((Idris2_Value *(*)())\{cName n}, \{show $ nargs + missing}, \{show nargs});"
-    fillArgs !(get EnvTracker) "((Idris2_Closure*)\{closure})->args" args 0
+    emit fc "Idris2i_1_Value *\{closure} = (Idris2i_1_Value *)idris2i_1_mkClosure((Idris2i_1_Value *(*)())\{cName n}, \{show $ nargs + missing}, \{show nargs});"
+    fillArgs !(get EnvTracker) "((Idris2i_1_Closure*)\{closure})->args" args 0
     pure closure
 
 ||| A call in tail position: store it in the pending tail call, which the
@@ -1392,7 +1392,7 @@ makeTailCall fc n args = do
     pendingCallVar : Core String
     pendingCallVar = do
       let pc = "pending_\{!(getNextCounter)}"
-      emit fc "Idris2_PendingTailCall *\{pc} = &idris2_pendingTailCall;"
+      emit fc "Idris2i_1_PendingTailCall *\{pc} = &idris2i_1_pendingTailCall;"
       pure pc
 
     -- (the worker, which holds the pending call, is found once: nothing in
@@ -1405,7 +1405,7 @@ makeTailCall fc n args = do
       emit fc "\{pc}->arity = \{show $ length args};"
       for_ (zip [0 .. length args] (sigArgsToC env env.owned pairs)) $ \(k, a) =>
         emit EmptyFC "\{pc}->args[\{show k}] = \{a};"
-      pure "IDRIS2_TAILCALL"
+      pure "IDRIS2I_1_TAILCALL"
 
     -- With GCC 15 or later, a call in tail position is a jump (musttail),
     -- which does not need the trampoline.  It is only possible when the
@@ -1421,7 +1421,7 @@ makeTailCall fc n args = do
     -- own (as long as there are some left), the others in the general
     -- registers, and then on the stack: the callee needs no more stack when
     -- it takes no more arguments of each kind than the caller.  On the 64
-    -- bit platforms (those of IDRIS2_MUSTTAIL), where a double takes as much
+    -- bit platforms (those of IDRIS2I_1_MUSTTAIL), where a double takes as much
     -- space as a pointer, a double needs no more room than a pointer
     -- either: so the callee also needs no more when it takes no more
     -- arguments in all than the caller takes pointers and integers.
@@ -1441,25 +1441,25 @@ makeTailCall fc n args = do
            let args' = sigArgsToC env env.owned pairs
            -- (a callee that takes more arguments than the caller can still
            -- be jumped to when it takes all of them in registers, which
-           -- depends on the platform: see IDRIS2_MUSTTAIL_REG_ARGS)
+           -- depends on the platform: see IDRIS2I_1_MUSTTAIL_REG_ARGS)
            emit EmptyFC $ if fitsInFrame env worker
-                        then "#ifdef IDRIS2_MUSTTAIL"
-                        else "#if defined(IDRIS2_MUSTTAIL) && IDRIS2_MUSTTAIL_REG_ARGS >= \{show (length args)}"
+                        then "#ifdef IDRIS2I_1_MUSTTAIL"
+                        else "#if defined(IDRIS2I_1_MUSTTAIL) && IDRIS2I_1_MUSTTAIL_REG_ARGS >= \{show (length args)}"
            markJump
            case worker of
              Just w => do
                -- (tailBorrowsOK: nothing is released after the call)
                (wargs, _) <- workerArgs fc env w pairs
-               emit fc "IDRIS2_MUSTTAIL return \{workerName (cName n)}(\{concat $ intersperse ", " wargs});"
+               emit fc "IDRIS2I_1_MUSTTAIL return \{workerName (cName n)}(\{concat $ intersperse ", " wargs});"
              Nothing =>
-               emit fc "IDRIS2_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
+               emit fc "IDRIS2I_1_MUSTTAIL return \{cName n}(\{concat $ intersperse ", " args'});"
            emit EmptyFC "#else"
            pc <- pendingCallVar
            emit EmptyFC "\{pc}->f = (void *)\{cName n};"
            emit EmptyFC "\{pc}->arity = \{show $ length args};"
            for_ (zip [0 .. length args] args') $ \(k, a) =>
              emit EmptyFC "\{pc}->args[\{show k}] = \{a};"
-           emit EmptyFC "return IDRIS2_TAILCALL;"
+           emit EmptyFC "return IDRIS2I_1_TAILCALL;"
            emit EmptyFC "#endif"
            pure unreachable
          else pendingCall pairs
@@ -1486,7 +1486,7 @@ makeTailCall fc n args = do
                                       else Just <$> getNewVarThatWillNotBeFreedAtEndOfBlock)
                        (zip (map fst values) vals)
       for_ (zip tmps vals) $ \(t, v) =>
-        whenJust t $ \t => emit fc "Idris2_Value *\{t} = \{v};"
+        whenJust t $ \t => emit fc "Idris2i_1_Value *\{t} = \{v};"
       itmps <- traverse (\(p, ty, a) =>
                  if intOperand env ty a == intVarName p
                     then pure Nothing
@@ -1504,8 +1504,8 @@ makeTailCall fc n args = do
         whenJust t $ \t => emit fc "\{intVarName p} = \{t};"
       -- A loop may run for long: let the other threads of the worker run
       -- if the scheduler asks for it.
-      emit fc "IDRIS2_SAFEPOINT();"
-      emit fc "goto idris2_self_entry;"
+      emit fc "IDRIS2I_1_SAFEPOINT();"
+      emit fc "goto idris2i_1_self_entry;"
       pure unreachable
 
 
@@ -1523,9 +1523,9 @@ hasSelfTailCall self nargs = go
         = any (\(MkAConstAlt _ body) => go body) alts || maybe False go def
     go _ = False
 
--- When changing this number, also change idris2_dispatch in runtime.c and
--- IDRIS2_MAX_TAILCALL_ARGS in runtime.h.
--- Increasing this number will worsen stack consumption and increase the codesize of idris2_dispatch.
+-- When changing this number, also change idris2i_1_dispatch in runtime.c and
+-- IDRIS2I_1_MAX_TAILCALL_ARGS in runtime.h.
+-- Increasing this number will worsen stack consumption and increase the codesize of idris2i_1_dispatch.
 -- In C89, the maximum number of arguments is 31, so it should not be larger than 31. 127 is safe in C99, but I do not recommend it.
 MaxExtractFunArgs : Nat
 MaxExtractFunArgs = 16
@@ -1554,14 +1554,14 @@ unboxConst c v = case c of
     -- (the scrutinee may not have the type of the constants: comparisons
     -- give unboxed Bools for example)
     -- The values of the small types are never boxed (see `alwaysUnboxed`).
-    B8 _  => "idris2_vp_to_Bits8(\{v})"
-    B16 _ => "idris2_vp_to_Bits16(\{v})"
-    I8 _  => "idris2_vp_to_Int8(\{v})"
-    I16 _ => "idris2_vp_to_Int16(\{v})"
-    B32 _ => "idris2_extractUInt64(\{v})"
-    Ch _  => "idris2_extractUInt64(\{v})"
-    B64 _ => "(uint64_t)idris2_extractUInt64(\{v})"
-    _     => "idris2_extractInt64(\{v})"
+    B8 _  => "idris2i_1_vp_to_Bits8(\{v})"
+    B16 _ => "idris2i_1_vp_to_Bits16(\{v})"
+    I8 _  => "idris2i_1_vp_to_Int8(\{v})"
+    I16 _ => "idris2i_1_vp_to_Int16(\{v})"
+    B32 _ => "idris2i_1_extractUInt64(\{v})"
+    Ch _  => "idris2i_1_extractUInt64(\{v})"
+    B64 _ => "(uint64_t)idris2i_1_extractUInt64(\{v})"
+    _     => "idris2i_1_extractInt64(\{v})"
 
 ||| The types whose values are never allocated, on any platform: they are
 ||| kept in the pointer itself (see _datatypes.h).
@@ -1590,7 +1590,7 @@ const2Integer c i =
 
 ||| The tag that a constructor has at run time: constructors without a tag, or
 ||| with one that does not fit in the 16 bits of the tag of
-||| Idris2_Constructor, are told apart by their names.
+||| Idris2i_1_Constructor, are told apart by their names.
 conTag : Maybe Int -> Maybe Int
 conTag (Just t) = if t >= 0 && t < 32768 then Just t else Nothing
 conTag Nothing = Nothing
@@ -1602,20 +1602,20 @@ conTag Nothing = Nothing
 layoutC : Env -> AVar -> String
 layoutC env l = let c = intOperand env Bits64Type l in
                     if not env.flatArrays then "0"
-                    else if null (keys env.rawCons) then "idris2_noRawLayout(\{c})" else c
+                    else if null (keys env.rawCons) then "idris2i_1_noRawLayout(\{c})" else c
 
 ||| A read of an element of a flat array that Compiler.RefC.FlatOpt made: its
 ||| C expression and C number type.
 flatRead : Env -> Name -> List AVar -> Maybe (String, PrimType)
 flatRead env p [l, arr, i, s]
     = case flatPrimName p of
-        Just "slotPresent" => Just ("idris2_slotPresent(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{varName s})", IntType)
+        Just "slotPresent" => Just ("idris2i_1_slotPresent(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{varName s})", IntType)
         Just pn => if isPrefixOf "slotField" pn
                       then case unpack (substr 9 (length pn) pn) of
                              (c :: j) => let t = letterType c
-                                             w = "idris2_slotWord(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{pack j}, \{varName s})" in
+                                             w = "idris2i_1_slotWord(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{pack j}, \{varName s})" in
                                              Just (case t of
-                                                     DoubleType => ("idris2_wordToDouble(\{w})", t)
+                                                     DoubleType => ("idris2i_1_wordToDouble(\{w})", t)
                                                      Bits64Type => (w, t)
                                                      _ => ("((int64_t)\{w})", t))
                              [] => Nothing
@@ -1638,34 +1638,34 @@ flatStatement fc p args = do
       (Just (e, t), _) => pure (boxC t e)
       (Nothing, l :: arr :: i :: rest) =>
         if pn == "slotSnap"
-           then pure "idris2_slotSnap(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})"
+           then pure "idris2i_1_slotSnap(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})"
         else if isPrefixOf "slotStoreElem" pn
-           then pure "(idris2_slotStoreElem(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{concat (map varName rest)}), (Idris2_Value *)NULL)"
+           then pure "(idris2i_1_slotStoreElem(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{concat (map varName rest)}), (Idris2i_1_Value *)NULL)"
         else if isPrefixOf "slotStore" pn
            then let ts = map letterType (unpack (substr 9 (length pn) pn))
                     ws = zipWith (\t, f => wordOf t (intOperand env t f)) ts rest in
-                    pure "(idris2_slotStoreWords(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, (const uint64_t[]){\{concat (intersperse ", " ws)}}), (Idris2_Value *)NULL)"
+                    pure "(idris2i_1_slotStoreWords(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, (const uint64_t[]){\{concat (intersperse ", " ws)}}), (Idris2i_1_Value *)NULL)"
         else throw $ InternalError "[refc] Unknown flat primitive \{pn}"
       _ => throw $ InternalError "[refc] Badly formed flat primitive \{pn}"
-    emit fc $ "Idris2_Value *\{resultVar} = \{call};"
+    emit fc $ "Idris2i_1_Value *\{resultVar} = \{call};"
     removeVars $ map varName $ Prelude.toList $ intersection (fromList args) env.owned
     pure resultVar
   where
     wordOf : PrimType -> String -> String
-    wordOf DoubleType e = "idris2_doubleToWord(\{e})"
+    wordOf DoubleType e = "idris2i_1_doubleToWord(\{e})"
     wordOf _ e = "(uint64_t)(\{e})"
 
 data TailPositionStatus = InTailPosition | NotInTailPosition
 
 ||| The application of a closure in tail position: returned at once, by a
-||| jump where the C compiler can make one (IDRIS2_TAIL_APPLY, see runtime.h),
+||| jump where the C compiler can make one (IDRIS2I_1_TAIL_APPLY, see runtime.h),
 ||| so that the runtime can jump to the function of the closure in turn.
 tailApply : {auto oft : Ref OutfileText Output}
          -> {auto il : Ref IndentLevel Nat}
          -> FC -> String -> Core String
 tailApply fc call = do
     markJump
-    emit fc "IDRIS2_TAIL_APPLY return \{call};"
+    emit fc "IDRIS2I_1_TAIL_APPLY return \{call};"
     pure unreachable
 
 ||| The key of the cells that the constructor `n`, with the tag `tag` and
@@ -1820,36 +1820,36 @@ matchedFields env sc keep alloc rawCopy fieldVars used shouldDrop = do
             -- unique; the copy does not hold them.
             let indexed : List (Nat, Int) = zip [0 .. length fieldVars] fieldVars
             let isUnused : Int -> Bool = \v => varName (ALocal v) `elem` shouldDrop
-            loadFields "((Idris2_Constructor*)\{sc})" isUnused
-            emit EmptyFC "Idris2_Constructor* \{constr} = (Idris2_Constructor*)\{sc};"
-            emit EmptyFC "if (IDRIS2_LIKELY(idris2_isUnique(\{sc}))) {"
+            loadFields "((Idris2i_1_Constructor*)\{sc})" isUnused
+            emit EmptyFC "Idris2i_1_Constructor* \{constr} = (Idris2i_1_Constructor*)\{sc};"
+            emit EmptyFC "if (IDRIS2I_1_LIKELY(idris2i_1_isUnique(\{sc}))) {"
             increaseIndentation
-            -- (counted in a build with IDRIS2_REFC_STATS, see worker.h)
-            emit EmptyFC "IDRIS2_STAT(reuseHit);"
+            -- (counted in a build with IDRIS2I_1_REFC_STATS, see worker.h)
+            emit EmptyFC "IDRIS2I_1_STAT(reuseHit);"
             removeVars unused
             decreaseIndentation
             emit EmptyFC "} else {"
             increaseIndentation
-            emit EmptyFC "IDRIS2_STAT(reuseMiss);"
+            emit EmptyFC "IDRIS2I_1_STAT(reuseMiss);"
             emit EmptyFC "\{constr} = \{alloc};"
             for_ indexed $ \(k, v) => emit EmptyFC $
               if isUnused v then "\{constr}->args[\{show k}] = NULL;"
-                 else "\{constr}->args[\{show k}] = idris2_newReference(((Idris2_Constructor*)\{sc})->args[\{show k}]);"
+                 else "\{constr}->args[\{show k}] = idris2i_1_newReference(((Idris2i_1_Constructor*)\{sc})->args[\{show k}]);"
             -- (the raw fields of a cell with raw fields are copied as they are)
             whenJust rawCopy $ \c => emit EmptyFC (c constr)
-            emit EmptyFC "idris2_dropSharedReference(\{sc});"
+            emit EmptyFC "idris2i_1_dropSharedReference(\{sc});"
             decreaseIndentation
             emit EmptyFC "}"
             loadFields constr (not . isUnused)
             pure (shouldDrop \\ (sc :: conArgs))
           else do
-            loadFields "((Idris2_Constructor*)\{sc})" (const True)
-            emit EmptyFC "Idris2_Constructor* \{constr} = NULL;"
-            emit EmptyFC "if (idris2_isUnique(\{sc})) {"
+            loadFields "((Idris2i_1_Constructor*)\{sc})" (const True)
+            emit EmptyFC "Idris2i_1_Constructor* \{constr} = NULL;"
+            emit EmptyFC "if (idris2i_1_isUnique(\{sc})) {"
             increaseIndentation
-            emit EmptyFC "\{constr} = (Idris2_Constructor*)\{sc};"
-            -- (counted in a build with IDRIS2_REFC_STATS, see worker.h)
-            emit EmptyFC "IDRIS2_STAT(reuseHit);"
+            emit EmptyFC "\{constr} = (Idris2i_1_Constructor*)\{sc};"
+            -- (counted in a build with IDRIS2I_1_REFC_STATS, see worker.h)
+            emit EmptyFC "IDRIS2I_1_STAT(reuseHit);"
             -- (the fields that are not used were the cell's: they are
             -- released; the other branch releases the cell with them)
             removeVars unused
@@ -1857,7 +1857,7 @@ matchedFields env sc keep alloc rawCopy fieldVars used shouldDrop = do
             emit EmptyFC "}"
             emit EmptyFC "else {"
             increaseIndentation
-            emit EmptyFC "IDRIS2_STAT(reuseMiss);"
+            emit EmptyFC "IDRIS2I_1_STAT(reuseMiss);"
             dupVars (conArgs \\ shouldDrop)
             removeVars [sc]
             decreaseIndentation
@@ -1866,21 +1866,21 @@ matchedFields env sc keep alloc rawCopy fieldVars used shouldDrop = do
       Nothing =>
         if dropped && not (null conArgs)
           then do
-            loadFields "((Idris2_Constructor*)\{sc})" (const True)
-            emit EmptyFC "if (IDRIS2_LIKELY(idris2_isUnique(\{sc}))) {"
+            loadFields "((Idris2i_1_Constructor*)\{sc})" (const True)
+            emit EmptyFC "if (IDRIS2I_1_LIKELY(idris2i_1_isUnique(\{sc}))) {"
             increaseIndentation
             removeVars unused
-            emit EmptyFC "idris2_freeValue(\{sc});"
+            emit EmptyFC "idris2i_1_freeValue(\{sc});"
             decreaseIndentation
             emit EmptyFC "} else {"
             increaseIndentation
             dupVars (conArgs \\ shouldDrop)
-            emit EmptyFC "idris2_dropSharedReference(\{sc});"
+            emit EmptyFC "idris2i_1_dropSharedReference(\{sc});"
             decreaseIndentation
             emit EmptyFC "}"
             pure (shouldDrop \\ (sc :: conArgs))
           else do
-            loadFields "((Idris2_Constructor*)\{sc})" (\v => dropped || contains (ALocal v) used)
+            loadFields "((Idris2i_1_Constructor*)\{sc})" (\v => dropped || contains (ALocal v) used)
             dupVars (conArgs \\ shouldDrop)
             pure (shouldDrop \\ conArgs)
   where
@@ -1888,7 +1888,7 @@ matchedFields env sc keep alloc rawCopy fieldVars used shouldDrop = do
     loadFields cell load
         = ignore $ foldlC (\k, v => do
             when (load v) $
-              emit EmptyFC "Idris2_Value *var_\{show v} = \{cell}->args[\{show k}];"
+              emit EmptyFC "Idris2i_1_Value *var_\{show v} = \{cell}->args[\{show k}];"
             pure (S k)) 0 fieldVars
 
 ||| The C arguments of the first application of `let var = f a in body`,
@@ -1945,7 +1945,7 @@ mutual
         result <- cStatementsFromANF value NotInTailPosition
         -- (what `cStatementsFromANF` made of the value just above)
         sv <- staticOf valueEnv value
-        let decl = "Idris2_Value * var_\{show var} = \{result};"
+        let decl = "Idris2i_1_Value * var_\{show var} = \{result};"
         case sv of
           -- A static value is not released, and its variable may not be
           -- used at all (when it only goes in a static constructor): see
@@ -1953,7 +1953,7 @@ mutual
           Just _ => emitStatic var decl
           Nothing => do
             emit fc decl
-            unless (contains (ALocal var) usedVars) $ emit fc $ "idris2_removeReference(var_\{show var});"
+            unless (contains (ALocal var) usedVars) $ emit fc $ "idris2i_1_removeReference(var_\{show var});"
         -- (a static value is not owned, see `isStaticIn`)
         put EnvTracker ({ owned := if isJust sv then borrowVal else owned'
                         , reuseMap := bodyCells
@@ -1975,7 +1975,7 @@ mutual
              then pure $ Just (MkStaticVal "NULL" [] 0)
              else case (args, conTag tag) of
                ([], Just t) => pure $ if t < 256
-                  then Just (MkStaticVal "idris2_nullaryConstructor(\{show t})" [] 0)
+                  then Just (MkStaticVal "idris2i_1_nullaryConstructor(\{show t})" [] 0)
                   else Nothing
                (_, Just t) =>
                   if env.staticOK && length args <= 255 && isJust (lookup n env.rawCons)
@@ -2106,7 +2106,7 @@ mutual
            else letGeneric fc var value body (AnInt t tp)
     cIntFromANF t tp (AConstCase fc sc alts def) = constCase fc sc alts def (AnInt t tp)
     cIntFromANF t tp (AConCase fc sc alts def) = conCase fc sc alts def (AnInt t tp)
-    cIntFromANF t tp (ACrash fc msg) = pure "(idris2_crashMsg(\{cStringQuoted msg}), 0)"
+    cIntFromANF t tp (ACrash fc msg) = pure "(idris2i_1_crashMsg(\{cStringQuoted msg}), 0)"
     cIntFromANF t tp anf@(AAppName fc _ n args) = do
         env <- get EnvTracker
         let nargs = length args
@@ -2168,9 +2168,9 @@ mutual
         v <- cStatementsFromANF anf NotInTailPosition
         b <- ("boxVar_" ++) <$> getNextCounter
         r <- ("intVar_" ++) <$> getNextCounter
-        emit EmptyFC "Idris2_Value *\{b} = \{v};"
+        emit EmptyFC "Idris2i_1_Value *\{b} = \{v};"
         emit EmptyFC "\{cIntType t} \{r} = \{unboxC t b};"
-        emit EmptyFC "idris2_removeReference(\{b});"
+        emit EmptyFC "idris2i_1_removeReference(\{b});"
         pure r
 
     concaseBody : {auto a : Ref ArgCounter Nat}
@@ -2184,7 +2184,7 @@ mutual
     concaseBody env returnvar expr args body r = do
         increaseIndentation
         _ <- foldlC (\k, arg => do
-            emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{expr})->args[\{show k}];"
+            emit emptyFC "Idris2i_1_Value *var_\{show arg} = ((Idris2i_1_Constructor*)\{expr})->args[\{show k}];"
             pure (S k) ) 0 args
 
         let (shouldDrop, actualOwned) = dropUnusedOwnedVars env.owned (freeVariables body)
@@ -2217,7 +2217,7 @@ mutual
                    then makeClosure fc n args 0
                    else makeTailCall fc n args
             _ => if nargs > MaxExtractFunArgs
-                then pure "idris2_trampoline(\{!(makeClosure fc n args 0)})"
+                then pure "idris2i_1_trampoline(\{!(makeClosure fc n args 0)})"
                 else do
                     env <- get EnvTracker
                     case workerOf env cn nargs of
@@ -2243,7 +2243,7 @@ mutual
                then pure call
                else do
                  let resultVar = "ffiVar_" ++ !(getNextCounter)
-                 emit fc $ "Idris2_Value *" ++ resultVar ++ " = " ++ call ++ ";"
+                 emit fc $ "Idris2i_1_Value *" ++ resultVar ++ " = " ++ call ++ ";"
                  removeVars (map varName owned)
                  pure resultVar
 
@@ -2263,9 +2263,9 @@ mutual
        let (cStr, aStr) = avarPairToC env closure arg
        case tailPosition of
            NotInTailPosition =>
-             pure "idris2_apply_closure(\{cStr}, \{aStr})"
+             pure "idris2i_1_apply_closure(\{cStr}, \{aStr})"
            InTailPosition =>
-             tailApply fc "idris2_tailcall_apply_closure(\{cStr}, \{aStr})"
+             tailApply fc "idris2i_1_tailcall_apply_closure(\{cStr}, \{aStr})"
 
     -- `let v = f a in let w = v b in body`, where `v` is not used anywhere
     -- else, applies `f` to both arguments at once (and likewise when the
@@ -2279,8 +2279,8 @@ mutual
              let borrowVal2 = intersection env1.owned (delete (ALocal var2) usedVars2)
              let owned2 = if contains (ALocal var2) usedVars2 then insert (ALocal var2) borrowVal2 else borrowVal2
              let bStr = avarToC (moveFromOwnedToBorrowed env1 borrowVal2) b
-             emit fc2 $ "Idris2_Value * var_\{show var2} = idris2_apply_closure2(\{fStr}, \{aStr}, \{bStr});"
-             unless (contains (ALocal var2) usedVars2) $ emit fc2 $ "idris2_removeReference(var_\{show var2});"
+             emit fc2 $ "Idris2i_1_Value * var_\{show var2} = idris2i_1_apply_closure2(\{fStr}, \{aStr}, \{bStr});"
+             unless (contains (ALocal var2) usedVars2) $ emit fc2 $ "idris2i_1_removeReference(var_\{show var2});"
              put EnvTracker ({ owned := owned2 } env1)
              cStatementsFromANF body2 tailPosition
            else letGeneric fc var (AApp fc1 l1 f a) (ALet fc2 var2 (AApp fc3 l3 (ALocal v) b) body2) (AValue tailPosition)
@@ -2291,8 +2291,8 @@ mutual
              let (fStr, aStr, env1) = applyFirst env var (AApp fc2 l2 (ALocal v) b) f a
              put EnvTracker env1
              case tailPosition of
-                 NotInTailPosition => pure "idris2_apply_closure2(\{fStr}, \{aStr}, \{avarToC env1 b})"
-                 InTailPosition => tailApply fc "idris2_tailcall_apply_closure2(\{fStr}, \{aStr}, \{avarToC env1 b})"
+                 NotInTailPosition => pure "idris2i_1_apply_closure2(\{fStr}, \{aStr}, \{avarToC env1 b})"
+                 InTailPosition => tailApply fc "idris2i_1_tailcall_apply_closure2(\{fStr}, \{aStr}, \{avarToC env1 b})"
            else letGeneric fc var (AApp fc1 l1 f a) (AApp fc2 l2 (ALocal v) b) (AValue tailPosition)
     -- A cell made of a call of the function to itself, in a function
     -- compiled with tail recursion modulo cons (see `trmcFunction`).
@@ -2348,10 +2348,10 @@ mutual
                       (fc2, ACon fc2 n ci tag (map (\a => if a == ALocal var then ANull else a) cargs))
                     _ => (fc, body) -- (not a cell: see trmcDirect)
             cell <- cStatementsFromANF cell' NotInTailPosition
-            c <- ("idris2_trmc_cell_" ++) <$> getNextCounter
-            emit fc2 "Idris2_Value *\{c} = \{cell};"
-            emit fc2 "*idris2_trmc_hole = \{c};"
-            emit fc2 "idris2_trmc_hole = &((Idris2_Constructor *)\{c})->args[\{show k}];"
+            c <- ("idris2i_1_trmc_cell_" ++) <$> getNextCounter
+            emit fc2 "Idris2i_1_Value *\{c} = \{cell};"
+            emit fc2 "*idris2i_1_trmc_hole = \{c};"
+            emit fc2 "idris2i_1_trmc_hole = &((Idris2i_1_Constructor *)\{c})->args[\{show k}];"
             env' <- get EnvTracker
             put EnvTracker ({ owned := keep, staticOK := env.staticOK } env')
             makeTailCall fc1 f as
@@ -2369,7 +2369,7 @@ mutual
               ([], Just t) =>
                 if t >= 0 && t < 256
                    -- an immortal value of the runtime, nothing to allocate
-                   then pure "idris2_nullaryConstructor(\{show t}) /* \{show n} */"
+                   then pure "idris2i_1_nullaryConstructor(\{show t}) /* \{show n} */"
                    else newConstructor
               _ => newConstructor
       where
@@ -2391,9 +2391,9 @@ mutual
                 let np = length pargs
                 let nr = length rargs
                 let createNewConstructor = case (conTag tag, layout) of
-                      (Just t, Just _) => " = idris2_newRawConstructor(\{show np}, \{show nr}, \{show t});"
-                      (Just t, Nothing) => " = idris2_newConstructor(\{show (length args)}, \{show t});"
-                      (Nothing, _) => " = idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName n});"
+                      (Just t, Just _) => " = idris2i_1_newRawConstructor(\{show np}, \{show nr}, \{show t});"
+                      (Just t, Nothing) => " = idris2i_1_newConstructor(\{show (length args)}, \{show t});"
+                      (Nothing, _) => " = idris2i_1_newNamedConstructor(\{show (length args)}, idris2i_1_constr_\{cName n});"
                 let rawStores : List (Nat, AVar, PrimType) = zipWith (\j, (v, t) => (j, v, t)) [0 .. nr] rargs
                 -- the C number of a raw field
                 let rawValue : AVar -> PrimType -> String
@@ -2451,7 +2451,7 @@ mutual
                         -- the number of fields is the same)
                         let retagLine = case conTag tag of
                               Just t => "\{constr}->tag = \{show t};"
-                              Nothing => "\{constr}->args[\{show (length args)}] = (Idris2_Value *)idris2_constr_\{cName n};"
+                              Nothing => "\{constr}->args[\{show (length args)}] = (Idris2i_1_Value *)idris2i_1_constr_\{cName n};"
                         if env.reuseCopy
                            then do
                              -- (the cell is never NULL, see `matchedFields`)
@@ -2476,14 +2476,14 @@ mutual
                         for_ stored $ \(k, _, e) => emit EmptyFC "\{constr}->args[\{show k}] = \{e};"
                         traverse_ (storeRaw constr) rawStored
                         removeVars rawReleases
-                        pure "(Idris2_Value*)\{constr}"
+                        pure "(Idris2i_1_Value*)\{constr}"
                     [] => do
                         let constr = "constructor_\{!(getNextCounter)}"
-                        emit fc $ "Idris2_Constructor* " ++ constr ++ createNewConstructor
+                        emit fc $ "Idris2i_1_Constructor* " ++ constr ++ createNewConstructor
                         fillArgs env "\{constr}->args" pargs 0
                         traverse_ (storeRaw constr) rawStores
                         removeVars rawReleases
-                        pure "(Idris2_Value*)\{constr}"
+                        pure "(Idris2i_1_Value*)\{constr}"
 
     cStatementsFromANF (AOp fc _ op args) _ = do
         env <- get EnvTracker
@@ -2497,13 +2497,13 @@ mutual
                         if any (isUnboxedIn env.unboxed) args
                            then let e = intOpC op (map (intOperand env ot) args) in
                                 case resultType op of
-                                  Just rt => if isComparison op then "idris2_mkBool(\{e})"
+                                  Just rt => if isComparison op then "idris2i_1_mkBool(\{e})"
                                                                 else boxC rt e
                                   -- (a cast to Double, Char or Integer)
                                   Nothing => e
                            else cOp op (map varName args)
                       Nothing => cOp op (map varName args)
-        emit fc $ "Idris2_Value *" ++ resultVar ++ " = " ++ value ++ ";"
+        emit fc $ "Idris2i_1_Value *" ++ resultVar ++ " = " ++ value ++ ";"
         removeVars $ map varName $ Prelude.toList $ intersection (fromList (toList args)) env.owned
         pure resultVar
 
@@ -2526,39 +2526,39 @@ mutual
               pure (structFieldRead ty lvalue)
           (NS _ (UN (Basic "prim__setField")), [s, _, _, struct, fld, _, val, _]) => do
               (lvalue, ty) <- structField env "setField" s struct fld
-              pure "(\{lvalue} = \{structFieldWrite ty (varName val)}, (Idris2_Value *)NULL)"
+              pure "(\{lvalue} = \{structFieldWrite ty (varName val)}, (Idris2i_1_Value *)NULL)"
           -- The arrays of slots with a layout (see Data.IOArray.Flat and
           -- prim.h): the layout and the index are C numbers (a constant
           -- layout makes the access inline).
           (NS _ (UN (Basic "prim__newSlots")), [_, l, n, v, _]) =>
-              pure "idris2_newSlots(\{layoutC env l}, \{intOperand env IntType n}, \{varName v})"
+              pure "idris2i_1_newSlots(\{layoutC env l}, \{intOperand env IntType n}, \{varName v})"
           (NS _ (UN (Basic "prim__slotGet")), [_, l, arr, i, _]) =>
-              pure "idris2_slotGet(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})"
+              pure "idris2i_1_slotGet(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i})"
           (NS _ (UN (Basic "prim__slotSet")), [_, l, arr, i, v, _]) =>
-              pure "(idris2_slotSet(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{varName v}), (Idris2_Value *)NULL)"
+              pure "(idris2i_1_slotSet(\{layoutC env l}, \{varName arr}, \{intOperand env IntType i}, \{varName v}), (Idris2i_1_Value *)NULL)"
           -- (in a program with flat arrays, the functions on arrays of
           -- values may be given one: they go by its layout, see prim.h)
           (NS _ (UN (Basic "prim__arrayGet")), [e, arr, i, w]) =>
               pure $ if env.flatArrays
-                        then "idris2_arrayGetAny(\{varName e}, \{varName arr}, \{varName i}, \{varName w})"
+                        then "idris2i_1_arrayGetAny(\{varName e}, \{varName arr}, \{varName i}, \{varName w})"
                         else plainCall
           (NS _ (UN (Basic "prim__arraySet")), [e, arr, i, v, w]) =>
               pure $ if env.flatArrays
-                        then "idris2_arraySetAny(\{varName e}, \{varName arr}, \{varName i}, \{varName v}, \{varName w})"
+                        then "idris2i_1_arraySetAny(\{varName e}, \{varName arr}, \{varName i}, \{varName v}, \{varName w})"
                         else plainCall
           (NS _ (UN (Basic pn)), _) =>
               if pn == "prim__getField" || pn == "prim__setField"
                  then throw $ InternalError "[refc] Badly formed call of \{pn}"
                  else pure plainCall
           _ => pure plainCall
-        emit fc $ "Idris2_Value *\{resultVar} = \{call};"
+        emit fc $ "Idris2i_1_Value *\{resultVar} = \{call};"
         -- The primitives borrow their arguments (they take a reference to
         -- whatever they keep), so the arguments we own are released here.
         removeVars $ map varName $ Prelude.toList $ intersection (fromList args) env.owned
         pure resultVar
       where
         plainCall : String
-        plainCall = "idris2_\{cName p}(" ++ showSep ", " (map varName args) ++ ")"
+        plainCall = "idris2i_1_\{cName p}(" ++ showSep ", " (map varName args) ++ ")"
 
 
 
@@ -2583,7 +2583,7 @@ mutual
             let Just ty = lookup fn flds
               | Nothing => throw $ GenericMsg fc $
                   "\{prim}: the struct \{show sn} has no field \{show fn}"
-            pure ( "((\{structCName sn} *)((Idris2_Pointer *)\{varName struct})->p)->\{structFieldCName fn}"
+            pure ( "((\{structCName sn} *)((Idris2i_1_Pointer *)\{varName struct})->p)->\{structFieldCName fn}"
                  , ty )
           where
             constant : AVar -> Maybe String
@@ -2601,8 +2601,8 @@ mutual
       = if x >= -2147483648 && x <= 2147483647
            -- unboxed on 64 bit platforms
            then pure $ if x >= 0 && x < 100
-                  then "(idris2_fitsSmallInteger(\{show x}) ? idris2_mkSmallInteger(\{show x}) : idris2_getPredefinedInteger(\{show x}))"
-                  else "idris2_mkIntegerFromInt64(INT64_C(\{show x}))"
+                  then "(idris2i_1_fitsSmallInteger(\{show x}) ? idris2i_1_mkSmallInteger(\{show x}) : idris2i_1_getPredefinedInteger(\{show x}))"
+                  else "idris2i_1_mkIntegerFromInt64(INT64_C(\{show x}))"
            else boxed
       where
         boxed : Core String
@@ -2614,47 +2614,47 @@ mutual
                           Just (_, cdef) => do useConstant cdef
                                                pure cdef
                           Nothing => bookConstant c CDBI (stableName $ show x)
-             pure "idris2_integerConstant(&\{constantName cdef}, \"\{show x}\")"
+             pure "idris2i_1_integerConstant(&\{constantName cdef}, \"\{show x}\")"
     cStatementsFromANF (APrimVal fc c) _ = do
       constdefs <- get ConstDef
       case lookup (constKey c) constdefs.constByValue of
            Just (_, cdef) => do useConstant cdef
-                                pure "((Idris2_Value*)&\{constantName cdef})" -- the constant already booked.
+                                pure "((Idris2i_1_Value*)&\{constantName cdef})" -- the constant already booked.
            Nothing => dyngen
      where
         orStagen : (String -> ConstDef) -> (stable : String) -> Core String
         orStagen mk stable = do -- booking the constant to generate later
             cdef <- bookConstant c mk stable
-            pure "((Idris2_Value*)&\{constantName cdef})"
+            pure "((Idris2i_1_Value*)&\{constantName cdef})"
         dyngen : Core String
         dyngen = case c of
             I x => if x >= -2147483648 && x <= 2147483647
-                then pure "idris2_mkInt64(INT64_C(\{show x}))" -- unboxed on 64 bit platforms
+                then pure "idris2i_1_mkInt64(INT64_C(\{show x}))" -- unboxed on 64 bit platforms
                 else orStagen CDI64 $ cCleanString $ show x
-            I8 x  => pure "idris2_mkInt8(INT8_C(\{show x}))"
-            I16 x => pure "idris2_mkInt16(INT16_C(\{show x}))"
-            I32 x => pure "idris2_mkInt32(INT32_C(\{show x}))"
+            I8 x  => pure "idris2i_1_mkInt8(INT8_C(\{show x}))"
+            I16 x => pure "idris2i_1_mkInt16(INT16_C(\{show x}))"
+            I32 x => pure "idris2i_1_mkInt32(INT32_C(\{show x}))"
             I64 x => if x >= -2147483648 && x <= 2147483647
-                then pure "idris2_mkInt64(INT64_C(\{show x}))"
+                then pure "idris2i_1_mkInt64(INT64_C(\{show x}))"
                 else orStagen CDI64 $ cCleanString $ show x
             BI x => if x >= 0 && x < 100
-                then pure "idris2_getPredefinedInteger(\{show x})"
-                else pure "idris2_mkIntegerLiteral(\"\{show x}\")"
-            B8 x  => pure "idris2_mkBits8(UINT8_C(\{show x}))"
-            B16 x => pure "idris2_mkBits16(UINT16_C(\{show x}))"
-            B32 x => pure "idris2_mkBits32(UINT32_C(\{show x}))"
+                then pure "idris2i_1_getPredefinedInteger(\{show x})"
+                else pure "idris2i_1_mkIntegerLiteral(\"\{show x}\")"
+            B8 x  => pure "idris2i_1_mkBits8(UINT8_C(\{show x}))"
+            B16 x => pure "idris2i_1_mkBits16(UINT16_C(\{show x}))"
+            B32 x => pure "idris2i_1_mkBits32(UINT32_C(\{show x}))"
             B64 x => if x >= 0 && x <= 4294967295
-               then pure "idris2_mkBits64(UINT64_C(\{show x}))"
+               then pure "idris2i_1_mkBits64(UINT64_C(\{show x}))"
                else orStagen CDB64 $ show x
             Db x => orStagen CDDb $ cCleanString $ show x
-            Ch x  => pure "idris2_mkChar(\{escapeChar x})"
+            Ch x  => pure "idris2i_1_mkChar(\{escapeChar x})"
             Str s => orStagen CDStr $ hashName s
             PrT t => pure $ cPrimType t
             WorldVal => pure "(NULL /* World */)"
 
     cStatementsFromANF (AErased fc) _ = pure "NULL"
     -- Like the Scheme backends: print the message and stop.
-    cStatementsFromANF (ACrash fc msg) _ = pure "idris2_crashMsg(\{cStringQuoted msg})"
+    cStatementsFromANF (ACrash fc msg) _ = pure "idris2i_1_crashMsg(\{cStringQuoted msg})"
 
     ||| A `case` on constructors, which gives a value or a C integer.
     conCase : {auto a : Ref ArgCounter Nat}
@@ -2669,12 +2669,12 @@ mutual
         switchReturnVar <- getNewVarThatWillNotBeFreedAtEndOfBlock
         case r of
              AnInt t _ => emit fc "\{cIntType t} \{switchReturnVar} = 0;"
-             AValue _ => emit fc "Idris2_Value * \{switchReturnVar} = NULL;"
+             AValue _ => emit fc "Idris2i_1_Value * \{switchReturnVar} = NULL;"
         env <- get EnvTracker
         if tagSwitch
            then do
              -- (the constructors of the type all have tags: a `switch`)
-             emit emptyFC "switch (((Idris2_Constructor *)\{sc'})->tag) {"
+             emit emptyFC "switch (((Idris2i_1_Constructor *)\{sc'})->tag) {"
              for_ alts $ \alt@(MkAConAlt name _ tag _ _) => do
                  emit emptyFC "case \{show (fromMaybe 0 (conTag tag))}: { /* \{show name} */"
                  altBody env switchReturnVar alt
@@ -2716,7 +2716,7 @@ mutual
         staticMatch env ci t [] = if not env.staticOK then Nothing
             else if erasedCon ci then Just (MkStaticVal "NULL" [] 0)
             else case conTag t of
-                   Just t' => if t' < 256 then Just (MkStaticVal "idris2_nullaryConstructor(\{show t'})" [] 0)
+                   Just t' => if t' < 256 then Just (MkStaticVal "idris2i_1_nullaryConstructor(\{show t'})" [] 0)
                                           else Nothing
                    Nothing => Nothing
         staticMatch _ _ _ _ = Nothing
@@ -2759,11 +2759,11 @@ mutual
             let key = reuseKey env name tag (length args)
             -- (a new cell of the constructor, for the copy)
             let alloc = case (conTag tag, layout) of
-                  (Just t, Just _) => "idris2_newRawConstructor(\{show np}, \{show nr}, \{show t})"
-                  (Just t, Nothing) => "idris2_newConstructor(\{show (length args)}, \{show t})"
-                  (Nothing, _) => "idris2_newNamedConstructor(\{show (length args)}, idris2_constr_\{cName name})"
+                  (Just t, Just _) => "idris2i_1_newRawConstructor(\{show np}, \{show nr}, \{show t})"
+                  (Just t, Nothing) => "idris2i_1_newConstructor(\{show (length args)}, \{show t})"
+                  (Nothing, _) => "idris2i_1_newNamedConstructor(\{show (length args)}, idris2i_1_constr_\{cName name})"
             let rawCopy : Maybe (String -> String)
-                  = map (\_ => \c => "idris2_copyRawFields(\{c}, \{sc'}, \{show np}, \{show nr});") layout
+                  = map (\_ => \c => "idris2i_1_copyRawFields(\{c}, \{sc'}, \{show np}, \{show nr});") layout
             let (dropReuseCons, outerCells) = dropUnusedReuseCons env body env.reuseMap
             keep <- the (Core (Maybe String)) $ if not scBorrowed && scDropped && not (null args)
                          && length (cellsOf key outerCells) < fromMaybe 0 (lookup key (reuseNeeds env body))
@@ -2774,7 +2774,7 @@ mutual
                   Nothing => outerCells
             increaseIndentation
             when (env.checkLayout && not erased && not (null args)) $
-              emit emptyFC "IDRIS2_CHECK_LAYOUT(\{sc'}, \{show np}, \{cStringQuoted (show name)});"
+              emit emptyFC "IDRIS2I_1_CHECK_LAYOUT(\{sc'}, \{show np}, \{cStringQuoted (show name)});"
             -- The raw fields that the body uses, read before the cell may be
             -- freed or taken over; those that are not C numbers are new
             -- values, which the body owns.
@@ -2785,7 +2785,7 @@ mutual
                       emit emptyFC "\{cIntType t'} \{intVarName v} = \{rawSlot sc' np j t};"
                       pure acc
                     Nothing => do
-                      emit emptyFC "Idris2_Value *var_\{show v} = \{boxC t (rawSlot sc' np j t)};"
+                      emit emptyFC "Idris2i_1_Value *var_\{show v} = \{boxC t (rawSlot sc' np j t)};"
                       pure (insert (ALocal v) acc))
                 (the Owned empty) (zip [0 .. length rawBinders] rawBinders)
             shouldDrop <-
@@ -2794,7 +2794,7 @@ mutual
                      -- (only the fields that the body uses are read)
                      _ <- foldlC (\k, arg => do
                          when (contains (ALocal arg) usedVars) $
-                           emit emptyFC "Idris2_Value *var_\{show arg} = ((Idris2_Constructor*)\{sc'})->args[\{show k}];"
+                           emit emptyFC "Idris2i_1_Value *var_\{show arg} = ((Idris2i_1_Constructor*)\{sc'})->args[\{show k}];"
                          pure (S k) ) 0 ptrBinders
                      pure shouldDrop
                    else matchedFields env sc' keep alloc rawCopy ptrBinders usedVars shouldDrop
@@ -2818,8 +2818,8 @@ mutual
                     then emit emptyFC "\{els}if (NULL != \{sc'} /* \{show name} \{show coninfo} */) {"
                     else do
                         case conTag tag of
-                            Nothing   => emit emptyFC "\{els}if (! strcmp(idris2_constructorName(\{sc'}), idris2_constr_\{cName name})) {"
-                            Just tag' => emit emptyFC "\{els}if (((Idris2_Constructor *)\{sc'})->tag == \{show tag'} /* \{show name} */) {"
+                            Nothing   => emit emptyFC "\{els}if (! strcmp(idris2i_1_constructorName(\{sc'}), idris2i_1_constr_\{cName name})) {"
+                            Just tag' => emit emptyFC "\{els}if (((Idris2i_1_Constructor *)\{sc'})->tag == \{show tag'} /* \{show name} */) {"
                 altBody env switchReturnVar alt
                 pure "} else ") "" alts
             case mDef of
@@ -2844,7 +2844,7 @@ mutual
         switchReturnVar <- getNewVarThatWillNotBeFreedAtEndOfBlock
         case r of
              AnInt t _ => emit fc "\{cIntType t} \{switchReturnVar} = 0;"
-             AValue _ => emit fc "Idris2_Value *\{switchReturnVar} = NULL;"
+             AValue _ => emit fc "Idris2i_1_Value *\{switchReturnVar} = NULL;"
         env <- get EnvTracker
         case alts of
             [] => do
@@ -2882,11 +2882,11 @@ mutual
                 else do
                   _ <- foldlC (\els, (MkAConstAlt c body) => do
                       case c of
-                          Str x => emit emptyFC "\{els}if (idris2_eqStringLiteral(\{sc'}, \{cStringQuoted x})) {"
+                          Str x => emit emptyFC "\{els}if (idris2i_1_eqStringLiteral(\{sc'}, \{cStringQuoted x})) {"
                           -- (a scrutinee that is a C double is compared as it is)
                           Db  x => emit emptyFC $ if isUnboxedIn env.unboxed sc
                                      then "\{els}if (\{intOperand env DoubleType sc} == \{cDouble x}) {"
-                                     else "\{els}if (((Idris2_Double *)\{sc'})->d == \{cDouble x}) {"
+                                     else "\{els}if (((Idris2i_1_Double *)\{sc'})->d == \{cDouble x}) {"
                           x => throw $ InternalError "[refc] AConstCase : unsupported type. \{show fc} \{show x}"
                       concaseBody env switchReturnVar "" [] body r
                       pure "} else ") "" alts
@@ -2900,9 +2900,9 @@ mutual
         integerEq : String -> Constant -> Core String
         integerEq v (BI x)
           = if x >= -2147483648 && x <= 2147483647
-               then pure "idris2_eqIntegerSmall(\{v}, INT64_C(\{show x}))"
+               then pure "idris2i_1_eqIntegerSmall(\{v}, INT64_C(\{show x}))"
                else do lit <- cStatementsFromANF (APrimVal fc (BI x)) NotInTailPosition
-                       pure "idris2_cmpInteger(\{v}, \{lit}) == 0"
+                       pure "idris2i_1_cmpInteger(\{v}, \{lit}) == 0"
         integerEq v c = throw $ InternalError "[refc] AConstCase : mixed Integer case. \{show fc} \{show c}"
 
         ifChainDefault : Env -> String -> Core ()
@@ -2937,8 +2937,8 @@ cTypeOfCFType CFUnsigned16    = "uint16_t"
 cTypeOfCFType CFUnsigned32    = "uint32_t"
 cTypeOfCFType CFUnsigned64    = "uint64_t"
 cTypeOfCFType CFString        = "char *"
--- Integers are passed as the boxed `Idris2_Value *` (an `Idris2_Integer`)
-cTypeOfCFType CFInteger       = "Idris2_Value *"
+-- Integers are passed as the boxed `Idris2i_1_Value *` (an `Idris2i_1_Integer`)
+cTypeOfCFType CFInteger       = "Idris2i_1_Value *"
 cTypeOfCFType CFDouble        = "double"
 cTypeOfCFType CFChar          = "char"
 cTypeOfCFType CFPtr           = "void *"
@@ -2967,13 +2967,13 @@ emitFDef : {auto oft : Ref OutfileText Output}
         -> (funcName : String) -- the C name
         -> (arglist:List (String, String, CFType))
         -> Core ()
-emitFDef funcName [] = emit EmptyFC $ "Idris2_Value *" ++ funcName ++ "(void)"
+emitFDef funcName [] = emit EmptyFC $ "Idris2i_1_Value *" ++ funcName ++ "(void)"
 emitFDef funcName ((varType, varName, varCFType) :: xs) = do
-    emit EmptyFC $ "Idris2_Value *" ++ funcName
+    emit EmptyFC $ "Idris2i_1_Value *" ++ funcName
     emit EmptyFC "("
     increaseIndentation
-    emit EmptyFC $ "  Idris2_Value *" ++ varName
-    traverse_ (\(varType, varName, varCFType) => emit EmptyFC $ ", Idris2_Value *" ++ varName) xs
+    emit EmptyFC $ "  Idris2i_1_Value *" ++ varName
+    traverse_ (\(varType, varName, varCFType) => emit EmptyFC $ ", Idris2i_1_Value *" ++ varName) xs
     decreaseIndentation
     emit EmptyFC ")"
 
@@ -2982,57 +2982,57 @@ data CLang = CLangC | CLangRefC
 
 extractValue : (cLang : CLang) -> (cfType:CFType) -> (varName:String) -> String
 extractValue _ CFUnit           varName = "NULL"
-extractValue _ CFInt            varName = "(idris2_vp_to_Int64(" ++ varName ++ "))"
-extractValue _ CFInt8           varName = "(idris2_vp_to_Int8(" ++ varName ++ "))"
-extractValue _ CFInt16          varName = "(idris2_vp_to_Int16(" ++ varName ++ "))"
-extractValue _ CFInt32          varName = "(idris2_vp_to_Int32(" ++ varName ++ "))"
-extractValue _ CFInt64          varName = "(idris2_vp_to_Int64(" ++ varName ++ "))"
-extractValue _ CFUnsigned8      varName = "(idris2_vp_to_Bits8(" ++ varName ++ "))"
-extractValue _ CFUnsigned16     varName = "(idris2_vp_to_Bits16(" ++ varName ++ "))"
-extractValue _ CFUnsigned32     varName = "(idris2_vp_to_Bits32(" ++ varName ++ "))"
-extractValue _ CFUnsigned64     varName = "(idris2_vp_to_Bits64(" ++ varName ++ "))"
+extractValue _ CFInt            varName = "(idris2i_1_vp_to_Int64(" ++ varName ++ "))"
+extractValue _ CFInt8           varName = "(idris2i_1_vp_to_Int8(" ++ varName ++ "))"
+extractValue _ CFInt16          varName = "(idris2i_1_vp_to_Int16(" ++ varName ++ "))"
+extractValue _ CFInt32          varName = "(idris2i_1_vp_to_Int32(" ++ varName ++ "))"
+extractValue _ CFInt64          varName = "(idris2i_1_vp_to_Int64(" ++ varName ++ "))"
+extractValue _ CFUnsigned8      varName = "(idris2i_1_vp_to_Bits8(" ++ varName ++ "))"
+extractValue _ CFUnsigned16     varName = "(idris2i_1_vp_to_Bits16(" ++ varName ++ "))"
+extractValue _ CFUnsigned32     varName = "(idris2i_1_vp_to_Bits32(" ++ varName ++ "))"
+extractValue _ CFUnsigned64     varName = "(idris2i_1_vp_to_Bits64(" ++ varName ++ "))"
 -- The functions of the `RefC` calling convention take strings as Idris values
 -- (which may contain NUL characters); C functions get a C string.
-extractValue CLangRefC CFString varName = "(Idris2_Value*)" ++ varName
-extractValue _ CFString         varName = "((Idris2_String*)" ++ varName ++ ")->str"
-extractValue _ CFInteger        varName = "(Idris2_Value*)" ++ varName
-extractValue _ CFDouble         varName = "(idris2_vp_to_Double(" ++ varName ++ "))"
-extractValue _ CFChar           varName = "(idris2_vp_to_Char(" ++ varName ++ "))"
-extractValue _ CFPtr            varName = "((Idris2_Pointer*)" ++ varName ++ ")->p"
-extractValue _ CFGCPtr          varName = "((Idris2_GCPointer*)" ++ varName ++ ")->p->p"
-extractValue CLangC    CFBuffer varName = "((Idris2_Buffer*)" ++ varName ++ ")->buffer->data"
-extractValue CLangRefC CFBuffer varName = "((Idris2_Buffer*)" ++ varName ++ ")->buffer"
-extractValue _ CFWorld          _       = "(Idris2_Value *)NULL"
-extractValue _ (CFFun x y)      varName = "(Idris2_Closure*)" ++ varName
+extractValue CLangRefC CFString varName = "(Idris2i_1_Value*)" ++ varName
+extractValue _ CFString         varName = "((Idris2i_1_String*)" ++ varName ++ ")->str"
+extractValue _ CFInteger        varName = "(Idris2i_1_Value*)" ++ varName
+extractValue _ CFDouble         varName = "(idris2i_1_vp_to_Double(" ++ varName ++ "))"
+extractValue _ CFChar           varName = "(idris2i_1_vp_to_Char(" ++ varName ++ "))"
+extractValue _ CFPtr            varName = "((Idris2i_1_Pointer*)" ++ varName ++ ")->p"
+extractValue _ CFGCPtr          varName = "((Idris2i_1_GCPointer*)" ++ varName ++ ")->p->p"
+extractValue CLangC    CFBuffer varName = "((Idris2i_1_Buffer*)" ++ varName ++ ")->buffer->data"
+extractValue CLangRefC CFBuffer varName = "((Idris2i_1_Buffer*)" ++ varName ++ ")->buffer"
+extractValue _ CFWorld          _       = "(Idris2i_1_Value *)NULL"
+extractValue _ (CFFun x y)      varName = "(Idris2i_1_Closure*)" ++ varName
 extractValue c (CFIORes x)      varName = extractValue c x varName
 -- (a pointer to a C struct, see `StructTable`)
-extractValue _ (CFStruct x xs)  varName = "((Idris2_Pointer*)" ++ varName ++ ")->p"
-extractValue _ (CFUser x xs)    varName = "(Idris2_Value*)" ++ varName
-extractValue _ CFForeignObj     varName = "(Idris2_Value*)" ++ varName
+extractValue _ (CFStruct x xs)  varName = "((Idris2i_1_Pointer*)" ++ varName ++ ")->p"
+extractValue _ (CFUser x xs)    varName = "(Idris2i_1_Value*)" ++ varName
+extractValue _ CFForeignObj     varName = "(Idris2i_1_Value*)" ++ varName
 extractValue _ n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
 
 packCFType : (cfType:CFType) -> (varName:String) -> String
-packCFType CFUnit          varName = "((Idris2_Value *)NULL)"
-packCFType CFInt           varName = "idris2_mkInt64(" ++ varName ++ ")"
-packCFType CFInt8          varName = "idris2_mkInt8(" ++ varName ++ ")"
-packCFType CFInt16         varName = "idris2_mkInt16(" ++ varName ++ ")"
-packCFType CFInt32         varName = "idris2_mkInt32(" ++ varName ++ ")"
-packCFType CFInt64         varName = "idris2_mkInt64(" ++ varName ++ ")"
-packCFType CFUnsigned64    varName = "idris2_mkBits64(" ++ varName ++ ")"
-packCFType CFUnsigned32    varName = "idris2_mkBits32(" ++ varName ++ ")"
-packCFType CFUnsigned16    varName = "idris2_mkBits16(" ++ varName ++ ")"
-packCFType CFUnsigned8     varName = "idris2_mkBits8(" ++ varName ++ ")"
-packCFType CFString        varName = "idris2_mkString(" ++ varName ++ ")"
+packCFType CFUnit          varName = "((Idris2i_1_Value *)NULL)"
+packCFType CFInt           varName = "idris2i_1_mkInt64(" ++ varName ++ ")"
+packCFType CFInt8          varName = "idris2i_1_mkInt8(" ++ varName ++ ")"
+packCFType CFInt16         varName = "idris2i_1_mkInt16(" ++ varName ++ ")"
+packCFType CFInt32         varName = "idris2i_1_mkInt32(" ++ varName ++ ")"
+packCFType CFInt64         varName = "idris2i_1_mkInt64(" ++ varName ++ ")"
+packCFType CFUnsigned64    varName = "idris2i_1_mkBits64(" ++ varName ++ ")"
+packCFType CFUnsigned32    varName = "idris2i_1_mkBits32(" ++ varName ++ ")"
+packCFType CFUnsigned16    varName = "idris2i_1_mkBits16(" ++ varName ++ ")"
+packCFType CFUnsigned8     varName = "idris2i_1_mkBits8(" ++ varName ++ ")"
+packCFType CFString        varName = "idris2i_1_mkString(" ++ varName ++ ")"
 packCFType CFInteger       varName = varName
-packCFType CFDouble        varName = "idris2_mkDouble(" ++ varName ++ ")"
-packCFType CFChar          varName = "idris2_mkChar(" ++ varName ++ ")"
-packCFType CFPtr           varName = "idris2_makePointer(" ++ varName ++ ")"
-packCFType CFGCPtr         varName = "idris2_makePointer(" ++ varName ++ ")"
-packCFType CFBuffer        varName = "idris2_makeBuffer(" ++ varName ++ ")"
-packCFType CFWorld         _       = "(Idris2_Value *)NULL"
+packCFType CFDouble        varName = "idris2i_1_mkDouble(" ++ varName ++ ")"
+packCFType CFChar          varName = "idris2i_1_mkChar(" ++ varName ++ ")"
+packCFType CFPtr           varName = "idris2i_1_makePointer(" ++ varName ++ ")"
+packCFType CFGCPtr         varName = "idris2i_1_makePointer(" ++ varName ++ ")"
+packCFType CFBuffer        varName = "idris2i_1_makeBuffer(" ++ varName ++ ")"
+packCFType CFWorld         _       = "(Idris2i_1_Value *)NULL"
 packCFType (CFFun x y)     varName = "makeFunction(" ++ varName ++ ")"
 packCFType (CFIORes x)     varName = packCFType x varName
-packCFType (CFStruct x xs) varName = "idris2_makePointer(" ++ varName ++ ")"
+packCFType (CFStruct x xs) varName = "idris2i_1_makePointer(" ++ varName ++ ")"
 packCFType (CFUser x xs)   varName = varName
 packCFType CFForeignObj    varName = varName
 packCFType n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
@@ -3052,7 +3052,7 @@ packFFIResult _         t           varName = packCFType t varName
 ||| that a function declared to return a `const char *` (a string that it
 ||| keeps, the usual case) can be called too.
 cResultType : CLang -> CFType -> String
-cResultType CLangRefC CFString = "Idris2_Value *"
+cResultType CLangRefC CFString = "Idris2i_1_Value *"
 cResultType CLangC    CFString = "const char *"
 cResultType _ t = cTypeOfCFType t
 
@@ -3065,7 +3065,7 @@ additionalFFIStub name argTypes (CFIORes retType) = additionalFFIStub name (disc
 additionalFFIStub name argTypes retType =
     cTypeOfCFType retType ++
     " (*" ++ cName name ++ ")(" ++
-    (concat $ intersperse ", " $ map cTypeOfCFType argTypes) ++ ") = (void*)idris2_missing_ffi;\n"
+    (concat $ intersperse ", " $ map cTypeOfCFType argTypes) ++ ") = (void*)idris2i_1_missing_ffi;\n"
 
 ||| The parameters `params` of the function `n` (in its compiled form) that have
 ||| a fixed width integer type, with their unboxed types, and the type of its
@@ -3179,7 +3179,7 @@ record RefCOptions where
   optReuseCopy : Bool
   ||| not `--directive refc-no-raw-fields` (see `RawLayout`)
   optRawFields : Bool
-  ||| `--directive refc-check-layout` (see IDRIS2_CHECK_LAYOUT)
+  ||| `--directive refc-check-layout` (see IDRIS2I_1_CHECK_LAYOUT)
   optCheckLayout : Bool
   ||| are the flat arrays on (see `flatMode`: when the program uses them;
   ||| `--directive refc-flat-arrays` is accepted, and changes nothing)
@@ -3397,7 +3397,7 @@ unboxedProgram withWorkers doubles fws rfs flat foreigns valueFns funs = do
 ||| runtime.h)?  So it is when no expression in tail position calls a
 ||| function (but a foreign one, or itself in a loop, see `selfTailCall`) or
 ||| applies a closure, whatever the C compiler (with or without musttail).  A
-||| constant always gives a value (see idris2_constantValue).
+||| constant always gives a value (see idris2i_1_constantValue).
 ||| Is the function with the C name `cn` and `nargs` parameters compiled with
 ||| tail recursion modulo cons?  So it is when it makes a cell of a call to
 ||| itself in tail position (`map f (x :: xs) = f x :: map f xs`, see
@@ -3489,17 +3489,17 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
     let cn = cName canonN
     let nargs = length args
     let params = if nargs == 0 then "(void)"
-               else if nargs > MaxExtractFunArgs then "(Idris2_Value *idris2_arglist[\{show nargs}])"
-               else ("\n(\n" ++ (showSep "\n" $ addCommaToList (map (\i =>  "  Idris2_Value * var_" ++ (show i)) args))) ++ "\n)"
-    let fn = "Idris2_Value *\{cn}" ++ params
+               else if nargs > MaxExtractFunArgs then "(Idris2i_1_Value *idris2i_1_arglist[\{show nargs}])"
+               else ("\n(\n" ++ (showSep "\n" $ addCommaToList (map (\i =>  "  Idris2i_1_Value * var_" ++ (show i)) args))) ++ "\n)"
+    let fn = "Idris2i_1_Value *\{cn}" ++ params
     -- The worker (see `Worker`): the parameters that are C integers in the
     -- body are C integers, as the result may be.
     worker <- lookup cn <$> get Workers
     let wfn = map (\w => let ps = zipWith (\i, t => case t of
                                                   Just t => "  \{cIntType t} \{intVarName i}"
-                                                  Nothing => "  Idris2_Value * var_\{show i}")
+                                                  Nothing => "  Idris2i_1_Value * var_\{show i}")
                                           args w.params in
-                          "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}\{workerName cn}"
+                          "\{maybe "Idris2i_1_Value *" (\t => cIntType t ++ " ") w.rawResult}\{workerName cn}"
                           ++ "\n(\n" ++ showSep "\n" (addCommaToList ps) ++ "\n)") worker
     addProtos cn ((fn ++ ";\n") :: maybe [] (\w => [w ++ ";\n"]) wfn)
     -- A definition without arguments (a constant) is evaluated once, the
@@ -3508,9 +3508,9 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
     -- kept for good (it is immortal).
     -- (with `--directive refc-backtrace`, the C compiler keeps the frame of
     -- every function, see `backtraceTable`)
-    let noinline = if opts.optBacktrace then "IDRIS2_BT_NOINLINE " else ""
+    let noinline = if opts.optBacktrace then "IDRIS2I_1_BT_NOINLINE " else ""
     let body = if nargs == 0
-                  then "\{noinline}static Idris2_Value *\{cafName cn}" ++ params
+                  then "\{noinline}static Idris2i_1_Value *\{cafName cn}" ++ params
                   else noinline ++ fromMaybe fn wfn
 
     -- The parameters that the function borrows (see Compiler.RefC.Borrow):
@@ -3528,7 +3528,7 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
     increaseIndentation
     when (nargs > MaxExtractFunArgs) $ do
       _ <- foldlC (\i, j => do
-         emit EmptyFC "Idris2_Value *var_\{show j} = idris2_arglist[\{show i}];"
+         emit EmptyFC "Idris2i_1_Value *var_\{show j} = idris2i_1_arglist[\{show i}];"
          pure $ i + 1) 0 args
       pure ()
     foreigns <- get Foreigns
@@ -3539,8 +3539,8 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                 && (trmc || hasSelfTailCall cn nargs anf)
     -- The first cell that it makes, and where the next value goes.
     when trmc $ do
-      emit EmptyFC "Idris2_Value *idris2_trmc_result = NULL;"
-      emit EmptyFC "Idris2_Value **idris2_trmc_hole = &idris2_trmc_result;"
+      emit EmptyFC "Idris2i_1_Value *idris2i_1_trmc_result = NULL;"
+      emit EmptyFC "Idris2i_1_Value **idris2i_1_trmc_hole = &idris2i_1_trmc_result;"
     -- The variables that are C integers (see Compiler.RefC.Unbox): the
     -- parameters among them are unboxed once, before the loop starts.
     -- (they are the parameters of the worker, when there is one)
@@ -3550,12 +3550,12 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
       let t = fromMaybe IntType (lookup p unboxed)
       emit EmptyFC "\{cIntType t} \{intVarName p} = \{unboxC t "var_\{show p}"};"
       unless (p `elem` borrowedParams) $
-        emit EmptyFC "idris2_removeReference(var_\{show p});"
+        emit EmptyFC "idris2i_1_removeReference(var_\{show p});"
     -- (a function in a cycle of calls that are not loops: see
     -- `cycleFunctions`)
     when (nargs > 0 && contains cn opts.optCycleFns) $
-      emit EmptyFC "IDRIS2_SAFEPOINT();"
-    when loops $ emit EmptyFC "idris2_self_entry: ;"
+      emit EmptyFC "IDRIS2I_1_SAFEPOINT();"
+    when loops $ emit EmptyFC "idris2i_1_self_entry: ;"
     removeVars (varName <$> Prelude.toList (shouldDrop `difference` fromList (ALocal <$> unboxedParams)))
     _ <- newRef EnvTracker (MkEnv ((bodyFreeVars `difference` fromList (ALocal <$> unboxedParams))
                                      `difference` borrowedVars)
@@ -3572,8 +3572,8 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                               !(get RawCons) opts.optCheckLayout opts.optFlatArrays empty)
     if trmc
        then do
-         assignResult "*idris2_trmc_hole" !(cStatementsFromANF anf InTailPosition)
-         plainReturn "idris2_trmc_result"
+         assignResult "*idris2i_1_trmc_hole" !(cStatementsFromANF anf InTailPosition)
+         plainReturn "idris2i_1_trmc_result"
        else do
          result <- case worker >>= rawResult of
                         Just t => cIntFromANF t InTailPosition anf
@@ -3595,25 +3595,25 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
       for_ (zip args w.params) $ \(p, mt) => whenJust mt $ \t => do
         emit EmptyFC "\{cIntType t} \{intVarName p} = \{unboxC t "var_\{show p}"};"
         unless (p `elem` borrowedParams) $
-          emit EmptyFC "idris2_removeReference(var_\{show p});"
+          emit EmptyFC "idris2i_1_removeReference(var_\{show p});"
       let call = "\{workerName cn}(\{showSep ", " (zipWith (\p, mt => maybe (varName (ALocal p)) (const (intVarName p)) mt) args w.params)})"
       case w.rawResult of
            Just t => emit EmptyFC "return \{boxC t call};"
            Nothing => do
-             emit EmptyFC "#ifdef IDRIS2_MUSTTAIL"
-             emit EmptyFC "IDRIS2_MUSTTAIL return \{call};"
+             emit EmptyFC "#ifdef IDRIS2I_1_MUSTTAIL"
+             emit EmptyFC "IDRIS2I_1_MUSTTAIL return \{call};"
              emit EmptyFC "#else"
              emit EmptyFC "return \{call};"
              emit EmptyFC "#endif"
       decreaseIndentation
       emit EmptyFC "}\n"
-    -- (idris2_constantValue makes it once, even with threads running in
+    -- (idris2i_1_constantValue makes it once, even with threads running in
     -- parallel.)
     when (nargs == 0) $ do
       emit EmptyFC fn
       emit EmptyFC "{"
-      emit EmptyFC "  static Idris2_Constant constant;"
-      emit EmptyFC "  return idris2_constantValue(&constant, \{cafName cn});"
+      emit EmptyFC "  static Idris2i_1_Constant constant;"
+      emit EmptyFC "  return idris2i_1_constantValue(&constant, \{cafName cn});"
       emit EmptyFC "}\n"
     emit EmptyFC  ""
     pure ()
@@ -3625,8 +3625,8 @@ createCFunctions _ _ n canonN (MkACon tag arity nt _) =
       let n' = cName canonN
       -- extern: in a generated file compiled in parts (see
       -- generateCSourceFile) the definition is in one part only.
-      addProtos n' ["extern char const idris2_constr_\{n'}[];"]
-      emit EmptyFC "char const idris2_constr_\{n'}[] = \{cStringQuoted $ show n};"
+      addProtos n' ["extern char const idris2i_1_constr_\{n'}[];"]
+      emit EmptyFC "char const idris2i_1_constr_\{n'}[] = \{cStringQuoted $ show n};"
     Just _ =>
       emit EmptyFC $ ( "// \{show n} Constructor tag " ++ show tag ++ " arity " ++ show arity) -- Nothing to compile here
 
@@ -3651,9 +3651,9 @@ createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
                       [lib, header] => update HeaderFiles $ insert header
                       _ => pure ()
              else emit EmptyFC $ additionalFFIStub fctName fargs ret
-          let params = "(" ++ showSep ", " (replicate (length fargs) "Idris2_Value *") ++ ");"
-          let fnDef = "Idris2_Value *" ++ cName canonN ++ params
-          let borrowDef = "Idris2_Value *" ++ borrowName (cName canonN) ++ params
+          let params = "(" ++ showSep ", " (replicate (length fargs) "Idris2i_1_Value *") ++ ");"
+          let fnDef = "Idris2i_1_Value *" ++ cName canonN ++ params
+          let borrowDef = "Idris2i_1_Value *" ++ borrowName (cName canonN) ++ params
           addProtos (cName canonN) [fnDef ++ "\n", borrowDef ++ "\n"]
           typeVarNameArgList <- createFFIArgList fargs
           let argNames = (\(_, varName, _) => varName) <$> typeVarNameArgList
@@ -3663,7 +3663,7 @@ createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
           emitFDef (cName canonN) typeVarNameArgList
           emit EmptyFC "{"
           increaseIndentation
-          emit EmptyFC $ "Idris2_Value *retVal = " ++ borrowName (cName canonN) ++ "(" ++ showSep ", " argNames ++ ");"
+          emit EmptyFC $ "Idris2i_1_Value *retVal = " ++ borrowName (cName canonN) ++ "(" ++ showSep ", " argNames ++ ");"
           removeVars argNames
           emit EmptyFC "return retVal;"
           decreaseIndentation
@@ -3687,13 +3687,13 @@ createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
                               ++ "("
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) (discardLastArgument typeVarNameArgList))
                               ++ ");"
-                  emit EmptyFC $ "return (Idris2_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
+                  emit EmptyFC $ "return (Idris2i_1_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
               _ => do
                   emit EmptyFC $ cResultType cLang ret ++ " retVal = " ++ cName fctName
                               ++ "("
                               ++ showSep ", " (map (\(_, vn, vt) => extractValue cLang vt vn) typeVarNameArgList)
                               ++ ");"
-                  emit EmptyFC $ "return (Idris2_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
+                  emit EmptyFC $ "return (Idris2i_1_Value*)" ++ packFFIResult cLang ret "retVal" ++ ";"
 
           decreaseIndentation
           emit EmptyFC "}"
@@ -3703,8 +3703,8 @@ createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
           whenJust (foreignWorker opts.optDoubles isStandardFFI fargs ret) $ \w => do
             let ps = zipWith (\(_, vn, _), mt => case mt of
                                  Just t => "\{cIntType t} \{vn}"
-                                 Nothing => "Idris2_Value *\{vn}") typeVarNameArgList w.params
-            let wdef = "\{maybe "Idris2_Value *" (\t => cIntType t ++ " ") w.rawResult}"
+                                 Nothing => "Idris2i_1_Value *\{vn}") typeVarNameArgList w.params
+            let wdef = "\{maybe "Idris2i_1_Value *" (\t => cIntType t ++ " ") w.rawResult}"
                        ++ "\{workerName (cName canonN)}(\{showSep ", " ps})"
             let cargs = zipWith (\(_, vn, vt), mt => if isJust mt then vn else extractValue cLang vt vn)
                                 typeVarNameArgList w.params
@@ -3720,10 +3720,10 @@ createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
                          -- a jump, and the frame of the worker would not be in
                          -- a backtrace)
                          ++ (if opts.optBacktrace && isJust w.rawResult
-                                then ["IDRIS2_BT_KEEP_FRAME();"] else [])
+                                then ["IDRIS2I_1_BT_KEEP_FRAME();"] else [])
                          ++ [if isJust w.rawResult
                                 then "return retVal;"
-                                else "return (Idris2_Value*)" ++ packFFIResult cLang ret' "retVal" ++ ";"]
+                                else "return (Idris2i_1_Value*)" ++ packFFIResult cLang ret' "retVal" ++ ";"]
             -- The worker of a function of the runtime (`RefC:`) or of a C
             -- library with a header is `static inline` in every part of the
             -- program that calls it, so that the C compiler sees the call of
@@ -3737,7 +3737,7 @@ createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
                       ["static inline " ++ wdef ++ "\n{\n" ++ concatMap (\l => "    " ++ l ++ "\n") body ++ "}\n"]
                else do
                  addProtos (cName canonN) [wdef ++ ";\n"]
-                 emit EmptyFC $ (if opts.optBacktrace then "IDRIS2_BT_NOINLINE " else "") ++ wdef
+                 emit EmptyFC $ (if opts.optBacktrace then "IDRIS2I_1_BT_NOINLINE " else "") ++ wdef
                  emit EmptyFC "{"
                  increaseIndentation
                  traverse_ (emit EmptyFC) body
@@ -3756,12 +3756,12 @@ createCFunctions opts _ n canonN (MkAForeign ccs fargs ret) = do
 -- Scheme backends, the program is compiled, and it stops with the message
 -- when it gets to that name.
 createCFunctions _ _ n canonN (MkAError (ACrash _ msg)) = do
-    let fn = "Idris2_Value *\{cName canonN}(void)"
+    let fn = "Idris2i_1_Value *\{cName canonN}(void)"
     addProtos (cName canonN) [fn ++ ";\n"]
     emit EmptyFC fn
     emit EmptyFC "{"
     increaseIndentation
-    emit EmptyFC "return idris2_crashMsg(\{cStringQuoted msg});"
+    emit EmptyFC "return idris2i_1_crashMsg(\{cStringQuoted msg});"
     decreaseIndentation
     emit EmptyFC "}"
 createCFunctions _ _ n canonN (MkAError exp) = throw $ InternalError "[refc] Error with expression: \{show exp}"
@@ -3778,14 +3778,14 @@ genConstant c cdef = case c of
     -- (the runtime knows the number of characters of an ASCII string)
     Str x => let kind : String
                  kind = if all (\c => ord c < 128) (unpack x) then "ASCII_" else ""
-             in "IDRIS2_\{kind}STRING_CONSTANT(\{constantName cdef}, \{cStringQuoted x});"
-    BI _  => "IDRIS2_UNUSED static Idris2_Value *\{constantName cdef} = NULL;"
+             in "IDRIS2I_1_\{kind}STRING_CONSTANT(\{constantName cdef}, \{cStringQuoted x});"
+    BI _  => "IDRIS2I_1_UNUSED static Idris2i_1_Value *\{constantName cdef} = NULL;"
     _ => "/* bad constant */"
   where
     go : String -> String -> String -> String
     go ty tag v =
-      "IDRIS2_UNUSED static Idris2_\{ty} const \{constantName cdef}"
-        ++ " = { IDRIS2_STOCKVAL(\{tag}_TAG), \{v} };"
+      "IDRIS2I_1_UNUSED static Idris2i_1_\{ty} const \{constantName cdef}"
+        ++ " = { IDRIS2I_1_STOCKVAL(\{tag}_TAG), \{v} };"
 
 ||| The definitions of the constants, by name.
 constantTexts : ConstTable -> SortedMap String String
@@ -3831,7 +3831,7 @@ defLocation n
 ||| functions: their C names, sorted (as strcmp does, they are ASCII), their
 ||| Idris names, and where they are defined.  The runtime prints the Idris
 ||| names in the backtrace of a fatal error, and replaces the C names of its
-||| input by them with IDRIS2_REFC_DEMANGLE (see support/refc/backtrace.c).
+||| input by them with IDRIS2I_1_REFC_DEMANGLE (see support/refc/backtrace.c).
 ||| The functions are also compiled with `noinline`, so that a backtrace
 ||| shows every call that is not in tail position.
 backtraceTable : {auto c : Ref Ctxt Defs}
@@ -3845,7 +3845,7 @@ backtraceTable workers named
                                     entries0
          let sorted = sortBy (\a, b => compare (fst a) (fst b)) entries
          pure $ [ "// The functions of the program, for backtraces (see backtrace.h)"
-                , "static Idris2_BacktraceName const idris2_backtrace_names[] = {" ]
+                , "static Idris2i_1_BacktraceName const idris2i_1_backtrace_names[] = {" ]
                 ++ map line sorted ++ ["};"]
   where
     isFunction : (String, Name, ANFDef) -> Bool
@@ -3874,16 +3874,16 @@ footer backtraceNames = do
       int main(int argc, char *argv[])
       {
           \{ ifThenElse (contains "idris_support.h" !(get HeaderFiles))
-                        "idris2_setArgs(argc, argv);"
+                        "idris2i_1_setArgs(argc, argv);"
                         ""
           }
           \{ ifThenElse (isJust backtraceNames)
-                        "idris2_backtraceNames(idris2_backtrace_names, sizeof(idris2_backtrace_names) / sizeof(idris2_backtrace_names[0]));"
+                        "idris2i_1_backtraceNames(idris2i_1_backtrace_names, sizeof(idris2i_1_backtrace_names) / sizeof(idris2i_1_backtrace_names[0]));"
                         ""
           }
           // The main expression is run as the first green thread, so that
           // `fork` and `threadWait` behave the same everywhere.
-          idris2_threadSchedulerRun(__mainExpression_0);
+          idris2i_1_threadSchedulerRun(__mainExpression_0);
           return 0; // bye bye
       }
       """
@@ -3899,9 +3899,9 @@ footer backtraceNames = do
 --   `-D`: the prototypes and constants of the whole program, then the
 --   definitions of each unit `k` (of `n`, in order) guarded by
 --
---     #if !defined(IDRIS2_PARTS) || k * IDRIS2_PARTS / n == IDRIS2_PART
+--     #if !defined(IDRIS2I_1_PARTS) || k * IDRIS2I_1_PARTS / n == IDRIS2I_1_PART
 --
---   so that compiling with -DIDRIS2_PARTS=p -DIDRIS2_PART=i (for i < p)
+--   so that compiling with -DIDRIS2I_1_PARTS=p -DIDRIS2I_1_PART=i (for i < p)
 --   builds the i-th of p parts of it;
 --
 -- * as the unit files that `compileExpr` compiles (see Compiler.RefC.CC):
@@ -4181,7 +4181,7 @@ groupUnits n defs
           map reverse (foldl place empty defs)
 
 ||| The number of arguments of a closure, and of fields of a constructor, is
-||| 16 bits at run time (see Idris2_Closure and Idris2_Constructor).
+||| 16 bits at run time (see Idris2i_1_Closure and Idris2i_1_Constructor).
 maxArity : Nat
 maxArity = 65535
 
@@ -4206,11 +4206,11 @@ refcDirectResults = pure $ not ("refc-no-direct-results" `elem` !(getDirectives 
 
 ||| The size in bytes from which a program is split in units, instead of
 ||| `minSplitSize`: `--directive refc-split-size=N`, or the environment variable
-||| `IDRIS2_REFC_SPLIT_SIZE` (to test the units with small programs).
+||| `IDRIS2I_1_REFC_SPLIT_SIZE` (to test the units with small programs).
 refcSplitSize : {auto c : Ref Ctxt Defs} -> Core (Maybe Nat)
 refcSplitSize
     = do ds <- getDirectives RefC
-         env <- coreLift $ idrisGetEnv "IDRIS2_REFC_SPLIT_SIZE"
+         env <- coreLift $ idrisGetEnv "IDRIS2I_1_REFC_SPLIT_SIZE"
          pure $ case mapMaybe (\d => if Data.String.isPrefixOf "refc-split-size=" d
                                         then parsePositive {a = Nat} (substr 16 (length d) d)
                                         else Nothing) ds of
@@ -4226,15 +4226,15 @@ refcBorrowing = pure $ not ("refc-no-borrow" `elem` !(getDirectives RefC))
 ||| need the C compiler and their sizes.  Nothing otherwise.
 ||| The functions (by C name) whose body starts with a safepoint, so that a
 ||| thread that computes in any cycle of calls can be preempted (see
-||| IDRIS2_SAFEPOINT): those of a cycle of direct calls with other functions
+||| IDRIS2I_1_SAFEPOINT): those of a cycle of direct calls with other functions
 ||| (mutual recursion, in tail position or not), and those that call
 ||| themselves other than in tail position (deep recursion).  A call of a
 ||| function to itself in tail position is a loop, which has a safepoint of
 ||| its own (see `selfTailCall`).  A call of a closure in tail position has
-||| one in the runtime (IDRIS2_JUMP_TO_CLOSURE, the trampoline); a cycle made
+||| one in the runtime (IDRIS2I_1_JUMP_TO_CLOSURE, the trampoline); a cycle made
 ||| only of calls of closures not in tail position (a recursion through the
 ||| methods of an interface, say) has none: a safepoint in every such call
-||| (idris2_call_closure) costs 0.6% more instructions to the compiler.
+||| (idris2i_1_call_closure) costs 0.6% more instructions to the compiler.
 cycleFunctions : List (String, Name, ANFDef) -> SortedSet String
 cycleFunctions named
     = let fns = mapMaybe (\(cn, _, d) => case d of
@@ -4513,7 +4513,7 @@ generateCSourceFileParts defs0 outn =
                             = withoutComments defsLines ++ (if isMain then footerLines else [])
                       let unitLines : List String
                             = pre ++ declarations protoLines constLines ++ codeLines
-                      let guarded = "#if !defined(IDRIS2_PARTS) || \{show k} * IDRIS2_PARTS / \{show nunits} == IDRIS2_PART"
+                      let guarded = "#if !defined(IDRIS2I_1_PARTS) || \{show k} * IDRIS2I_1_PARTS / \{show nunits} == IDRIS2I_1_PART"
                                     :: ls ++ ["#endif"]
                       Right () <- coreLift $ fPutStr h (fastConcat (map (++ "\n") guarded))
                         | Left err => throw $ FileErr "(the C file)" err

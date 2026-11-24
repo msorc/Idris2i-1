@@ -13,12 +13,12 @@ mkdir include
 printf '#include "factor.h"\n#define stamp_scale(x) ((x) * STAMP_FACTOR)\n' > include/scale.h
 printf '#define STAMP_FACTOR 2\n' > include/factor.h
 mkdir "c compiler"
-ln -s "$(command -v "${IDRIS2_CC:-${CC:-cc}}")" "c compiler/cc"
-export IDRIS2_CC="$PWD/c compiler/cc"
-export IDRIS2_CPPFLAGS="-Iinclude"
+ln -s "$(command -v "${IDRIS2I_1_CC:-${CC:-cc}}")" "c compiler/cc"
+export IDRIS2I_1_CC="$PWD/c compiler/cc"
+export IDRIS2I_1_CPPFLAGS="-Iinclude"
 
 build() {
-    idris2 --directive refc-split-size=1000 --log compiler.refc:10 -o main Main.idr > output
+    idris2i-1 --directive refc-split-size=1000 --log compiler.refc:10 -o main Main.idr > output
     sed -n 's/.*\(Not reusing object files: .*\)/\1/p' output
     sed -n 's/.*Generated C file .* in \([0-9]*\) units, \([0-9]*\) to compile.*/\1 \2/p' output \
         | { read units todo

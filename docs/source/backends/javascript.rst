@@ -60,7 +60,7 @@ An interesting example is creating a foreign for the setTimeout function:
 Note: Previous versions of the javascript backends treated ``Int`` as a
 64 bit signed integer represented by ``BigInt`` in javascript land. This is no
 longer the case: ``Int`` is now treated as a 32 bit signed integer represented
-by ``Number``. This should facilitate interop between Idris2 and the backend.
+by ``Number``. This should facilitate interop between Idris2i-1 and the backend.
 
 However, unless you have good reasons to do otherwise, consider using
 one of the other fixed precision integral types. They are supposed to behave
@@ -106,25 +106,25 @@ Example of the wrapper HTML:
 As our intention is to develop something that runs in the browser questions naturally arise:
 
 - How to interact with HTML elements?
-- More importantly, when does the generated Idris code start?
+- More importantly, when does the generated Idris2i-1 code start?
 
-Starting point of the Idris generated code
-------------------------------------------
+Starting point of the Idris2i-1 generated code
+----------------------------------------------
 
 The generated JavaScript for your program contains an entry point. The ``main`` function is compiled
 to a JavaScript top-level expression, which will be evaluated during the loading of the ``script``
-tag and that is the entry point for Idris generated program starting in the browser.
+tag and that is the entry point for Idris2i-1 generated program starting in the browser.
 
 Interaction with HTML elements
 ------------------------------
 
-As sketched in the Short Example section, the FFI must be used when interaction happens between Idris
+As sketched in the Short Example section, the FFI must be used when interaction happens between Idris2i-1
 generated code and the rest of the Browser/JS ecosystem. Information handled by the FFI is
-separated into two categories. Primitive types in Idris FFI, such as Int, and everything else.
+separated into two categories. Primitive types in Idris2i-1 FFI, such as Int, and everything else.
 The everything else part is accessed via AnyPtr. The ``%foreign`` construction should be used
-to give implementation on the JavaScript side. And an Idris function declaration  to give ``Type``
-declaration on the Idris side. The syntax is ``%foreign "browser:lambda:js-lambda-expression"`` .
-On the Idris side, primitive types and ``PrimIO t`` types should be used as parameters,
+to give implementation on the JavaScript side. And an Idris2i-1 function declaration  to give ``Type``
+declaration on the Idris2i-1 side. The syntax is ``%foreign "browser:lambda:js-lambda-expression"`` .
+On the Idris2i-1 side, primitive types and ``PrimIO t`` types should be used as parameters,
 when defining ``%foreign``. This declaration is a helper function which needs to be called
 behind the ``primIO`` function. More on this can be found in the FFI chapter.
 
@@ -142,8 +142,8 @@ console.log
     consoleLog : HasIO io => String -> io ()
     consoleLog x = primIO $ prim__consoleLog x
 
-String is a primitive type in Idris and it is represented as a JavaScript String. There is no need
-for any conversion between the Idris and the JavaScript.
+String is a primitive type in Idris2i-1 and it is represented as a JavaScript String. There is no need
+for any conversion between the Idris2i-1 and the JavaScript.
 
 setInterval
 -----------
@@ -157,7 +157,7 @@ setInterval
     setInterval a i = primIO $ prim__setInterval (toPrim a) i
 
 The ``setInterval`` JavaScript function executes the given function in every ``x`` millisecond.
-We can use Idris generated functions in the callback as far as they have the type ``IO ()`` .
+We can use Idris2i-1 generated functions in the callback as far as they have the type ``IO ()`` .
 
 HTML Dom elements
 -----------------
@@ -178,7 +178,7 @@ separate the ``AnyPtr`` values into categories.
     body = map MkNode $ primIO $ prim__body ()
 
 We create a ``DomNode`` type which holds an ``AnyPtr``. The ``prim__body`` function wraps a
-lambda function with no parameters. In the Idris function ``body`` we pass an extra ``()`` parameter
+lambda function with no parameters. In the Idris2i-1 function ``body`` we pass an extra ``()`` parameter
 and the we wrap the result in the ``DomNode`` type using the ``MkNode`` data constructor.
 
 Primitive values originated in JavaScript
@@ -211,9 +211,9 @@ Handling JavaScript events
 
 
 In this example shows how to attach an event handler to a particular DOM element. Values of events
-are also associated with ``AnyPtr`` on the Idris side. To separate ``DomNode`` form ``DomEvent``
+are also associated with ``AnyPtr`` on the Idris2i-1 side. To separate ``DomNode`` form ``DomEvent``
 we create two different types. Also it demonstrates how a simple callback function defined in
-Idris can be used on the JavaScript side.
+Idris2i-1 can be used on the JavaScript side.
 
 Stack depth
 ===========
@@ -241,7 +241,7 @@ the same function gets the same wrapper every time (so foreign code can
 remove a callback it was given before, as with ``removeEventListener``), with
 the ``length`` of the function, and the functions that it returns are
 wrapped too.  A pending call never reaches foreign code: while a foreign
-function runs, and outside Idris code (from the event loop, or a
+function runs, and outside Idris2i-1 code (from the event loop, or a
 ``%nomangle`` function called from JavaScript), the tail calls are made
 directly.  So a closure that reaches foreign code in another way, such as
 inside an ``AnyPtr`` or a record, returns its value when JavaScript calls
@@ -349,7 +349,7 @@ is deep, and needs every function to be compiled so that it can resume in
 the middle.  Neither is done.  With
 Node, the main expression therefore runs on a stack of its own of 1GB, in a
 worker thread, as it does with the RefC backend, which is enough for lists
-of millions of elements.  The ``IDRIS2_MAIN_STACK_SIZE``
+of millions of elements.  The ``IDRIS2I_1_MAIN_STACK_SIZE``
 environment variable gives the size of this stack in bytes; with ``0``, or
 when the generated file is loaded with ``require`` instead of being the
 script that Node runs, the program runs on the main thread.  The worker
@@ -382,7 +382,7 @@ that the thread of ``main`` shares, where ``handleNextCollectedSignal``
 reads it.  When ``main`` runs in its worker thread (the default), the idle
 main thread records the signals of other processes as they arrive, and a
 signal cuts ``sleep`` and ``usleep`` short, as in C.  When ``main`` runs on
-the main thread (``IDRIS2_MAIN_STACK_SIZE=0``, or a program loaded with
+the main thread (``IDRIS2I_1_MAIN_STACK_SIZE=0``, or a program loaded with
 ``require``), signals from other processes are only recorded after ``main``
 has returned, although ``ignoreSignal`` works.  ``raiseSignal`` and
 ``sendSignal`` to the program itself handle a collected or ignored signal at
@@ -409,7 +409,7 @@ streams only, whose file descriptors are not part of its API), so ``main``
 reads and writes them synchronously like any file.  When ``main`` runs in
 its worker thread (the default), the main thread, whose event loop runs
 meanwhile, starts the child and sees it exit.  When ``main`` runs on the
-main thread (``IDRIS2_MAIN_STACK_SIZE=0``), whose event loop does not run
+main thread (``IDRIS2I_1_MAIN_STACK_SIZE=0``), whose event loop does not run
 until ``main`` returns, a small Node process started for each child waits
 for it and passes its exit status on through a pipe (which costs some 60ms
 per child).  The process id is that of the command (``sh -c cmd``), which
@@ -424,7 +424,7 @@ Threads
 -------
 
 A JavaScript program has one thread, and a worker thread shares no objects
-with it, so an Idris closure cannot run in another thread.  The JavaScript
+with it, so an Idris2i-1 closure cannot run in another thread.  The JavaScript
 back ends therefore have no ``fork``, and no ``System.Future`` (``fork``,
 ``await``, ``forkIO``): they stop the program with a message and exit code 1.
 The remaining primitives of ``System.Concurrency`` mean something in a program
@@ -463,7 +463,7 @@ function from the prelude for each of the three directives.
 (``--cg node`` is used in the examples below, but the behavior is
 the same when generating code to be run in browsers with ``--cg javascript``).
 
-With ``idris2 --cg node --directive pretty`` (the default, if no directive is
+With ``idris2i-1 --cg node --directive pretty`` (the default, if no directive is
 given), a basic pretty printer is used to generate properly indented
 javascript code.
 
@@ -473,14 +473,14 @@ javascript code.
      return $0.a2(undefined)($7 => Prelude_IO_prim__putStr($1, $7));
     }
 
-With ``idris2 --cg node --directive compact``, every toplevel function
+With ``idris2i-1 --cg node --directive compact``, every toplevel function
 is declared on a single line, and unneeded spaces are removed:
 
 .. code-block:: javascript
 
     function Prelude_IO_putStr($0,$1){return $0.a2(undefined)($7=>Prelude_IO_prim__putStr($1,$7));}
 
-Finally, with ``idris2 --cg node --directive minimal``, toplevel function
+Finally, with ``idris2i-1 --cg node --directive minimal``, toplevel function
 names are (with a few exceptions like the ones from the static
 preamble) obfuscated to reduce the size of the generated javascript
 file:
@@ -489,12 +489,12 @@ file:
 
     function $R3a($0,$1){return $0.a2(undefined)($7=>$R3b($1,$7));}
 
-``idris2 --cg node --directive no-trampoline`` (or ``--cg javascript``)
+``idris2i-1 --cg node --directive no-trampoline`` (or ``--cg javascript``)
 makes the tail calls to unknown functions directly, without the trampoline
 described in the section on the stack depth above.
 
-``idris2 --cg javascript --directive no-trmc`` compiles the functions with
-tail recursion modulo cons as recursions, and ``idris2 --cg node --directive
+``idris2i-1 --cg javascript --directive no-trmc`` compiles the functions with
+tail recursion modulo cons as recursions, and ``idris2i-1 --cg node --directive
 trmc`` compiles them as loops (see the section on the stack depth).
 Likewise, ``--directive no-explicit-stack`` and ``--directive
 explicit-stack`` turn the loops on an explicit stack off and on.

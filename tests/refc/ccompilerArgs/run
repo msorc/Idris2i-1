@@ -1,8 +1,8 @@
 . ../../testutils.sh
 
-# This test checks to make sure that Idris2's command line handling for the RefC backend is correct.
+# This test checks to make sure that Idris2i-1's command line handling for the RefC backend is correct.
 # It checks that:
-#   1) Idris2 correctly finds `CFLAGS` and `LDFLAGS` in the environment,
+#   1) Idris2i-1 correctly finds `CFLAGS` and `LDFLAGS` in the environment,
 #   2) The values in `CFLAGS` and `LDFLAGS` are separated correctly to be passed to the compiler
 #
 # (1) is achieved by compiling a c library (`externalc`) in a separate folder, and then explicitly
@@ -26,6 +26,6 @@ export LDLIBS="-lexternalc"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:./library/"
 export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:./library/"
 
-idris2 -o cffi Main.idr
+idris2i-1 -o cffi Main.idr
 
 $VALGRIND ./build/exec/cffi

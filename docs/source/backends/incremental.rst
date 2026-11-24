@@ -2,7 +2,7 @@
 Incremental Code Generation
 ***************************
 
-By default, Idris 2 is a whole program compiler - that is, it finds all the
+By default, Idris2i-1 is a whole program compiler - that is, it finds all the
 necessary function definitions and compiles them only when you build an
 executable. This gives plenty of optimisation opportunities, but can also
 be slow for rebuilding. However, if the backend supports it, you can build
@@ -10,7 +10,7 @@ modules and executables *incrementally*. To do so, you can either:
 
 1. Set the ``--inc <backend>`` flag at the command line, for each backend
    you want to use incrementally.
-2. Set the ``IDRIS2_INC_CGS`` environment variable with a comma separated list
+2. Set the ``IDRIS2I_1_INC_CGS`` environment variable with a comma separated list
    of backends to use incrementally.
 
 At the moment, only the Chez backend supports incremental builds. The RefC
@@ -28,8 +28,8 @@ TTC file. e.g.:
 
 ::
 
-    $ idris2 --inc chez Foo.idr
-    $ IDRIS2_INC_CGS=chez idris2 Foo.idr
+    $ idris2i-1 --inc chez Foo.idr
+    $ IDRIS2I_1_INC_CGS=chez idris2i-1 Foo.idr
 
 On successful type checking, each of these will produce a Chez Scheme file
 (``Foo.ss``) and compiled code for it (``Foo.so``) as well as the usual
@@ -41,23 +41,23 @@ even if those holes will be defined in a different module.
 Building executables incrementally
 ==================================
 
-If either ``--inc`` is used or ``IDRIS2_INC_CGS`` is set, compiling to
+If either ``--inc`` is used or ``IDRIS2I_1_INC_CGS`` is set, compiling to
 an executable will attempt to link all of the compiled modules together,
 rather than generating code for all of the functions at once. For this
 to work, all the imported modules *must* have been built with incremental
-compilation for the current back end (Idris will revert to whole program
+compilation for the current back end (Idris2i-1 will revert to whole program
 compilation if any are missing, and you will see a warning.)
 
 Therefore, all packages used by the executable must also have been built
 incrementally for the current back end. The ``prelude``, ``base``,
 ``contrib``, ``network`` and ``test`` packages are all built with
-incremental compilation support for Chez when Idris itself is built with
-``IDRIS2_CG=chez``.
+incremental compilation support for Chez when Idris2i-1 itself is built with
+``IDRIS2I_1_CG=chez``.
 
 When switching between incremental and whole program compilation, it is
 recommended that you remove the ``build`` directory first. This is
 particularly important when switching to incremental compilation, since there
-may be stale object files that Idris does not currently detect!
+may be stale object files that Idris2i-1 does not currently detect!
 
 
 Overriding incremental compilation

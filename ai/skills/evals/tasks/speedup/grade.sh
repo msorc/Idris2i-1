@@ -7,7 +7,7 @@ A4="limit 20000 finishes within 30 seconds with the right output"
 A5="pure Idris: no %foreign, no believe_me"
 
 rm -rf build
-assert "idris2 Report.idr -o report succeeds" "$IDRIS" --no-color Report.idr -o report
+assert "idris2i-1 Report.idr -o report succeeds" "$IDRIS" --no-color Report.idr -o report
 if [ ! -x build/exec/report ]; then
   fail_rest "no executable" "$A2" "$A3" "$A4" "$A5"
   exit 0

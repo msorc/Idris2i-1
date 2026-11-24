@@ -1,4 +1,4 @@
-Write `logstats` in Idris 2: `idris2 Logstats.idr -o logstats` (add `-p` flags in a
+Write `logstats` in Idris2i-1: `idris2i-1 Logstats.idr -o logstats` (add `-p` flags in a
 `build.sh` if you need packages; `sh build.sh` must then produce
 `build/exec/logstats`).
 

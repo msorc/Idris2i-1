@@ -1,14 +1,15 @@
-# Idris 2
+# Idris2i-1
 
-[![Documentation Status](https://readthedocs.org/projects/idris2/badge/?version=latest)](https://idris2.readthedocs.io/en/latest/?badge=latest)
-[![Build Status](https://github.com/idris-lang/Idris2/actions/workflows/ci-idris2-and-libs.yml/badge.svg?branch=main)](https://github.com/idris-lang/Idris2/actions/workflows/ci-idris2-and-libs.yml?query=branch%3Amain)
-
-[Idris 2](https://idris-lang.org/) is a purely functional programming language
-with first class types.
+Idris2i-1 is a purely functional programming language with first class types.
+It grew out of [Idris 2](https://idris-lang.org/) (the name is a complex
+number: two times *i*, minus one) and has gone far beyond Idris 2 0.8: the
+compiler emits C by default, errors carry codes that `--explain` describes,
+and it ships HTTP, TLS and JSON libraries.
 
 For installation instructions, see [INSTALL.md](INSTALL.md).
 
-The [wiki](https://github.com/idris-lang/Idris2/wiki) lists a number of useful
+Most of what is written about Idris 2 applies to Idris2i-1. The Idris 2
+[wiki](https://github.com/idris-lang/Idris2/wiki) lists a number of useful
 resources, in particular
 
 + [What's changed since Idris 1](https://idris2.readthedocs.io/en/latest/updates/updates.html)
@@ -19,20 +20,20 @@ resources, in particular
 
 ## Installation and Packages
 
-The most common way to install the latest version of Idris and its packages is through [`pack`][PACK] Idris' package manager. Working with the latest version of Idris is as easy as `pack switch latest`.
+[`pack`][PACK], the package manager of Idris 2, installs upstream Idris 2 rather than Idris2i-1; build Idris2i-1 from this repository as [INSTALL.md](INSTALL.md) describes. With upstream Idris 2, working with the latest version is as easy as `pack switch latest`.
 Follow instructions [on the `pack` repository][PACK] for how to install `pack`.
 
 To use `pack` and idris, you will need an `.ipkg` file (Idris-package file) that describes your idris project.
-You can generate one with `idris2 --init`. Once setup with an `.ipkg` file, `pack` gives you access to the [_pack collection_][PACK_COL] of packages, a set of compatible libraries in the ecosystem.
+You can generate one with `idris2i-1 --init`. Once setup with an `.ipkg` file, `pack` gives you access to the [_pack collection_][PACK_COL] of packages, a set of compatible libraries in the ecosystem.
 If your dependency is in the `depends` field of your `.ipkg` file, `pack` will automatically pull the dependency from you matching pack collection.
 The wiki hosts a list of [curated packages by the community](https://github.com/idris-lang/Idris2/wiki/Third-party-Libraries).
 
 Finally, `pack` also makes it easy to download, and keep updated version of, [idris2-lsp](https://github.com/idris-community/idris2-lsp), and other idris-related programs.
 
-## Resources to Learn Idris 2
+## Resources to Learn Idris2i-1
 
 ### Books
-- [_Type-Driven Development with Idris_](https://www.manning.com/books/type-driven-development-with-idris), Edwin brady. This was written for Idris1. If you are using Idris2, you should make [these changes](https://idris2.readthedocs.io/en/latest/typedd/typedd.html)
+- [_Type-Driven Development with Idris_](https://www.manning.com/books/type-driven-development-with-idris), Edwin brady. This was written for Idris1. If you are using Idris2i-1, you should make [these changes](https://idris2.readthedocs.io/en/latest/typedd/typedd.html)
 ### Tutorials
 - [_Functional Programming in Idris 2_](https://github.com/idris-community/idris2-tutorial)
 - [_A Tutorial on Elaborator Reflection in Idris 2_](https://github.com/stefan-hoeck/idris2-elab-util/blob/main/src/Doc/Index.md), accompanied by [library utilities](https://github.com/stefan-hoeck/idris2-elab-util)
@@ -73,7 +74,7 @@ Finally, `pack` also makes it easy to download, and keep updated version of, [id
 
 ## Contributions wanted
 
-If you want to learn more about Idris, contributing to the compiler could be
+If you want to learn more about Idris2i-1, contributing to the compiler could be
 one way to do so. The [contribution guidelines](CONTRIBUTING.md) outline
 the process. Having read that, choose a [good first issue][1] or have a look at
 the [contributions wanted][2] for something more involved. This [map][3] should

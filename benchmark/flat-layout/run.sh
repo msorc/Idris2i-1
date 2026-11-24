@@ -25,22 +25,22 @@ while getopts ":n:q" opt; do
   esac
 done
 
-IDRIS2="${IDRIS2:-idris2}"
-LIBDIR="$("$IDRIS2" --libdir)"
+IDRIS2I_1="${IDRIS2I_1:-idris2i-1}"
+LIBDIR="$("$IDRIS2I_1" --libdir)"
 WORK="$here/build"
 export TMPDIR="$WORK/tmp"
-unset IDRIS2_CFLAGS CFLAGS IDRIS2_CC CC
+unset IDRIS2I_1_CFLAGS CFLAGS IDRIS2I_1_CC CC
 rm -rf "${WORK:?}"
 mkdir -p "$WORK" "$TMPDIR"
 
 compile_c() { # src.c exe
   cc -Werror -c "$1" -o "${2}.o" -I"$LIBDIR/support/refc" -I"$LIBDIR/support/c" -O2
-  cc -Werror "${2}.o" -o "$2" "$LIBDIR/lib/libidris2_support.a" -lidris2_refc \
+  cc -Werror "${2}.o" -o "$2" "$LIBDIR/lib/libidris2i_1_support.a" -lidris2i_1_refc \
     -L"$LIBDIR/support/refc" -L"$LIBDIR/lib" -lgmp -lm -pthread -O2
 }
 
 cp "$here/particles.idr" "$WORK/"
-(cd "$WORK" && "$IDRIS2" --cg refc -p contrib -o particles particles.idr >/dev/null)
+(cd "$WORK" && "$IDRIS2I_1" --cg refc -p contrib -o particles particles.idr >/dev/null)
 gen="$WORK/build/exec/particles.c"
 mkdir -p "$WORK/A"
 cp "$WORK/build/exec/particles" "$WORK/A/particles"

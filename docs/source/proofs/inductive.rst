@@ -4,7 +4,7 @@
 Inductive Proofs
 ****************
 
-Before embarking on proving ``plus_commutes`` in Idris itself, let us
+Before embarking on proving ``plus_commutes`` in Idris2i-1 itself, let us
 consider the overall structure of a proof of some property of natural
 numbers. Recall that they are defined recursively, as follows:
 
@@ -15,7 +15,7 @@ numbers. Recall that they are defined recursively, as follows:
          S : Nat -> Nat
 
 A *total* function over natural numbers must both terminate, and cover
-all possible inputs. Idris checks functions for totality by checking that
+all possible inputs. Idris2i-1 checks functions for totality by checking that
 all inputs are covered, and that all recursive calls are on
 *structurally smaller* values (so recursion will always reach a base
 case). Recalling ``plus``:
@@ -99,4 +99,4 @@ for all natural numbers ``m`` and ``k``. Each of these can also be
 proved by induction, this time on ``m``.
 
 We are now ready to embark on a proof of commutativity of ``plus``
-formally in Idris.
+formally in Idris2i-1.

@@ -1,8 +1,8 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
+idris2i-1 -o main Main.idr
 # (not under Valgrind: the pages are only used without it)
-IDRIS2_WORKERS=4 IDRIS2_REFC_MEMSTATS=1 ./build/exec/main 2> stats
+IDRIS2I_1_WORKERS=4 IDRIS2I_1_REFC_MEMSTATS=1 ./build/exec/main 2> stats
 # Each phase needs about 750 pages of 64KB: both would be 1500.
 awk '/^  pages: / && !done { n = $2; done = 1 }
      END { if (n > 0 && n < 1000) print "fewer than 1000 pages"; else print "pages: " n }' stats

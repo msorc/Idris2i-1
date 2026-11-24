@@ -1,10 +1,10 @@
 .. _app-index:
 
-################################
-Structuring Idris 2 Applications
-################################
+##################################
+Structuring Idris2i-1 Applications
+##################################
 
-A tutorial on structuring Idris 2 applications using ``Control.App``.
+A tutorial on structuring Idris2i-1 applications using ``Control.App``.
 
 .. note::
 
@@ -18,7 +18,7 @@ A tutorial on structuring Idris 2 applications using ``Control.App``.
 .. toctree::
    :maxdepth: 1
 
-Idris applications have ``main : IO ()`` as an entry point.  A type ``IO a`` is
+Idris2i-1 applications have ``main : IO ()`` as an entry point.  A type ``IO a`` is
 a description of interactive actions which produce a value of type ``a``. This
 is fine for primitives, but ``IO`` does not support exceptions so we have to be
 explicit about how an operation handles failure. Also, if we do

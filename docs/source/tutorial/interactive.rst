@@ -4,7 +4,7 @@
 Interactive Editing
 *******************
 
-By now, we have seen several examples of how Idris’ dependent type
+By now, we have seen several examples of how Idris2i-1’s dependent type
 system can give extra confidence in a function’s correctness by giving
 a more precise description of its intended behaviour in its *type*. We
 have also seen an example of how the type system can help with embedded DSL
@@ -13,7 +13,7 @@ object language. However, precise types give us more than verification
 of programs — we can also use the type system to help write programs which
 are *correct by construction*, interactively.
 
-The Idris REPL provides several commands for inspecting and
+The Idris2i-1 REPL provides several commands for inspecting and
 modifying parts of programs, based on their types, such as case
 splitting on a pattern variable, inspecting the type of a
 hole, and even a basic proof search mechanism. In this
@@ -21,7 +21,7 @@ section, we explain how these features can be exploited by a text
 editor, and specifically how to do so in `Vim
 <https://github.com/edwinb/idris2-vim>`_. An interactive mode
 for `Emacs <https://github.com/idris-hackers/idris-mode>`_, which supports
-Idris 2, is also available.
+Idris2i-1, is also available.
 
 .. _sect-repl-editing:
 
@@ -51,9 +51,9 @@ It does not depend on ``readline`` or any other library. The bindings are:
 * ``Ctrl-T``: swap two characters. ``Ctrl-L``: clear the screen.
   ``Ctrl-C``: discard the line.
 
-The history is saved in ``~/.idris2_history`` (or in the file named by the
-environment variable ``IDRIS2_HISTORY_FILE``; if that is empty, it is not
-saved). Setting ``IDRIS2_LINE_EDITING=0`` turns the line editor off, which is
+The history is saved in ``~/.idris2i_1_history`` (or in the file named by the
+environment variable ``IDRIS2I_1_HISTORY_FILE``; if that is empty, it is not
+saved). Setting ``IDRIS2I_1_LINE_EDITING=0`` turns the line editor off, which is
 useful with a wrapper such as `rlwrap <https://linux.die.net/man/1/rlwrap>`_.
 The line editor is not used when the input or the output is not a terminal,
 when the environment variable ``TERM`` is unset or ``dumb``, and not on
@@ -82,14 +82,14 @@ alternative form, which *updates* the source file in-place:
 
     :command! [line number] [name]
 
-It is also possible to invoke Idris in a mode which runs a REPL command,
-displays the result, then exits, using ``idris2 --client``. For example:
+It is also possible to invoke Idris2i-1 in a mode which runs a REPL command,
+displays the result, then exits, using ``idris2i-1 --client``. For example:
 
 ::
 
-    $ idris2 --client ':t plus'
+    $ idris2i-1 --client ':t plus'
     Prelude.plus : Nat -> Nat -> Nat
-    $ idris2 --client '2+2'
+    $ idris2i-1 --client '2+2'
     4
 
 A text editor can take advantage of this, along with the editing
@@ -110,7 +110,7 @@ messages. For example:
 
 ::
 
-    $ idris2 --error-format json --check Foo.idr
+    $ idris2i-1 --error-format json --check Foo.idr
     {"severity":"error","file":"Foo.idr","start":{"line":4,"col":8},"end":{"line":4,"col":14},"message":"While processing right hand side of g. Undefined name lenght.\nDid you mean: length?"}
 
 The fields of an object are:
@@ -136,7 +136,7 @@ said below):
      - Contents
    * - ``code``
      - The code of the kind of error or warning (``"E0101"``; see
-       :ref:`sect-error-codes`). ``idris2 --explain CODE`` explains it.
+       :ref:`sect-error-codes`). ``idris2i-1 --explain CODE`` explains it.
    * - ``headline``
      - The first line of the message, without the context it was found in
        (``"Mismatch between: String and Nat."``).
@@ -246,7 +246,7 @@ according to the same heuristic. If we update the file (using
     vzipWith f [] [] = ?vzipWith_rhs_3
 
 That is, the pattern variable ``ys`` has been split into one case
-``[]``, Idris having noticed that the other possible case ``y ::
+``[]``, Idris2i-1 having noticed that the other possible case ``y ::
 ys`` would lead to a unification error.
 
 :proofsearch
@@ -351,7 +351,7 @@ There are also commands to invoke the type checker and evaluator:
 
 Corresponding commands are also available in the Emacs mode. Support
 for other editors can be added in a relatively straightforward manner
-by using ``idris2 -–client``.
+by using ``idris2i-1 -–client``.
 More sophisticated support can be added by using the IDE protocol (yet to
-be documented for Idris 2, but which mostly extends to protocol documented for
+be documented for Idris2i-1, but which mostly extends to protocol documented for
 `Idris 1 <https://docs.idris-lang.org/en/latest/reference/ide-protocol.html>`_.

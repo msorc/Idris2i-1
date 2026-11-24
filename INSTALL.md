@@ -6,7 +6,7 @@
 
 ## Installing with a package manager
 
-You can install Idris 2 with any one of a number of package managers.
+You can install Idris2i-1 with any one of a number of package managers.
 
 ### Installing with [Pack](https://github.com/stefan-hoeck/idris2-pack)
 
@@ -23,13 +23,13 @@ on GitHub.
 ### Installing with [Homebrew](https://brew.sh/)
 
 ```sh
-brew install idris2
+brew install idris2i-1
 ```
 
 ### Installing with [Nix](https://nixos.org/features.html)
 
 ```sh
-nix-env -i idris2
+nix-env -i idris2i-1
 ```
 
 ### Installing with [Nix Flakes](https://nixos.wiki/wiki/Flakes)
@@ -64,7 +64,7 @@ On Raspberry Pi, you can bootstrap from the C code, or via Racket.
 
 By default, code generation is via the RefC backend, which needs a C compiler.
 You can use Chez Scheme or Racket instead, by setting the environment variable
-`IDRIS2_CG=chez` or `IDRIS2_CG=racket` before running `make`.
+`IDRIS2I_1_CG=chez` or `IDRIS2I_1_CG=racket` before running `make`.
 If you install Chez Scheme from source files, building it locally,
 make sure you run `./configure --threads` to build multithreading support in.
 
@@ -81,9 +81,9 @@ homebrew, you will also need to `export CPATH=/opt/homebrew/include`.
 ### 1: Set installation target directory
 
 - Change the `PREFIX` in `config.mk` to the absolute path of your chosen
-installation destination. The default is to install in `$HOME/.idris2`
+installation destination. The default is to install in `$HOME/.idris2i-1`
 
-If you have an existing Idris 2, go to Step 3. Otherwise, read on...
+If you have an existing Idris2i-1, go to Step 3. Otherwise, read on...
 
 Make sure that:
 
@@ -93,11 +93,11 @@ Further, on Apple silicon Macs (M1/M2), you need to set the following environmen
 variables:
 
 ``` sh
-export IDRIS2_LIBS=/opt/homebrew/lib
+export IDRIS2I_1_LIBS=/opt/homebrew/lib
 export CPATH=/opt/homebrew/include:/opt/homebrew/lib
 ```
 
-### 2: Installing without an existing Idris 2
+### 2: Installing without an existing Idris2i-1
 
 The simplest way needs only a C compiler: see
 [Bootstrapping with only a C compiler](#bootstrapping-with-only-a-c-compiler)
@@ -120,7 +120,7 @@ able to find `Program.boot`, either move Chez Scheme to a path with no spaces
 or use Racket instead. This is
 [a known issue with Chez Scheme on Windows](https://github.com/cisco/ChezScheme/issues/1078).
 
-This builds an Idris 2 compiler from Scheme code output from a working Idris 2
+This builds an Idris2i-1 compiler from Scheme code output from a working Idris2i-1
 compiler (which isn't necessarily up to date, but is up to date enough to
 build the current repository). It then rebuilds the compiler and the
 libraries using the result. `make bootstrap-test` runs the tests with the
@@ -136,14 +136,14 @@ of the modules of the libraries, which incremental builds with Chez use
 (`LIBS_INC_CGS`, see `make help`).
 
 The compiler built this way still compiles programs with the RefC backend by
-default: pass `--cg chez` (or `--cg racket`), or set `IDRIS2_CG`, to use the
+default: pass `--cg chez` (or `--cg racket`), or set `IDRIS2I_1_CG`, to use the
 Scheme backend.
 
 #### Bootstrapping with only a C compiler
 
 If neither Chez Scheme nor Racket is available, you can bootstrap from the C
 code that the RefC backend generated for the compiler
-(`bootstrap/idris2_app/idris2.c.xz`). This needs only a C compiler, `make`,
+(`bootstrap/idris2i-1_app/idris2i-1.c.xz`). This needs only a C compiler, `make`,
 `xz` and GMP:
 
 - `make bootstrap-c`
@@ -151,9 +151,9 @@ code that the RefC backend generated for the compiler
 The compiler built this way uses the RefC backend, which is the default code
 generator. It is slower than a compiler built with Chez Scheme. Like every
 program compiled with RefC, it runs its main expression on a large stack of
-its own (see `IDRIS2_MAIN_STACK_SIZE` in the RefC documentation), so the
+its own (see `IDRIS2I_1_MAIN_STACK_SIZE` in the RefC documentation), so the
 stack limit of the shell (`ulimit -s`) does not limit it; the launcher script
-`idris2` that runs it raises that limit anyway, as a fallback for when that
+`idris2i-1` that runs it raises that limit anyway, as a fallback for when that
 stack cannot be allocated and the program runs on the stack of the process.
 The generated C is compiled in 16 parts (`BOOT_PARTS`) by C compilers
 running in parallel, one per processor up to 16, and on Linux no more than
@@ -169,22 +169,22 @@ optimisation instead. The same variable applies to a plain `make` that builds
 the compiler with RefC, with `LTO=0` as the default there (`make LTO=1` for
 the optimised build). When the RefC backend
 compiles the compiler (or any big program) it does the same, with
-`IDRIS2_CC_JOBS` in place of `BOOT_JOBS`. The modules of the compiler and of
-the libraries are checked by up to `IDRIS2_JOBS` processes in parallel (with
-every way of building Idris 2: `make IDRIS2_JOBS=1` checks them one after the
+`IDRIS2I_1_CC_JOBS` in place of `BOOT_JOBS`. The modules of the compiler and of
+the libraries are checked by up to `IDRIS2I_1_JOBS` processes in parallel (with
+every way of building Idris2i-1: `make IDRIS2I_1_JOBS=1` checks them one after the
 other). With the RefC backend, the libraries that do not depend on each other
 (for instance `contrib` and `linear`) are also built at the same time, each
-of them using half of `IDRIS2_JOBS`; `make LIBS_PARALLEL=1` builds them one
+of them using half of `IDRIS2I_1_JOBS`; `make LIBS_PARALLEL=1` builds them one
 after the other, as the Scheme backends always do. Once Chez Scheme is
 available, you can
-rebuild Idris 2 with it as described in [step 5](#5-optional-self-hosting-step).
+rebuild Idris2i-1 with it as described in [step 5](#5-optional-self-hosting-step).
 
 When built with RefC, the compiler has no Chez Scheme evaluator, so the REPL
 evaluation mode `:set eval scheme` is not available.
 
-### 3: Installing with an existing Idris 2
+### 3: Installing with an existing Idris2i-1
 
-If you have an Idris 2 built from this repository installed:
+If you have an Idris2i-1 built from this repository installed:
 
 - `make all`
 - `make install`
@@ -193,28 +193,28 @@ If you have the latest *released* version of Idris 2 (0.8.0 at the time of
 writing) installed, build with its Chez Scheme backend, which is the way this
 is tested: the RefC backend of 0.8.0 is not known to compile this compiler.
 
-- `IDRIS2_CG=chez make all`
-- `IDRIS2_CG=chez make install`
+- `IDRIS2I_1_CG=chez make all`
+- `IDRIS2I_1_CG=chez make install`
 
 You can then rebuild with RefC, as described in
 [step 5](#5-optional-self-hosting-step).
 
-### 4: (Optional) Installing Idris 2 library documentation
+### 4: (Optional) Installing Idris2i-1 library documentation
 
-After `make install`, type `make install-libdocs` to install Idris 2 library documentation.  After
-that, the index file can be found here: ``"${BROWSER:-echo}" "$(idris2 --libdir)"/docs/index.html``
+After `make install`, type `make install-libdocs` to install Idris2i-1 library documentation.  After
+that, the index file can be found here: ``"${BROWSER:-echo}" "$(idris2i-1 --libdir)"/docs/index.html``
 
 ### 5: (Optional) Self-hosting step
 
-As a final step, you can rebuild from the newly installed Idris 2 to verify
-that everything has worked correctly. Assuming that `idris2` is in your
+As a final step, you can rebuild from the newly installed Idris2i-1 to verify
+that everything has worked correctly. Assuming that `idris2i-1` is in your
 `PATH`.
 
 - `make clean` -- to make sure you're building everything with the new version
 - `make all && make install` -- to build with RefC, the default, OR
-`IDRIS2_CG=chez make all && IDRIS2_CG=chez make install`
+`IDRIS2I_1_CG=chez make all && IDRIS2I_1_CG=chez make install`
 if using Chez Scheme, OR
-`IDRIS2_CG=racket make all && IDRIS2_CG=racket make install`
+`IDRIS2I_1_CG=racket make all && IDRIS2I_1_CG=racket make install`
 if using Racket.
 
 ### 6: Running tests
@@ -224,16 +224,16 @@ executable in `./build/exec`.
 
 ### 7: (Optional) Enabling incremental compilation
 
-If you are working on Idris, incremental compilation means that rebuilds are
+If you are working on Idris2i-1, incremental compilation means that rebuilds are
 much faster, at the cost of runtime performance being slower. To enable
 incremental compilation for the Chez backend, build with Chez
-(`IDRIS2_CG=chez`) and set the environment variable `IDRIS2_INC_CGS=chez`, or
-set the `--inc chez` flag in `idris2.ipkg`: for instance,
-`IDRIS2_CG=chez IDRIS2_INC_CGS=chez make all`. (The RefC backend has no
+(`IDRIS2I_1_CG=chez`) and set the environment variable `IDRIS2I_1_INC_CGS=chez`, or
+set the `--inc chez` flag in `idris2i-1.ipkg`: for instance,
+`IDRIS2I_1_CG=chez IDRIS2I_1_INC_CGS=chez make all`. (The RefC backend has no
 incremental mode, but it reuses the object files of the parts of a big
 program that did not change, see the RefC documentation.)
 
-### 8: (Optional) Installing the Idris 2 API
+### 8: (Optional) Installing the Idris2i-1 API
 
 You'll only need this if you're developing support tools, such as an external
 code generator. To do so, once everything is successfully installed, type:
@@ -246,14 +246,14 @@ will get an `Error in TTC: TTC data is in an older format` error.
 
 ### 9: (Optional) Shell Auto-completion
 
-Idris2 supports tab auto-completion for Bash-like shells.
+Idris2i-1 supports tab auto-completion for Bash-like shells.
 
 #### For Bash Users
 
 From within bash, run the following command:
 
 ```sh
-eval "$(idris2 --bash-completion-script idris2)"
+eval "$(idris2i-1 --bash-completion-script idris2i-1)"
 ```
 
 You can also add it to your `.bashrc` file.
@@ -263,7 +263,7 @@ You can also add it to your `.bashrc` file.
 From within ZSH, run the following commands:
 
 ```sh
-eval "$(idris2 --zsh-completion-script idris2)"
+eval "$(idris2i-1 --zsh-completion-script idris2i-1)"
 ```
 
 ZSH auto-completion is implemented via `bashcompinit`.
@@ -282,7 +282,7 @@ Racket, then your copy of Chez Scheme was built without thread support. Pass
 ### Run on emacs using nix flakes
 
 If you are a [nix flakes](https://nixos.wiki/wiki/Flakes) user you can run
-Idris 2 in emacs by running the following command:
+Idris2i-1 in emacs by running the following command:
 
 ```sh
 nix run github:idris-lang/Idris2#emacs-with-idris idrisCode.idr

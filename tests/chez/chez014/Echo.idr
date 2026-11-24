@@ -8,7 +8,7 @@ import Network.Socket.Data
 import Network.Socket.Raw
 
 testSocket : String
-testSocket = "./idris2_test.socket"
+testSocket = "./idris2i_1_test.socket"
 
 runServer : (net : Bool) -> IO (Either String (if net then Port else ()))
 runServer net = do

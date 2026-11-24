@@ -1,4 +1,4 @@
-IDRIS2_WORKERS=1
+IDRIS2I_1_WORKERS=1
 [1, 2, 3, 4, 5]
 Nothing
 True
@@ -13,7 +13,7 @@ checksum: True
 Nothing
 Just 7
 Just 9
-IDRIS2_WORKERS=2
+IDRIS2I_1_WORKERS=2
 [1, 2, 3, 4, 5]
 Nothing
 True
@@ -28,7 +28,7 @@ checksum: True
 Nothing
 Just 7
 Just 9
-IDRIS2_WORKERS=8
+IDRIS2I_1_WORKERS=8
 [1, 2, 3, 4, 5]
 Nothing
 True

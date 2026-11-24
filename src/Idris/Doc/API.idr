@@ -1,5 +1,5 @@
 ||| A stable, diffable text form of the public API of a module, for
-||| `idris2 --dump-api`.
+||| `idris2i-1 --dump-api`.
 |||
 ||| The text depends on the source only: it is sorted by name, it never
 ||| shows source positions, paths or the numbers in machine generated

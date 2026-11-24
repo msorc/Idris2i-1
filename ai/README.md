@@ -1,18 +1,18 @@
 # Skills for LLM agents
 
 `ai/skills/` holds [Agent Skills](https://agentskills.io) that teach a coding agent to
-write Idris 2 with the compiler in this repository. A skill is a folder with a
+write Idris2i-1 with the compiler in this repository. A skill is a folder with a
 `SKILL.md` (YAML frontmatter with `name` and `description`, then instructions) and
 optional `references/`, `scripts/` and `cases/`.
 
 | Skill | Use it for |
 |---|---|
-| `idris2` | any Idris 2 code: language rules, the check loop, errors, packages |
-| `idris2-proofs` | totality, equality proofs, views, quantities |
-| `idris2-libraries` | files, collections, concurrency, HTTP, TLS, JSON |
-| `idris2-ffi` | calling C and other foreign code |
-| `idris2-performance` | slow programs and slow type checking |
-| `idris2-compiler-dev` | work on the compiler in this repository |
+| `idris2i-1` | any Idris2i-1 code: language rules, the check loop, errors, packages |
+| `idris2i-1-proofs` | totality, equality proofs, views, quantities |
+| `idris2i-1-libraries` | files, collections, concurrency, HTTP, TLS, JSON |
+| `idris2i-1-ffi` | calling C and other foreign code |
+| `idris2i-1-performance` | slow programs and slow type checking |
+| `idris2i-1-compiler-dev` | work on the compiler in this repository |
 
 ## Using the skills
 
@@ -25,13 +25,13 @@ optional `references/`, `scripts/` and `cases/`.
 ## Checking the skills
 
 ```sh
-ai/skills/check.sh                      # every skill, with idris2 from PATH or ~/.idris2
-ai/skills/check.sh -c build/exec/idris2 ai/skills/idris2-proofs
+ai/skills/check.sh                      # every skill, with idris2i-1 from PATH or ~/.idris2i-1
+ai/skills/check.sh -c build/exec/idris2i-1 ai/skills/idris2i-1-proofs
 ```
 
-The script type-checks every Idris example in every skill file and fails when
+The script type-checks every Idris2i-1 example in every skill file and fails when
 `AGENTS.md` is out of date (`ai/skills/agents-md.sh > AGENTS.md` regenerates it). The
-golden test `tests/idris2/misc/skills001` runs it, so `make test` reports a skill that
+golden test `tests/idris2i-1/misc/skills001` runs it, so `make test` reports a skill that
 a compiler change has made wrong.
 
 The skills describe the compiler of this tree. A compiler that is older than the tree,
@@ -45,9 +45,9 @@ The reader is a model that knows Haskell well, Idris 1 a little, and this compil
 at all. It will believe whatever the file says, so a file may only say what the compiler
 confirms.
 
-1. **Every Idris example compiles.** Skill files are literate Markdown: the compiler
+1. **Every Idris2i-1 example compiles.** Skill files are literate Markdown: the compiler
    reads the ```` ```idris ```` fences of a `.md` file and ignores the rest.
-   `check.sh` runs `idris2 --check` on each file; a warning fails it as well.
+   `check.sh` runs `idris2i-1 --check` on each file; a warning fails it as well.
 2. **Wrong forms are checked too.** Show a mistake inside a `failing` block with a
    fragment of the message; the compiler then confirms that the code fails and that the
    message is the one you quote:
@@ -66,7 +66,7 @@ confirms.
 3. **Fence discipline.** The compiler takes every fence whose label *starts with*
    `idris` as code, and ends it at the first ```` ``` ````.
    - shell commands: `sh`; REPL sessions and compiler output: `text`; other languages
-     by their name. Never `idris2`, `idris-repl` or `idris` with options.
+     by their name. Never `idris2i-1`, `idris-repl` or `idris` with options.
    - A fence inside a list item is indented, so the compiler does not see it. Keep code
      that must be checked at the left margin.
    - No ```` ``` ```` inside an Idris string or comment.

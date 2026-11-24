@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+idris2i-1 B.idr < input
+idris2i-1 C.idr < input

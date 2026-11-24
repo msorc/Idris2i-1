@@ -5,67 +5,67 @@
 
 /* The operations on the fixed width types are in mathFunctions.h. */
 
-double idris2_flonumUnitRoundoff(void) { return DBL_EPSILON / 2; }
-double idris2_flonumEpsilon(void) { return DBL_EPSILON; }
-double idris2_flonumNaN(void) { return NAN; }
-double idris2_flonumInf(void) { return INFINITY; }
+double idris2i_1_flonumUnitRoundoff(void) { return DBL_EPSILON / 2; }
+double idris2i_1_flonumEpsilon(void) { return DBL_EPSILON; }
+double idris2i_1_flonumNaN(void) { return NAN; }
+double idris2i_1_flonumInf(void) { return INFINITY; }
 
-void idris2_divideByZero(void) {
-  idris2_crashCheck("ERROR: Division by zero");
+void idris2i_1_divideByZero(void) {
+  idris2i_1_crashCheck("ERROR: Division by zero");
 }
 
-/* Integers (see idris2_integerMpz) */
+/* Integers (see idris2i_1_integerMpz) */
 
-#define IDRIS2_INTEGER_OP2(name, fast, ...)                                    \
-  Idris2_Value *name(Idris2_Value *x, Idris2_Value *y) {                       \
-    if (idris2_isSmallInteger(x) && idris2_isSmallInteger(y)) {                \
-      int64_t a = idris2_smallInteger(x), b = idris2_smallInteger(y);          \
+#define IDRIS2I_1_INTEGER_OP2(name, fast, ...)                                    \
+  Idris2i_1_Value *name(Idris2i_1_Value *x, Idris2i_1_Value *y) {                       \
+    if (idris2i_1_isSmallInteger(x) && idris2i_1_isSmallInteger(y)) {                \
+      int64_t a = idris2i_1_smallInteger(x), b = idris2i_1_smallInteger(y);          \
       (void)a;                                                                 \
       (void)b;                                                                 \
       fast                                                                     \
     }                                                                          \
-    IDRIS2_INTEGER_MPZ(ma, x);                                                 \
-    IDRIS2_INTEGER_MPZ(mb, y);                                                 \
-    Idris2_Integer *retVal = idris2_mkInteger();                               \
+    IDRIS2I_1_INTEGER_MPZ(ma, x);                                                 \
+    IDRIS2I_1_INTEGER_MPZ(mb, y);                                                 \
+    Idris2i_1_Integer *retVal = idris2i_1_mkInteger();                               \
     __VA_ARGS__;                                                               \
-    return idris2_normaliseInteger(retVal);                                    \
+    return idris2i_1_normaliseInteger(retVal);                                    \
   }
 
 // The small integers have 32 bits: these do not overflow.
-IDRIS2_INTEGER_OP2(idris2_add_IntegerSlow,
-                   return idris2_mkIntegerFromInt64(a + b);,
+IDRIS2I_1_INTEGER_OP2(idris2i_1_add_IntegerSlow,
+                   return idris2i_1_mkIntegerFromInt64(a + b);,
                    mpz_add(retVal->i, ma, mb))
-IDRIS2_INTEGER_OP2(idris2_sub_IntegerSlow,
-                   return idris2_mkIntegerFromInt64(a - b);,
+IDRIS2I_1_INTEGER_OP2(idris2i_1_sub_IntegerSlow,
+                   return idris2i_1_mkIntegerFromInt64(a - b);,
                    mpz_sub(retVal->i, ma, mb))
-IDRIS2_INTEGER_OP2(idris2_mul_IntegerSlow,
-                   return idris2_mkIntegerFromInt64(a * b);,
+IDRIS2I_1_INTEGER_OP2(idris2i_1_mul_IntegerSlow,
+                   return idris2i_1_mkIntegerFromInt64(a * b);,
                    mpz_mul(retVal->i, ma, mb))
-IDRIS2_INTEGER_OP2(idris2_and_Integer,
-                   return idris2_mkIntegerFromInt64(a & b);,
+IDRIS2I_1_INTEGER_OP2(idris2i_1_and_Integer,
+                   return idris2i_1_mkIntegerFromInt64(a & b);,
                    mpz_and(retVal->i, ma, mb))
-IDRIS2_INTEGER_OP2(idris2_or_Integer,
-                   return idris2_mkIntegerFromInt64(a | b);,
+IDRIS2I_1_INTEGER_OP2(idris2i_1_or_Integer,
+                   return idris2i_1_mkIntegerFromInt64(a | b);,
                    mpz_ior(retVal->i, ma, mb))
-IDRIS2_INTEGER_OP2(idris2_xor_Integer,
-                   return idris2_mkIntegerFromInt64(a ^ b);,
+IDRIS2I_1_INTEGER_OP2(idris2i_1_xor_Integer,
+                   return idris2i_1_mkIntegerFromInt64(a ^ b);,
                    mpz_xor(retVal->i, ma, mb))
 
 // The remainder of the Euclidean division (non-negative, like mpz_mod).
-static int64_t idris2_euclidRem(int64_t num, int64_t denom) {
+static int64_t idris2i_1_euclidRem(int64_t num, int64_t denom) {
   int64_t rem;
-  IDRIS2_EUCLID_REM(num, denom, rem);
+  IDRIS2I_1_EUCLID_REM(num, denom, rem);
   return rem;
 }
 
-IDRIS2_INTEGER_OP2(
-    idris2_div_IntegerSlow,
-    if (b != 0) return idris2_mkIntegerFromInt64(
-        (a - idris2_euclidRem(a, b)) / b);
+IDRIS2I_1_INTEGER_OP2(
+    idris2i_1_div_IntegerSlow,
+    if (b != 0) return idris2i_1_mkIntegerFromInt64(
+        (a - idris2i_1_euclidRem(a, b)) / b);
     , {
       // (GMP would raise SIGFPE)
       if (mpz_sgn(mb) == 0)
-        idris2_divideByZero();
+        idris2i_1_divideByZero();
       mpz_t rem, yq;
       mpz_inits(rem, yq, NULL);
       mpz_mod(rem, ma, mb);
@@ -73,14 +73,14 @@ IDRIS2_INTEGER_OP2(
       mpz_divexact(retVal->i, yq, mb);
       mpz_clears(rem, yq, NULL);
     })
-IDRIS2_INTEGER_OP2(idris2_mod_IntegerSlow,
-                   if (b != 0) return idris2_mkIntegerFromInt64(
-                       idris2_euclidRem(a, b));,
-                   if (mpz_sgn(mb) == 0) idris2_divideByZero();
+IDRIS2I_1_INTEGER_OP2(idris2i_1_mod_IntegerSlow,
+                   if (b != 0) return idris2i_1_mkIntegerFromInt64(
+                       idris2i_1_euclidRem(a, b));,
+                   if (mpz_sgn(mb) == 0) idris2i_1_divideByZero();
                    mpz_mod(retVal->i, ma, mb))
 // (a shift by a negative count goes the other way, like `ash`; the right
 // shift is arithmetic: the floor of the division)
-static void idris2_shiftInteger(mpz_ptr dst, mpz_srcptr x, mpz_srcptr n,
+static void idris2i_1_shiftInteger(mpz_ptr dst, mpz_srcptr x, mpz_srcptr n,
                                 int left) {
   int up = (mpz_sgn(n) >= 0) == left;
   // A count that is no mp_bitcnt_t (mpz_get_ui would keep its low bits): a
@@ -92,7 +92,7 @@ static void idris2_shiftInteger(mpz_ptr dst, mpz_srcptr x, mpz_srcptr n,
     else if (mpz_sgn(x) == 0)
       mpz_set_ui(dst, 0);
     else
-      idris2_crashCheck("ERROR: Integer shifted left by too many bits");
+      idris2i_1_crashCheck("ERROR: Integer shifted left by too many bits");
     return;
   }
   if (up)
@@ -100,29 +100,29 @@ static void idris2_shiftInteger(mpz_ptr dst, mpz_srcptr x, mpz_srcptr n,
   else
     mpz_fdiv_q_2exp(dst, x, (mp_bitcnt_t)mpz_get_ui(n));
 }
-IDRIS2_INTEGER_OP2(
-    idris2_shiftl_Integer,
-    if (b >= 0 && b < 32) return idris2_mkIntegerFromInt64(a * ((int64_t)1 << b));
-    if (b < 0) return idris2_mkIntegerFromInt64(b <= -63 ? (a < 0 ? -1 : 0)
+IDRIS2I_1_INTEGER_OP2(
+    idris2i_1_shiftl_Integer,
+    if (b >= 0 && b < 32) return idris2i_1_mkIntegerFromInt64(a * ((int64_t)1 << b));
+    if (b < 0) return idris2i_1_mkIntegerFromInt64(b <= -63 ? (a < 0 ? -1 : 0)
                                                           : a >> -b);
-    , idris2_shiftInteger(retVal->i, ma, mb, 1))
-IDRIS2_INTEGER_OP2(
-    idris2_shiftr_Integer,
-    if (b >= 0) return idris2_mkIntegerFromInt64(b >= 63 ? (a < 0 ? -1 : 0)
+    , idris2i_1_shiftInteger(retVal->i, ma, mb, 1))
+IDRIS2I_1_INTEGER_OP2(
+    idris2i_1_shiftr_Integer,
+    if (b >= 0) return idris2i_1_mkIntegerFromInt64(b >= 63 ? (a < 0 ? -1 : 0)
                                                          : a >> b);
-    if (b > -32) return idris2_mkIntegerFromInt64(a * ((int64_t)1 << -b));
-    , idris2_shiftInteger(retVal->i, ma, mb, 0))
+    if (b > -32) return idris2i_1_mkIntegerFromInt64(a * ((int64_t)1 << -b));
+    , idris2i_1_shiftInteger(retVal->i, ma, mb, 0))
 
-Idris2_Value *idris2_negate_Integer(Idris2_Value *x) {
-  if (idris2_isSmallInteger(x))
-    return idris2_mkIntegerFromInt64(-idris2_smallInteger(x));
-  Idris2_Integer *retVal = idris2_mkInteger();
-  mpz_neg(retVal->i, ((Idris2_Integer *)x)->i);
-  return idris2_normaliseInteger(retVal);
+Idris2i_1_Value *idris2i_1_negate_Integer(Idris2i_1_Value *x) {
+  if (idris2i_1_isSmallInteger(x))
+    return idris2i_1_mkIntegerFromInt64(-idris2i_1_smallInteger(x));
+  Idris2i_1_Integer *retVal = idris2i_1_mkInteger();
+  mpz_neg(retVal->i, ((Idris2i_1_Integer *)x)->i);
+  return idris2i_1_normaliseInteger(retVal);
 }
 
-int idris2_cmpIntegerSlow(Idris2_Value *x, Idris2_Value *y) {
-  IDRIS2_INTEGER_MPZ(a, x);
-  IDRIS2_INTEGER_MPZ(b, y);
+int idris2i_1_cmpIntegerSlow(Idris2i_1_Value *x, Idris2i_1_Value *y) {
+  IDRIS2I_1_INTEGER_MPZ(a, x);
+  IDRIS2I_1_INTEGER_MPZ(b, y);
   return mpz_cmp(a, b);
 }

@@ -91,7 +91,7 @@ record CrashInfo where
   ||| with when it exits the program).
   message : String
   ||| The backtrace of the crash, innermost call first, down to the
-  ||| boundary, when backtraces are on (on RefC: `IDRIS2_REFC_BACKTRACE=1`,
+  ||| boundary, when backtraces are on (on RefC: `IDRIS2I_1_REFC_BACKTRACE=1`,
   ||| or a program compiled with `--directive refc-backtrace`).
   backtrace : Maybe String
 
@@ -102,47 +102,47 @@ Show CrashInfo where
 -- Run an action in a boundary: its result, or, if it crashed, a value that
 -- must not be looked at (NULL on RefC), and then `prim__crashCaught` is 1
 -- and the functions below tell what happened, until `prim__crashClear`.
-%foreign "RefC:idris2_crashCatch"
+%foreign "RefC:idris2i_1_crashCatch"
          "scheme:blodwen-crash-catch"
          "javascript:lambda:(ty, act, w) => __prim_crash_catch(act)"
 prim__crashCatch : {0 a : Type} -> PrimIO a -> PrimIO a
 
-%foreign "RefC:idris2_crashCaught"
+%foreign "RefC:idris2i_1_crashCaught"
          "scheme:blodwen-crash-caught"
          "javascript:lambda:(w) => __prim_crash_last === null ? 0 : 1"
 prim__crashCaught : PrimIO Int
 
-%foreign "RefC:idris2_crashKind"
+%foreign "RefC:idris2i_1_crashKind"
          "scheme:(lambda () (vector-ref (blodwen-crash-last) 0))"
          "javascript:lambda:(w) => __prim_crash_last.kind"
 prim__crashKind : PrimIO Int
 
-%foreign "RefC:idris2_crashMessage"
+%foreign "RefC:idris2i_1_crashMessage"
          "scheme:(lambda () (vector-ref (blodwen-crash-last) 1))"
          "javascript:lambda:(w) => __prim_crash_last.message"
 prim__crashMessage : PrimIO String
 
-%foreign "RefC:idris2_crashHasBacktrace"
+%foreign "RefC:idris2i_1_crashHasBacktrace"
          "scheme:(lambda () (if (vector-ref (blodwen-crash-last) 2) 1 0))"
          "javascript:lambda:(w) => __prim_crash_last.backtrace === null ? 0 : 1"
 prim__crashHasBacktrace : PrimIO Int
 
-%foreign "RefC:idris2_crashBacktrace"
+%foreign "RefC:idris2i_1_crashBacktrace"
          "scheme:(lambda () (or (vector-ref (blodwen-crash-last) 2) \"\"))"
          "javascript:lambda:(w) => __prim_crash_last.backtrace === null ? '' : __prim_crash_last.backtrace"
 prim__crashBacktrace : PrimIO String
 
-%foreign "RefC:idris2_crashClear"
+%foreign "RefC:idris2i_1_crashClear"
          "scheme:(lambda () (blodwen-crash-last #f))"
          "javascript:lambda:(w) => { __prim_crash_last = null }"
 prim__crashClear : PrimIO ()
 
-%foreign "RefC:idris2_crashesCaught"
+%foreign "RefC:idris2i_1_crashesCaught"
          "scheme:blodwen-crashes-caught"
          "javascript:lambda:(w) => __prim_crashes_caught()"
 prim__crashesCaught : PrimIO Int
 
-%foreign "RefC:idris2_crashBoundaries"
+%foreign "RefC:idris2i_1_crashBoundaries"
          "scheme:blodwen-crash-boundaries"
          "javascript:lambda:() => 1"
 prim__crashBoundaries : Int

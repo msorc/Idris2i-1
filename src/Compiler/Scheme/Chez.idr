@@ -98,7 +98,7 @@ schHeader chez libs whole
 
     \{ ifThenElse whole
                   "(let ()"
-                  "(source-directories (cons (getenv \"IDRIS2_INC_SRC\") (source-directories)))"
+                  "(source-directories (cons (getenv \"IDRIS2I_1_INC_SRC\") (source-directories)))"
      }
 
     """
@@ -474,7 +474,7 @@ startChez : String -> String -> String
 startChez appdir target = startChezPreamble ++ """
   export LD_LIBRARY_PATH="$DIR/\{ appdir }:$LD_LIBRARY_PATH"
   export DYLD_LIBRARY_PATH="$DIR/\{ appdir }:$DYLD_LIBRARY_PATH"
-  export IDRIS2_INC_SRC="$DIR/\{ appdir }"
+  export IDRIS2I_1_INC_SRC="$DIR/\{ appdir }"
 
   "$DIR/\{ target }" "$@"
   """
@@ -487,7 +487,7 @@ startChezCmd chez appdir target progType = """
 
   set APPDIR=%~dp0
   set PATH=%APPDIR%\{ appdir };%PATH%
-  set IDRIS2_INC_SRC=%APPDIR%\{ appdir }
+  set IDRIS2I_1_INC_SRC=%APPDIR%\{ appdir }
 
   "\{ chez }" \{ progType } "%APPDIR%\{ target }" %*
   """
@@ -502,7 +502,7 @@ startChezWinSh chez appdir target progType = """
   DIR=$(dirname "$(readlink -f -- "$0" || cygpath -a -- "$0")")
   PATH="$DIR/\{ appdir }:$PATH"
 
-  export IDRIS2_INC_SRC="$DIR/\{ appdir }"
+  export IDRIS2I_1_INC_SRC="$DIR/\{ appdir }"
 
   "\{ chez }" \{ progType } "$DIR/\{ target }" "$@"
   """

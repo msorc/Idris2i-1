@@ -94,7 +94,7 @@ sampler done maxT = do
 covering
 main : IO ()
 main = do
-  workers <- maybe 0 (cast {to = Nat}) <$> getEnv "IDRIS2_WORKERS"
+  workers <- maybe 0 (cast {to = Nat}) <$> getEnv "IDRIS2I_1_WORKERS"
   Right l <- listenOn (Inet "127.0.0.1" 0) 2048
     | Left e => putStrLn "listen: \{show e}"
   Right addr <- localAddress l

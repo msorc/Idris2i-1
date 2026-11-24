@@ -1,4 +1,0 @@
-. ../../../testutils.sh
-
-check Main.idr
-idris2 --exec main Ok.idr

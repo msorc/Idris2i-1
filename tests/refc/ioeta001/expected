@@ -7,13 +7,13 @@
 55
 55
 56
-loopIf: int64_t idris2_raw_Main_loopIf
-loopCase: int64_t idris2_raw_Main_loopCase
-loopLet: int64_t idris2_raw_Main_loopLet
-countUnit: Idris2_Value *idris2_raw_Main_countUnit
-loopPrim: uint64_t idris2_raw_Main_loopPrim
-step: int64_t idris2_raw_Main_step
-stepTail: int64_t idris2_raw_Main_stepTail
-drive: int64_t idris2_raw_Main_drive
-go: int64_t idris2_raw_Main_go
+loopIf: int64_t idris2i_1_raw_Main_loopIf
+loopCase: int64_t idris2i_1_raw_Main_loopCase
+loopLet: int64_t idris2i_1_raw_Main_loopLet
+countUnit: Idris2i_1_Value *idris2i_1_raw_Main_countUnit
+loopPrim: uint64_t idris2i_1_raw_Main_loopPrim
+step: int64_t idris2i_1_raw_Main_step
+stepTail: int64_t idris2i_1_raw_Main_stepTail
+drive: int64_t idris2i_1_raw_Main_drive
+go: int64_t idris2i_1_raw_Main_go
 drive makes values: 0

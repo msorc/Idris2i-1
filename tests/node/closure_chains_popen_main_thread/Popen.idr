@@ -1,7 +1,7 @@
 module Popen
 
 -- popen, pclose, popen2 and popen2Wait on Node, in its worker thread and on
--- the main thread (IDRIS2_MAIN_STACK_SIZE=0): the same output, which is that
+-- the main thread (IDRIS2I_1_MAIN_STACK_SIZE=0): the same output, which is that
 -- of Chez and RefC.
 
 import System

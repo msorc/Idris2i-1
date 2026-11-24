@@ -5,9 +5,9 @@
 ||| This allows the developer freedom to use as is or design the rest of the
 ||| test harness to their liking.
 |||
-||| This was originally used as part of Idris2's own test suite and
+||| This was originally used as part of Idris2i-1's own test suite and
 ||| the core functionality is useful for the many and not the few.
-||| Please see Idris2 test harness for example usage.
+||| Please see Idris2i-1 test harness for example usage.
 |||
 ||| # Test Structure
 |||
@@ -16,7 +16,7 @@
 |||
 ||| + `run` a *shell* script that runs the test. We expect it to:
 |||   * Use `$1` as the variable standing for the idris executable to be tested
-|||   * May use `${IDRIS2_TESTS_CG}` to pick a codegen that ought to work
+|||   * May use `${IDRIS2I_1_TESTS_CG}` to pick a codegen that ought to work
 |||   * Clean up after itself (e.g. by running `rm -rf build/`)
 |||
 ||| + `expected` a file containing the expected output of `run`
@@ -40,7 +40,7 @@
 |||
 ||| The test harness has several options that may be set:
 |||
-||| + `idris2`       The path of the executable we are testing.
+||| + `idris2i-1`       The path of the executable we are testing.
 ||| + `codegen`      The backend to use for code generation.
 ||| + `onlyNames`    The tests to run relative to the generated executable.
 ||| + `onlyFile`     The file listing the tests to run relative to the generated executable.
@@ -94,7 +94,7 @@ import System.Concurrency
 public export
 record Options where
   constructor MkOptions
-  ||| Name of the idris2 executable
+  ||| Name of the idris2i-1 executable
   exeUnderTest : String
   ||| Which codegen should we use?
   codegen      : Maybe String
@@ -394,7 +394,7 @@ Gambit = MkReq "gambit" (checkRequirement ReqGambit)
 export
 findCG : IO (Maybe String)
 findCG
-  = do Nothing <- getEnv "IDRIS2_TESTS_CG" | p => pure p
+  = do Nothing <- getEnv "IDRIS2I_1_TESTS_CG" | p => pure p
        Nothing <- checkRequirement ReqChez    | p => pure (Just "chez")
        Nothing <- checkRequirement ReqNodeJS  | p => pure (Just "node")
        Nothing <- checkRequirement ReqRacket  | p => pure (Just "racket")

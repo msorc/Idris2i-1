@@ -2,18 +2,18 @@
 
 # With RefC (under Valgrind when it is installed), then
 # the same with Chez and Node.
-idris2 --cg refc -p contrib -o ranges Ranges.idr > /dev/null
+idris2i-1 --cg refc -p contrib -o ranges Ranges.idr > /dev/null
 $VALGRIND ./build/exec/ranges > out
 cat out
-idris2 --cg chez -p contrib -o ranges-chez Ranges.idr > /dev/null
+idris2i-1 --cg chez -p contrib -o ranges-chez Ranges.idr > /dev/null
 ./build/exec/ranges-chez > out-chez
 cmp out out-chez && echo "the same with Chez"
-idris2 --cg node -p contrib -o ranges.js Ranges.idr > /dev/null
+idris2i-1 --cg node -p contrib -o ranges.js Ranges.idr > /dev/null
 node ./build/exec/ranges.js > out-node
 cmp out out-node && echo "the same with Node"
 
 # The checked reads of RefC stop at a range that is out of the buffer.
-idris2 --cg refc -p contrib -o crash Crash.idr > /dev/null
+idris2i-1 --cg refc -p contrib -o crash Crash.idr > /dev/null
 for what in ok byte neg word compare find hash; do
   echo "--- $what"
   # (a range check names the file and line of the runtime that failed)

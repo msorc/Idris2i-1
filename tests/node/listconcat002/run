@@ -2,13 +2,13 @@
 
 # The browser backend, where the loops are made by default (its output runs
 # on Node too: putStr is console.log, which adds a newline).
-idris2 --cg javascript -o lc.js ListConcat.idr
+idris2i-1 --cg javascript -o lc.js ListConcat.idr
 node ./build/exec/lc.js | grep -v '^$' > browser.out
 cat browser.out
 
 # With Node, `--directive explicit-stack` makes them here on the main thread,
 # whose stack is as small as a browser's.
-idris2 --directive explicit-stack -o lc ListConcat.idr
-IDRIS2_MAIN_STACK_SIZE=0 ./build/exec/lc > node.out
+idris2i-1 --directive explicit-stack -o lc ListConcat.idr
+IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/lc > node.out
 diff node.out browser.out && echo same
 rm -f node.out browser.out

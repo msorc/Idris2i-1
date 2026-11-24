@@ -242,7 +242,7 @@ Pretty Void PkgDesc where
     , strField "sourceloc"   desc.sourceloc
     , strField "bugtracker"  desc.bugtracker
 
-    , comment "the Idris2 version required (e.g. langversion >= 0.5.1)"
+    , comment "the Idris2i-1 version required (e.g. langversion >= 0.5.1)"
     , verSeqField "langversion" desc.langversion
 
     , comment  "packages to add to search path"

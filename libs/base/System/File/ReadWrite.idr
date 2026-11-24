@@ -12,38 +12,38 @@ import System.FFI
 
 %default total
 
-%foreign supportC "idris2_seekLine"
+%foreign supportC "idris2i_1_seekLine"
          supportNode "seekLine"
 prim__seekLine : FilePtr -> PrimIO Int
 
-%foreign supportC "idris2_readLine"
+%foreign supportC "idris2i_1_readLine"
          supportNode "readLine"
 prim__readLine : FilePtr -> PrimIO (Ptr String)
 
-%foreign supportC "idris2_readChars"
+%foreign supportC "idris2i_1_readChars"
          supportNode "readChars"
 prim__readChars : Int -> FilePtr -> PrimIO (Ptr String)
 %foreign "C:fgetc,libc 6"
          supportNode "readChar"
 prim__readChar : FilePtr -> PrimIO Int
 
-%foreign "RefC:idris2_refc_writeLine"
-         supportC "idris2_writeLine"
+%foreign "RefC:idris2i_1_refc_writeLine"
+         supportC "idris2i_1_writeLine"
          supportNode "writeLine"
 prim__writeLine : FilePtr -> String -> PrimIO Int
 
-%foreign supportC "idris2_eof"
+%foreign supportC "idris2i_1_eof"
          "node:lambda:f=>(f.eof?1:0)"
 prim__eof : FilePtr -> PrimIO Int
 
-%foreign "C:idris2_free, libidris2_support, idris_memory.h"
+%foreign "C:idris2i_1_free, libidris2i_1_support, idris_memory.h"
          "javascript:lambda:()=>undefined"
 prim__freeString : Ptr String -> PrimIO ()
 
 -- `prim__getString` as an IO action: the string must be copied before the
 -- pointer is freed, and `prim__getString` is pure, so that once the code is
 -- specialised and inlined, the copy may be moved after the call of `free`.
-%foreign "C:idris2_getString, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getString, libidris2i_1_support, idris_support.h"
          "javascript:lambda:x=>x"
 prim__getStringIO : Ptr String -> PrimIO String
 
@@ -54,7 +54,7 @@ prim__getStringIO : Ptr String -> PrimIO String
 -- System.FFI are not in scope, so referring to these modules would leave the
 -- copies calling the generic code (see TTImp.PartialEval).
 
-%foreign supportC "idris2_removeFile"
+%foreign supportC "idris2i_1_removeFile"
          supportNode "removeFile"
 prim__removeFile : String -> PrimIO Int
 

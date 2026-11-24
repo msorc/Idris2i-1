@@ -2110,7 +2110,7 @@ perrorRaw (OperatorBindingMismatch fc {print=p} expected actual opName rhs candi
 
 perrorRaw (TTCError msg)
     = pure $ errorDesc (reflow "Error in TTC file" <+> colon <++> byShow msg)
-        <++> parens "the most likely case is that the ./build directory in your current project contains files from a previous build of idris2 or the idris2 executable is from a different build than the installed .ttc files"
+        <++> parens "the most likely case is that the ./build directory in your current project contains files from a previous build of idris2i-1 or the idris2i-1 executable is from a different build than the installed .ttc files"
 perrorRaw (FileErr fname err)
     = pure $ errorDesc (reflow "File error in" <++> pretty0 fname <++> colon)
        <++> byShow err

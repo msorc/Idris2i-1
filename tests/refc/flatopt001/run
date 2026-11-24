@@ -1,22 +1,22 @@
 . ../../testutils.sh
 
-idris2 -p contrib -o main Main.idr
+idris2i-1 -p contrib -o main Main.idr
 $VALGRIND ./build/exec/main > flat.out
 cat flat.out
 
 # The accesses in the loops are inline, without values for the elements
 # read or written.
-grep -q "idris2_slotWord(" build/exec/main.c && echo "elements read from their fields"
-grep -q "idris2_slotStoreWords(" build/exec/main.c && echo "elements written from their fields"
+grep -q "idris2i_1_slotWord(" build/exec/main.c && echo "elements read from their fields"
+grep -q "idris2i_1_slotStoreWords(" build/exec/main.c && echo "elements written from their fields"
 
 # The same without the layouts (`refc-no-flat-arrays`), and without raw
 # fields.
-idris2 -p contrib --directive refc-no-flat-arrays -o boxed Main.idr
+idris2i-1 -p contrib --directive refc-no-flat-arrays -o boxed Main.idr
 ./build/exec/boxed | diff - flat.out && echo "same output without flat arrays"
-idris2 -p contrib --directive refc-no-raw-fields -o noraw Main.idr
+idris2i-1 -p contrib --directive refc-no-raw-fields -o noraw Main.idr
 $VALGRIND ./build/exec/noraw | diff - flat.out && echo "same output without raw fields"
 rm -f flat.out
 
-idris2 -o threads Threads.idr
+idris2i-1 -o threads Threads.idr
 $VALGRIND ./build/exec/threads
-grep -q "idris2_slotWord(" build/exec/threads.c && echo "IO code read from the fields"
+grep -q "idris2i_1_slotWord(" build/exec/threads.c && echo "IO code read from the fields"

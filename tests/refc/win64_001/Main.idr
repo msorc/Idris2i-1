@@ -1,5 +1,5 @@
 -- Calls in tail position between functions of different arities, and to
--- closures, which may be jumps (see IDRIS2_MUSTTAIL in runtime.h).
+-- closures, which may be jumps (see IDRIS2I_1_MUSTTAIL in runtime.h).
 mutual
   f1 : Int -> Int
   f1 n = if n <= 0 then 0 else f4 (n - 1) n 1 2

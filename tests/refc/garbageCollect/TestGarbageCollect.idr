@@ -3,7 +3,7 @@ module Main
 
 data SomePointer : Type where
 
-%foreign "C:idris2_getNull, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getNull, libidris2i_1_support, idris_support.h"
 getTypedPointer : PrimIO (Ptr SomePointer)
 
 
@@ -13,7 +13,7 @@ freeTypedPointer ptr = do
     -- we could free the pointer here. However, since ptr is the NULL pointer, we just simulate it
 
 
-%foreign "C:idris2_getNull, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getNull, libidris2i_1_support, idris_support.h"
 getSomeAnyPointer : PrimIO (AnyPtr)
 
 freeAnyPointer : AnyPtr -> IO ()

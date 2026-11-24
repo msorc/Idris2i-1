@@ -13,33 +13,33 @@ import public System.IO.Wait
 %default total
 
 fdC : String -> String
-fdC fn = "C:\{fn}, libidris2_support, idris_fd.h"
+fdC fn = "C:\{fn}, libidris2i_1_support, idris_fd.h"
 
-%foreign fdC "idris2_fdSetNonBlocking"
+%foreign fdC "idris2i_1_fdSetNonBlocking"
 prim__setNonBlocking : Int -> PrimIO Int
 
-%foreign fdC "idris2_fdRead"
+%foreign fdC "idris2i_1_fdRead"
 prim__read : Int -> Buffer -> Int -> Int -> PrimIO Int
 
-%foreign fdC "idris2_fdWrite"
+%foreign fdC "idris2i_1_fdWrite"
 prim__write : Int -> Buffer -> Int -> Int -> PrimIO Int
 
-%foreign fdC "idris2_fdPipe"
+%foreign fdC "idris2i_1_fdPipe"
 prim__pipe : PrimIO Int64
 
-%foreign fdC "idris2_fdEAGAIN"
+%foreign fdC "idris2i_1_fdEAGAIN"
 prim__eagain : PrimIO Int
 
-%foreign fdC "idris2_fdEWOULDBLOCK"
+%foreign fdC "idris2i_1_fdEWOULDBLOCK"
 prim__ewouldblock : PrimIO Int
 
-%foreign fdC "idris2_fdEINTR"
+%foreign fdC "idris2i_1_fdEINTR"
 prim__eintr : PrimIO Int
 
-%foreign fdC "idris2_fdEBADF"
+%foreign fdC "idris2i_1_fdEBADF"
 prim__ebadf : PrimIO Int
 
-%foreign fdC "idris2_fdEINVAL"
+%foreign fdC "idris2i_1_fdEINVAL"
 prim__einval : PrimIO Int
 
 ||| The errno code `EAGAIN`.

@@ -16,23 +16,23 @@ mixHashIO: [0, 14092058508772706262, 0, 16218309275115946987, 217734278246842267
 2 5359553343007252594 3265569124504186470 2691343689449507777 9800133424917679134
 3 8833072791183517619 8217668911709034222 9737372943835860908 5957195358787958031
 4 15721248110713620532 292357112314537297 16783402198222214039 2114257292658236928
-stepIO: uint64_t idris2_raw_Main_stepIO
-fnvIO: uint64_t idris2_raw_Main_fnvIO
-lcgI64: int64_t idris2_raw_Main_lcgI64
-bigInt: int64_t idris2_raw_Main_bigInt
-addB8IO: uint8_t idris2_raw_Main_addB8IO
-negI16IO: int16_t idris2_raw_Main_negI16IO
-mulI32IO: int32_t idris2_raw_Main_mulI32IO
-addB32IO: uint32_t idris2_raw_Main_addB32IO
-subI8IO: int8_t idris2_raw_Main_subI8IO
-addB16IO: uint16_t idris2_raw_Main_addB16IO
-divI64IO: int64_t idris2_raw_Main_divI64IO
-primStep: uint64_t idris2_raw_Main_primStep
-refLoop: Idris2_Value *idris2_raw_Main_refLoop
-sumArr: uint64_t idris2_raw_Main_sumArr
-mixHash: uint64_t idris2_raw_Main_mixHash
-mixHashIO: uint64_t idris2_raw_Main_mixHashIO
-nextSeed: uint64_t idris2_raw_Main_nextSeed
-seedLoop: uint64_t idris2_raw_Main_seedLoop
-addTo: int64_t idris2_raw_Main_addTo
+stepIO: uint64_t idris2i_1_raw_Main_stepIO
+fnvIO: uint64_t idris2i_1_raw_Main_fnvIO
+lcgI64: int64_t idris2i_1_raw_Main_lcgI64
+bigInt: int64_t idris2i_1_raw_Main_bigInt
+addB8IO: uint8_t idris2i_1_raw_Main_addB8IO
+negI16IO: int16_t idris2i_1_raw_Main_negI16IO
+mulI32IO: int32_t idris2i_1_raw_Main_mulI32IO
+addB32IO: uint32_t idris2i_1_raw_Main_addB32IO
+subI8IO: int8_t idris2i_1_raw_Main_subI8IO
+addB16IO: uint16_t idris2i_1_raw_Main_addB16IO
+divI64IO: int64_t idris2i_1_raw_Main_divI64IO
+primStep: uint64_t idris2i_1_raw_Main_primStep
+refLoop: Idris2i_1_Value *idris2i_1_raw_Main_refLoop
+sumArr: uint64_t idris2i_1_raw_Main_sumArr
+mixHash: uint64_t idris2i_1_raw_Main_mixHash
+mixHashIO: uint64_t idris2i_1_raw_Main_mixHashIO
+nextSeed: uint64_t idris2i_1_raw_Main_nextSeed
+seedLoop: uint64_t idris2i_1_raw_Main_seedLoop
+addTo: int64_t idris2i_1_raw_Main_addTo
 fnvIO makes values: 0

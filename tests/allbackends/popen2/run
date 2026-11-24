@@ -2,7 +2,7 @@
 
 run Test.idr
 echo "------"
-idris2 --exec main2 Test.idr
+idris2i-1 --exec main2 Test.idr
 echo "------"
-idris2 --exec main3 Test.idr | sed 's/^"//' | sed 's/" *$//'
+idris2i-1 --exec main3 Test.idr | sed 's/^"//' | sed 's/" *$//'
 # filtering above is to level differences in quotes echoing by Windows and the rest

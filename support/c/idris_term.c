@@ -6,7 +6,7 @@
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 #endif
 
-void idris2_setupTerm() {
+void idris2i_1_setupTerm() {
   HANDLE stdout_handle = GetStdHandle(STD_OUTPUT_HANDLE);
   DWORD outmode = 0;
   GetConsoleMode(stdout_handle, &outmode);
@@ -14,7 +14,7 @@ void idris2_setupTerm() {
   SetConsoleMode(stdout_handle, outmode);
 }
 
-int idris2_getTermCols() {
+int idris2i_1_getTermCols() {
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
     return (int)csbi.srWindow.Right - csbi.srWindow.Left + 1;
@@ -22,7 +22,7 @@ int idris2_getTermCols() {
   return 0;
 }
 
-int idris2_getTermLines() {
+int idris2i_1_getTermLines() {
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
     return (int)csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
@@ -32,10 +32,10 @@ int idris2_getTermLines() {
 
 // Interactive line editing is not available on Windows: the REPL falls back to
 // plain line input.
-int idris2_termRawOn() { return 0; }
-void idris2_termRawOff() {}
-int idris2_readKey() { return -1; }
-int idris2_keyPending() { return 0; }
+int idris2i_1_termRawOn() { return 0; }
+void idris2i_1_termRawOff() {}
+int idris2i_1_readKey() { return -1; }
+int idris2i_1_keyPending() { return 0; }
 
 #else
 
@@ -47,7 +47,7 @@ int idris2_keyPending() { return 0; }
 #include <termios.h>
 #include <unistd.h>
 
-void idris2_setupTerm() {
+void idris2i_1_setupTerm() {
   // NOTE: Currently not needed for non windows systems
 }
 
@@ -55,7 +55,7 @@ void idris2_setupTerm() {
 static struct termios saved_termios;
 static int raw_active = 0;
 
-void idris2_termRawOff() {
+void idris2i_1_termRawOff() {
   if (raw_active) {
     tcsetattr(STDIN_FILENO, TCSADRAIN, &saved_termios);
     raw_active = 0;
@@ -66,7 +66,7 @@ void idris2_termRawOff() {
 // characters) so that a line editor can read single keys. Returns 1 on
 // success and 0 if stdin is not a terminal or can't be configured.
 // Output processing stays on, so "\n" still ends a line.
-int idris2_termRawOn() {
+int idris2i_1_termRawOn() {
   static int registered = 0;
   struct termios t;
   if (raw_active)
@@ -83,7 +83,7 @@ int idris2_termRawOn() {
   raw_active = 1;
   if (!registered) {
     // don't leave the terminal raw if the program exits in the middle of a read
-    atexit(idris2_termRawOff);
+    atexit(idris2i_1_termRawOff);
     registered = 1;
   }
   return 1;
@@ -111,9 +111,9 @@ static int next_byte() {
 // sent together with its start), otherwise -1.
 static int next_byte_soon() { return input_ready(50) ? next_byte() : -1; }
 
-int idris2_keyPending() { return input_ready(0); }
+int idris2i_1_keyPending() { return input_ready(0); }
 
-// Key codes returned by idris2_readKey. They are mirrored in
+// Key codes returned by idris2i_1_readKey. They are mirrored in
 // Idris.REPL.LineEditor.
 //   -1                end of input
 //   0 .. 0x10FFFF     a character (control characters included)
@@ -168,7 +168,7 @@ static int read_csi() {
   return KEY_UNKNOWN;
 }
 
-int idris2_readKey() {
+int idris2i_1_readKey() {
   int c = next_byte();
   if (c == 27) {
     int d = next_byte_soon();
@@ -205,7 +205,7 @@ int idris2_readKey() {
     return 0xfffd;
   return c;
 }
-int idris2_getTermCols() {
+int idris2i_1_getTermCols() {
   struct winsize ts;
   int err = ioctl(0, TIOCGWINSZ, &ts);
   if (err) {
@@ -216,7 +216,7 @@ int idris2_getTermCols() {
   return (int)ts.ws_col;
 }
 
-int idris2_getTermLines() {
+int idris2i_1_getTermLines() {
   struct winsize ts;
   int err = ioctl(0, TIOCGWINSZ, &ts);
   if (err) {

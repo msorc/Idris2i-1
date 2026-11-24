@@ -25,14 +25,14 @@ static_assert(ATOMIC_LONG_LOCK_FREE == 2,
 static atomic_uint_fast32_t signals;
 
 void _collect_signal(int signum) {
-  IDRIS2_VERIFY(signum >= 0 && signum < N_SIGNALS,
+  IDRIS2I_1_VERIFY(signum >= 0 && signum < N_SIGNALS,
                 "signal number out of range: %d", signum);
 
   atomic_fetch_or(&signals, (uint32_t)1 << signum);
 
 #ifdef _WIN32
   // re-instate signal handler
-  IDRIS2_VERIFY(signal(signum, _collect_signal) != SIG_ERR, "signal failed: %s",
+  IDRIS2I_1_VERIFY(signal(signum, _collect_signal) != SIG_ERR, "signal failed: %s",
                 strerror(errno));
 #endif
 }

@@ -301,7 +301,7 @@ readHeaderImports file origin
     fromSource = map path . imports <$> readHeader file origin
 
 %foreign "scheme:collect"
-         "RefC:idris2_refc_gc"
+         "RefC:idris2i_1_refc_gc"
 prim__gc : Int -> PrimIO ()
 
 gc : IO ()

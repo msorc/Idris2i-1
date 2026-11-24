@@ -897,7 +897,7 @@ examples k =
   ]
 
 -- To compare with the Chez backend (whose results are the specification):
---   idris2 --cg chez -o fw FixedWidth.idr && ./build/exec/fw
+--   idris2i-1 --cg chez -o fw FixedWidth.idr && ./build/exec/fw
 main : IO ()
 main = do
   k <- cast . length <$> getArgs

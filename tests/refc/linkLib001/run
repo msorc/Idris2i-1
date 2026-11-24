@@ -3,28 +3,28 @@
 # `refc-lib=foo` links a C library with `-lfoo`: from the command line
 # (`--directive`), or from a module that the program imports
 # (`%cg refc refc-lib=foo`).  Without it the link fails.  libfoo is a shared
-# library of the test, found with IDRIS2_LDFLAGS (when linking) and
+# library of the test, found with IDRIS2I_1_LDFLAGS (when linking) and
 # LD_LIBRARY_PATH (when running).
 
-cc="${IDRIS2_CC:-${CC:-cc}}"
+cc="${IDRIS2I_1_CC:-${CC:-cc}}"
 "$cc" -shared -fPIC foo.c -o libfoo.so
 
-unset IDRIS2_LDLIBS LDLIBS
-export IDRIS2_CFLAGS="-I. $IDRIS2_CFLAGS"
-export IDRIS2_LDFLAGS="-L. $IDRIS2_LDFLAGS"
+unset IDRIS2I_1_LDLIBS LDLIBS
+export IDRIS2I_1_CFLAGS="-I. $IDRIS2I_1_CFLAGS"
+export IDRIS2I_1_LDFLAGS="-L. $IDRIS2I_1_LDFLAGS"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:."
 export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:."
 
 echo "--- without the directive"
-idris2 -o nolib Main.idr > /dev/null 2>&1
+idris2i-1 -o nolib Main.idr > /dev/null 2>&1
 test -e build/exec/nolib || echo "not linked"
 
 echo "--- --directive refc-lib=foo"
-idris2 --directive refc-lib=foo -o withlib Main.idr > /dev/null
+idris2i-1 --directive refc-lib=foo -o withlib Main.idr > /dev/null
 ./build/exec/withlib
 
 echo "--- %cg refc refc-lib=foo"
-idris2 -o cglib LibMain.idr > /dev/null
+idris2i-1 -o cglib LibMain.idr > /dev/null
 ./build/exec/cglib
 
 rm -rf build libfoo.so

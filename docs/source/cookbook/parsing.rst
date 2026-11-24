@@ -1,7 +1,7 @@
 Parsing
 =======
 
-Idris 2 comes with a Lexing and a Parsing library built into the ``contrib`` package.
+Idris2i-1 comes with a Lexing and a Parsing library built into the ``contrib`` package.
 
 For this cookbook, we will write a very simple parser for a lambda calculus parser
 that will accept the following language:
@@ -11,7 +11,7 @@ that will accept the following language:
     let name = world in (\x.hello x) name
 
 Once we write a lambda calculus parser, we will also see how we can take advantage of a
-powerful built in expression parser in Idris 2 to write a small calculator that should be
+powerful built in expression parser in Idris2i-1 to write a small calculator that should be
 smart enough to parse the following expression:
 
 .. code-block:: text
@@ -38,7 +38,7 @@ how many times something is expected to appear.
 
 ``Text.Token`` provides a data type ``Token`` that represents a parsed token, its kind and the text.
 This module also provides an important interface called ``TokenKind`` which tells the lexer how to map
-token kinds to Idris 2 types and how to convert each kind from a string to a value.
+token kinds to Idris2i-1 types and how to convert each kind from a string to a value.
 
 Parser
 ------
@@ -232,14 +232,14 @@ Testing out our parser gives us back the following output:
 
 .. code-block:: text
 
-    $ idris2 -p contrib LambdaCalculus.idr
+    $ idris2i-1 -p contrib LambdaCalculus.idr
     Main> :exec printLn $ parse "let name = world in (\\x.hello x) name"
     Right (let name = world in (\x.hello x) name)
 
 Expression Parser
 -----------------
 
-Idris 2 also comes with a very convenient expression parser that is
+Idris2i-1 also comes with a very convenient expression parser that is
 aware of precedence and associativity in ``Text.Parser.Expression``.
 
 The main function called ``buildExpressionParser`` takes in an ``OperatorTable`` and a
@@ -389,6 +389,6 @@ Testing out our calculator gives us back the following output:
 
 .. code-block:: text
 
-    $ idris2 -p contrib Calculator.idr
+    $ idris2i-1 -p contrib Calculator.idr
     Main> :exec printLn $ parse1 "1 + 2 - 3 * 4 / 5"
     Right 0.6000000000000001

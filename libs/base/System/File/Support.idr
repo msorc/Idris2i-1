@@ -7,7 +7,7 @@ module System.File.Support
 ||| @ fn the function name to refer to in the C support library
 public export
 supportC : (fn : String) -> String
-supportC fn = "C:\{fn}, libidris2_support, idris_file.h"
+supportC fn = "C:\{fn}, libidris2i_1_support, idris_file.h"
 
 ||| Shorthand for referring to the Node system support library
 |||

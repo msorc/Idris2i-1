@@ -101,7 +101,7 @@ main : IO ()
 main = do
   [_, certs] <- getArgs
     | _ => putStrLn "usage: main <certs>"
-  workers <- maybe 0 (cast {to = Nat}) <$> getEnv "IDRIS2_WORKERS"
+  workers <- maybe 0 (cast {to = Nat}) <$> getEnv "IDRIS2I_1_WORKERS"
   Right sctx <- newServerContext (serverConfig (credentialFiles (certs ++ "/server.pem") (certs ++ "/server.key")))
     | Left e => putStrLn "server context: \{show e}"
   Right cctx <- newClientContext ({ trust := [CAFile (certs ++ "/ca.pem")] } defaultClientConfig)

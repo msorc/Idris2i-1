@@ -767,7 +767,7 @@
 
 ;; Backtraces of a fatal error (see docs/source/backends/chez.rst)
 ;;
-;; When they are on (IDRIS2_CHEZ_BACKTRACE=1, or by default in a program
+;; When they are on (IDRIS2I_1_CHEZ_BACKTRACE=1, or by default in a program
 ;; compiled with `--directive chez-backtrace`), a program that dies of
 ;; `idris_crash` or of a missing case in partial code (`blodwen-error-quit`),
 ;; or of an error that Chez raises and nobody handles (the base exception
@@ -801,7 +801,7 @@
     keep))
 
 (define (blodwen-bt-on?)
-  (let ([e (getenv "IDRIS2_CHEZ_BACKTRACE")])
+  (let ([e (getenv "IDRIS2I_1_CHEZ_BACKTRACE")])
     (if (and e (not (string=? e "")))
         (not (string=? e "0"))
         (unbox blodwen-bt-default))))

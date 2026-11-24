@@ -3,17 +3,17 @@ module System.Term
 %default total
 
 libterm : String -> String
-libterm s = "C:" ++ s ++ ", libidris2_support, idris_term.h"
+libterm s = "C:" ++ s ++ ", libidris2i_1_support, idris_term.h"
 
-%foreign libterm "idris2_setupTerm"
+%foreign libterm "idris2i_1_setupTerm"
          "node:lambda:()=>undefined"
 prim__setupTerm : PrimIO ()
 
-%foreign libterm "idris2_getTermCols"
+%foreign libterm "idris2i_1_getTermCols"
          "node:lambda:()=>(process.stdout.columns ? BigInt(process.stdout.columns) : 0)"
 prim__getTermCols : PrimIO Int
 
-%foreign libterm "idris2_getTermLines"
+%foreign libterm "idris2i_1_getTermLines"
          "node:lambda:()=>(process.stdout.rows ? BigInt(process.stdout.rows) : 0)"
 prim__getTermLines : PrimIO Int
 

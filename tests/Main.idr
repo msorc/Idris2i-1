@@ -20,69 +20,69 @@ ttimpTests : IO TestPool
 ttimpTests = testsInDir "ttimp" "TTImp"
 
 idrisTestsBasic : IO TestPool
-idrisTestsBasic = testsInDir "idris2/basic" "Fundamental language features"
+idrisTestsBasic = testsInDir "idris2i-1/basic" "Fundamental language features"
 
 idrisTestsDebug : IO TestPool
-idrisTestsDebug = testsInDir "idris2/debug" "Debug features"
+idrisTestsDebug = testsInDir "idris2i-1/debug" "Debug features"
 
 idrisTestsCoverage : IO TestPool
-idrisTestsCoverage = testsInDir "idris2/coverage" "Coverage checking"
+idrisTestsCoverage = testsInDir "idris2i-1/coverage" "Coverage checking"
 
 idrisTestsTermination : IO TestPool
-idrisTestsTermination = testsInDir "idris2/termination" "Termination checking"
+idrisTestsTermination = testsInDir "idris2i-1/termination" "Termination checking"
 
 idrisTestsCasetree : IO TestPool
-idrisTestsCasetree = testsInDir "idris2/casetree" "Case tree building"
+idrisTestsCasetree = testsInDir "idris2i-1/casetree" "Case tree building"
 
 idrisTestsWarning : IO TestPool
-idrisTestsWarning = testsInDir "idris2/warning" "Warnings"
+idrisTestsWarning = testsInDir "idris2i-1/warning" "Warnings"
 
 idrisTestsFailing : IO TestPool
-idrisTestsFailing = testsInDir "idris2/failing" "Failing blocks"
+idrisTestsFailing = testsInDir "idris2i-1/failing" "Failing blocks"
 
 ||| Error messages, including parse errors ("perror")
 idrisTestsError : IO TestPool
-idrisTestsError = testsInDir "idris2/error" "Error messages"
+idrisTestsError = testsInDir "idris2i-1/error" "Error messages"
 
 idrisTestsInteractive : IO TestPool
-idrisTestsInteractive = testsInDir "idris2/interactive" "Interactive editing"
+idrisTestsInteractive = testsInDir "idris2i-1/interactive" "Interactive editing"
 
 idrisTestsInterface : IO TestPool
-idrisTestsInterface = testsInDir "idris2/interface" "Interface"
+idrisTestsInterface = testsInDir "idris2i-1/interface" "Interface"
 
 ||| QTT and linearity related
 idrisTestsLinear : IO TestPool
-idrisTestsLinear = testsInDir "idris2/linear" "Quantities"
+idrisTestsLinear = testsInDir "idris2i-1/linear" "Quantities"
 
 idrisTestsLiterate : IO TestPool
-idrisTestsLiterate = testsInDir "idris2/literate" "Literate programming"
+idrisTestsLiterate = testsInDir "idris2i-1/literate" "Literate programming"
 
 ||| Performance: things which have been slow in the past, or which
 ||| pose interesting challenges for the elaborator
 idrisTestsPerformance : IO TestPool
-idrisTestsPerformance = testsInDir "idris2/perf" "Performance"
+idrisTestsPerformance = testsInDir "idris2i-1/perf" "Performance"
 
 idrisTestsRegression : IO TestPool
-idrisTestsRegression = testsInDir "idris2/reg" "Various regressions"
+idrisTestsRegression = testsInDir "idris2i-1/reg" "Various regressions"
 
 ||| Data types, including records
 idrisTestsData : IO TestPool
-idrisTestsData = testsInDir "idris2/data" "Data and record types"
+idrisTestsData = testsInDir "idris2i-1/data" "Data and record types"
 
 ||| %builtin related tests for the frontend (type-checking)
 idrisTestsBuiltin : IO TestPool
-idrisTestsBuiltin = testsInDir "idris2/builtin" "Builtin types and functions"
+idrisTestsBuiltin = testsInDir "idris2i-1/builtin" "Builtin types and functions"
 
 ||| Evaluator, REPL, specialisation
 idrisTestsEvaluator : IO TestPool
-idrisTestsEvaluator = testsInDir "idris2/evaluator" "Evaluation"
+idrisTestsEvaluator = testsInDir "idris2i-1/evaluator" "Evaluation"
 
 idrisTestsREPL : IO TestPool
-idrisTestsREPL = testsInDir "idris2/repl" "REPL commands and help"
+idrisTestsREPL = testsInDir "idris2i-1/repl" "REPL commands and help"
 
 ||| Regressions for proofs of false
 idrisTestsFalse : IO TestPool
-idrisTestsFalse = testsInDir "idris2/false" "Proof of false regressions"
+idrisTestsFalse = testsInDir "idris2i-1/false" "Proof of false regressions"
 
 idrisTestsAllSchemes : Requirement -> IO TestPool
 idrisTestsAllSchemes cg = testsInDir "allschemes"
@@ -108,7 +108,7 @@ idrisTestsAllBackends cg = testsInDir "allbackends"
 
 ||| Totality checking, including positivity
 idrisTestsTotality : IO TestPool
-idrisTestsTotality = testsInDir "idris2/total" "Totality checking"
+idrisTestsTotality = testsInDir "idris2i-1/total" "Totality checking"
 
 ||| The Scheme evaluator (`:set eval scheme`) runs the code in the Scheme
 ||| system that the compiler runs on, so it only works with a compiler
@@ -118,33 +118,33 @@ idrisTestsTotality = testsInDir "idris2/total" "Totality checking"
 ||| are skipped.  Whatever else happens (the evaluator gives a wrong result, or
 ||| cannot load its support code, or the compiler fails) is a fault of the
 ||| evaluator, which the tests must show: they run then.
-schemeHosted : (idris2 : String) -> Requirement
-schemeHosted idris2 = MkReq "Scheme evaluator" $ do
+schemeHosted : (idris2i_1 : String) -> Requirement
+schemeHosted idris2i_1 = MkReq "Scheme evaluator" $ do
     (out, _) <- run $ "printf ':set eval scheme\\nthe Integer (6 * 7)\\n:q\\n' | "
-                        ++ escapeArg idris2 ++ " --no-banner --no-color --console-width 0 2>&1"
-    pure $ toMaybe (not ("Scheme evaluator not available" `isInfixOf` out)) idris2
+                        ++ escapeArg idris2i_1 ++ " --no-banner --no-color --console-width 0 2>&1"
+    pure $ toMaybe (not ("Scheme evaluator not available" `isInfixOf` out)) idris2i_1
 
-idrisTestsSchemeEval : (idris2 : String) -> IO TestPool
-idrisTestsSchemeEval idris2 = testsInDir "idris2/schemeeval" "Scheme Evaluator"
-  {requirements = [schemeHosted idris2]}
+idrisTestsSchemeEval : (idris2i_1 : String) -> IO TestPool
+idrisTestsSchemeEval idris2i_1 = testsInDir "idris2i-1/schemeeval" "Scheme Evaluator"
+  {requirements = [schemeHosted idris2i_1]}
 
 idrisTestsReflection : IO TestPool
-idrisTestsReflection = testsInDir "idris2/reflection" "Quotation and Reflection"
+idrisTestsReflection = testsInDir "idris2i-1/reflection" "Quotation and Reflection"
 
 idrisTestsWith : IO TestPool
-idrisTestsWith = testsInDir "idris2/with" "With abstraction"
+idrisTestsWith = testsInDir "idris2i-1/with" "With abstraction"
 
 idrisTestsOperators : IO TestPool
-idrisTestsOperators = testsInDir "idris2/operators" "Operator and fixities"
+idrisTestsOperators = testsInDir "idris2i-1/operators" "Operator and fixities"
 
 idrisTestsIPKG : IO TestPool
-idrisTestsIPKG = testsInDir "idris2/pkg" "Package and .ipkg files"
+idrisTestsIPKG = testsInDir "idris2i-1/pkg" "Package and .ipkg files"
 
 idrisTestsMkdoc : IO TestPool
-idrisTestsMkdoc = testsInDir "idris2/mkdoc" "HTML documentation generator"
+idrisTestsMkdoc = testsInDir "idris2i-1/mkdoc" "HTML documentation generator"
 
 idrisTestsMisc : IO TestPool
-idrisTestsMisc = testsInDir "idris2/misc" "Misc"
+idrisTestsMisc = testsInDir "idris2i-1/misc" "Misc"
 
 typeddTests : IO TestPool
 typeddTests = testsInDir "typedd-book" "Type Driven Development"
@@ -203,18 +203,18 @@ httpLibraryTests : IO TestPool
 httpLibraryTests = testsInDir "http" "HTTP library"
 
 -- The tls library (libs/tls) is optional: it is in the test environment
--- (IDRIS2_PREFIX) only when it was built, with OpenSSL 3, and so is the
+-- (IDRIS2I_1_PREFIX) only when it was built, with OpenSSL 3, and so is the
 -- http-tls library, which needs it.  Their tests make their certificates
 -- with the openssl command-line tool.
 optionalLibrary : (name : String) -> Requirement
 optionalLibrary name = MkReq "\{name} library" $ do
     Just tool <- pathLookup ["openssl"]
       | Nothing => pure Nothing
-    Just dir <- getEnv "IDRIS2_PREFIX"
+    Just dir <- getEnv "IDRIS2I_1_PREFIX"
       | Nothing => pure Nothing
     Right ds <- listDir dir
       | Left _ => pure Nothing
-    found <- for (filter (isPrefixOf "idris2-") ds) $ \d => do
+    found <- for (filter (isPrefixOf "idris2i-1-") ds) $ \d => do
                Right ps <- listDir (dir ++ "/" ++ d)
                  | Left _ => pure False
                pure (any (isPrefixOf (name ++ "-")) ps)
@@ -241,7 +241,7 @@ main = do
   runnerWith opts =<< sequence (pools opts.exeUnderTest)
   where
     pools : String -> List (IO TestPool)
-    pools idris2 =
+    pools idris2i_1 =
       [ ttimpTests
       , idrisTestsBasic
       , idrisTestsCoverage
@@ -262,7 +262,7 @@ main = do
       , idrisTestsREPL
       , idrisTestsFalse
       , idrisTestsTotality
-      , idrisTestsSchemeEval idris2
+      , idrisTestsSchemeEval idris2i_1
       , idrisTestsReflection
       , idrisTestsWith
       , idrisTestsOperators

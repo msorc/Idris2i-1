@@ -15,7 +15,7 @@ DirPtr = AnyPtr
 |||
 ||| @ fn the function name to refer to in the C support library
 supportC : (fn : String) -> String
-supportC fn = "C:\{fn}, libidris2_support, idris_directory.h"
+supportC fn = "C:\{fn}, libidris2i_1_support, idris_directory.h"
 
 ||| Shorthand for referring to the Node system support library
 |||
@@ -28,35 +28,35 @@ ok : {auto hio : HasIO io} -> a -> io (Either FileError a)
 ok x = pure (Right x)
 
 -- (see System.File.ReadWrite)
-%foreign "C:idris2_getString, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getString, libidris2i_1_support, idris_support.h"
          "javascript:lambda:x=>x"
 prim__getStringIO : Ptr String -> PrimIO String
 
-%foreign supportC "idris2_currentDirectory"
+%foreign supportC "idris2i_1_currentDirectory"
          "node:lambda:()=>process.cwd()"
 prim__currentDir : PrimIO (Ptr String)
 
-%foreign supportC "idris2_changeDir"
+%foreign supportC "idris2i_1_changeDir"
          supportNode "changeDir"
 prim__changeDir : String -> PrimIO Int
 
-%foreign supportC "idris2_createDir"
+%foreign supportC "idris2i_1_createDir"
          supportNode "createDir"
 prim__createDir : String -> PrimIO Int
 
-%foreign supportC "idris2_openDir"
+%foreign supportC "idris2i_1_openDir"
          supportNode "openDir"
 prim__openDir : String -> PrimIO DirPtr
 
-%foreign supportC "idris2_closeDir"
+%foreign supportC "idris2i_1_closeDir"
          supportNode "closeDir"
 prim__closeDir : DirPtr -> PrimIO ()
 
-%foreign supportC "idris2_removeDir"
+%foreign supportC "idris2i_1_removeDir"
          supportNode "removeDir"
 prim__removeDir : String -> PrimIO ()
 
-%foreign supportC "idris2_nextDirEntry"
+%foreign supportC "idris2i_1_nextDirEntry"
          supportNode "dirEntry"
 prim__dirEntry : DirPtr -> PrimIO (Ptr String)
 

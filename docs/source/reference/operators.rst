@@ -4,7 +4,7 @@
 Operators
 *********
 
-Idris2 does not have syntax blocs (like in Idris1) or mixfix operators (like in Agda).
+Idris2i-1 does not have syntax blocs (like in Idris1) or mixfix operators (like in Agda).
 Instead, it expands on the abilities of infix operators to enable library designers
 to write Domain Specific Languages (DSLs) while keeping error messages under control.
 

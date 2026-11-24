@@ -1,14 +1,14 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr > /dev/null
+idris2i-1 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 # The workers of the functions in IO take the world as a last parameter and
 # give the result of the action as a C integer.
 c=build/exec/main.c
 for f in loopIf loopCase loopLet countUnit loopPrim step stepTail drive; do
-  echo "$f: $(grep "^[A-Za-z0-9_]* *\*\{0,1\}idris2_raw_Main_$f\$" $c | sort -u)"
+  echo "$f: $(grep "^[A-Za-z0-9_]* *\*\{0,1\}idris2i_1_raw_Main_$f\$" $c | sort -u)"
 done
-echo "go: $(grep "^[A-Za-z0-9_]* *\*\{0,1\}idris2_raw_Main_[A-Za-z0-9_]*_go\$" $c | sort -u | sed 's/idris2_raw_Main_.*_go/idris2_raw_Main_go/')"
+echo "go: $(grep "^[A-Za-z0-9_]* *\*\{0,1\}idris2i_1_raw_Main_[A-Za-z0-9_]*_go\$" $c | sort -u | sed 's/idris2i_1_raw_Main_.*_go/idris2i_1_raw_Main_go/')"
 # (the loop of drive calls the worker of stepTail and makes no value)
-echo "drive makes values: $(awk -v RS= '/idris2_raw_Main_drive\n\(/' $c | grep -c 'idris2_mkInt64\|idris2_vp_to_Int64\|idris2_mkClosure')"
+echo "drive makes values: $(awk -v RS= '/idris2i_1_raw_Main_drive\n\(/' $c | grep -c 'idris2i_1_mkInt64\|idris2i_1_vp_to_Int64\|idris2i_1_mkClosure')"
 rm -rf build

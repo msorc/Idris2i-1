@@ -1,5 +1,5 @@
 ||| The variables of a function that the RefC backend keeps in C integers
-||| (`int64_t`, `uint8_t`, ...) instead of values (`Idris2_Value *`).
+||| (`int64_t`, `uint8_t`, ...) instead of values (`Idris2i_1_Value *`).
 |||
 ||| A fixed width integer is a value like any other in RefC: a tagged pointer
 ||| when it fits in 32 bits, a box otherwise (`Int`, `Int64` and `Bits64`
@@ -63,7 +63,7 @@ import Data.Vect
 ||| it is one.  `Int` and `Int64` are alike in RefC (an `int64_t`): both are
 ||| `IntType`.  (A `Double` is a C `double`: the "C integers" of this module
 ||| and of RefC are the C numbers of these types, `double` included.  It is
-||| never stored in an `Idris2_Value *`, so it need not fit in a pointer.)
+||| never stored in an `Idris2i_1_Value *`, so it need not fit in a pointer.)
 export
 unboxedType : PrimType -> Maybe PrimType
 unboxedType DoubleType = Just DoubleType
@@ -91,7 +91,7 @@ cIntType Bits64Type = "uint64_t"
 cIntType DoubleType = "double"
 cIntType _ = "int64_t"
 
-||| The name of the type in the runtime (`idris2_mkBits8`, ...).
+||| The name of the type in the runtime (`idris2i_1_mkBits8`, ...).
 export
 runtimeName : PrimType -> String
 runtimeName Int8Type = "Int8"
@@ -124,12 +124,12 @@ width _ = 64
 ||| A new value (that the caller owns) made from a C integer of the type.
 export
 boxC : PrimType -> String -> String
-boxC t e = "idris2_mk\{runtimeName t}(\{e})"
+boxC t e = "idris2i_1_mk\{runtimeName t}(\{e})"
 
 ||| The C integer of a value of the type (which stays borrowed).
 export
 unboxC : PrimType -> String -> String
-unboxC t v = "idris2_vp_to_\{runtimeName t}(\{v})"
+unboxC t v = "idris2i_1_vp_to_\{runtimeName t}(\{v})"
 
 ||| The types to which the casts from C numbers are done on C numbers too
 ||| (their results are values).
@@ -199,7 +199,7 @@ resultType (Cast from to)
 resultType op = operandType op
 
 ||| Is the result of an operation a Boolean (a comparison), which RefC makes
-||| with `idris2_mkBool`?
+||| with `idris2i_1_mkBool`?
 export
 isComparison : PrimFn arity -> Bool
 isComparison (LT _) = True
@@ -229,21 +229,21 @@ doubleFn _ = Nothing
 ||| and `cOp` in RefC compute it on values: the arithmetic and comparisons of
 ||| C, which give what IEEE 754 says for NaN, the infinities and the signed
 ||| zeros.  A result is rounded to a double, as it is in a value, where the C
-||| compiler would keep more precision (IDRIS2_DOUBLE, see mathFunctions.h).
+||| compiler would keep more precision (IDRIS2I_1_DOUBLE, see mathFunctions.h).
 doubleOpC : PrimFn arity -> Vect arity String -> String
-doubleOpC (Add _) [x, y] = "IDRIS2_DOUBLE((\{x}) + (\{y}))"
-doubleOpC (Sub _) [x, y] = "IDRIS2_DOUBLE((\{x}) - (\{y}))"
-doubleOpC (Mul _) [x, y] = "IDRIS2_DOUBLE((\{x}) * (\{y}))"
-doubleOpC (Div _) [x, y] = "IDRIS2_DOUBLE((\{x}) / (\{y}))"
+doubleOpC (Add _) [x, y] = "IDRIS2I_1_DOUBLE((\{x}) + (\{y}))"
+doubleOpC (Sub _) [x, y] = "IDRIS2I_1_DOUBLE((\{x}) - (\{y}))"
+doubleOpC (Mul _) [x, y] = "IDRIS2I_1_DOUBLE((\{x}) * (\{y}))"
+doubleOpC (Div _) [x, y] = "IDRIS2I_1_DOUBLE((\{x}) / (\{y}))"
 doubleOpC (Neg _) [x] = "(-(\{x}))"
 doubleOpC (LT _) [x, y] = "((\{x}) < (\{y}))"
 doubleOpC (LTE _) [x, y] = "((\{x}) <= (\{y}))"
 doubleOpC (EQ _) [x, y] = "((\{x}) == (\{y}))"
 doubleOpC (GTE _) [x, y] = "((\{x}) >= (\{y}))"
 doubleOpC (GT _) [x, y] = "((\{x}) > (\{y}))"
-doubleOpC DoublePow [x, y] = "IDRIS2_DOUBLE(pow(\{x}, \{y}))"
+doubleOpC DoublePow [x, y] = "IDRIS2I_1_DOUBLE(pow(\{x}, \{y}))"
 doubleOpC op [x] = maybe "/* not an operation on doubles: \{show op} */"
-                         (\f => "IDRIS2_DOUBLE(\{f}(\{x}))") (doubleFn op)
+                         (\f => "IDRIS2I_1_DOUBLE(\{f}(\{x}))") (doubleFn op)
 doubleOpC op _ = "/* not an operation on doubles: \{show op} */"
 
 -- (the arithmetic is done on `uint64_t`, where it wraps around, and the
@@ -263,16 +263,16 @@ export
 intOpC : PrimFn arity -> Vect arity String -> String
 -- (a cast from or to Double first: the others are those of the integers)
 intOpC (Cast DoubleType to) [x] = case unboxedType to of
-    Just t => "((\{cIntType t})idris2_double_to_wrapped(\{x}))"
+    Just t => "((\{cIntType t})idris2i_1_double_to_wrapped(\{x}))"
     Nothing => case to of
-        CharType => "idris2_mkValidChar(idris2_double_to_char_code(\{x}))"
-        IntegerType => "idris2_mkIntegerFromDouble(\{x})"
+        CharType => "idris2i_1_mkValidChar(idris2i_1_double_to_char_code(\{x}))"
+        IntegerType => "idris2i_1_mkIntegerFromDouble(\{x})"
         _ => "/* not a cast of doubles: Double to \{show to} */"
 intOpC (Cast from DoubleType) [x] = case unboxedType from of
-    Just _ => "IDRIS2_DOUBLE((double)(\{x}))"
+    Just _ => "IDRIS2I_1_DOUBLE((double)(\{x}))"
     Nothing => case from of
-        CharType => "((double)idris2_vp_to_Char(\{x}))"
-        IntegerType => "IDRIS2_DOUBLE(idris2_integerToDouble(\{x}))"
+        CharType => "((double)idris2i_1_vp_to_Char(\{x}))"
+        IntegerType => "IDRIS2I_1_DOUBLE(idris2i_1_integerToDouble(\{x}))"
         _ => "/* not a cast to doubles: \{show from} to Double */"
 intOpC op@(Add DoubleType) args = doubleOpC op args
 intOpC op@(Sub DoubleType) args = doubleOpC op args
@@ -300,14 +300,14 @@ intOpC (Add ty) [x, y] = wrapping ty "+" x y
 intOpC (Sub ty) [x, y] = wrapping ty "-" x y
 intOpC (Mul ty) [x, y] = wrapping ty "*" x y
 intOpC (Div ty) [x, y]
-    = if isSigned ty then "idris2_euclidDiv_\{runtimeName ty}(\{x}, \{y})"
-                     else "idris2_unsignedDiv_\{runtimeName ty}(\{x}, \{y})"
+    = if isSigned ty then "idris2i_1_euclidDiv_\{runtimeName ty}(\{x}, \{y})"
+                     else "idris2i_1_unsignedDiv_\{runtimeName ty}(\{x}, \{y})"
 intOpC (Mod ty) [x, y]
-    = if isSigned ty then "idris2_euclidMod_\{runtimeName ty}(\{x}, \{y})"
-                     else "idris2_unsignedMod_\{runtimeName ty}(\{x}, \{y})"
+    = if isSigned ty then "idris2i_1_euclidMod_\{runtimeName ty}(\{x}, \{y})"
+                     else "idris2i_1_unsignedMod_\{runtimeName ty}(\{x}, \{y})"
 intOpC (Neg ty) [x] = "((\{cIntType ty})(0u - (uint64_t)(\{x})))"
-intOpC (ShiftL ty) [x, y] = "idris2_shiftLeft_\{runtimeName ty}(\{x}, \{y})"
-intOpC (ShiftR ty) [x, y] = "idris2_shiftRight_\{runtimeName ty}(\{x}, \{y})"
+intOpC (ShiftL ty) [x, y] = "idris2i_1_shiftLeft_\{runtimeName ty}(\{x}, \{y})"
+intOpC (ShiftR ty) [x, y] = "idris2i_1_shiftRight_\{runtimeName ty}(\{x}, \{y})"
 intOpC (BAnd ty) [x, y] = "((\{cIntType ty})((\{x}) & (\{y})))"
 intOpC (BOr ty) [x, y] = "((\{cIntType ty})((\{x}) | (\{y})))"
 intOpC (BXOr ty) [x, y] = "((\{cIntType ty})((\{x}) ^ (\{y})))"
@@ -319,12 +319,12 @@ intOpC (GT _) [x, y] = "((\{x}) > (\{y}))"
 intOpC (Cast from to) [x] = case (unboxedType from, unboxedType to) of
     (Just _, Just t) => "((\{cIntType t})(\{x}))"
     (Just f, Nothing) => case to of
-        CharType => "idris2_mkValidChar(\{x})"
-        _ => if isSigned f then "idris2_mkIntegerFromInt64(\{x})"
-                           else "idris2_mkIntegerFromUInt64(\{x})"
+        CharType => "idris2i_1_mkValidChar(\{x})"
+        _ => if isSigned f then "idris2i_1_mkIntegerFromInt64(\{x})"
+                           else "idris2i_1_mkIntegerFromUInt64(\{x})"
     (Nothing, Just t) => case from of
-        CharType => "((\{cIntType t})idris2_vp_to_Char(\{x}))"
-        _ => "((\{cIntType t})idris2_integerLow64(\{x}))"
+        CharType => "((\{cIntType t})idris2i_1_vp_to_Char(\{x}))"
+        _ => "((\{cIntType t})idris2i_1_integerLow64(\{x}))"
     _ => "/* not a cast of fixed width integers: \{show from} to \{show to} */"
 intOpC op _ = "/* not an operation on fixed width integers: \{show op} */"
 
@@ -813,7 +813,7 @@ rawResultOK c u t e = go e == Just True
 
 ||| The literal of the type `t` that the cast of the Integer `x` gives: the
 ||| Integer is wrapped around to the width of the type, as the casts of the
-||| runtime do (`idris2_cast_Integer_to_Bits8`, ...).  This is computed on
+||| runtime do (`idris2i_1_cast_Integer_to_Bits8`, ...).  This is computed on
 ||| Integers, so it does not depend on the machine that runs the compiler.
 export
 castIntegerLiteral : PrimType -> Integer -> Maybe Constant

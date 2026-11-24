@@ -12,7 +12,7 @@ import System.File
 |||
 ||| @ fn the function name to refer to in the C support library
 supportC : (fn : String) -> String
-supportC fn = "C:\{fn}, libidris2_support, idris_support.h"
+supportC fn = "C:\{fn}, libidris2i_1_support, idris_support.h"
 
 ||| Shorthand for referring to the Node system support library
 |||
@@ -31,13 +31,13 @@ libc fn = "C:" ++ fn ++ ", libc 6"
 
 %foreign "scheme,racket:blodwen-sleep"
          "RefC:refc_sleep"
-         supportC "idris2_sleep"
+         supportC "idris2i_1_sleep"
          supportNode "sleep"
 prim__sleep : Int -> PrimIO ()
 
 %foreign "scheme,racket:blodwen-usleep"
          "RefC:refc_usleep"
-         supportC "idris2_usleep"
+         supportC "idris2i_1_usleep"
          supportNode "usleep"
 prim__usleep : Int -> PrimIO ()
 
@@ -70,14 +70,14 @@ usleep usec = primIO (prim__usleep usec)
 --       consistency across backends, this first argument ist
 --       dropped on the node backend.
 %foreign "scheme:blodwen-arg-count"
-         supportC "idris2_getArgCount"
+         supportC "idris2i_1_getArgCount"
          "node:lambda:() => process.argv.length - 1"
 prim__getArgCount : PrimIO Int
 
 -- Get argument number `n`. See also `prim__getArgCount`
 -- about the special treatment of the node backend.
 %foreign "scheme:blodwen-arg"
-         supportC "idris2_getArg"
+         supportC "idris2i_1_getArg"
          "node:lambda:n => process.argv[n + 1]"
 prim__getArg : Int -> PrimIO String
 
@@ -95,21 +95,21 @@ getArgs = do
          "node:lambda: n => process.env[n]"
 prim__getEnv : String -> PrimIO (Ptr String)
 
-%foreign supportC "idris2_getEnvPair"
+%foreign supportC "idris2i_1_getEnvPair"
          supportNode "getEnvPair"
 prim__getEnvPair : Int -> PrimIO (Ptr String)
-%foreign supportC "idris2_setenv"
+%foreign supportC "idris2i_1_setenv"
          supportNode "setEnv"
 prim__setEnv : String -> String -> Int -> PrimIO Int
-%foreign supportC "idris2_unsetenv"
+%foreign supportC "idris2i_1_unsetenv"
          supportNode "unsetEnv"
 prim__unsetEnv : String -> PrimIO Int
 
-%foreign "C:idris2_enableRawMode, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_enableRawMode, libidris2i_1_support, idris_support.h"
          supportNode "enableRawMode"
 prim__enableRawMode : (1 x : %World) -> IORes Int
 
-%foreign "C:idris2_resetRawMode, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_resetRawMode, libidris2i_1_support, idris_support.h"
          supportNode "resetRawMode"
 prim__resetRawMode : (1 x : %World) -> IORes ()
 
@@ -213,7 +213,7 @@ unsetEnv var
    = do ok <- primIO $ prim__unsetEnv var
         pure $ ok == 0
 
-%foreign "C:idris2_system, libidris2_support, idris_system.h"
+%foreign "C:idris2i_1_system, libidris2i_1_support, idris_system.h"
          supportNode "spawnSync"
 prim__system : String -> PrimIO Int
 
@@ -282,7 +282,7 @@ namespace Escaped
   runProcessingOutput : HasIO io => (String -> io ()) -> (cmd : List String) -> io Int
   runProcessingOutput pr = runProcessingOutput pr . escapeCmd
 
-%foreign supportC "idris2_time"
+%foreign supportC "idris2i_1_time"
          "javascript:lambda:() => Math.floor(new Date().getTime() / 1000)"
 prim__time : PrimIO Int
 
@@ -292,7 +292,7 @@ export
 time : {auto hio : HasIO io} -> io Integer
 time = pure $ cast !(primIO prim__time)
 
-%foreign supportC "idris2_getPID"
+%foreign supportC "idris2i_1_getPID"
          "node:lambda:() => process.pid"
 prim__getPID : PrimIO Int
 

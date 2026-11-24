@@ -4,13 +4,13 @@
 
 #include "cBackend.h"
 
-Idris2_Value *clockTimeMonotonic();
-Idris2_Value *clockTimeUtc();
-Idris2_Value *clockTimeProcess();
-Idris2_Value *clockTimeThread();
-Idris2_Value *clockTimeGcCpu();
-Idris2_Value *clockTimeGcReal();
+Idris2i_1_Value *clockTimeMonotonic();
+Idris2i_1_Value *clockTimeUtc();
+Idris2i_1_Value *clockTimeProcess();
+Idris2i_1_Value *clockTimeThread();
+Idris2i_1_Value *clockTimeGcCpu();
+Idris2i_1_Value *clockTimeGcReal();
 
-int clockValid(Idris2_Value *clock);
-uint64_t clockSecond(Idris2_Value *clock);
-uint64_t clockNanosecond(Idris2_Value *clock);
+int clockValid(Idris2i_1_Value *clock);
+uint64_t clockSecond(Idris2i_1_Value *clock);
+uint64_t clockNanosecond(Idris2i_1_Value *clock);

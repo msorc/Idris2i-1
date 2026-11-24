@@ -1,0 +1,35 @@
+. ../../../testutils.sh
+
+# The executable of a package is compiled again when the C compiler that
+# would compile it is another one (see pkg023 for the rest), even if the
+# one that compiled it did not change: here a `cc` comes first in the PATH.
+# (A stamp is not written when files were written within the last second, on
+# file systems that keep seconds only: wait, so that there is one.)
+
+unset IDRIS2I_1_CC CC
+realcc=$(command -v cc)
+rm -rf bin marker
+mkdir bin
+printf '#!/bin/sh\necho "the other cc" >> %s/marker\nexec %s "$@"\n' "$PWD" "$realcc" > bin/cc
+chmod +x bin/cc
+
+build() {
+  idris2i-1 --cg refc --build exe.ipkg | grep -v "Building"
+}
+
+echo "--- first build"
+build
+build/exec/exe
+
+sleep 2
+build > /dev/null
+
+echo "--- nothing changed"
+build
+
+echo "--- another cc first in the PATH"
+(PATH="$PWD/bin:$PATH"; build)
+build/exec/exe
+test -e marker && sort -u marker
+
+rm -rf bin marker build

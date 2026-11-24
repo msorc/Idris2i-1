@@ -12,7 +12,7 @@ Before submitting your proposal, read the https://github.com/idris-lang/Idris2/b
 
 If you are confident in your idea, please follow the following template to describe your proposal. Follow the directive for each section, you have some liberty to update the “Proposal” section to better match your idea but leave the rest unchanged to keep the format uniform.
 
-We cannot guarantee your proposal will be implemented in a timely manner (or at all) given how few people work on Idris2. Similarly with comments, few people have the time to read through and ingest a complex proposal. Try to be as clear and concise as you can so that it’s easy for the community to understand and comment on your idea.
+We cannot guarantee your proposal will be implemented in a timely manner (or at all) given how few people work on Idris2i-1. Similarly with comments, few people have the time to read through and ingest a complex proposal. Try to be as clear and concise as you can so that it’s easy for the community to understand and comment on your idea.
 
 --->
 
@@ -45,7 +45,7 @@ Explain your solution in detail, provide examples and highlight breaking changes
 ## Alternatives considered
 
 <!---
-Show the research you conducted and the other alternatives that could have also solved the problem. Explain why you picked the one you presented and attempt to answer all the questions you already know you’re going to get. It’s a good idea to look at other programming languages and see how they solved similar problems and see if their rationale can be ported to Idris or not.
+Show the research you conducted and the other alternatives that could have also solved the problem. Explain why you picked the one you presented and attempt to answer all the questions you already know you’re going to get. It’s a good idea to look at other programming languages and see how they solved similar problems and see if their rationale can be ported to Idris2i-1 or not.
 --->
 
 ## Conclusion

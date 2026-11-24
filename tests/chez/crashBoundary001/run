@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 -o crash Main.idr > /dev/null
+idris2i-1 -o crash Main.idr > /dev/null
 ./build/exec/crash
 echo "exit code: $?"
 ./build/exec/crash exit

@@ -2,12 +2,12 @@
 
 # The browser backend: its output runs on Node, with the small stack of its
 # main thread (putStr is console.log, which adds a newline).
-idris2 --cg javascript -o chains.js Chains.idr
+idris2i-1 --cg javascript -o chains.js Chains.idr
 node ./build/exec/chains.js 2>&1 | grep -v '^$' > browser.out
 cat browser.out
 
 # Node gives the same output (but for the newlines).
-idris2 -o chains Chains.idr
+idris2i-1 -o chains Chains.idr
 ./build/exec/chains | tr ' ' '\n' | grep -v '^$' > node.out
 tr ' ' '\n' < browser.out | grep -v '^$' | diff - node.out && echo same
 rm -f node.out browser.out

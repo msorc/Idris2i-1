@@ -509,18 +509,18 @@ buildOneModule file
          let mod = MkBuildMod file ns (map path (imports modInfo))
          buildMod {announce = False} EmptyFC 1 1 mod
 
-%foreign "C:idris2_spawnShell, libidris2_support, idris_system.h"
+%foreign "C:idris2i_1_spawnShell, libidris2i_1_support, idris_system.h"
 prim__spawnShell : String -> PrimIO Int
 
-%foreign "C:idris2_waitAnyChild, libidris2_support, idris_system.h"
+%foreign "C:idris2i_1_waitAnyChild, libidris2i_1_support, idris_system.h"
 prim__waitAnyChild : PrimIO Int
 
-%foreign "C:idris2_lastChildExitStatus, libidris2_support, idris_system.h"
+%foreign "C:idris2i_1_lastChildExitStatus, libidris2i_1_support, idris_system.h"
 prim__lastChildExitStatus : PrimIO Int
 
 -- (the `kill` of the C library, which System.Signal has but does not export,
 -- with any signal: there is no `Signal` for SIGTERM)
-%foreign "C:send_signal, libidris2_support, idris_signal.h"
+%foreign "C:send_signal, libidris2i_1_support, idris_signal.h"
 prim__sendSignal : (pid : Int) -> (signal : Int) -> PrimIO Int
 
 -- SIGTERM, which is 15 on every POSIX system

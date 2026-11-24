@@ -1,10 +1,10 @@
 .. _sect-documenting:
 
-**********************
-Documenting Idris Code
-**********************
+**************************
+Documenting Idris2i-1 Code
+**************************
 
-Idris documentation comes in two major forms: comments, which exist
+Idris2i-1 documentation comes in two major forms: comments, which exist
 for a reader’s edification and are ignored by the compiler, and inline
 API documentation, which the compiler parses and stores for future
 reference. To consult the documentation for a declaration ``f``, write
@@ -15,16 +15,16 @@ Comments
 ========
 
 Use comments to explain why code is written the way that it
-is. Idris’s comment syntax is the same as that of Haskell: lines
+is. Idris2i-1’s comment syntax is the same as that of Haskell: lines
 beginning with ``--`` are comments, and regions bracketed by ``{-``
 and ``-}`` are comments even if they extend across multiple
 lines. These can be used to comment out lines of code or provide
-simple documentation for the readers of Idris code.
+simple documentation for the readers of Idris2i-1 code.
 
 Inline Documentation
 ====================
 
-Idris also supports a comprehensive and rich inline syntax for Idris
+Idris2i-1 also supports a comprehensive and rich inline syntax for Idris2i-1
 code to be generated. This syntax also allows for named parameters and
 variables within type signatures to be individually annotated using a
 syntax similar to Javadoc parameter annotations.

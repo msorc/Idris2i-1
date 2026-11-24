@@ -7,11 +7,11 @@ import public System.File.Types
 
 %default total
 
-%foreign supportC "idris2_openFile"
+%foreign supportC "idris2i_1_openFile"
          supportNode "openFile"
 prim__open : String -> String -> PrimIO FilePtr
 
-%foreign supportC "idris2_closeFile"
+%foreign supportC "idris2i_1_closeFile"
          supportNode "close"
 prim__close : FilePtr -> PrimIO ()
 

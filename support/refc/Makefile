@@ -1,6 +1,6 @@
 include ../../config.mk
 
-TARGET = libidris2_refc
+TARGET = libidris2i_1_refc
 
 LIBTARGET = $(TARGET).a
 
@@ -55,13 +55,13 @@ cleandep: clean
 
 # A build that looks for memory errors (a value used after it was freed, by
 # wrong reference counting, say): every value comes from malloc
-# (IDRIS2_REFC_NO_POOLS), checked by AddressSanitizer and UBSan.
+# (IDRIS2I_1_REFC_NO_POOLS), checked by AddressSanitizer and UBSan.
 #   make install-support-refc-asan PREFIX=<prefix>
 # (at the top of the repository) installs it in place of the normal library
 # under a prefix that has the rest of an installation; compile the programs
 # with
-#   IDRIS2_PREFIX=<prefix> IDRIS2_CPPFLAGS=-DIDRIS2_REFC_NO_POOLS \
-#   IDRIS2_CFLAGS="$(ASAN_FLAGS)" IDRIS2_LDFLAGS="$(ASAN_FLAGS)"
+#   IDRIS2I_1_PREFIX=<prefix> IDRIS2I_1_CPPFLAGS=-DIDRIS2I_1_REFC_NO_POOLS \
+#   IDRIS2I_1_CFLAGS="$(ASAN_FLAGS)" IDRIS2I_1_LDFLAGS="$(ASAN_FLAGS)"
 # The objects are compiled with the usual CFLAGS (-fPIC, the warnings) and
 # then ASAN_FLAGS, whose -O1 wins over the -O2 of CFLAGS.
 ASAN_FLAGS = -g -O1 -fno-omit-frame-pointer -fsanitize=address,undefined
@@ -69,7 +69,7 @@ ASAN_OBJS = $(addprefix asan/,$(OBJS))
 
 asan/%.o: %.c $(wildcard *.h)
 	@mkdir -p asan
-	$(CC) $(CPPFLAGS) -DIDRIS2_REFC_NO_POOLS $(CFLAGS) $(ASAN_FLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) -DIDRIS2I_1_REFC_NO_POOLS $(CFLAGS) $(ASAN_FLAGS) -c $< -o $@
 
 asan/$(LIBTARGET): $(ASAN_OBJS)
 	$(AR) rc $@ $^
@@ -79,10 +79,10 @@ asan/$(LIBTARGET): $(ASAN_OBJS)
 asan: asan/$(LIBTARGET)
 
 install-asan: asan
-	mkdir -p ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/refc
-	install -p -m 644 asan/$(LIBTARGET) *.h ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/refc
+	mkdir -p ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/support/refc
+	install -p -m 644 asan/$(LIBTARGET) *.h ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/support/refc
 
 .PHONY: install
 install: build
-	mkdir -p ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/refc
-	install -p -m 644 $(LIBTARGET) *.h ${DESTDIR}${PREFIX}/idris2-${IDRIS2_VERSION}/support/refc
+	mkdir -p ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/support/refc
+	install -p -m 644 $(LIBTARGET) *.h ${DESTDIR}${PREFIX}/idris2i-1-${IDRIS2I_1_VERSION}/support/refc

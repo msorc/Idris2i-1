@@ -1,0 +1,28 @@
+. ../../../testutils.sh
+
+echo "--- codes at the end of the first line of each message"
+check Codes.idr
+rm -rf build
+
+echo "--- without codes"
+idris2i-1 --no-error-codes --check Codes.idr
+rm -rf build
+
+echo "--- explain a code"
+idris2i-1 --explain E0101
+echo "--- a code in lower case, an error that has a short entry, an unknown one"
+idris2i-1 --explain e0303
+idris2i-1 --explain E9999
+
+echo "--- at the REPL"
+idris2i-1 Ok.idr --client ':explain E0201' | head -n 3
+rm -rf build
+
+echo "--- the reference page is printed from the registry"
+idris2i-1 --list-error-codes > codes.rst
+if diff codes.rst ../../../../docs/source/reference/error-codes.rst > /dev/null; then
+  echo "docs/source/reference/error-codes.rst is up to date"
+else
+  echo "docs/source/reference/error-codes.rst is out of date: write it with idris2i-1 --list-error-codes"
+fi
+rm -f codes.rst

@@ -3,10 +3,10 @@
 // resulting exectuable can find it. For example:
 //      gcc -c -fPIC smallc.c -o smallc.o
 //      gcc smallc.o -shared -o libsmallc.so
-//      idris2 Small.idr
+//      idris2i-1 Small.idr
 // With the default (RefC) code generator, which compiles the program to C, the C compiler also
 // has to find the header `smallc.h` that `Struct.idr` names and the library to link:
-//      CFLAGS="-I." LDFLAGS="-L." LDLIBS="-lsmallc" idris2 Struct.idr -o struct
+//      CFLAGS="-I." LDFLAGS="-L." LDLIBS="-lsmallc" idris2i-1 Struct.idr -o struct
 //      LD_LIBRARY_PATH=. ./build/exec/struct
 // For an example of using Idris packages to build external (FFI) libraries, see the `FFI-readline`
 // sample, and specifically `readline.ipkg`

@@ -1,0 +1,77 @@
+. ../../../testutils.sh
+
+# What the Makefile of the repository passes to the compilers that it runs,
+# with `make -n` in a copy of it (to which a custom.mk can be added), and
+# MAKE=echo, so that the makes that it runs are shown and not run.  A fake
+# Homebrew has the gmp.h that config.mk looks for: its directories must reach
+# the boot compiler that builds the compiler with RefC, and the compiler under
+# test that builds the test runner and runs the tests, which read them from
+# the environment only.
+
+root=$(cd ../../../.. && pwd)
+mkdir -p build/top build/brew/include build/brew/lib build/prebuilt
+cp "$root/Makefile" "$root/config.mk" build/top/
+: > build/brew/include/gmp.h
+for suffix in .so .dylib .dll; do : > "build/prebuilt/libidris2i_1_support$suffix"; done
+brew=$(cd build/brew && pwd)
+prebuilt=$(cd build/prebuilt && pwd)
+
+# Only what this test sets, not what the make that runs the tests passes on.
+unset MAKEFLAGS MFLAGS MAKELEVEL CPPFLAGS LDFLAGS IDRIS2I_1_CPPFLAGS IDRIS2I_1_LDFLAGS \
+      IDRIS2I_1_CG TEST_PREFIX TEST_IDRIS2I_1_SUPPORT_DIR IDRIS2I_1_SUPPORT_DIR
+make=${MAKE:-make}
+
+topmake() {
+    (cd build/top && HOMEBREW_PREFIX="$brew" "$make" -n MAKE=echo "$@" 2>&1)
+}
+
+# $1: what is checked, $2: the lines, $3...: what each line must contain
+expect() {
+    what=$1; lines=$2; shift 2
+    if [ -z "$lines" ]; then echo "$what: no such line"; return; fi
+    for word in "$@"; do
+        if ! printf '%s\n' "$lines" | grep -qF -- "$word"; then
+            echo "$what: no $word in"; printf '%s\n' "$lines"; return
+        fi
+    done
+    echo "$what: ok"
+}
+
+out=$(topmake -o support -o src/IdrisPaths.idr idris2i-1-exec)
+expect "RefC build of the compiler" "$(printf '%s\n' "$out" | grep -e '--build idris2i-1.ipkg')" \
+    "IDRIS2I_1_CG=\"refc\"" "CPPFLAGS=\"-I$brew/include\"" "LDFLAGS=\"-L$brew/lib\""
+
+echo 'IDRIS2I_1_CG = chez' > build/top/custom.mk
+out=$(topmake -o support -o src/IdrisPaths.idr idris2i-1-exec)
+expect "IDRIS2I_1_CG of custom.mk" "$(printf '%s\n' "$out" | grep -e '--build idris2i-1.ipkg')" \
+    "IDRIS2I_1_CG=\"chez\""
+rm build/top/custom.mk
+
+out=$(topmake testenv test retest test-installed)
+expect "test runner" "$(printf '%s\n' "$out" | grep -e '^-C tests testbin' | sed -n 1p)" \
+    "CPPFLAGS=-I$brew/include" "LDFLAGS=-L$brew/lib"
+expect "test" "$(printf '%s\n' "$out" | grep -e '^-C tests only=' | sed -n 1p)" \
+    "CPPFLAGS=-I$brew/include" "LDFLAGS=-L$brew/lib"
+expect "retest" "$(printf '%s\n' "$out" | grep -e '^-C tests retest')" \
+    "CPPFLAGS=-I$brew/include" "LDFLAGS=-L$brew/lib"
+expect "test-installed runner" "$(printf '%s\n' "$out" | grep -e '^-C tests testbin' | sed -n '$p')" \
+    "CPPFLAGS=-I$brew/include" "LDFLAGS=-L$brew/lib"
+expect "test-installed" "$(printf '%s\n' "$out" | grep -e '^-C tests only=' | sed -n '$p')" \
+    "CPPFLAGS=-I$brew/include" "LDFLAGS=-L$brew/lib"
+
+# The support libraries of the tests are installed under build/env, unless
+# TEST_IDRIS2I_1_SUPPORT_DIR names prebuilt ones (as the nix check does).
+out=$(topmake test-support)
+expect "support of the tests" "$(printf '%s\n' "$out" | grep -e 'install-support')" \
+    "install-support PREFIX="
+out=$(topmake test-support TEST_IDRIS2I_1_SUPPORT_DIR="$prebuilt")
+if printf '%s\n' "$out" | grep -qe 'install-support'; then
+    echo "prebuilt support of the tests: installed again"; printf '%s\n' "$out"
+else
+    echo "prebuilt support of the tests: ok"
+fi
+(cd build/top && "$make" MAKE=echo test-support TEST_IDRIS2I_1_SUPPORT_DIR="$prebuilt/missing" 2>&1) \
+  | grep -o 'ERROR: TEST_IDRIS2I_1_SUPPORT_DIR is set but .*/missing/libidris2i_1_support[.a-z]* is missing' \
+  | sed "s|but .*/missing/libidris2i_1_support[.a-z]* is|but .../missing/libidris2i_1_support is|"
+
+rm -rf build

@@ -16,14 +16,14 @@
 ([0, 1, 18446744073709551615, 2147483647, 2147483648, 18446744071562067968, 18446744071562067967, 9223372036854775807, 9223372036854775808], [0, 1, -1, 2147483647, 2147483648, -2147483648, -2147483649, 9223372036854775807, -9223372036854775808])
 ([False, False, False, False, False, True, True, True, True], [4294967296, 9223372036854775807, 9223372036854775808, 18446744073709551615])
 15978263232523642113
-step: uint64_t idris2_raw_Main_step
-fnv: uint64_t idris2_raw_Main_fnv
-sumSq: uint64_t idris2_raw_Main_sumSq
-sumList: uint64_t idris2_raw_Main_sumList
-ping: Idris2_Value *idris2_raw_Main_ping
-pong: Idris2_Value *idris2_raw_Main_pong
-goC: Idris2_Value *idris2_raw_Main_goC
-bounce: Idris2_Value *idris2_raw_Main_bounce
-keyOf: uint64_t idris2_raw_Main_keyOf
+step: uint64_t idris2i_1_raw_Main_step
+fnv: uint64_t idris2i_1_raw_Main_fnv
+sumSq: uint64_t idris2i_1_raw_Main_sumSq
+sumList: uint64_t idris2i_1_raw_Main_sumList
+ping: Idris2i_1_Value *idris2i_1_raw_Main_ping
+pong: Idris2i_1_Value *idris2i_1_raw_Main_pong
+goC: Idris2i_1_Value *idris2i_1_raw_Main_goC
+bounce: Idris2i_1_Value *idris2i_1_raw_Main_bounce
+keyOf: uint64_t idris2i_1_raw_Main_keyOf
 fnv makes values: 0
 ping jumps to pong: 1

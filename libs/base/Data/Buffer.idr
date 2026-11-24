@@ -372,7 +372,7 @@ getInteger buf offset
 -- Get the length of a string in bytes, rather than characters
 export
 %foreign "scheme:blodwen-stringbytelen"
-         "RefC:idris2_refc_stringByteLength"
+         "RefC:idris2i_1_refc_stringByteLength"
          "C:strlen, libc 6"
          "javascript:lambda:(string)=>new TextEncoder().encode(string).length"
 stringByteLength : String -> Int

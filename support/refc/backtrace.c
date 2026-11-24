@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Backtraces of a program that dies of a fatal error.
 //
-// When they are on (IDRIS2_REFC_BACKTRACE=1, or by default in a program
+// When they are on (IDRIS2I_1_REFC_BACKTRACE=1, or by default in a program
 // compiled with `--directive refc-backtrace`), a program that dies of
 // `idris_crash`, of a missing case in partial code, of a division by zero, or
 // of SIGSEGV, SIGBUS, SIGFPE, SIGILL or SIGABRT (from foreign code, or a stack
@@ -46,7 +46,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if IDRIS2_GREEN_THREADS && defined(__has_include)
+#if IDRIS2I_1_GREEN_THREADS && defined(__has_include)
 #if __has_include(<unwind.h>) && __has_include(<dlfcn.h>)
 #define BT_UNWIND 1
 #endif
@@ -83,10 +83,10 @@
 
 static int bt_on = 0;
 static int bt_default = 0;
-static const Idris2_BacktraceName *bt_names = NULL;
+static const Idris2i_1_BacktraceName *bt_names = NULL;
 static size_t bt_count = 0;
 
-void idris2_backtraceNames(const Idris2_BacktraceName *names, size_t count) {
+void idris2i_1_backtraceNames(const Idris2i_1_BacktraceName *names, size_t count) {
   bt_names = names;
   bt_count = count;
   bt_default = 1;
@@ -96,7 +96,7 @@ void idris2_backtraceNames(const Idris2_BacktraceName *names, size_t count) {
 // Names
 
 // Compare an entry of the table with the first `len` characters of `key`.
-static int idris2_bt_keycmp(const char *entry, const char *key, size_t len) {
+static int idris2i_1_bt_keycmp(const char *entry, const char *key, size_t len) {
   int c = strncmp(entry, key, len);
   if (c != 0) {
     return c;
@@ -104,11 +104,11 @@ static int idris2_bt_keycmp(const char *entry, const char *key, size_t len) {
   return entry[len] != '\0';
 }
 
-static const Idris2_BacktraceName *idris2_bt_find(const char *key, size_t len) {
+static const Idris2i_1_BacktraceName *idris2i_1_bt_find(const char *key, size_t len) {
   size_t lo = 0, hi = bt_count;
   while (lo < hi) {
     size_t mid = lo + (hi - lo) / 2;
-    int c = idris2_bt_keycmp(bt_names[mid].cname, key, len);
+    int c = idris2i_1_bt_keycmp(bt_names[mid].cname, key, len);
     if (c == 0) {
       return &bt_names[mid];
     }
@@ -121,7 +121,7 @@ static const Idris2_BacktraceName *idris2_bt_find(const char *key, size_t len) {
   return NULL;
 }
 
-static int idris2_bt_prefix(const char *s, size_t len, const char *p) {
+static int idris2i_1_bt_prefix(const char *s, size_t len, const char *p) {
   size_t n = strlen(p);
   return len >= n && strncmp(s, p, n) == 0;
 }
@@ -131,11 +131,11 @@ static int idris2_bt_prefix(const char *s, size_t len, const char *p) {
 // Compiler.RefC.RefC).  `*len` is its length, without the suffix that GCC adds
 // to the parts and the copies of a function that it makes (`.cold`,
 // `.isra.0`, `.constprop.0`, ...).
-static const char *idris2_bt_base(const char *cname, size_t *len) {
+static const char *idris2i_1_bt_base(const char *cname, size_t *len) {
   size_t n = strcspn(cname, ".");
-  static const char *const prefixes[] = {"idris2_caf_", "idris2_borrow_"};
+  static const char *const prefixes[] = {"idris2i_1_caf_", "idris2i_1_borrow_"};
   for (size_t i = 0; i < sizeof(prefixes) / sizeof(prefixes[0]); i++) {
-    if (idris2_bt_prefix(cname, n, prefixes[i])) {
+    if (idris2i_1_bt_prefix(cname, n, prefixes[i])) {
       size_t k = strlen(prefixes[i]);
       cname += k;
       n -= k;
@@ -147,27 +147,27 @@ static const char *idris2_bt_base(const char *cname, size_t *len) {
 }
 
 // The entry of the table for a C name.
-static const Idris2_BacktraceName *idris2_bt_lookup(const char *cname) {
+static const Idris2i_1_BacktraceName *idris2i_1_bt_lookup(const char *cname) {
   if (bt_count == 0) {
     return NULL;
   }
   size_t n;
-  const char *base = idris2_bt_base(cname, &n);
-  return idris2_bt_find(base, n);
+  const char *base = idris2i_1_bt_base(cname, &n);
+  return idris2i_1_bt_find(base, n);
 }
 
 // ---------------------------------------------------------------------------
-// IDRIS2_REFC_DEMANGLE: the program as a filter that replaces the C names of
+// IDRIS2I_1_REFC_DEMANGLE: the program as a filter that replaces the C names of
 // its functions by their Idris names (for the output of perf, say).
 
-static int idris2_bt_identChar(int c) {
+static int idris2i_1_bt_identChar(int c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
          (c >= '0' && c <= '9') || c == '_';
 }
 
-static void idris2_bt_demangleFilter(void) {
+static void idris2i_1_bt_demangleFilter(void) {
   if (bt_count == 0) {
-    fprintf(stderr, "RefC: IDRIS2_REFC_DEMANGLE: this program has no table of "
+    fprintf(stderr, "RefC: IDRIS2I_1_REFC_DEMANGLE: this program has no table of "
                     "names; compile it with --directive refc-backtrace\n");
     exit(1);
   }
@@ -178,7 +178,7 @@ static void idris2_bt_demangleFilter(void) {
   }
   for (;;) {
     int c = getchar();
-    if (c != EOF && idris2_bt_identChar(c)) {
+    if (c != EOF && idris2i_1_bt_identChar(c)) {
       if (len + 1 >= cap) {
         cap *= 2;
         char *t = (char *)realloc(tok, cap);
@@ -192,7 +192,7 @@ static void idris2_bt_demangleFilter(void) {
     }
     if (len > 0) {
       tok[len] = '\0';
-      const Idris2_BacktraceName *e = idris2_bt_lookup(tok);
+      const Idris2i_1_BacktraceName *e = idris2i_1_bt_lookup(tok);
       fputs(e ? e->name : tok, stdout);
       len = 0;
     }
@@ -215,13 +215,13 @@ static char bt_out[1024];
 static size_t bt_outLen = 0;
 
 // While a backtrace is captured for a crash boundary (see
-// idris2_backtraceCapture), the output goes to this string, which grows
+// idris2i_1_backtraceCapture), the output goes to this string, which grows
 // with realloc (NULL once that failed).
 static int bt_capturing = 0;
 static char *bt_text = NULL;
 static size_t bt_textLen = 0, bt_textCap = 0;
 
-static void idris2_bt_flush(void) {
+static void idris2i_1_bt_flush(void) {
   if (bt_capturing) {
     if (bt_text && bt_textLen + bt_outLen + 1 > bt_textCap) {
       size_t cap = 2 * (bt_textLen + bt_outLen + 1);
@@ -254,18 +254,18 @@ static void idris2_bt_flush(void) {
   bt_outLen = 0;
 }
 
-static void idris2_bt_putn(const char *s, size_t n) {
+static void idris2i_1_bt_putn(const char *s, size_t n) {
   for (size_t i = 0; i < n; i++) {
     if (bt_outLen == sizeof(bt_out)) {
-      idris2_bt_flush();
+      idris2i_1_bt_flush();
     }
     bt_out[bt_outLen++] = s[i];
   }
 }
 
-static void idris2_bt_puts(const char *s) { idris2_bt_putn(s, strlen(s)); }
+static void idris2i_1_bt_puts(const char *s) { idris2i_1_bt_putn(s, strlen(s)); }
 
-static void idris2_bt_putu(unsigned long long n) {
+static void idris2i_1_bt_putu(unsigned long long n) {
   char digits[24];
   int i = 0;
   do {
@@ -273,7 +273,7 @@ static void idris2_bt_putu(unsigned long long n) {
     n /= 10;
   } while (n);
   while (i > 0) {
-    idris2_bt_putn(&digits[--i], 1);
+    idris2i_1_bt_putn(&digits[--i], 1);
   }
 }
 
@@ -287,7 +287,7 @@ static const char *elf_strs = NULL;
 static size_t elf_strsSize = 0;
 static uintptr_t elf_bias = 0;
 
-static const char *idris2_bt_elfLookup(uintptr_t pc) {
+static const char *idris2i_1_bt_elfLookup(uintptr_t pc) {
   for (size_t i = 0; i < elf_nsyms; i++) {
     const ElfW(Sym) *s = &elf_syms[i];
     int type = s->st_info & 0xf;
@@ -305,7 +305,7 @@ static const char *idris2_bt_elfLookup(uintptr_t pc) {
 }
 
 // Map the executable and find its symbol table, and where it is loaded.
-static void idris2_bt_elfLoad(void) {
+static void idris2i_1_bt_elfLoad(void) {
   int fd = open("/proc/self/exe", O_RDONLY | O_CLOEXEC);
   if (fd < 0) {
     return;
@@ -379,8 +379,8 @@ static void idris2_bt_elfLoad(void) {
   }
   elf_bias = atPhdr - phdrVaddr;
   // Is it the right file (not one that took its place since)?
-  const char *self = idris2_bt_elfLookup((uintptr_t)&idris2_backtracePrint);
-  if (!self || strcmp(self, "idris2_backtracePrint") != 0) {
+  const char *self = idris2i_1_bt_elfLookup((uintptr_t)&idris2i_1_backtracePrint);
+  if (!self || strcmp(self, "idris2i_1_backtracePrint") != 0) {
     elf_syms = NULL;
     elf_nsyms = 0;
     munmap(map, size);
@@ -393,7 +393,7 @@ static void idris2_bt_elfLoad(void) {
 typedef struct {
   const char *cname;
   const char *lib;
-} Idris2_BtSym;
+} Idris2i_1_BtSym;
 
 // (dladdr is only in libdl before glibc 2.34: a weak reference, which is
 // NULL when the program is not linked with it)
@@ -401,10 +401,10 @@ typedef struct {
 extern int dladdr(const void *, Dl_info *) __attribute__((weak));
 #endif
 
-static Idris2_BtSym idris2_bt_symbol(uintptr_t pc) {
-  Idris2_BtSym r = {NULL, NULL};
+static Idris2i_1_BtSym idris2i_1_bt_symbol(uintptr_t pc) {
+  Idris2i_1_BtSym r = {NULL, NULL};
 #if BT_ELF
-  r.cname = idris2_bt_elfLookup(pc);
+  r.cname = idris2i_1_bt_elfLookup(pc);
   if (r.cname) {
     return r;
   }
@@ -424,7 +424,7 @@ static Idris2_BtSym idris2_bt_symbol(uintptr_t pc) {
 #if !BT_ELF
     // (the executable exports its functions on macOS)
     Dl_info me;
-    if (dladdr((void *)&idris2_backtracePrint, &me) != 0 &&
+    if (dladdr((void *)&idris2i_1_backtracePrint, &me) != 0 &&
         me.dli_fbase == info.dli_fbase) {
       r.lib = NULL;
     }
@@ -450,7 +450,7 @@ static struct {
   int started;
 } walk;
 
-static _Unwind_Reason_Code idris2_bt_frame(struct _Unwind_Context *ctx,
+static _Unwind_Reason_Code idris2i_1_bt_frame(struct _Unwind_Context *ctx,
                                            void *arg) {
   (void)arg;
   int before = 0;
@@ -479,16 +479,16 @@ static _Unwind_Reason_Code idris2_bt_frame(struct _Unwind_Context *ctx,
   return walk.n >= BT_LIMIT ? _URC_END_OF_STACK : _URC_NO_REASON;
 }
 
-static void idris2_bt_walk(int fromSignal) {
+static void idris2i_1_bt_walk(int fromSignal) {
   walk.n = 0;
   walk.fromSignal = fromSignal;
   walk.started = 0;
-  _Unwind_Backtrace(idris2_bt_frame, NULL);
+  _Unwind_Backtrace(idris2i_1_bt_frame, NULL);
   if (fromSignal && !walk.started) {
     // No frame of a signal: all of them, then.
     walk.n = 0;
     walk.fromSignal = 0;
-    _Unwind_Backtrace(idris2_bt_frame, NULL);
+    _Unwind_Backtrace(idris2i_1_bt_frame, NULL);
   }
 }
 
@@ -498,13 +498,13 @@ static void idris2_bt_walk(int fromSignal) {
 // The functions where a stack begins: the frames below them are those of the
 // runtime or of the C library.
 // (A backtrace captured for a crash boundary ends at the boundary.)
-static int idris2_bt_isBottom(const char *cname) {
+static int idris2i_1_bt_isBottom(const char *cname) {
   static const char *const bottoms[] = {"main_entry",     "thread_entry",
                                         "main",           "worker_main",
                                         "scheduler_loop", "__mainExpression_0"};
   size_t n = strcspn(cname, ".");
-  if (bt_capturing && n == strlen("idris2_crashCatch") &&
-      strncmp(cname, "idris2_crashCatch", n) == 0) {
+  if (bt_capturing && n == strlen("idris2i_1_crashCatch") &&
+      strncmp(cname, "idris2i_1_crashCatch", n) == 0) {
     return 1;
   }
   for (size_t i = 0; i < sizeof(bottoms) / sizeof(bottoms[0]); i++) {
@@ -526,36 +526,36 @@ static struct {
   size_t count;
 } line;
 
-static void idris2_bt_endLine(void) {
+static void idris2i_1_bt_endLine(void) {
   if (line.count == 0) {
     return;
   }
-  idris2_bt_puts("  ");
+  idris2i_1_bt_puts("  ");
   if (line.unknown) {
-    idris2_bt_puts("??");
+    idris2i_1_bt_puts("??");
   } else {
-    idris2_bt_putn(line.name, line.nameLen);
+    idris2i_1_bt_putn(line.name, line.nameLen);
   }
   if (line.loc) {
-    idris2_bt_puts(" (");
-    idris2_bt_puts(line.loc);
-    idris2_bt_puts(")");
+    idris2i_1_bt_puts(" (");
+    idris2i_1_bt_puts(line.loc);
+    idris2i_1_bt_puts(")");
   }
   if (line.lib) {
-    idris2_bt_puts(" [");
-    idris2_bt_puts(line.lib);
-    idris2_bt_puts("]");
+    idris2i_1_bt_puts(" [");
+    idris2i_1_bt_puts(line.lib);
+    idris2i_1_bt_puts("]");
   }
   if (line.count > 1) {
-    idris2_bt_puts(", ");
-    idris2_bt_putu(line.count);
-    idris2_bt_puts(" frames");
+    idris2i_1_bt_puts(", ");
+    idris2i_1_bt_putu(line.count);
+    idris2i_1_bt_puts(" frames");
   }
-  idris2_bt_puts("\n");
+  idris2i_1_bt_puts("\n");
   line.count = 0;
 }
 
-static void idris2_bt_addLine(const char *name, size_t len, const char *loc,
+static void idris2i_1_bt_addLine(const char *name, size_t len, const char *loc,
                               const char *lib, int unknown) {
   if (line.count > 0 && line.unknown == unknown && line.nameLen == len &&
       (unknown || strncmp(line.name, name, len) == 0) && line.loc == loc &&
@@ -563,7 +563,7 @@ static void idris2_bt_addLine(const char *name, size_t len, const char *loc,
     line.count++;
     return;
   }
-  idris2_bt_endLine();
+  idris2i_1_bt_endLine();
   line.name = name;
   line.nameLen = len;
   line.loc = loc;
@@ -573,74 +573,74 @@ static void idris2_bt_addLine(const char *name, size_t len, const char *loc,
 }
 
 // Print the frame at `pc`; returns 0 at the bottom of the stack.
-static int idris2_bt_printFrame(uintptr_t pc) {
-  Idris2_BtSym sym = idris2_bt_symbol(pc);
+static int idris2i_1_bt_printFrame(uintptr_t pc) {
+  Idris2i_1_BtSym sym = idris2i_1_bt_symbol(pc);
   if (!sym.cname || !*sym.cname) {
-    idris2_bt_addLine(NULL, 0, NULL, sym.lib, 1);
+    idris2i_1_bt_addLine(NULL, 0, NULL, sym.lib, 1);
     return 1;
   }
   if (!sym.lib) {
-    if (idris2_bt_isBottom(sym.cname)) {
+    if (idris2i_1_bt_isBottom(sym.cname)) {
       return 0;
     }
-    const Idris2_BacktraceName *e = idris2_bt_lookup(sym.cname);
+    const Idris2i_1_BacktraceName *e = idris2i_1_bt_lookup(sym.cname);
     if (e) {
-      idris2_bt_addLine(e->name, strlen(e->name), e->loc, NULL, 0);
+      idris2i_1_bt_addLine(e->name, strlen(e->name), e->loc, NULL, 0);
       return 1;
     }
     size_t n;
-    const char *base = idris2_bt_base(sym.cname, &n);
+    const char *base = idris2i_1_bt_base(sym.cname, &n);
     // (the functions of the runtime are left out)
-    if (idris2_bt_prefix(base, n, "idris2_") ||
-        idris2_bt_prefix(base, n, "Idris2_")) {
+    if (idris2i_1_bt_prefix(base, n, "idris2i_1_") ||
+        idris2i_1_bt_prefix(base, n, "Idris2i_1_")) {
       return 1;
     }
-    idris2_bt_addLine(base, n, NULL, NULL, 0);
+    idris2i_1_bt_addLine(base, n, NULL, NULL, 0);
     return 1;
   }
-  idris2_bt_addLine(sym.cname, strlen(sym.cname), NULL, sym.lib, 0);
+  idris2i_1_bt_addLine(sym.cname, strlen(sym.cname), NULL, sym.lib, 0);
   return 1;
 }
 
-static void idris2_bt_print(void) {
-  idris2_bt_puts("Backtrace of ");
-  Idris2_Thread *thread = idris2_currentThread();
-  int64_t id = thread ? idris2_threadId(thread) : -1;
+static void idris2i_1_bt_print(void) {
+  idris2i_1_bt_puts("Backtrace of ");
+  Idris2i_1_Thread *thread = idris2i_1_currentThread();
+  int64_t id = thread ? idris2i_1_threadId(thread) : -1;
   if (id == 0) {
-    idris2_bt_puts("the main thread");
+    idris2i_1_bt_puts("the main thread");
   } else if (id > 0) {
-    idris2_bt_puts("thread ");
-    idris2_bt_putu((unsigned long long)id);
+    idris2i_1_bt_puts("thread ");
+    idris2i_1_bt_putu((unsigned long long)id);
   } else {
-    idris2_bt_puts("the scheduler");
+    idris2i_1_bt_puts("the scheduler");
   }
-  idris2_bt_puts(", innermost call first:\n");
+  idris2i_1_bt_puts(", innermost call first:\n");
   line.count = 0;
   size_t inHead = walk.n < BT_HEAD ? walk.n : BT_HEAD;
   int more = 1;
   for (size_t i = 0; i < inHead && more; i++) {
-    more = idris2_bt_printFrame(walk.head[i]);
+    more = idris2i_1_bt_printFrame(walk.head[i]);
   }
   if (more && walk.n >= BT_LIMIT) {
     // (the outermost frames are not known)
-    idris2_bt_endLine();
-    idris2_bt_puts("  ... and more than ");
-    idris2_bt_putu(BT_LIMIT - BT_HEAD);
-    idris2_bt_puts(" more frames\n");
+    idris2i_1_bt_endLine();
+    idris2i_1_bt_puts("  ... and more than ");
+    idris2i_1_bt_putu(BT_LIMIT - BT_HEAD);
+    idris2i_1_bt_puts(" more frames\n");
   } else if (more && walk.n > BT_HEAD) {
-    idris2_bt_endLine();
+    idris2i_1_bt_endLine();
     size_t first = walk.n - BT_TAIL > BT_HEAD ? walk.n - BT_TAIL : BT_HEAD;
     if (first > BT_HEAD) {
-      idris2_bt_puts("  ... ");
-      idris2_bt_putu(first - BT_HEAD);
-      idris2_bt_puts(" more frames ...\n");
+      idris2i_1_bt_puts("  ... ");
+      idris2i_1_bt_putu(first - BT_HEAD);
+      idris2i_1_bt_puts(" more frames ...\n");
     }
     for (size_t i = first; i < walk.n && more; i++) {
-      more = idris2_bt_printFrame(walk.tail[i % BT_TAIL]);
+      more = idris2i_1_bt_printFrame(walk.tail[i % BT_TAIL]);
     }
   }
-  idris2_bt_endLine();
-  idris2_bt_flush();
+  idris2i_1_bt_endLine();
+  idris2i_1_bt_flush();
 }
 
 // ---------------------------------------------------------------------------
@@ -654,13 +654,13 @@ static void idris2_bt_print(void) {
 static _Thread_local long bt_me;
 static void *bt_owner = NULL;
 
-static int idris2_bt_isCapture(void *owner) {
+static int idris2i_1_bt_isCapture(void *owner) {
   return ((uintptr_t)owner & 1) != 0;
 }
 
 // 1 if this thread may report, 0 if it is reporting already (it crashed
 // while reporting, or while capturing).
-static int idris2_bt_claim(void) {
+static int idris2i_1_bt_claim(void) {
   void *me = &bt_me;
   for (;;) {
     void *expected = NULL;
@@ -671,17 +671,17 @@ static int idris2_bt_claim(void) {
     if (expected == me || expected == (char *)me + 1) {
       return 0;
     }
-    if (!idris2_bt_isCapture(expected)) {
+    if (!idris2i_1_bt_isCapture(expected)) {
       break;
     }
-    idris2_cpuRelax();
+    idris2i_1_cpuRelax();
   }
   for (;;) {
     pause();
   }
 }
 
-char *idris2_backtraceCapture(void) {
+char *idris2i_1_backtraceCapture(void) {
   if (!bt_on) {
     return NULL;
   }
@@ -695,7 +695,7 @@ char *idris2_backtraceCapture(void) {
     if (expected == &bt_me || expected == token) {
       return NULL; // (a crash while this thread reports)
     }
-    idris2_cpuRelax();
+    idris2i_1_cpuRelax();
   }
   bt_textCap = 1024;
   bt_textLen = 0;
@@ -704,8 +704,8 @@ char *idris2_backtraceCapture(void) {
     bt_text[0] = '\0';
   }
   bt_capturing = 1;
-  idris2_bt_walk(0);
-  idris2_bt_print();
+  idris2i_1_bt_walk(0);
+  idris2i_1_bt_print();
   bt_capturing = 0;
   char *text = bt_text;
   bt_text = NULL;
@@ -713,15 +713,15 @@ char *idris2_backtraceCapture(void) {
   return text;
 }
 
-void idris2_backtracePrint(void) {
-  if (!bt_on || !idris2_bt_claim()) {
+void idris2i_1_backtracePrint(void) {
+  if (!bt_on || !idris2i_1_bt_claim()) {
     return;
   }
-  idris2_bt_walk(0);
-  idris2_bt_print();
+  idris2i_1_bt_walk(0);
+  idris2i_1_bt_print();
 }
 
-static const char *idris2_bt_signalName(int sig) {
+static const char *idris2i_1_bt_signalName(int sig) {
   switch (sig) {
   case SIGSEGV:
     return "SIGSEGV";
@@ -739,8 +739,8 @@ static const char *idris2_bt_signalName(int sig) {
 }
 
 // Was the fault at `addr` that of a stack overflow?
-static int idris2_bt_isOverflow(const void *addr, void *uc) {
-  if (idris2_threadStackGuard(addr)) {
+static int idris2i_1_bt_isOverflow(const void *addr, void *uc) {
+  if (idris2i_1_threadStackGuard(addr)) {
     return 1;
   }
 #if BT_ELF && (defined(__x86_64__) || defined(__aarch64__))
@@ -759,35 +759,35 @@ static int idris2_bt_isOverflow(const void *addr, void *uc) {
 #endif
 }
 
-static void idris2_bt_signal(int sig, siginfo_t *info, void *uc) {
+static void idris2i_1_bt_signal(int sig, siginfo_t *info, void *uc) {
   int saved = errno;
-  if (idris2_bt_claim()) {
-    idris2_bt_puts("RefC: ");
+  if (idris2i_1_bt_claim()) {
+    idris2i_1_bt_puts("RefC: ");
     switch (sig) {
     case SIGSEGV:
-      idris2_bt_puts(idris2_bt_isOverflow(info->si_addr, uc)
+      idris2i_1_bt_puts(idris2i_1_bt_isOverflow(info->si_addr, uc)
                          ? "stack overflow"
                          : "segmentation fault");
       break;
     case SIGBUS:
-      idris2_bt_puts("bus error");
+      idris2i_1_bt_puts("bus error");
       break;
     case SIGFPE:
-      idris2_bt_puts(info->si_code == FPE_INTDIV ? "integer division by zero"
+      idris2i_1_bt_puts(info->si_code == FPE_INTDIV ? "integer division by zero"
                                                  : "arithmetic error");
       break;
     case SIGILL:
-      idris2_bt_puts("illegal instruction");
+      idris2i_1_bt_puts("illegal instruction");
       break;
     case SIGABRT:
-      idris2_bt_puts("aborted");
+      idris2i_1_bt_puts("aborted");
       break;
     }
-    idris2_bt_puts(" (");
-    idris2_bt_puts(idris2_bt_signalName(sig));
-    idris2_bt_puts(")\n");
-    idris2_bt_walk(1);
-    idris2_bt_print();
+    idris2i_1_bt_puts(" (");
+    idris2i_1_bt_puts(idris2i_1_bt_signalName(sig));
+    idris2i_1_bt_puts(")\n");
+    idris2i_1_bt_walk(1);
+    idris2i_1_bt_print();
   }
   // Die of the signal, as without the handler: it is delivered again once
   // the handler returns (and a fault happens again).
@@ -802,7 +802,7 @@ static void idris2_bt_signal(int sig, siginfo_t *info, void *uc) {
 
 #define BT_ALTSTACK_SIZE (128 * 1024)
 
-void idris2_backtraceThreadSetup(void) {
+void idris2i_1_backtraceThreadSetup(void) {
   if (!bt_on) {
     return;
   }
@@ -820,25 +820,25 @@ void idris2_backtraceThreadSetup(void) {
   }
 }
 
-static _Unwind_Reason_Code idris2_bt_stop(struct _Unwind_Context *ctx,
+static _Unwind_Reason_Code idris2i_1_bt_stop(struct _Unwind_Context *ctx,
                                           void *arg) {
   (void)ctx;
   (void)arg;
   return _URC_END_OF_STACK;
 }
 
-static void idris2_bt_start(void) {
+static void idris2i_1_bt_start(void) {
 #if BT_ELF
-  idris2_bt_elfLoad();
+  idris2i_1_bt_elfLoad();
 #endif
   // The unwinder and the dynamic loader may allocate memory the first time
   // they are used: not in a signal handler.
-  _Unwind_Backtrace(idris2_bt_stop, NULL);
-  (void)idris2_bt_symbol((uintptr_t)&idris2_bt_start);
-  idris2_backtraceThreadSetup();
+  _Unwind_Backtrace(idris2i_1_bt_stop, NULL);
+  (void)idris2i_1_bt_symbol((uintptr_t)&idris2i_1_bt_start);
+  idris2i_1_backtraceThreadSetup();
   struct sigaction sa;
   memset(&sa, 0, sizeof(sa));
-  sa.sa_sigaction = idris2_bt_signal;
+  sa.sa_sigaction = idris2i_1_bt_signal;
   sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
   sigemptyset(&sa.sa_mask);
   static const int signals[] = {SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT};
@@ -850,21 +850,21 @@ static void idris2_bt_start(void) {
 #else /* !BT_UNWIND */
 
 // No backtraces on this platform.
-void idris2_backtracePrint(void) {}
-char *idris2_backtraceCapture(void) { return NULL; }
-void idris2_backtraceThreadSetup(void) {}
-static void idris2_bt_start(void) { bt_on = 0; }
+void idris2i_1_backtracePrint(void) {}
+char *idris2i_1_backtraceCapture(void) { return NULL; }
+void idris2i_1_backtraceThreadSetup(void) {}
+static void idris2i_1_bt_start(void) { bt_on = 0; }
 
 #endif
 
-void idris2_backtraceSetup(void) {
-  const char *demangle = getenv("IDRIS2_REFC_DEMANGLE");
+void idris2i_1_backtraceSetup(void) {
+  const char *demangle = getenv("IDRIS2I_1_REFC_DEMANGLE");
   if (demangle && *demangle) {
-    idris2_bt_demangleFilter();
+    idris2i_1_bt_demangleFilter();
   }
-  const char *env = getenv("IDRIS2_REFC_BACKTRACE");
+  const char *env = getenv("IDRIS2I_1_REFC_BACKTRACE");
   bt_on = env && *env ? strcmp(env, "0") != 0 : bt_default;
   if (bt_on) {
-    idris2_bt_start();
+    idris2i_1_bt_start();
   }
 }

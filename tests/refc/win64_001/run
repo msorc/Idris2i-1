@@ -9,11 +9,11 @@
 # that the support headers include), but not linked.  Without a GCC 15 or
 # later for x86-64, the test only runs the program.
 
-idris2 -o main Main.idr
+idris2i-1 -o main Main.idr
 ./build/exec/main
 
 support=../../../support
-cc=${IDRIS2_CC:-${CC:-cc}}
+cc=${IDRIS2I_1_CC:-${CC:-cc}}
 
 mkdir -p build/winstub
 cat > build/winstub/probe.c <<EOC

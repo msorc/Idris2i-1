@@ -70,7 +70,7 @@ Example: File I/O
 
 Console I/O can be implemented directly, but most I/O operations can fail.
 For example, opening a file can fail for several reasons: the file does not
-exist; the user has the wrong permissions, etc. In Idris, the ``IO``
+exist; the user has the wrong permissions, etc. In Idris2i-1, the ``IO``
 primitive reflects this in its type:
 
 .. code-block:: idris

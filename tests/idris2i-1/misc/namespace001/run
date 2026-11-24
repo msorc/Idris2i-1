@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+echo ':q' | idris2i-1 Dup.idr
+echo ':t Test' | idris2i-1 Scope.idr

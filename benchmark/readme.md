@@ -1,12 +1,12 @@
-# UNIX Benchmark suite for Idris2
+# UNIX Benchmark suite for Idris2i-1
 
 Dependencies:
-- A working Idris2 installation
+- A working Idris2i-1 installation
 - GNU time command (at usr/bin/time)
 
 ## Motivation
 
-We were aiming to optimise the reference counting backend for Idris2, but it quickly became apparent that this would be difficult without a consistent performance metric. This is the product of that issue, a simple benchmarking shell script. We aim for this to be usable across all of the code generators, though so far it has only been tested on the chez and refc (still in development) backends.
+We were aiming to optimise the reference counting backend for Idris2i-1, but it quickly became apparent that this would be difficult without a consistent performance metric. This is the product of that issue, a simple benchmarking shell script. We aim for this to be usable across all of the code generators, though so far it has only been tested on the chez and refc (still in development) backends.
 
 ## Structure
 
@@ -21,7 +21,7 @@ is `CASE SIZE [REPEATS]`, and each case (`vmap`, `fplus`, `nlte`, ...) stands be
 Feed a single line to the executable to measure a single case, e.g.
 `echo "vtabulate 3000 1" | perf stat -e instructions:u ./vectFin`.
 
-If you've got any Idris2 code that you think could be adapted to make a good benchmark, please do contribute!
+If you've got any Idris2i-1 code that you think could be adapted to make a good benchmark, please do contribute!
 
 ## Using the script
 
@@ -37,6 +37,6 @@ Usage: bench.sh [OPTION]...
 
 e.g. `./bench.sh -fbc refc -o myrefcoutput`
 
-Note that the default backend of the script is still chez, while `idris2`
+Note that the default backend of the script is still chez, while `idris2i-1`
 itself compiles with refc by default: pass `-c` to choose the backend
 explicitly.

@@ -11,7 +11,7 @@
 
 /lib
 
-idris2docs_venv
+idris2i_1docs_venv
 /docs/build
 
 /libs/**/build

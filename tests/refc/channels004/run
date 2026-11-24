@@ -1,7 +1,7 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
+idris2i-1 -o main Main.idr
 for w in 1 2 8; do
-  echo "IDRIS2_WORKERS=$w"
-  IDRIS2_WORKERS=$w ./build/exec/main
+  echo "IDRIS2I_1_WORKERS=$w"
+  IDRIS2I_1_WORKERS=$w ./build/exec/main
 done

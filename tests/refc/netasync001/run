@@ -2,6 +2,6 @@
 
 # (two descriptors per client)
 ulimit -n 4096 2>/dev/null
-idris2 -p network -o main Main.idr
-IDRIS2_WORKERS=1 ./build/exec/main
-IDRIS2_WORKERS=4 ./build/exec/main
+idris2i-1 -p network -o main Main.idr
+IDRIS2I_1_WORKERS=1 ./build/exec/main
+IDRIS2I_1_WORKERS=4 ./build/exec/main

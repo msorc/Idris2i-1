@@ -7,7 +7,7 @@ Theorem Proving
 Equality
 ========
 
-Idris allows propositional equalities to be declared, allowing theorems about
+Idris2i-1 allows propositional equalities to be declared, allowing theorems about
 programs to be stated and proved. An equality type is defined as follows in the
 Prelude:
 
@@ -151,7 +151,7 @@ construct in one go. When things get even slightly more complicated, it
 becomes too much to think about to construct proofs in this “batch
 mode”.
 
-Idris provides interactive editing capabilities, which can help with
+Idris2i-1 provides interactive editing capabilities, which can help with
 building proofs. For more details on building proofs interactively in
 an editor, see :ref:`proofs-index`.
 
@@ -193,7 +193,7 @@ Unfortunately, this fails with a type error:
 The problem is that normalising ``S j + S j``, in the type of ``Even``
 doesn't result in what we need for the type of the right hand side of
 ``Parity``. We know that ``S (S (plus j j))`` is going to be equal to
-``S j + S j``, but we need to explain it to Idris with a proof. We can
+``S j + S j``, but we need to explain it to Idris2i-1 with a proof. We can
 begin by adding some *holes* (see :ref:`sect-holes`) to the definition:
 
 .. code-block:: idris
@@ -315,7 +315,7 @@ anything:
     empty2 : Void
     empty2 = empty2
 
-Internally, Idris checks every definition for totality, and we can check at
+Internally, Idris2i-1 checks every definition for totality, and we can check at
 the prompt with the ``:total`` command. We see that neither of the above
 definitions is total:
 
@@ -399,7 +399,7 @@ For instance, ``[x .. y]`` on ``Int`` passes ``Integral Int`` on to the
 ``Ord`` and ``Neg`` (and the ``Num`` parent of ``Neg``), so it is total; and
 a function using only the covering methods of an implementation, or only its
 covering parents, is total. To find out what a function may use of an
-implementation, Idris looks at what is done with it, following it through
+implementation, Idris2i-1 looks at what is done with it, following it through
 the definitions of the functions it is given to:
 
 -  Matching on it (as the projections of methods and parents do) uses the
@@ -449,9 +449,9 @@ Directives and Compiler Flags for Totality
 
 .. warning::
 
-   Not all of this is implemented yet for Idris 2
+   Not all of this is implemented yet for Idris2i-1
 
-By default, Idris allows all well-typed definitions, whether total or not.
+By default, Idris2i-1 allows all well-typed definitions, whether total or not.
 However, it is desirable for functions to be total as far as possible, as this
 provides a guarantee that they provide a result for all possible inputs, in
 finite time. It is possible to make total functions a requirement, either:
@@ -479,7 +479,7 @@ is total which is not. Do not rely on it for your proofs yet!
 Hints for totality
 ------------------
 
-In cases where you believe a program is total, but Idris does not agree, it is
+In cases where you believe a program is total, but Idris2i-1 does not agree, it is
 possible to give hints to the checker to give more detail for a termination
 argument. The checker works by ensuring that all chains of recursive calls
 eventually lead to one of the arguments decreasing towards a base case, but

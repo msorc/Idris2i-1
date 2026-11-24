@@ -14,7 +14,7 @@ if [ ! -f build.sh ]; then
   echo "$ALL" | while read -r t; do fail "$t" "nothing was built"; done
   exit 0
 fi
-IDRIS2=$IDRIS PATH="$(dirname "$IDRIS"):$PATH" sh build.sh >"$GRADE_TMP/build.log" 2>&1
+IDRIS2I_1=$IDRIS PATH="$(dirname "$IDRIS"):$PATH" sh build.sh >"$GRADE_TMP/build.log" 2>&1
 if [ -x build/exec/geom ]; then
   pass "sh build.sh produces build/exec/geom" "$(tail -n 2 "$GRADE_TMP/build.log")"
 else

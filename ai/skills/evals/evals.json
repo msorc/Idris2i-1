@@ -3,7 +3,7 @@
     {
       "id": 1,
       "name": "wordfreq",
-      "skill": "idris2",
+      "skill": "idris2i-1",
       "about": "A command-line tool in a package: words, sorting, exit codes, standard error.",
       "prompt": "tasks/wordfreq/prompt.md",
       "grader": "tasks/wordfreq/grade.sh"
@@ -11,7 +11,7 @@
     {
       "id": 2,
       "name": "bank",
-      "skill": "idris2",
+      "skill": "idris2i-1",
       "about": "Port a Haskell program: records, guards, Data.Map, reading standard input to the end.",
       "prompt": "tasks/bank/prompt.md",
       "grader": "tasks/bank/grade.sh"
@@ -19,7 +19,7 @@
     {
       "id": 3,
       "name": "fix-errors",
-      "skill": "idris2",
+      "skill": "idris2i-1",
       "about": "Repair a file written with Haskell habits until it prints the expected output.",
       "prompt": "tasks/fix-errors/prompt.md",
       "grader": "tasks/fix-errors/grade.sh"
@@ -27,7 +27,7 @@
     {
       "id": 4,
       "name": "matrix",
-      "skill": "idris2",
+      "skill": "idris2i-1",
       "about": "Dependently typed matrices on Vect: transpose, product, identity, all total.",
       "prompt": "tasks/matrix/prompt.md",
       "grader": "tasks/matrix/grade.sh"
@@ -35,7 +35,7 @@
     {
       "id": 5,
       "name": "lemmas",
-      "skill": "idris2-proofs",
+      "skill": "idris2i-1-proofs",
       "about": "Prove five lemmas about a list reverse and a sum, with no escape hatches.",
       "prompt": "tasks/lemmas/prompt.md",
       "grader": "tasks/lemmas/grade.sh"
@@ -43,7 +43,7 @@
     {
       "id": 6,
       "name": "make-total",
-      "skill": "idris2-proofs",
+      "skill": "idris2i-1-proofs",
       "about": "Make five working functions pass %default total without assertions.",
       "prompt": "tasks/make-total/prompt.md",
       "grader": "tasks/make-total/grade.sh"
@@ -51,7 +51,7 @@
     {
       "id": 7,
       "name": "sumsvc",
-      "skill": "idris2-libraries",
+      "skill": "idris2i-1-libraries",
       "about": "An HTTP service with JSON bodies and a counter that survives parallel requests.",
       "prompt": "tasks/sumsvc/prompt.md",
       "grader": "tasks/sumsvc/grade.sh"
@@ -59,7 +59,7 @@
     {
       "id": 8,
       "name": "logstats",
-      "skill": "idris2-libraries",
+      "skill": "idris2i-1-libraries",
       "about": "Process files in threads that report over a channel; merge and print statistics.",
       "prompt": "tasks/logstats/prompt.md",
       "grader": "tasks/logstats/grade.sh"
@@ -67,7 +67,7 @@
     {
       "id": 9,
       "name": "zlib",
-      "skill": "idris2-ffi",
+      "skill": "idris2i-1-ffi",
       "about": "Bind crc32, compress and uncompress from zlib and round-trip a string.",
       "prompt": "tasks/zlib/prompt.md",
       "grader": "tasks/zlib/grade.sh"
@@ -75,7 +75,7 @@
     {
       "id": 10,
       "name": "geom",
-      "skill": "idris2-ffi",
+      "skill": "idris2i-1-ffi",
       "about": "Bind a C library with an opaque handle, a struct out-parameter, a callback and an owned string.",
       "prompt": "tasks/geom/prompt.md",
       "grader": "tasks/geom/grade.sh"
@@ -83,7 +83,7 @@
     {
       "id": 11,
       "name": "speedup",
-      "skill": "idris2-performance",
+      "skill": "idris2i-1-performance",
       "about": "Find and remove the slow spots of a program: at least 50 times fewer instructions.",
       "prompt": "tasks/speedup/prompt.md",
       "grader": "tasks/speedup/grade.sh"
@@ -91,7 +91,7 @@
     {
       "id": 12,
       "name": "slowcheck",
-      "skill": "idris2-performance",
+      "skill": "idris2i-1-performance",
       "about": "Make a file that takes 15 s to type-check take a fifth of that or less.",
       "prompt": "tasks/slowcheck/prompt.md",
       "grader": "tasks/slowcheck/grade.sh"
@@ -99,7 +99,7 @@
     {
       "id": 13,
       "name": "add-test",
-      "skill": "idris2-compiler-dev",
+      "skill": "idris2i-1-compiler-dev",
       "about": "Add a golden test to the compiler's suite, in a worktree, without building the compiler.",
       "prompt": "tasks/add-test/prompt.md",
       "grader": "tasks/add-test/grade.sh"
@@ -107,7 +107,7 @@
     {
       "id": 14,
       "name": "done-checklist",
-      "skill": "idris2-compiler-dev",
+      "skill": "idris2i-1-compiler-dev",
       "about": "Write the exact steps from an edited error message to a commit-ready tree.",
       "prompt": "tasks/done-checklist/prompt.md",
       "grader": "tasks/done-checklist/grade.sh"
@@ -115,7 +115,7 @@
     {
       "id": 15,
       "name": "leak",
-      "skill": "idris2-performance",
+      "skill": "idris2i-1-performance",
       "about": "Find and break two reference cycles that make a RefC program's memory grow.",
       "prompt": "tasks/leak/prompt.md",
       "grader": "tasks/leak/grade.sh"
@@ -123,7 +123,7 @@
     {
       "id": 16,
       "name": "meter",
-      "skill": "idris2-performance",
+      "skill": "idris2i-1-performance",
       "about": "Cut instructions 8 times in a program whose costs are specific to this back end: IORef updates, a kept matched value, an unmemoised Lazy, strIndex on non-ASCII text.",
       "prompt": "tasks/meter/prompt.md",
       "grader": "tasks/meter/grade.sh"
@@ -131,7 +131,7 @@
     {
       "id": 17,
       "name": "arith",
-      "skill": "idris2-proofs",
+      "skill": "idris2i-1-proofs",
       "about": "Prove six polynomial facts about Nat and write four Vect functions whose sizes need them.",
       "prompt": "tasks/arith/prompt.md",
       "grader": "tasks/arith/grade.sh"
@@ -139,7 +139,7 @@
     {
       "id": 18,
       "name": "deceq",
-      "skill": "idris2-proofs",
+      "skill": "idris2i-1-proofs",
       "about": "Give total DecEq implementations for five types, one indexed, one nested, one with an erased proof.",
       "prompt": "tasks/deceq/prompt.md",
       "grader": "tasks/deceq/grade.sh"

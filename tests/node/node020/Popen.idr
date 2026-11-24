@@ -25,5 +25,5 @@ main = do
         | Left err => printLn err
     ignore $ pclose fh
     putStrLn "closed"
-    let (idris2 ::: _) = split ((==) ',') output
-    putStrLn idris2
+    let (idris2i_1 ::: _) = split ((==) ',') output
+    putStrLn idris2i_1

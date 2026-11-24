@@ -12,7 +12,7 @@
 # the tests install in ./prefix, see testutils.sh)
 pkg() {
   echo "--- $*"
-  idris2_no_clean "$@" exe.ipkg > pkg.log 2> /dev/null
+  idris2i_1_no_clean "$@" exe.ipkg > pkg.log 2> /dev/null
   echo "exit code: $?"
   # (a module may be reported as built when it is only checked)
   grep -v "^Installing\|Building" pkg.log

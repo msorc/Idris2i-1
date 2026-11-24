@@ -2,7 +2,7 @@
 ||| type without re-exporting the unsafe operations of
 ||| `Data.ByteString.Internal`.
 |||
-||| Idris 2 re-exports whole modules (`import public`), and the constructor of
+||| Idris2i-1 re-exports whole modules (`import public`), and the constructor of
 ||| a type has to be visible to the module that builds on it, so the type is in
 ||| a module of its own.  The constructor is therefore visible to a program
 ||| that imports `Data.ByteString`, but programs must not use it: building a

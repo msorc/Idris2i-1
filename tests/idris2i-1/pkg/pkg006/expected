@@ -1,0 +1,21 @@
+Error: Failed to resolve the dependencies for test3: [E0000]
+  Required foo >= 0.4 && < 0.5 but no matching version is installed.
+
+Searched for packages in:
+  [...]/tests/idris2i-1/pkg/pkg006/depends
+  [...]/tests/idris2i-1/pkg/pkg006/prefix/idris2i-1-x.y.z
+  [...]/build/env/idris2i-1-x.y.z
+
+For more details on what packages Idris2i-1 can locate, run `idris2i-1 --list-packages`
+
+Error: Failed to resolve the dependencies for test4: [E0000]
+  Required baz any but no matching version is installed.
+
+Searched for packages in:
+  [...]/tests/idris2i-1/pkg/pkg006/depends
+  [...]/tests/idris2i-1/pkg/pkg006/prefix/idris2i-1-x.y.z
+  [...]/build/env/idris2i-1-x.y.z
+
+For more details on what packages Idris2i-1 can locate, run `idris2i-1 --list-packages`
+
+Warning: Deprecation warning: version numbers must now be of the form x.y.z [W0006]

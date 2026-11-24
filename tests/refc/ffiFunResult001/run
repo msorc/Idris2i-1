@@ -4,4 +4,4 @@
 # checked first, so only the code generator reports).
 
 check FunResult.idr
-idris2 -o funresult FunResult.idr
+idris2i-1 -o funresult FunResult.idr

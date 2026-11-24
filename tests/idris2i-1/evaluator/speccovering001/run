@@ -1,0 +1,4 @@
+. ../../../testutils.sh
+
+idris2i-1 --exec main Covering.idr
+idris2i-1 --spec-interfaces --exec main Covering.idr

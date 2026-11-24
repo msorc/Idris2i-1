@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2 -o reverse Reverse.idr
+idris2i-1 -o reverse Reverse.idr
 $VALGRIND ./build/exec/reverse

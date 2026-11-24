@@ -6,7 +6,7 @@ Failing blocks
 
 Failing blocks let users check that some code parses but is rejected during
 elaboration. Their simplest form is using the keyword ``failing`` followed by
-some indented Idris code:
+some indented Idris2i-1 code:
 
 .. code-block:: idris
 
@@ -14,7 +14,7 @@ some indented Idris code:
       trueNotFalse : True === False
       trueNotFalse = Refl
 
-Putting the code above in a file and asking Idris to check it will not produce
+Putting the code above in a file and asking Idris2i-1 to check it will not produce
 an error message since the code in the ``failing`` block is rejected, i.e.
 fails.
 
@@ -23,7 +23,7 @@ string attached to the failing block is checked against the error message raised
 to check that it appears in the error. This lets the user document the kind of
 error expected in the block, while at the same time checking that the error
 message is indeed what we expected. For example, in the following example, we
-make sure that Idris rejects a proof that the character ``'a'`` is equal to
+make sure that Idris2i-1 rejects a proof that the character ``'a'`` is equal to
 ``'b'`` by throwing an error when unifying them:
 
 .. code-block:: idris

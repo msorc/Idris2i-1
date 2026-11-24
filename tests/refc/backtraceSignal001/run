@@ -5,8 +5,8 @@
 # of the signal.
 
 ulimit -c 0
-export IDRIS2_CFLAGS="-I. $IDRIS2_CFLAGS"
-idris2 --directive refc-backtrace -o bt Main.idr
+export IDRIS2I_1_CFLAGS="-I. $IDRIS2I_1_CFLAGS"
+idris2i-1 --directive refc-backtrace -o bt Main.idr
 
 # (the frames in the C library, under abort, depend on its version)
 for s in segv fpe abort bus; do

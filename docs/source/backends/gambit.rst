@@ -8,13 +8,13 @@ The Gambit Scheme code generator can be accessed via the REPL command:
 
     Main> :set cg gambit
 
-Alternatively, you can set it via the ``IDRIS2_CG`` environment variable:
+Alternatively, you can set it via the ``IDRIS2I_1_CG`` environment variable:
 
 ::
 
-    $ export IDRIS2_CG=gambit
+    $ export IDRIS2I_1_CG=gambit
 
-To run Idris programs with this generator, you will need to install
+To run Idris2i-1 programs with this generator, you will need to install
 `Gambit Scheme <https://gambitscheme.org>`_. Gambit Scheme is free software,
 and available via most package managers.
 
@@ -65,7 +65,7 @@ Gambit Directives
 
   .. code-block:: shell
 
-    $ idris2 --codegen gambit --directive extraRuntime=/path/to/extensions.scm -o main Main.idr
+    $ idris2i-1 --codegen gambit --directive extraRuntime=/path/to/extensions.scm -o main Main.idr
 
 * ``--directive C``
 
@@ -73,7 +73,7 @@ Gambit Directives
 
   .. code-block:: shell
 
-    $ idris2 --codegen gambit --directive C -o main.c Main.idr
+    $ idris2i-1 --codegen gambit --directive C -o main.c Main.idr
 
 Gambit Environment Configurations
 =================================

@@ -1,12 +1,12 @@
 . ../../testutils.sh
 
 # The API of the http-tls library must be the one committed in libs/api (as for
-# the other libraries in idris2/mkdoc/apidump002-libs, which cannot test it:
+# the other libraries in idris2i-1/mkdoc/apidump002-libs, which cannot test it:
 # the library is optional).  When a change to the API is intended, run
 # `make api-snapshots` and commit libs/api.
 libs=../../../libs
 mkdir -p build
-(cd "$libs/http-tls" && idris2_no_clean --dump-api http-tls.ipkg) 2>/dev/null | grep -v "^make" > build/http-tls.api
+(cd "$libs/http-tls" && idris2i_1_no_clean --dump-api http-tls.ipkg) 2>/dev/null | grep -v "^make" > build/http-tls.api
 if diff -u -F "^module " -L "libs/api/http-tls.api" -L "http-tls now" "$libs/api/http-tls.api" build/http-tls.api; then
   echo "http-tls: the API is the one of libs/api/http-tls.api"
 else

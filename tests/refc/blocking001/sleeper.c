@@ -1,9 +1,9 @@
-// A call that blocks its OS thread, run through idris2_blockingCall so that
+// A call that blocks its OS thread, run through idris2i_1_blockingCall so that
 // it does not block the worker of the green thread that makes it.
 #include <stdint.h>
 #include <time.h>
 
-int idris2_blockingCall(void (*fn)(void *), void *arg);
+int idris2i_1_blockingCall(void (*fn)(void *), void *arg);
 
 static void sleep_ms(void *arg) {
   int64_t ms = *(int64_t *)arg;
@@ -13,5 +13,5 @@ static void sleep_ms(void *arg) {
 }
 
 int64_t test_sleepBlocking(int64_t ms) {
-  return idris2_blockingCall(sleep_ms, &ms);
+  return idris2i_1_blockingCall(sleep_ms, &ms);
 }

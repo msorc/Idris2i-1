@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sum the profiles that `idris2 --timing-summary` printed, in one log or
+# Sum the profiles that `idris2i-1 --timing-summary` printed, in one log or
 # several (a build with --jobs prints one profile per process: they are all
 # added up), and print them as tables.
 #

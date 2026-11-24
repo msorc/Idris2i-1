@@ -6,14 +6,14 @@
 # getter of a buffer, through an `%inline` wrapper of another module),
 # rather than calling a worker that is compiled in another part.  The
 # program is split into parts as a big one would be.
-idris2 --directive refc-split-size=200 -o main Main.idr > /dev/null
+idris2i-1 --directive refc-split-size=200 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 for f in prim__byteAt prim__setByte; do
-  w="idris2_raw_Bytes_$f"
+  w="idris2i_1_raw_Bytes_$f"
   echo "$f: inline in $(grep -l "^static inline [A-Za-z0-9_]* *\*\{0,1\}$w(" build/exec/main.u*.c | wc -l) parts," \
        "defined out of line in $(grep -l "^[A-Za-z0-9_]* *\*\{0,1\}$w\$" build/exec/main.u*.c | wc -l)"
 done
 # (the part with the loop calls the worker, which is inline there)
-part=$(grep -l "^Idris2_Value \*idris2_raw_Main_sumBytes\|^int64_t idris2_raw_Main_sumBytes$" build/exec/main.u*.c | head -1)
-echo "loop part has the inline worker: $(grep -c "^static inline uint8_t idris2_raw_Bytes_prim__byteAt(" $part)"
+part=$(grep -l "^Idris2i_1_Value \*idris2i_1_raw_Main_sumBytes\|^int64_t idris2i_1_raw_Main_sumBytes$" build/exec/main.u*.c | head -1)
+echo "loop part has the inline worker: $(grep -c "^static inline uint8_t idris2i_1_raw_Bytes_prim__byteAt(" $part)"
 rm -rf build

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void idris2_verify_failed(const char *file, int line, const char *cond,
+void idris2i_1_verify_failed(const char *file, int line, const char *cond,
                           const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);

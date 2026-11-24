@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
-idris2 -o test Export.idr
+idris2i-1 -o test Export.idr
 grep -e "^function loop(" -e "^function Main_loop2(" build/exec/test
 node build/exec/test

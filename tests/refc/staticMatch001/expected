@@ -5,14 +5,14 @@ blue/mix
 red/blue
 RefC leak check: 0 leaked values
     case 0: { /* Main.Leaf */
-        Idris2_Value * var_2 = idris2_nullaryConstructor(0) /* Main.Leaf */;
-        Idris2_Value * var_3 = idris2_nullaryConstructor(0) /* Main.Leaf */;
-        Idris2_Constructor* constructor_1 = idris2_newRawConstructor(2, 1, 1);
+        Idris2i_1_Value * var_2 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
+        Idris2i_1_Value * var_3 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
+        Idris2i_1_Constructor* constructor_1 = idris2i_1_newRawConstructor(2, 1, 1);
         constructor_1->args[0] = var_2;
         constructor_1->args[1] = var_3;
-        idris2_rawField(constructor_1, 2, 0, int64_t) = idris2_vp_to_Int64(var_0);
-        idris2_removeReference(var_0);
-        tmp_0 = (Idris2_Value*)constructor_1;
+        idris2i_1_rawField(constructor_1, 2, 0, int64_t) = idris2i_1_vp_to_Int64(var_0);
+        idris2i_1_removeReference(var_0);
+        tmp_0 = (Idris2i_1_Value*)constructor_1;
       break;
 3
 5
@@ -21,13 +21,13 @@ green/green
 blue/mix
 red/blue
     case 0: { /* Main.Leaf */
-        idris2_removeReference(var_1);
-        Idris2_Value * var_2 = idris2_nullaryConstructor(0) /* Main.Leaf */;
-        Idris2_Value * var_3 = idris2_nullaryConstructor(0) /* Main.Leaf */;
-        Idris2_Constructor* constructor_1 = idris2_newRawConstructor(2, 1, 1);
+        idris2i_1_removeReference(var_1);
+        Idris2i_1_Value * var_2 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
+        Idris2i_1_Value * var_3 = idris2i_1_nullaryConstructor(0) /* Main.Leaf */;
+        Idris2i_1_Constructor* constructor_1 = idris2i_1_newRawConstructor(2, 1, 1);
         constructor_1->args[0] = var_2;
         constructor_1->args[1] = var_3;
-        idris2_rawField(constructor_1, 2, 0, int64_t) = idris2_vp_to_Int64(var_0);
-        idris2_removeReference(var_0);
-        tmp_0 = (Idris2_Value*)constructor_1;
+        idris2i_1_rawField(constructor_1, 2, 0, int64_t) = idris2i_1_vp_to_Int64(var_0);
+        idris2i_1_removeReference(var_0);
+        tmp_0 = (Idris2i_1_Value*)constructor_1;
       break;

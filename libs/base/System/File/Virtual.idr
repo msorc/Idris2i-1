@@ -6,15 +6,15 @@ import public System.File.Types
 
 %default total
 
-%foreign supportC "idris2_stdin"
+%foreign supportC "idris2i_1_stdin"
          supportNode "stdin"
 prim__stdin : FilePtr
 
-%foreign supportC "idris2_stdout"
+%foreign supportC "idris2i_1_stdout"
          supportNode "stdout"
 prim__stdout : FilePtr
 
-%foreign supportC "idris2_stderr"
+%foreign supportC "idris2i_1_stderr"
          supportNode "stderr"
 prim__stderr : FilePtr
 

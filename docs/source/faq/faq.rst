@@ -2,12 +2,12 @@
 Frequently Asked Questions
 **************************
 
-What are the aims of the Idris project?
-=======================================
+What are the aims of the Idris2i-1 project?
+===========================================
 
-Idris aims to make advanced type-related programming techniques accessible to
+Idris2i-1 aims to make advanced type-related programming techniques accessible to
 software practitioners. An important philosophy that we follow is that
-Idris *allows* software developers to express invariants of their data and
+Idris2i-1 *allows* software developers to express invariants of their data and
 prove properties of programs, but will not *require* them to do so.
 
 Many of the answers in this FAQ demonstrate this philosophy, and we always
@@ -23,23 +23,23 @@ widely usable as we can!
 Where can I find libraries? Is there a package manager?
 =======================================================
 
-Idris doesn't have an official package manager, but there are a number of
+Idris2i-1 doesn't have an official package manager, but there are a number of
 community-maintained package managers
 `listed on the wiki <https://github.com/idris-lang/Idris2/wiki/Third-party-Libraries#package-management>`_
 (`pack <https://github.com/stefan-hoeck/idris2-pack>`_ is particularly widely
 used and actively maintained). On that page you can also find a number of
 community libraries.
 
-Can Idris 2 compile itself?
-===========================
+Can Idris2i-1 compile itself?
+=============================
 
-Yes, Idris 2 is implemented in Idris 2. It targets C by default, and
+Yes, Idris2i-1 is implemented in Idris2i-1. It targets C by default, and
 `Chez Scheme <https://cisco.github.io/ChezScheme/>`_ among others, so you can
 bootstrap from the generated C or Scheme code, as described in Section
 :ref:`sect-starting`.
 
-Why does Idris 2 target Scheme? Surely a dynamically typed target language is going to be slow?
-===============================================================================================
+Why does Idris2i-1 target Scheme? Surely a dynamically typed target language is going to be slow?
+=================================================================================================
 
 You may be surprised at how fast Chez Scheme is! `Racket <https://download.racket-lang.org/>`_,
 as an alternative target, also performs well. Both perform better than the
@@ -64,28 +64,28 @@ the bootstrapping Idris 2 is no longer able to build the current version.
 This is, nevertheless, not intended to be a long term solution, even if it
 is a very convenient way to bootstrap.
 
-Can Idris 2 generate Javascript? What about plug-in code generators?
-====================================================================
+Can Idris2i-1 generate Javascript? What about plug-in code generators?
+======================================================================
 
 Yes! A `JavaScript code generator <https://idris2.readthedocs.io/en/latest/backends/javascript.html>`_
 is built in, and can target either the browser or NodeJS.
 
-Like Idris 1, Idris 2
+Like Idris 1, Idris2i-1
 `supports plug-in code generation <https://idris2.readthedocs.io/en/latest/backends/custom.html>`_
 to allow you to write a back end for the platform of your choice.
 
-What are the main differences between Idris 1 and Idris 2?
-==========================================================
+What are the main differences between Idris 1 and Idris2i-1?
+============================================================
 
-The most important difference is that Idris 2 explicitly represents *erasure*
+The most important difference is that Idris2i-1 explicitly represents *erasure*
 in types, so that you can see at compile time which function and data type
 arguments are erased, and which will be present at run time. You can see more
 details in :ref:`sect-multiplicities`.
 
-Idris 2 has significantly better type checking performance (perhaps even an
+Idris2i-1 has significantly better type checking performance (perhaps even an
 order of magnitude!) and generates significantly better code.
 
-Also, being implemented in Idris, we've been able to take advantage of the
+Also, being implemented in Idris2i-1, we've been able to take advantage of the
 type system to remove some significant sources of bugs!
 
 You can find more details in Section :ref:`updates-index`.
@@ -93,7 +93,7 @@ You can find more details in Section :ref:`updates-index`.
 Why aren't there more linearity annotations in the library?
 ===========================================================
 
-In theory, now that Idris 2 is based on Quantitative Type Theory (see
+In theory, now that Idris2i-1 is based on Quantitative Type Theory (see
 Section :ref:`sect-multiplicities`), we can write more precise types in the
 Prelude and Base libraries which give more precise usage information. We have
 chosen not to do that (yet) however. Consider, for example, what would happen
@@ -118,33 +118,33 @@ experimental new feature in the type system, and therefore we follow the general
 philosophy that if you don't want to use linearity, its presence mustn't
 impact the way you write programs.
 
-How do I get command history in the Idris2 REPL?
-================================================
+How do I get command history in the Idris2i-1 REPL?
+===================================================
 
 When it runs in a terminal, the REPL has a built-in line editor, which does
 not depend on ``readline`` or any other library: it has the usual readline
 key bindings, completion with ``Tab``, syntax highlighting, and a history
-that is kept between sessions in ``~/.idris2_history`` (or in the file named
-by ``IDRIS2_HISTORY_FILE``). See :ref:`sect-repl-editing` for the details.
+that is kept between sessions in ``~/.idris2i_1_history`` (or in the file named
+by ``IDRIS2I_1_HISTORY_FILE``). See :ref:`sect-repl-editing` for the details.
 
 The line editor is off when the input or the output is not a terminal, when
-``TERM`` is unset or ``dumb``, or when ``IDRIS2_LINE_EDITING`` is ``0``. If
+``TERM`` is unset or ``dumb``, or when ``IDRIS2I_1_LINE_EDITING`` is ``0``. If
 you prefer another line editor, such as
 `rlwrap <https://linux.die.net/man/1/rlwrap>`_, turn the built-in one off and
-run the REPL under it: ``IDRIS2_LINE_EDITING=0 rlwrap idris2``.
+run the REPL under it: ``IDRIS2I_1_LINE_EDITING=0 rlwrap idris2i-1``.
 
-The goal, eventually, is to use the IDE mode or the Idris API as the basis of
+The goal, eventually, is to use the IDE mode or the Idris2i-1 API as the basis of
 an implementation of a sophisticated REPL, developed independently from the
-Idris 2 core. As far as we know, nobody is yet working on this: if you're
+Idris2i-1 core. As far as we know, nobody is yet working on this: if you're
 interested, please get in touch and we can help you get started!
 
-Why does Idris use eager evaluation rather than lazy?
-=====================================================
+Why does Idris2i-1 use eager evaluation rather than lazy?
+=========================================================
 
-Idris uses eager evaluation for more predictable performance, in particular
+Idris2i-1 uses eager evaluation for more predictable performance, in particular
 because one of the longer term goals is to be able to write efficient and
 verified low level code such as device drivers and network infrastructure.
-Furthermore, the Idris type system allows us to state precisely the type
+Furthermore, the Idris2i-1 type system allows us to state precisely the type
 of each value, and therefore the run-time form of each value. In a lazy
 language, consider a value of type ``Int``:
 
@@ -154,7 +154,7 @@ language, consider a value of type ``Int``:
 
 What is the representation of ``thing`` at run-time? Is it a bit pattern
 representing an integer, or is it a pointer to some code which will compute
-an integer? In Idris, we have decided that we would like to make this
+an integer? In Idris2i-1, we have decided that we would like to make this
 distinction precise, in the type:
 
 .. code-block:: idris
@@ -183,18 +183,18 @@ The type ``Lazy a`` for ``t`` and ``e`` indicates that those arguments will
 only be evaluated if they are used, that is, they are evaluated lazily.
 
 By the way: we don't actually implement ``if...then...else...`` this way in
-Idris 2! Rather, it is transformed to a ``case`` expression which allows
+Idris2i-1! Rather, it is transformed to a ``case`` expression which allows
 dependent ``if``.
 
 Evaluation at the REPL doesn't behave as I expect. What's going on?
 ===================================================================
 
-Being a fully dependently typed language, Idris has two phases where it
+Being a fully dependently typed language, Idris2i-1 has two phases where it
 evaluates things, compile-time and run-time. At compile-time it will only
 evaluate things which it knows to be total (i.e. terminating and covering all
 possible inputs) in order to keep type checking decidable. The compile-time
-evaluator is part of the Idris kernel, and is implemented as an interpreter
-in Idris. Since everything is known to have a normal form here, the evaluation
+evaluator is part of the Idris2i-1 kernel, and is implemented as an interpreter
+in Idris2i-1. Since everything is known to have a normal form here, the evaluation
 strategy doesn't actually matter because either way it will get the same
 answer! In practice, it uses call by name, since this avoids evaluating
 sub-expressions which are not needed for type checking.
@@ -220,7 +220,7 @@ Why can't I use a function with no arguments in a type?
 =======================================================
 
 If you use a name in a type which begins with a lower case letter, and which is
-not applied to any arguments, then Idris will treat it as an implicitly
+not applied to any arguments, then Idris2i-1 will treat it as an implicitly
 bound argument. For example:
 
 .. code-block:: idris
@@ -289,21 +289,21 @@ On the face of it, this sounds like a good idea, because the type system allows
 us to specify the laws. We don't do this in the prelude, though, for two
 main reasons:
 
-* It goes against the philosophy (above) that Idris *allows* programmers to
+* It goes against the philosophy (above) that Idris2i-1 *allows* programmers to
   prove properties of their programs, but does not *require* it.
 * A valid, lawful, implementation may not necessarily be provably lawful
-  within the Idris system, especially if it involves higher order functions.
+  within the Idris2i-1 system, especially if it involves higher order functions.
 
 There are verified versions of the interfaces in ``Control.Algebra``, which
 extend interfaces with laws.
 
-I have an obviously terminating program, but Idris says it possibly isn't total. Why is that?
-=============================================================================================
+I have an obviously terminating program, but Idris2i-1 says it possibly isn't total. Why is that?
+=================================================================================================
 
-Idris can't decide in general whether a program is terminating due to
+Idris2i-1 can't decide in general whether a program is terminating due to
 the undecidability of the `Halting Problem
 <https://en.wikipedia.org/wiki/Halting_problem>`_. It is possible, however,
-to identify some programs which are definitely terminating. Idris does this
+to identify some programs which are definitely terminating. Idris2i-1 does this
 using "size change termination" which looks for recursive paths from a
 function back to itself. On such a path, there must be at least one
 argument which converges to a base case.
@@ -313,20 +313,20 @@ argument which converges to a base case.
 - However, all functions on the path must be fully applied. In particular,
   higher order applications are not supported
 
-- Idris identifies arguments which converge to a base case by looking for
+- Idris2i-1 identifies arguments which converge to a base case by looking for
   recursive calls to syntactically smaller arguments of inputs. e.g.
   ``k`` is syntactically smaller than ``S (S k)`` because ``k`` is a
   subterm of ``S (S k)``, but ``(k, k)`` is
   not syntactically smaller than ``(S k, S k)``.
 
-If you have a function which you believe to be terminating, but Idris does
+If you have a function which you believe to be terminating, but Idris2i-1 does
 not, you can either restructure the program, or use the ``assert_total``
 function.
 
-Does Idris have universe polymorphism? What is the type of ``Type``?
-====================================================================
+Does Idris2i-1 have universe polymorphism? What is the type of ``Type``?
+========================================================================
 
-Idris 2 currently implements ``Type : Type``. Don't worry, this will not be the
+Idris2i-1 currently implements ``Type : Type``. Don't worry, this will not be the
 case forever! For Idris 1, the FAQ answered this question as follows:
 
 Rather than universe polymorphism, Idris has a cumulative hierarchy of

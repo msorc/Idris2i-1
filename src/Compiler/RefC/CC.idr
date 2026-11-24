@@ -17,13 +17,13 @@ import Libraries.Utils.Path
 
 %default total
 
-||| The C compiler: `IDRIS2_CC`, `CC` or `cc`.  It is a single program (a
+||| The C compiler: `IDRIS2I_1_CC`, `CC` or `cc`.  It is a single program (a
 ||| name looked for in the `PATH`, or a path, which may contain spaces), not a
 ||| command line: `ccache gcc` is not a C compiler.
 export
 findCC : IO String
 findCC
-    = do Nothing <- idrisGetEnv "IDRIS2_CC"
+    = do Nothing <- idrisGetEnv "IDRIS2I_1_CC"
            | Just cc => pure cc
          Nothing <- idrisGetEnv "CC"
            | Just cc => pure cc
@@ -35,7 +35,7 @@ findCC
 -- it, and a later `-O` of theirs wins.
 findCFLAGS : IO String
 findCFLAGS
-  = do Nothing <- idrisGetEnv "IDRIS2_CFLAGS"
+  = do Nothing <- idrisGetEnv "IDRIS2I_1_CFLAGS"
          | Just cflags => pure ("-O2 " ++ cflags)
        Nothing <- idrisGetEnv "CFLAGS"
          | Just cflags => pure ("-O2 " ++ cflags)
@@ -43,7 +43,7 @@ findCFLAGS
 
 findCPPFLAGS : IO String
 findCPPFLAGS
-  = do Nothing <- idrisGetEnv "IDRIS2_CPPFLAGS"
+  = do Nothing <- idrisGetEnv "IDRIS2I_1_CPPFLAGS"
          | Just cppflags => pure cppflags
        Nothing <- idrisGetEnv "CPPFLAGS"
          | Just cppflags => pure cppflags
@@ -52,7 +52,7 @@ findCPPFLAGS
 export
 findLDFLAGS : IO String
 findLDFLAGS
-  = do Nothing <- idrisGetEnv "IDRIS2_LDFLAGS"
+  = do Nothing <- idrisGetEnv "IDRIS2I_1_LDFLAGS"
          | Just ldflags => pure ldflags
        Nothing <- idrisGetEnv "LDFLAGS"
          | Just ldflags => pure ldflags
@@ -60,7 +60,7 @@ findLDFLAGS
 
 findLDLIBS : IO String
 findLDLIBS
-  = do Nothing <- idrisGetEnv "IDRIS2_LDLIBS"
+  = do Nothing <- idrisGetEnv "IDRIS2I_1_LDLIBS"
          | Just ldlibs => pure ldlibs
        Nothing <- idrisGetEnv "LDLIBS"
          | Just ldlibs => pure ldlibs
@@ -260,7 +260,7 @@ checkRefCDirectives
                                  then "takes no value"
                                  else "is not known"
 
-||| The `lib` directories of the packages (and of the `IDRIS2_PATH`), where
+||| The `lib` directories of the packages (and of the `IDRIS2I_1_PATH`), where
 ||| the headers that a package ships with its C code are looked for.
 packageLibDirs : {auto c : Ref Ctxt Defs} -> Core (List String)
 packageLibDirs
@@ -331,15 +331,15 @@ compileCObjectFile {asLibrary} sourceFile objectFile =
 
      pure (Just objectFile)
 
--- How many C compilers to run at once: IDRIS2_CC_JOBS, or the number of
--- processors up to 16 (the limit of the Makefile for IDRIS2_JOBS too): each
+-- How many C compilers to run at once: IDRIS2I_1_CC_JOBS, or the number of
+-- processors up to 16 (the limit of the Makefile for IDRIS2I_1_JOBS too): each
 -- C compiler of a unit of the compiler itself needs a few hundred MB, and
--- more of them gain little.  An IDRIS2_CC_JOBS that is not a number of at
+-- more of them gain little.  An IDRIS2I_1_CC_JOBS that is not a number of at
 -- least 1 (0, empty, ...) is as if it was not set: with no C compiler
 -- running, nothing would be compiled.
 findCCJobs : IO Nat
 findCCJobs
-  = do Just n <- map (>>= parsePositive {a = Nat}) (idrisGetEnv "IDRIS2_CC_JOBS")
+  = do Just n <- map (>>= parsePositive {a = Nat}) (idrisGetEnv "IDRIS2I_1_CC_JOBS")
          | Nothing => byDefault
        if n >= 1 then pure n else byDefault
   where
@@ -526,7 +526,7 @@ headerDepsFile base = base ++ ".hdeps"
 
 export
 headerDepsLine : String
-headerDepsLine = "idris2 refc header files 1"
+headerDepsLine = "idris2i-1 refc header files 1"
 
 ||| Write (or remove) the `headerDepsFile` of a program.
 export
@@ -541,8 +541,8 @@ writeHeaderDeps base files
 
 ||| Get the units of a program ready: find out whether the object files of the
 ||| last build may be reused, which is when they were made in the same
-||| environment (the C compiler and its version, `IDRIS2_CC`, `IDRIS2_CFLAGS`,
-||| `IDRIS2_CPPFLAGS`, `-fpic`, the include directories, the contents of the
+||| environment (the C compiler and its version, `IDRIS2I_1_CC`, `IDRIS2I_1_CFLAGS`,
+||| `IDRIS2I_1_CPPFLAGS`, `-fpic`, the include directories, the contents of the
 ||| headers of the runtime in the `refc` and `c` support directories, the
 ||| variables that the compiler reads, and the contents of `extra`, the
 ||| other headers that the program includes, see `extraHeaderFiles`), and
@@ -570,7 +570,7 @@ prepareUnits {asLibrary} base extra =
        | Nothing => noReuse units "the files of the headers of the program are not known"
      envs <- coreLift $ traverse (\v => map (\x => v ++ "=" ++ fromMaybe "" x ++ "\n")
                                             (getEnv v)) ccEnvVars
-     let key = unlines ["idris2 refc units 1", cmd, idt, concat envs]
+     let key = unlines ["idris2i-1 refc units 1", cmd, idt, concat envs]
                  ++ concat hs1 ++ concat hs2
                  ++ concatMap (\(f, t) => "// " ++ f ++ "\n" ++ t ++ "\n") ex
      old <- coreLift $ readFile (keyFile units)
@@ -613,7 +613,7 @@ updateUnit u k text =
                 pure True
 
 ||| Compile the units that `updateUnit` says need it (`todo`, with their
-||| sizes), the biggest first, with at most IDRIS2_CC_JOBS (the number of
+||| sizes), the biggest first, with at most IDRIS2I_1_CC_JOBS (the number of
 ||| processors, up to 16) C compilers running at once.  `present` are the units of the
 ||| program, whose object files are returned: the files of other units, of
 ||| earlier builds, are removed.
@@ -683,7 +683,7 @@ compileCFiles {asShared} objectFiles outFile =
 
      dirs <- getDirs
      refcDir <- findDataFile "refc"
-     supportFile <- findLibraryFile "libidris2_support.a"
+     supportFile <- findLibraryFile "libidris2i_1_support.a"
 
      let sharedFlag = if asShared then ["-shared"] else []
 
@@ -698,7 +698,7 @@ compileCFiles {asShared} objectFiles outFile =
            ++ " " ++ pkgConfig ++ " " ++ (escapeCmd $ [
               "-o", outFile,
               supportFile,
-              "-lidris2_refc",
+              "-lidris2i_1_refc",
               "-L" ++ refcDir
               ] ++ clibdirs (lib_dirs dirs) ++ [
               "-lgmp", "-lm", "-pthread"])

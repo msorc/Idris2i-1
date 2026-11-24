@@ -1,4 +1,4 @@
 #pragma once
 
-void *idris2_malloc(int size);
-void idris2_free(void *ptr);
+void *idris2i_1_malloc(int size);
+void idris2i_1_free(void *ptr);

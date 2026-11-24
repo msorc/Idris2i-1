@@ -5,5 +5,5 @@
 
 for f in BadField TwoLayouts NoForeign AnyStruct; do
     check $f.idr
-    idris2 -o $f $f.idr
+    idris2i-1 -o $f $f.idr
 done

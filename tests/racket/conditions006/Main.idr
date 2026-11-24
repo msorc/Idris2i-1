@@ -2,7 +2,7 @@
 -- conditionWaitTimeout
 -- for racket
 
--- Idris2
+-- Idris2i-1
 
 import System
 import System.Concurrency

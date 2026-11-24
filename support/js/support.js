@@ -9,7 +9,7 @@ function __prim_js2idris_array(x){
   return acc;
 }
 
-function __prim_idris2js_array(x){
+function __prim_idris2i_1js_array(x){
   const result = Array();
   while (x.h === undefined) {
     result.push(x.a1); x = x.a2;
@@ -125,7 +125,7 @@ function __resCall(f, self, args) {
 // function, which costs little more than making the wrapper, and of the
 // wrapper itself), and the wrappers of the functions that cannot be given a
 // property.
-const __resFnKey = Symbol('idris2 resFn')
+const __resFnKey = Symbol('idris2i-1 resFn')
 const __resFns = new WeakMap()
 
 // A function given to foreign code, whose calls run the pending calls, also

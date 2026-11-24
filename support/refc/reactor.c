@@ -12,7 +12,7 @@
 // a thread waits for it, for both directions, edge triggered (epoll's
 // EPOLLET, kqueue's EV_CLEAR): the operating system reports a direction when
 // it becomes ready, and the reactor remembers it until a thread waits.  The
-// poll(2) back end (-DIDRIS2_REACTOR_POLL, or a platform with neither epoll
+// poll(2) back end (-DIDRIS2I_1_REACTOR_POLL, or a platform with neither epoll
 // nor kqueue) is level triggered: it asks about the descriptors that have
 // waiters only.
 //
@@ -26,7 +26,7 @@
 // The scheduler (threads.c) polls: a parked worker blocks in the poller
 // instead of sleeping while threads wait for descriptors, and the busy
 // workers poll without blocking now and then.  Waiters are only woken up on
-// workers, as the scheduler needs; idris2_reactorWakeup (a write to an
+// workers, as the scheduler needs; idris2i_1_reactorWakeup (a write to an
 // eventfd or a pipe that the poller watches) is the only thing that other OS
 // threads do.
 // ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if !IDRIS2_GREEN_THREADS
+#if !IDRIS2I_1_GREEN_THREADS
 
 // No other green thread can run: a wait blocks the program.
 
@@ -55,15 +55,15 @@
 #include <unistd.h>
 #endif
 
-int64_t idris2_ioPending = 0;
-int idris2_reactorFineTimeout = 0;
-uint64_t idris2_reactorPolls = 0;
+int64_t idris2i_1_ioPending = 0;
+int idris2i_1_reactorFineTimeout = 0;
+uint64_t idris2i_1_reactorPolls = 0;
 
-int64_t idris2_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
+int64_t idris2i_1_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
   if (fd < 0) {
     return -EBADF;
   }
-  if (event != IDRIS2_IO_READ && event != IDRIS2_IO_WRITE) {
+  if (event != IDRIS2I_1_IO_READ && event != IDRIS2I_1_IO_WRITE) {
     return -EINVAL;
   }
 #ifdef _WIN32
@@ -74,11 +74,11 @@ int64_t idris2_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
 #else
   struct pollfd p;
   p.fd = (int)fd;
-  p.events = event == IDRIS2_IO_READ ? POLLIN : POLLOUT;
+  p.events = event == IDRIS2I_1_IO_READ ? POLLIN : POLLOUT;
   for (;;) {
     int timeout = -1;
     if (deadline_ns >= 0) {
-      int64_t remaining = deadline_ns - idris2_monotonicNanoseconds();
+      int64_t remaining = deadline_ns - idris2i_1_monotonicNanoseconds();
       if (remaining <= 0) {
         timeout = 0;
       } else {
@@ -104,28 +104,28 @@ int64_t idris2_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
 #endif
 }
 
-int64_t idris2_ioClose(int64_t fd) {
+int64_t idris2i_1_ioClose(int64_t fd) {
   if (close((int)fd) != 0 && errno != EINTR) {
     return -errno;
   }
   return 0;
 }
 
-void idris2_ioForget(int64_t fd) { (void)fd; }
+void idris2i_1_ioForget(int64_t fd) { (void)fd; }
 
-int idris2_reactorPoll(int64_t timeout_ns) {
+int idris2i_1_reactorPoll(int64_t timeout_ns) {
   (void)timeout_ns;
   return 0;
 }
 
-void idris2_reactorWakeup(void) {}
+void idris2i_1_reactorWakeup(void) {}
 
-int idris2_blockingCall(void (*fn)(void *), void *arg) {
+int idris2i_1_blockingCall(void (*fn)(void *), void *arg) {
   fn(arg);
   return 0;
 }
 
-#else /* IDRIS2_GREEN_THREADS */
+#else /* IDRIS2I_1_GREEN_THREADS */
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -133,7 +133,7 @@ int idris2_blockingCall(void (*fn)(void *), void *arg) {
 #include <time.h>
 #include <unistd.h>
 
-#if defined(IDRIS2_REACTOR_POLL)
+#if defined(IDRIS2I_1_REACTOR_POLL)
 #define REACTOR_POLL 1
 #elif defined(__linux__)
 #define REACTOR_EPOLL 1
@@ -156,23 +156,23 @@ int idris2_blockingCall(void (*fn)(void *), void *arg) {
 #endif
 
 // The threads.c side (see threads.h).
-int idris2_threadStopping(void);
+int idris2i_1_threadStopping(void);
 
 // Read by the scheduler at every switch while it is 0 (see threads.c): on a
 // cache line of its own, as the waiters write it.
-__attribute__((aligned(64))) int64_t idris2_ioPending = 0;
-__attribute__((aligned(64))) uint64_t idris2_reactorPolls = 0;
-int idris2_reactorFineTimeout = 0;
+__attribute__((aligned(64))) int64_t idris2i_1_ioPending = 0;
+__attribute__((aligned(64))) uint64_t idris2i_1_reactorPolls = 0;
+int idris2i_1_reactorFineTimeout = 0;
 
 typedef struct {
-  Idris2_SpinLock lock;
-  uint32_t gen;         // bumped by idris2_ioClose and idris2_ioForget
+  Idris2i_1_SpinLock lock;
+  uint32_t gen;         // bumped by idris2i_1_ioClose and idris2i_1_ioForget
   uint8_t registered;   // with the operating system
   uint8_t always_ready; // a regular file
   uint8_t ready;        // the directions reported ready that nobody took
   int32_t waiters[2];   // the threads waiting, per direction
   int32_t pslot;        // poll(2) back end: index + 1 in poll_fds, or 0
-  Idris2_WaitQueue queue[2];
+  Idris2i_1_WaitQueue queue[2];
 } IoEntry;
 
 #define CHUNK_BITS 10
@@ -215,7 +215,7 @@ static IoEntry *entry_of(int64_t fd, int make) {
 static pthread_once_t reactor_once = PTHREAD_ONCE_INIT;
 static int reactor_error = 0; // errno of a failed creation
 static int reactor_ready = 0;
-// idris2_reactorWakeup writes to wake_fds[1]; the poller watches wake_fds[0]
+// idris2i_1_reactorWakeup writes to wake_fds[1]; the poller watches wake_fds[0]
 // (the same eventfd on Linux).
 static int wake_fds[2] = {-1, -1};
 static int wake_pending = 0;
@@ -260,7 +260,7 @@ static void drain_wakeup(void) {
   __atomic_store_n(&wake_pending, 0, __ATOMIC_RELEASE);
 }
 
-void idris2_reactorWakeup(void) {
+void idris2i_1_reactorWakeup(void) {
   if (!__atomic_load_n(&reactor_ready, __ATOMIC_ACQUIRE)) {
     return;
   }
@@ -309,7 +309,7 @@ static void reactor_create(void) {
   struct timespec zero = {0, 0};
   struct epoll_event dummy;
   if (syscall(SYS_epoll_pwait2, epfd, &dummy, 1, &zero, NULL, 0) >= 0) {
-    idris2_reactorFineTimeout = 1;
+    idris2i_1_reactorFineTimeout = 1;
     // (the wake up descriptor cannot be ready yet: nothing is lost)
   }
 #endif
@@ -361,7 +361,7 @@ static void reactor_create(void) {
     reactor_error = errno;
     return;
   }
-  idris2_reactorFineTimeout = 1; // kevent takes a timespec
+  idris2i_1_reactorFineTimeout = 1; // kevent takes a timespec
   __atomic_store_n(&reactor_ready, 1, __ATOMIC_RELEASE);
 }
 
@@ -400,7 +400,7 @@ static int os_register(int fd, IoEntry *e) {
 #else /* REACTOR_POLL */
 
 // The descriptors that have waiters, guarded by pset_lock.
-static Idris2_SpinLock pset_lock = 0;
+static Idris2i_1_SpinLock pset_lock = 0;
 static int *pset = NULL;
 static int pset_count = 0, pset_capacity = 0;
 // A poller blocks in poll(2): a descriptor that gets its first waiter must
@@ -418,7 +418,7 @@ static void reactor_create(void) {
   }
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) ||      \
     defined(__OpenBSD__) || defined(__DragonFly__)
-  idris2_reactorFineTimeout = 1; // ppoll takes a timespec
+  idris2i_1_reactorFineTimeout = 1; // ppoll takes a timespec
 #endif
   __atomic_store_n(&reactor_ready, 1, __ATOMIC_RELEASE);
 }
@@ -433,12 +433,12 @@ static void os_deregister(int fd) { (void)fd; }
 
 // The entry of `fd` (locked) gets its first waiter, or loses its last one.
 static void pset_add(int fd, IoEntry *e) {
-  idris2_spinLock(&pset_lock);
+  idris2i_1_spinLock(&pset_lock);
   if (pset_count == pset_capacity) {
     int capacity = pset_capacity ? pset_capacity * 2 : 64;
     int *bigger = realloc(pset, (size_t)capacity * sizeof(int));
     if (!bigger) {
-      idris2_spinUnlock(&pset_lock);
+      idris2i_1_spinUnlock(&pset_lock);
       fprintf(stderr, "RefC: out of memory in the reactor\n");
       exit(1);
     }
@@ -447,14 +447,14 @@ static void pset_add(int fd, IoEntry *e) {
   }
   pset[pset_count++] = fd;
   e->pslot = pset_count;
-  idris2_spinUnlock(&pset_lock);
+  idris2i_1_spinUnlock(&pset_lock);
   if (__atomic_load_n(&poll_blocking, __ATOMIC_SEQ_CST)) {
-    idris2_reactorWakeup();
+    idris2i_1_reactorWakeup();
   }
 }
 
 static void pset_remove(IoEntry *e) {
-  idris2_spinLock(&pset_lock);
+  idris2i_1_spinLock(&pset_lock);
   int i = e->pslot - 1;
   int last = pset[--pset_count];
   pset[i] = last;
@@ -463,7 +463,7 @@ static void pset_remove(IoEntry *e) {
     moved->pslot = i + 1;
   }
   e->pslot = 0;
-  idris2_spinUnlock(&pset_lock);
+  idris2i_1_spinUnlock(&pset_lock);
 }
 
 #endif
@@ -493,13 +493,13 @@ static int dispatch(int fd, uint32_t gen, int check_gen, int bits) {
     return 0;
   }
   int woken = 0;
-  idris2_spinLock(&e->lock);
+  idris2i_1_spinLock(&e->lock);
   if (e->registered && (!check_gen || e->gen == gen)) {
     for (int d = 0; d < 2; d++) {
       int bit = d + 1;
       if (bits & bit) {
         int n = 0;
-        while (idris2_threadWakeOne(&e->queue[d])) {
+        while (idris2i_1_threadWakeOne(&e->queue[d])) {
           n++;
         }
         // The threads woken up take the event; otherwise the next waiter
@@ -513,15 +513,15 @@ static int dispatch(int fd, uint32_t gen, int check_gen, int bits) {
       }
     }
   }
-  idris2_spinUnlock(&e->lock);
+  idris2i_1_spinUnlock(&e->lock);
   return woken;
 }
 
-int64_t idris2_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
+int64_t idris2i_1_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
   if (fd < 0) {
     return -EBADF;
   }
-  if (event != IDRIS2_IO_READ && event != IDRIS2_IO_WRITE) {
+  if (event != IDRIS2I_1_IO_READ && event != IDRIS2I_1_IO_WRITE) {
     return -EINVAL;
   }
   int r = reactor_init();
@@ -534,7 +534,7 @@ int64_t idris2_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
   }
   int d = (int)event - 1;
   int bit = (int)event;
-  idris2_spinLock(&e->lock);
+  idris2i_1_spinLock(&e->lock);
   if (!e->registered && !e->always_ready) {
     struct stat st;
     if (fstat((int)fd, &st) != 0) {
@@ -545,21 +545,21 @@ int64_t idris2_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
       r = os_register((int)fd, e);
     }
     if (r < 0) {
-      idris2_spinUnlock(&e->lock);
+      idris2i_1_spinUnlock(&e->lock);
       return r;
     }
   }
   if (e->always_ready) {
-    idris2_spinUnlock(&e->lock);
+    idris2i_1_spinUnlock(&e->lock);
     return 1;
   }
   if (e->ready & bit) {
     e->ready &= (uint8_t)~bit;
-    idris2_spinUnlock(&e->lock);
+    idris2i_1_spinUnlock(&e->lock);
     return 1;
   }
-  if (deadline_ns >= 0 && deadline_ns <= idris2_monotonicNanoseconds()) {
-    idris2_spinUnlock(&e->lock);
+  if (deadline_ns >= 0 && deadline_ns <= idris2i_1_monotonicNanoseconds()) {
+    idris2i_1_spinUnlock(&e->lock);
     return 0;
   }
   uint32_t gen = e->gen;
@@ -569,19 +569,19 @@ int64_t idris2_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
     pset_add((int)fd, e);
   }
 #endif
-  if (__atomic_fetch_add(&idris2_ioPending, 1, __ATOMIC_SEQ_CST) == 0) {
+  if (__atomic_fetch_add(&idris2i_1_ioPending, 1, __ATOMIC_SEQ_CST) == 0) {
     // (the lock of the entry is held: the kick takes idle_lock, which is
     // never held while taking an entry lock)
-    idris2_threadKickWatcher();
+    idris2i_1_threadKickWatcher();
   }
   int woken = 1;
   if (deadline_ns < 0) {
-    idris2_threadBlockOn(&e->queue[d], &e->lock);
+    idris2i_1_threadBlockOn(&e->queue[d], &e->lock);
   } else {
-    woken = idris2_threadBlockOnUntil(&e->queue[d], &e->lock, deadline_ns);
+    woken = idris2i_1_threadBlockOnUntil(&e->queue[d], &e->lock, deadline_ns);
   }
-  __atomic_fetch_sub(&idris2_ioPending, 1, __ATOMIC_SEQ_CST);
-  idris2_spinLock(&e->lock);
+  __atomic_fetch_sub(&idris2i_1_ioPending, 1, __ATOMIC_SEQ_CST);
+  idris2i_1_spinLock(&e->lock);
   e->waiters[d]--;
 #if REACTOR_POLL
   if (e->waiters[0] + e->waiters[1] == 0 && e->pslot) {
@@ -589,7 +589,7 @@ int64_t idris2_ioWait(int64_t fd, int64_t event, int64_t deadline_ns) {
   }
 #endif
   int closed = e->gen != gen;
-  idris2_spinUnlock(&e->lock);
+  idris2i_1_spinUnlock(&e->lock);
   if (closed) {
     return -EBADF;
   }
@@ -605,20 +605,20 @@ static void forget(int64_t fd) {
   if (!e) {
     return;
   }
-  idris2_spinLock(&e->lock);
+  idris2i_1_spinLock(&e->lock);
   e->gen++;
   e->ready = 0;
   e->always_ready = 0;
-  idris2_threadWakeAll(&e->queue[0]);
-  idris2_threadWakeAll(&e->queue[1]);
+  idris2i_1_threadWakeAll(&e->queue[0]);
+  idris2i_1_threadWakeAll(&e->queue[1]);
   if (e->registered) {
     os_deregister((int)fd);
     e->registered = 0;
   }
-  idris2_spinUnlock(&e->lock);
+  idris2i_1_spinUnlock(&e->lock);
 }
 
-int64_t idris2_ioClose(int64_t fd) {
+int64_t idris2i_1_ioClose(int64_t fd) {
   if (fd < 0) {
     return -EBADF;
   }
@@ -632,15 +632,15 @@ int64_t idris2_ioClose(int64_t fd) {
   return 0;
 }
 
-void idris2_ioForget(int64_t fd) {
+void idris2i_1_ioForget(int64_t fd) {
   if (fd >= 0) {
     forget(fd);
   }
 }
 
 static void count_poll(void) {
-  __atomic_store_n(&idris2_reactorPolls,
-                   __atomic_load_n(&idris2_reactorPolls, __ATOMIC_RELAXED) + 1,
+  __atomic_store_n(&idris2i_1_reactorPolls,
+                   __atomic_load_n(&idris2i_1_reactorPolls, __ATOMIC_RELAXED) + 1,
                    __ATOMIC_RELAXED);
 }
 
@@ -660,7 +660,7 @@ static int os_poll(int64_t timeout_ns) {
     n = epoll_wait(epfd, events, MAX_EVENTS, -1);
   }
 #if HAVE_EPOLL_PWAIT2
-  else if (idris2_reactorFineTimeout) {
+  else if (idris2i_1_reactorFineTimeout) {
     struct timespec ts;
     ts.tv_sec = (time_t)(timeout_ns / 1000000000);
     ts.tv_nsec = (long)(timeout_ns % 1000000000);
@@ -673,7 +673,7 @@ static int os_poll(int64_t timeout_ns) {
                                                               : (int)ms);
   }
   count_poll();
-  if (n <= 0 || idris2_threadStopping()) {
+  if (n <= 0 || idris2i_1_threadStopping()) {
     return 0; // (EINTR: the scheduler polls again soon)
   }
   int woken = 0;
@@ -688,10 +688,10 @@ static int os_poll(int64_t timeout_ns) {
     uint32_t ev = events[i].events;
     int bits = 0;
     if (ev & (EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
-      bits |= IDRIS2_IO_READ;
+      bits |= IDRIS2I_1_IO_READ;
     }
     if (ev & (EPOLLOUT | EPOLLHUP | EPOLLERR)) {
-      bits |= IDRIS2_IO_WRITE;
+      bits |= IDRIS2I_1_IO_WRITE;
     }
     woken += dispatch((int)(uint32_t)token, (uint32_t)(token >> 32), 1, bits);
   }
@@ -713,7 +713,7 @@ static int os_poll(int64_t timeout_ns) {
   }
   int n = kevent(kqfd, NULL, 0, events, MAX_EVENTS, tsp);
   count_poll();
-  if (n <= 0 || idris2_threadStopping()) {
+  if (n <= 0 || idris2i_1_threadStopping()) {
     return 0;
   }
   int woken = 0;
@@ -727,11 +727,11 @@ static int os_poll(int64_t timeout_ns) {
     }
     int bits = 0;
     if (events[i].flags & EV_ERROR) {
-      bits = IDRIS2_IO_READ | IDRIS2_IO_WRITE;
+      bits = IDRIS2I_1_IO_READ | IDRIS2I_1_IO_WRITE;
     } else if (events[i].filter == EVFILT_READ) {
-      bits = IDRIS2_IO_READ;
+      bits = IDRIS2I_1_IO_READ;
     } else if (events[i].filter == EVFILT_WRITE) {
-      bits = IDRIS2_IO_WRITE;
+      bits = IDRIS2I_1_IO_WRITE;
     }
     woken += dispatch(fd, (uint32_t)(uintptr_t)events[i].udata, 1, bits);
   }
@@ -753,14 +753,14 @@ static int os_poll(int64_t timeout_ns) {
     __atomic_store_n(&poll_blocking, 1, __ATOMIC_SEQ_CST);
   }
   // The descriptors to look at: the wake up pipe, and those with waiters.
-  idris2_spinLock(&pset_lock);
+  idris2i_1_spinLock(&pset_lock);
   int count = pset_count + 1;
   if (count > poll_buf_capacity) {
     int capacity = count * 2;
     struct pollfd *bigger =
         realloc(poll_buf, (size_t)capacity * sizeof(struct pollfd));
     if (!bigger) {
-      idris2_spinUnlock(&pset_lock);
+      idris2i_1_spinUnlock(&pset_lock);
       fprintf(stderr, "RefC: out of memory in the reactor\n");
       exit(1);
     }
@@ -773,21 +773,21 @@ static int os_poll(int64_t timeout_ns) {
     poll_buf[i + 1].fd = pset[i];
     poll_buf[i + 1].events = 0;
   }
-  idris2_spinUnlock(&pset_lock);
+  idris2i_1_spinUnlock(&pset_lock);
   // (the directions with waiters, read without the lock of the pset: an
   // entry is in it while it has waiters)
   for (int i = 1; i < count; i++) {
     IoEntry *e = entry_of(poll_buf[i].fd, 0);
     short events = 0;
     if (e) {
-      idris2_spinLock(&e->lock);
+      idris2i_1_spinLock(&e->lock);
       if (e->waiters[0]) {
         events |= POLLIN;
       }
       if (e->waiters[1]) {
         events |= POLLOUT;
       }
-      idris2_spinUnlock(&e->lock);
+      idris2i_1_spinUnlock(&e->lock);
     }
     poll_buf[i].events = events;
     poll_buf[i].revents = 0;
@@ -814,7 +814,7 @@ static int os_poll(int64_t timeout_ns) {
   __atomic_store_n(&poll_blocking, 0, __ATOMIC_SEQ_CST);
   count_poll();
   int woken = 0;
-  if (n > 0 && !idris2_threadStopping()) {
+  if (n > 0 && !idris2i_1_threadStopping()) {
     if (poll_buf[0].revents && timeout_ns != 0) {
       drain_wakeup();
     }
@@ -825,14 +825,14 @@ static int os_poll(int64_t timeout_ns) {
       }
       int bits = 0;
       if (re & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) {
-        bits |= IDRIS2_IO_READ;
+        bits |= IDRIS2I_1_IO_READ;
       }
       if (re & (POLLOUT | POLLHUP | POLLERR | POLLNVAL)) {
-        bits |= IDRIS2_IO_WRITE;
+        bits |= IDRIS2I_1_IO_WRITE;
       }
       // (only the directions that have waiters: the others were not asked)
-      int asked = (poll_buf[i].events & POLLIN ? IDRIS2_IO_READ : 0) |
-                  (poll_buf[i].events & POLLOUT ? IDRIS2_IO_WRITE : 0);
+      int asked = (poll_buf[i].events & POLLIN ? IDRIS2I_1_IO_READ : 0) |
+                  (poll_buf[i].events & POLLOUT ? IDRIS2I_1_IO_WRITE : 0);
       woken += dispatch(poll_buf[i].fd, 0, 0, bits & asked);
     }
   }
@@ -843,11 +843,11 @@ static int os_poll(int64_t timeout_ns) {
 #endif
 
 // ---------------------------------------------------------------------------
-// Blocking calls (see idris2_blockingCall)
+// Blocking calls (see idris2i_1_blockingCall)
 //
 // A call runs on one of a pool of plain OS threads, which never touch the
 // Idris runtime.  When it is done, the pool thread pushes it onto the list
-// of completed calls and wakes the poller up (idris2_reactorWakeup); the
+// of completed calls and wakes the poller up (idris2i_1_reactorWakeup); the
 // worker that polls next wakes the caller up, so that, as the scheduler
 // needs, green threads are only woken up on workers.
 // ---------------------------------------------------------------------------
@@ -855,9 +855,9 @@ static int os_poll(int64_t timeout_ns) {
 typedef struct BlockingCall {
   void (*fn)(void *);
   void *arg;
-  Idris2_SpinLock lock;
+  Idris2i_1_SpinLock lock;
   int done;
-  Idris2_WaitQueue waiter;
+  Idris2i_1_WaitQueue waiter;
   struct BlockingCall *next; // in the queue of the pool, then in `completed`
 } BlockingCall;
 
@@ -870,42 +870,42 @@ static int finish_blocking_calls(void) {
   int woken = 0;
   while (call) {
     BlockingCall *next = call->next;
-    idris2_spinLock(&call->lock);
+    idris2i_1_spinLock(&call->lock);
     call->done = 1;
-    woken += idris2_threadWakeOne(&call->waiter);
+    woken += idris2i_1_threadWakeOne(&call->waiter);
     // (the caller takes the lock before it returns: the call, which is on
     // its stack, is not touched after this)
-    idris2_spinUnlock(&call->lock);
+    idris2i_1_spinUnlock(&call->lock);
     call = next;
   }
   return woken;
 }
 
-int idris2_reactorPoll(int64_t timeout_ns) {
+int idris2i_1_reactorPoll(int64_t timeout_ns) {
   if (!__atomic_load_n(&reactor_ready, __ATOMIC_ACQUIRE)) {
     return 0;
   }
   int woken = os_poll(timeout_ns);
   if (__atomic_load_n(&completed, __ATOMIC_RELAXED) &&
-      !idris2_threadStopping()) {
+      !idris2i_1_threadStopping()) {
     woken += finish_blocking_calls();
   }
   return woken;
 }
 
-#if IDRIS2_MULTICORE
+#if IDRIS2I_1_MULTICORE
 
 static pthread_mutex_t pool_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t pool_cond = PTHREAD_COND_INITIALIZER;
 static BlockingCall *pool_head = NULL, *pool_tail = NULL;
 static int pool_threads = 0; // started so far
 static int pool_idle = 0;    // waiting for a call
-static int pool_max = 0;     // IDRIS2_BLOCKING_THREADS
+static int pool_max = 0;     // IDRIS2I_1_BLOCKING_THREADS
 
 #define DEFAULT_BLOCKING_THREADS 64
 
 static int configured_blocking_threads(void) {
-  const char *env = getenv("IDRIS2_BLOCKING_THREADS");
+  const char *env = getenv("IDRIS2I_1_BLOCKING_THREADS");
   if (env && *env) {
     char *end = NULL;
     long n = strtol(env, &end, 10);
@@ -913,7 +913,7 @@ static int configured_blocking_threads(void) {
       return (int)n;
     }
     fprintf(stderr,
-            "RefC: ignoring IDRIS2_BLOCKING_THREADS=%s (expected a number of "
+            "RefC: ignoring IDRIS2I_1_BLOCKING_THREADS=%s (expected a number of "
             "threads from 1 to 4096)\n",
             env);
   }
@@ -941,7 +941,7 @@ static void *pool_main(void *unused) {
       call->next = top;
     } while (!__atomic_compare_exchange_n(&completed, &top, call, 1,
                                           __ATOMIC_RELEASE, __ATOMIC_RELAXED));
-    idris2_reactorWakeup();
+    idris2i_1_reactorWakeup();
     pthread_mutex_lock(&pool_lock);
   }
   return NULL;
@@ -981,7 +981,7 @@ static int pool_submit(BlockingCall *call) {
   return 0;
 }
 
-int idris2_blockingCall(void (*fn)(void *), void *arg) {
+int idris2i_1_blockingCall(void (*fn)(void *), void *arg) {
   if (reactor_init() < 0) {
     fn(arg);
     return -1;
@@ -992,32 +992,32 @@ int idris2_blockingCall(void (*fn)(void *), void *arg) {
   call.arg = arg;
   // (counted from now on, so that the workers poll and do not report a
   // deadlock while it runs)
-  if (__atomic_fetch_add(&idris2_ioPending, 1, __ATOMIC_SEQ_CST) == 0) {
-    idris2_threadKickWatcher();
+  if (__atomic_fetch_add(&idris2i_1_ioPending, 1, __ATOMIC_SEQ_CST) == 0) {
+    idris2i_1_threadKickWatcher();
   }
   if (pool_submit(&call) != 0) {
-    __atomic_fetch_sub(&idris2_ioPending, 1, __ATOMIC_SEQ_CST);
+    __atomic_fetch_sub(&idris2i_1_ioPending, 1, __ATOMIC_SEQ_CST);
     fn(arg);
     return -1;
   }
-  idris2_spinLock(&call.lock);
+  idris2i_1_spinLock(&call.lock);
   if (!call.done) {
-    idris2_threadBlockOn(&call.waiter, &call.lock);
-    idris2_spinLock(&call.lock);
+    idris2i_1_threadBlockOn(&call.waiter, &call.lock);
+    idris2i_1_spinLock(&call.lock);
   }
-  idris2_spinUnlock(&call.lock);
-  __atomic_fetch_sub(&idris2_ioPending, 1, __ATOMIC_SEQ_CST);
+  idris2i_1_spinUnlock(&call.lock);
+  __atomic_fetch_sub(&idris2i_1_ioPending, 1, __ATOMIC_SEQ_CST);
   return 0;
 }
 
 #else
 
 // A single worker: nothing else could run while the call blocks.
-int idris2_blockingCall(void (*fn)(void *), void *arg) {
+int idris2i_1_blockingCall(void (*fn)(void *), void *arg) {
   fn(arg);
   return 0;
 }
 
 #endif
 
-#endif /* IDRIS2_GREEN_THREADS */
+#endif /* IDRIS2I_1_GREEN_THREADS */

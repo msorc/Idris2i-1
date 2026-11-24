@@ -2,23 +2,50 @@
 
 This CHANGELOG describes the merged but unreleased changes.  Please see
 [CHANGELOG](./CHANGELOG.md) for changes to all previously released versions of
-Idris2, as well as the sub-headings typically used for changes.  All new PRs
+Idris2i-1, as well as the sub-headings typically used for changes.  All new PRs
 should target this file (`CHANGELOG_NEXT`).
 
 ## [Next version]
 
+### The project is now called Idris2i-1
+
+* The language and its compiler are renamed from Idris 2 to Idris2i-1 (2i-1,
+  a complex number). The old names no longer work:
+  - the executable is `idris2i-1` (`build/exec/idris2i-1`, with the binary in
+    `idris2i-1_app/`), and the make targets are `idris2i-1-exec` and so on;
+  - every environment variable `IDRIS2_*` is now `IDRIS2I_1_*`
+    (`IDRIS2I_1_PREFIX`, `IDRIS2I_1_CG`, `IDRIS2I_1_PACKAGE_PATH`,
+    `IDRIS2I_1_BOOT`, ...);
+  - the default prefix is `~/.idris2i-1`, and libraries install under
+    `idris2i-1-<version>/`;
+  - the packages of the compiler are `idris2i-1` and `idris2i-1-api`
+    (`idris2i-1-api.ipkg`, `-p idris2i-1-api`);
+  - the C support library is `libidris2i_1_support`, and every C name of it
+    and of the RefC runtime takes the prefix `idris2i_1_` or `Idris2i_1_`
+    (`Idris2i_1_Value`, `idris2i_1_newReference`, `IDRIS2I_1_VERIFY`). C
+    code that calls the runtime or binds the support library must be
+    renamed, and the C names of user definitions that RefC keeps apart from
+    the runtime's are now those starting with `idris2i_1_`;
+  - the golden tests live in `tests/idris2i-1/`, and test scripts call the
+    compiler as `$idris2i_1`;
+  - the agent skills are `idris2i-1`, `idris2i-1-proofs`, and so on.
+
+  Packages built for Idris 2 must be rebuilt and installed again under the
+  new prefix. Source files keep the extensions `.idr`, `.lidr` and `.ipkg`,
+  and the modules of the compiler keep their names (`Idris.REPL`, ...).
+
 ### Documentation
 
 * `ai/skills` holds six agent skills that teach a coding agent (an LLM) to write
-  Idris 2 with this compiler: `idris2` (the language rules that differ from
+  Idris2i-1 with this compiler: `idris2i-1` (the language rules that differ from
   Haskell and Idris 1, the check loop, the error codes, packages),
-  `idris2-proofs`, `idris2-libraries`, `idris2-ffi`, `idris2-performance` and
-  `idris2-compiler-dev`. `AGENTS.md` at the root lists them with their
+  `idris2i-1-proofs`, `idris2i-1-libraries`, `idris2i-1-ffi`, `idris2i-1-performance` and
+  `idris2i-1-compiler-dev`. `AGENTS.md` at the root lists them with their
   triggers, `.claude/skills` points to them for Claude Code in this
   repository, and `ai/install.sh` links them into `~/.claude/skills` for other
   projects. The skill files are literate Markdown: `ai/skills/check.sh`
-  type-checks every Idris example in them, with the wrong forms in `failing`
-  blocks and the error codes in `cases/`, and the test `idris2/misc/skills001`
+  type-checks every Idris2i-1 example in them, with the wrong forms in `failing`
+  blocks and the error codes in `cases/`, and the test `idris2i-1/misc/skills001`
   runs it, so a compiler or library change that makes a skill wrong fails the
   suite. `ai/README.md` has the rules for writing a skill file, and
   `ai/skills/evals` the tasks and graders that compare an agent with the
@@ -77,8 +104,8 @@ should target this file (`CHANGELOG_NEXT`).
     lives with each backend: Chez locks it for ever, so each call that passes
     one keeps some memory; Racket keeps nothing after the call; RefC passes
     the closure, not a C function pointer.  A callback is only called by the
-    thread that runs the Idris code.  The Readline sample no longer says that
-    Idris frees the string that a foreign function returns.
+    thread that runs the Idris2i-1 code.  The Readline sample no longer says that
+    Idris2i-1 frees the string that a foreign function returns.
 
 ### Compiler changes
 
@@ -172,9 +199,9 @@ should target this file (`CHANGELOG_NEXT`).
 * Every kind of error and warning has a code (`E0101` for a type mismatch,
   `E0401` for a failed search, `W0002` for an unreachable clause, ...),
   printed in brackets at the end of the first line of its message.
-  `--no-error-codes` leaves the codes out.  `idris2 --explain E0101`, or
+  `--no-error-codes` leaves the codes out.  `idris2i-1 --explain E0101`, or
   `:explain E0101` at the REPL, explains a code, with an example of the
-  mistake and the usual fixes; `idris2 --list-error-codes` prints the
+  mistake and the usual fixes; `idris2i-1 --list-error-codes` prints the
   reference page of all of them (`docs/source/reference/error-codes.rst`).
   `failing` blocks match the message without the code.
 
@@ -267,7 +294,7 @@ should target this file (`CHANGELOG_NEXT`).
   with their lets kept, quoting the values of the lets, which refer to the
   implementations found before them.  The lets that a solution found by search
   does not use are now dropped from it, as they already were from the
-  solutions that unification finds.  Test `idris2/perf/perf017`.
+  solutions that unification finds.  Test `idris2i-1/perf/perf017`.
 
 * A totality error shows the call that is the problem instead of the type
   of the definition (the location of the error is still the definition's).
@@ -333,23 +360,23 @@ should target this file (`CHANGELOG_NEXT`).
   expressions are applied as before (`%foreign lib "f"` is one specifier, and
   `%foreign (lib "f") (lib "g")` is still an application), so no declaration
   that compiled before changes its meaning.  The test
-  `idris2/misc/foreignSpecs001` has the forms.
-* RefC is the default code generator of `idris2` itself, not only of the
+  `idris2i-1/misc/foreignSpecs001` has the forms.
+* RefC is the default code generator of `idris2i-1` itself, not only of the
   build: `-o`, `:c` and `:exec` compile via C unless another one is chosen
-  with `--cg`, `IDRIS2_CG` or `:set cg` (for instance `--cg chez`).
-* `idris2` exits with code 1 when the file it is given can't be read (with
+  with `--cg`, `IDRIS2I_1_CG` or `:set cg` (for instance `--cg chez`).
+* `idris2i-1` exits with code 1 when the file it is given can't be read (with
   `--check`, `-o` or `--exec`), when the expression of `--exec` or the
   command of `--client` fails, and when `-o` or `--exec` can't compile: it
   used to exit with 0 then.  `--exec` no longer goes on to run the
   expression when the file can't be read.
-* `idris2 --build` exits with code 1 when the executable of the package
+* `idris2i-1 --build` exits with code 1 when the executable of the package
   can't be compiled (the C compiler fails, for instance): it printed the
   errors and exited with 0
   ([#3767](https://github.com/idris-lang/Idris2/issues/3767)).  It says
   `Error: Compiling the executable <name> failed` and does not run the
   `postbuild` script then, and `--install`, `--install-with-src` and
   `--repl` stop there too instead of going on after the failed build.
-* `idris2 --exec` exits with the exit code of the program it runs (it
+* `idris2i-1 --exec` exits with the exit code of the program it runs (it
   always exited with 0 when the program ran, whatever its exit code), and
   `:exec` at the REPL says when the program exits with a code other than 0
   (`The program exited with code 3`).  A program killed by a signal gives
@@ -476,7 +503,7 @@ should target this file (`CHANGELOG_NEXT`).
   the end of the module.  (The functions of `base` that are `%spec` on their
   `HasIO` argument, such as `getEnv`, made this common.)  Only the clauses of
   a copy are checked as if every name were public now.  The test
-  `idris2/evaluator/specprivate001`.
+  `idris2i-1/evaluator/specprivate001`.
 * With `--spec-interfaces`, a recursive function is copied once by an
   implementation: the recursive call in the copy took the implementation
   reduced a bit more each time, and made another copy (four copies of
@@ -531,7 +558,7 @@ should target this file (`CHANGELOG_NEXT`).
 * Fix exponential time issue in totality checking with large data on the left hand side (#3696).
 * Allow implicit lambdas using the syntax `\ {x} => ...`.
 * Removed `Borrowing` as a language extension.  This was never implemented in
-  Idris2, so the only change is that `%language Borrowing` will now error rather
+  Idris2i-1, so the only change is that `%language Borrowing` will now error rather
   than be accepted but do nothing.
 * HTML files generated using `--mkdoc` now contain attributes, that allow
   external tools to insert links from documentation to source code.
@@ -544,7 +571,7 @@ should target this file (`CHANGELOG_NEXT`).
 * Fixed .ttc bloat caused by foreign_impl.
 * Normalise holes in the result of `getType` in the elaborator script (#3855, #3838).
 * Removed `Borrowing` as a language extension.  This was never implemented in
-  Idris2, so the only change is that `%language Borrowing` will now error rather
+  Idris2i-1, so the only change is that `%language Borrowing` will now error rather
   than be accepted but do nothing.
 * Check recursive calls to the left of binders in the termination checker (#3896).
 * Fixed %transform rules application regardless of module load order (#3868)
@@ -693,12 +720,12 @@ should target this file (`CHANGELOG_NEXT`).
 * The REPL has a built-in line editor when it runs in a terminal: readline
   key bindings (cursor movement by character and word, kill and yank, history
   search with the arrow keys), a history kept between sessions in
-  `~/.idris2_history` (see `IDRIS2_HISTORY_FILE`), and syntax highlighting of
+  `~/.idris2i_1_history` (see `IDRIS2I_1_HISTORY_FILE`), and syntax highlighting of
   the line as it is typed (`:command`s, keywords, literals, comments, holes and
   capitalised names), which follows the `--color` setting.  It is written for
-  the Idris2 compiler itself (no `readline` library needed), works with all
+  the Idris2i-1 compiler itself (no `readline` library needed), works with all
   back ends, and is not used when the input or output is not a terminal; set
-  `IDRIS2_LINE_EDITING=0` to turn it off (for instance under `rlwrap`).
+  `IDRIS2I_1_LINE_EDITING=0` to turn it off (for instance under `rlwrap`).
   `Tab` completes the names of commands, pragmas and names in scope (also in
   the arguments of commands such as `:t`), listing the candidates when the
   word can't be completed further.
@@ -761,7 +788,7 @@ should target this file (`CHANGELOG_NEXT`).
   Type checking the compiler runs 10% fewer instructions (the time spent in
   search itself is about 40% lower), `base` 4%.  The solutions and the errors are the same: the
   TTC files of the compiler and of the libraries are byte for byte
-  identical.  The test `idris2/perf/perf018` has 200 implementations of an
+  identical.  The test `idris2i-1/perf/perf018` has 200 implementations of an
   interface.
 
 * Elaborating deeply nested binders is faster: 400 nested `let`s took 13
@@ -812,7 +839,7 @@ should target this file (`CHANGELOG_NEXT`).
     for each of them (the definitions are still decoded only when they are
     used).  A file is read again once it has changed (its size or times
     differ).  The files kept are at most 32 MB, or as many megabytes as the
-    new environment variable `IDRIS2_TTC_CACHE_MB` says (`0` keeps none).
+    new environment variable `IDRIS2I_1_TTC_CACHE_MB` says (`0` keeps none).
   + `--check` no longer reads the checked module again, with everything it
     imports transitively, once it is built: that is for the REPL, and for
     `--exec`, `-o` and `--client`, which still do it.
@@ -907,7 +934,7 @@ should target this file (`CHANGELOG_NEXT`).
   of C compiler errors about functions of modules that were never loaded.  A
   program with holes and no errors still compiles, with the warning.  The
   executable of a package is not compiled either if loading its main module
-  fails.  See the test `idris2/error/exitcode003`.
+  fails.  See the test `idris2i-1/error/exitcode003`.
 
 * A literal pattern of a type whose `fromString` or `fromInteger` does not
   reduce to a constructor form (such as `ByteString`, whose `fromString`
@@ -925,7 +952,7 @@ should target this file (`CHANGELOG_NEXT`).
   Literals whose conversion reduces to constructors (`fromInteger` at `Fin`
   or at a record that reduces the number, `fromString` that wraps the string
   in a constructor) are matched as before.  See the test
-  `idris2/error/perror037`.
+  `idris2i-1/error/perror037`.
 
 * An undefined name for which there are similar names to suggest ("Did you
   mean: ...?") is no longer retried as if it could be fixed later.  In a
@@ -934,16 +961,16 @@ should target this file (`CHANGELOG_NEXT`).
   every level, so the time to report the error doubled with every bind: a
   50-statement block took 616 billion instructions, now 1.5 billion, the
   same as checking the block without the error.  The message is unchanged.
-  See the test `idris2/perf/perf019`.
+  See the test `idris2i-1/perf/perf019`.
 
 ### Building/Packaging changes
 
-* `idris2 --install` runs the `postinstall` script of a package with
-  `IDRIS2_PACKAGE_INSTALL_DIR` set to the directory where the package was
+* `idris2i-1 --install` runs the `postinstall` script of a package with
+  `IDRIS2I_1_PACKAGE_INSTALL_DIR` set to the directory where the package was
   installed, so that it can put files of its own there (a C library and its
   header in `lib`, for the RefC back end).
 
-* `idris2 --dump-api pkg.ipkg` builds a package and prints its public API in a
+* `idris2i-1 --dump-api pkg.ipkg` builds a package and prints its public API in a
   stable text form, one declaration per line, meant to be compared with
   `diff`: per module, the public imports, the exported fixities, every
   exported name with its visibility, totality requirement and elaborated type
@@ -951,7 +978,7 @@ should target this file (`CHANGELOG_NEXT`).
   data types, record fields, interfaces with their methods, and
   implementations.  It does not depend on source positions, paths, build order
   or machine generated names.  The API of `prelude`, `base` and `contrib` is committed in
-  `libs/api`: `make api-check` (and the test `idris2/mkdoc/apidump002-libs`)
+  `libs/api`: `make api-check` (and the test `idris2i-1/mkdoc/apidump002-libs`)
   fails with the difference when it changes, `make api-snapshots` writes it
   again.  See "Detecting changes to the API of a package" in the package
   documentation.
@@ -962,10 +989,10 @@ should target this file (`CHANGELOG_NEXT`).
   reusing it could give a different result from building with this compiler.
   The TTC format version changes accordingly.
 
-* `--jobs N` (`-j N`, or `IDRIS2_BUILD_JOBS`) builds the modules of a package
+* `--jobs N` (`-j N`, or `IDRIS2I_1_BUILD_JOBS`) builds the modules of a package
   with up to `N` processes in parallel, each module once the modules it imports
   are built.  `make` builds the compiler and the libraries this way
-  (`IDRIS2_JOBS`, the number of processors up to 16 by default): checking the
+  (`IDRIS2I_1_JOBS`, the number of processors up to 16 by default): checking the
   compiler with a RefC-built compiler takes 2m20s instead of 7m, and `base`
   20s instead of 70s, on 16 cores.  The TTC files are the same.
 * Finding out that the modules of a package are up to date takes much less
@@ -973,9 +1000,9 @@ should target this file (`CHANGELOG_NEXT`).
   each module of the package that imports it, directly or not), only the
   start of a TTC file is read for its version and hashes, and the paths of
   the TTC files of the imports are made only as they are tried.
-  `idris2 --build base.ipkg` with nothing to do takes 2.3 billion
+  `idris2i-1 --build base.ipkg` with nothing to do takes 2.3 billion
   instructions instead of 23.7 billion (0.3s instead of 2.6s), and
-  `idris2 --typecheck idris2.ipkg` 10.4 billion instead of 42.5 billion (1.2s
+  `idris2i-1 --typecheck idris2i-1.ipkg` 10.4 billion instead of 42.5 billion (1.2s
   instead of 4.6s).
 * A module that is up to date costs less again in a build:
   - The context is no longer reset (with the primitives added again) for
@@ -988,12 +1015,12 @@ should target this file (`CHANGELOG_NEXT`).
   - The lexer makes its rules once, instead of again for each token (they
     were lazy, and lazy values are not shared), and no longer puts the rest
     of a file back together into a string after the header of a module.
-  With nothing to do, `idris2 --build base.ipkg` takes 0.3 billion
-  instructions instead of 4.0 billion, `idris2 --build contrib.ipkg` 0.24
+  With nothing to do, `idris2i-1 --build base.ipkg` takes 0.3 billion
+  instructions instead of 4.0 billion, `idris2i-1 --build contrib.ipkg` 0.24
   billion instead of 3.2 billion (0.19 billion instead of 1.1 billion with
-  `--jobs`), and `idris2 --typecheck idris2.ipkg` 0.75 billion instead of 14.2
+  `--jobs`), and `idris2i-1 --typecheck idris2i-1.ipkg` 0.75 billion instead of 14.2
   billion.
-* `idris2 --timing-summary` prints, at the end, the processor time spent in the
+* `idris2i-1 --timing-summary` prints, at the end, the processor time spent in the
   phases of the compiler (parsing, reading imports, decoding imported
   definitions, elaborating declarations, constraint solving, delayed
   elaborators, ambiguity, auto search, case trees, coverage, totality,
@@ -1017,31 +1044,31 @@ should target this file (`CHANGELOG_NEXT`).
   installing with `LTO=1`, unless it is run as `make bootstrap-c LTO=0`; the
   first compiler of that bootstrap, which only builds the libraries and the
   second one, is compiled with `-O1` and without LTO (`BOOT_CFLAGS` changes
-  this).  An `IDRIS2_CFLAGS` or `CFLAGS` from the user still takes precedence.
+  this).  An `IDRIS2I_1_CFLAGS` or `CFLAGS` from the user still takes precedence.
 * The RefC backend generates the C of a big program faster: it cut the
   program in units with the `div` of `Nat`, which counts down in unary (as
   many steps as the size of the C in bytes); the C of the compiler takes 6.8%
   fewer instructions to generate.
 * With the RefC backend, `make` builds the libraries that do not depend on each
   other at the same time (`contrib` and `linear`, then `test`, `papers` and
-  `network`), dividing `IDRIS2_JOBS` between them; `LIBS_PARALLEL=1` builds them
+  `network`), dividing `IDRIS2I_1_JOBS` between them; `LIBS_PARALLEL=1` builds them
   one after the other, which is always the case with the Scheme backends.  The
   dependencies between the libraries in the `Makefile` now follow what they
   import (`network`, `test` and `papers` were missing `base`).
 * `make` no longer rewrites `src/IdrisPaths.idr` when its content is the same,
   so a second `make` does not rebuild the modules that import it.
-* `idris2 --build` no longer compiles the executable of a package again when
+* `idris2i-1 --build` no longer compiles the executable of a package again when
   it is certainly up to date: it prints `The executable ... is up to date, not
   compiling it again` instead of `Now compiling the executable`.  Compiling an
   executable is a whole-program compilation, as slow when nothing changed
   (about 90s for the compiler itself) as after a change.  After it succeeds,
   a stamp file (`build/exec/<executable>.stamp`) records the settings of the
   compilation (the main module, code generator and directives, options,
-  directories, the `IDRIS2_CC`/`CFLAGS`/... variables of RefC and those that
+  directories, the `IDRIS2I_1_CC`/`CFLAGS`/... variables of RefC and those that
   the C compiler reads, such as `CPATH`) and the state (modification time
   and size) of what the executable is made from: the TTC files of the program,
   of its dependencies too, the compiler, the runtime support files and
-  libraries (also those in the `-L` directories of `IDRIS2_LDFLAGS` and in
+  libraries (also those in the `-L` directories of `IDRIS2I_1_LDFLAGS` and in
   `LIBRARY_PATH`), the C compiler or Scheme, the C headers of `%foreign`s
   that are not those of the runtime and the headers they include (as the C
   compiler finds them), and the executable itself.  The
@@ -1051,7 +1078,7 @@ should target this file (`CHANGELOG_NEXT`).
   (Linux, or an absolute path of the compiler on the command line).
   `--clean` removes the stamp, `--log package.stamp:5` tells why a build did
   not skip the compilation.  When RefC's executable is moved to
-  `idris2_app/idris2` and a launcher put in its place (as `make` does for the
+  `idris2i-1_app/idris2i-1` and a launcher put in its place (as `make` does for the
   compiler), it is the moved binary that is checked.
 * A module of a package is now built as if it were built alone: the
   `%language` extensions, `%foreign_impl`s and builtin names (`%pair`,
@@ -1066,14 +1093,14 @@ should target this file (`CHANGELOG_NEXT`).
 * A project's data directory can now be specified with the `datadir` entry in
   an `ipkg` file.
 * Fix building on Windows with MSYS.
-* Idris 2 can now be bootstrapped with only a C compiler: `make bootstrap-c`
+* Idris2i-1 can now be bootstrapped with only a C compiler: `make bootstrap-c`
   builds the compiler from the C code that the RefC backend generated for it
-  (`bootstrap/idris2_app/idris2.c.xz`), then rebuilds it with the RefC
+  (`bootstrap/idris2i-1_app/idris2i-1.c.xz`), then rebuilds it with the RefC
   backend.  `bootstrap/update-c-bootstrap.sh` regenerates that file.
   The generated C is compiled in parallel (see below), so that compiling it
   takes seconds instead of minutes.
 * `make bootstrap-c` stops with an error when `xz` is missing or cannot
-  decompress `bootstrap/idris2_app/idris2.c.xz`.  It used to go on with an
+  decompress `bootstrap/idris2i-1_app/idris2i-1.c.xz`.  It used to go on with an
   empty or truncated C file, and fail later with an unrelated error.
 * The dependency files of the support libraries have a rule for each header
   (`-MP`), so that removing or renaming a header no longer breaks the build of
@@ -1085,11 +1112,11 @@ should target this file (`CHANGELOG_NEXT`).
   usual `CFLAGS` too (`-fPIC`, the warnings).
 * `make install` after `make bootstrap SCHEME=chez` installs the libraries
   with the compiled Chez code of their modules again (for incremental builds),
-  which it stopped doing when RefC became the default `IDRIS2_CG`.  The
+  which it stopped doing when RefC became the default `IDRIS2I_1_CG`.  The
   libraries are compiled for incremental builds with `LIBS_INC_CGS`: `chez`
-  when `IDRIS2_CG` is `chez` or when the compiler in `build/exec` runs on Chez
+  when `IDRIS2I_1_CG` is `chez` or when the compiler in `build/exec` runs on Chez
   Scheme, and nothing otherwise (the RefC and Racket backends have no
-  incremental builds, `IDRIS2_INC_CGS=refc` was ignored).  `IDRIS2_CG=chez
+  incremental builds, `IDRIS2I_1_INC_CGS=refc` was ignored).  `IDRIS2I_1_CG=chez
   make install` is no longer needed after a Chez bootstrap.
 * The support files are installed with their modification times
   (`install -p`).  `make test` reinstalls them in `build/env` every time,
@@ -1101,17 +1128,17 @@ should target this file (`CHANGELOG_NEXT`).
   make one part per processor, all at once, and the memory that the C
   compilers need together hardly depends on the number of parts (about 13 GB
   with GCC at `-O1`): on a machine with few processors and little memory,
-  they could need more than it has.  `IDRIS2_CC_JOBS` of RefC defaults to the number of processors up to
-  16, like `IDRIS2_JOBS`.  A library that `make` builds on its own (as in `make
-  linear`, or the bootstrap libraries) uses all of `IDRIS2_JOBS` instead of
+  they could need more than it has.  `IDRIS2I_1_CC_JOBS` of RefC defaults to the number of processors up to
+  16, like `IDRIS2I_1_JOBS`.  A library that `make` builds on its own (as in `make
+  linear`, or the bootstrap libraries) uses all of `IDRIS2I_1_JOBS` instead of
   half of them.
 * The nix package (`nix build`, the default package of the flake) follows the
   switch of `make` to RefC: the compiler, built with RefC from a compiler
-  bootstrapped with Chez, is `bin/idris2_app/idris2` with a wrapper that lifts
+  bootstrapped with Chez, is `bin/idris2i-1_app/idris2i-1` with a wrapper that lifts
   the stack limit like the launcher of `make` does.  Its wrapper, and that of
-  the Chez bootstrap package, give the compiler a C compiler (`IDRIS2_CC`,
-  else `CC`, else the one of nixpkgs) and GMP (added to `IDRIS2_CPPFLAGS` and
-  `IDRIS2_LDFLAGS`), which the RefC backend needs to compile programs; `CHEZ`
+  the Chez bootstrap package, give the compiler a C compiler (`IDRIS2I_1_CC`,
+  else `CC`, else the one of nixpkgs) and GMP (added to `IDRIS2I_1_CPPFLAGS` and
+  `IDRIS2I_1_LDFLAGS`), which the RefC backend needs to compile programs; `CHEZ`
   is still set for `--cg chez`.  `buildIdris` installs the executable of RefC
   without its C sources and objects.
 * On macOS with the GMP of Homebrew and on FreeBSD, `make`, the second stage
@@ -1121,16 +1148,16 @@ should target this file (`CHANGELOG_NEXT`).
   them are passed on to the compilers that compile C with RefC, which read
   them from the environment only.  Only `make test` and the first stage of
   `make bootstrap-c` did.
-* An `IDRIS2_CG` of `custom.mk` other than `refc` is passed on to the compiler
+* An `IDRIS2I_1_CG` of `custom.mk` other than `refc` is passed on to the compiler
   that builds the compiler: it built the compiler with RefC, its default code
   generator, while the `Makefile` went on as if it were built with Chez or
   Racket.
-* `make test` with `TEST_IDRIS2_SUPPORT_DIR` naming prebuilt support
+* `make test` with `TEST_IDRIS2I_1_SUPPORT_DIR` naming prebuilt support
   libraries (as the check of the nix package does) only checks that they are
   there again, instead of building the support libraries in the source tree
   and installing them in `build/env`.  Its default is now the `lib` directory
   under `build/env`, where `make test` installs them.
-* The tests of the Scheme evaluator (`idris2/schemeeval`) are skipped only
+* The tests of the Scheme evaluator (`idris2i-1/schemeeval`) are skipped only
   when the compiler under test says that it does not run on Scheme ("Scheme
   evaluator not available").  They were skipped too when the evaluator gave a
   wrong result, which hid its faults.  A compiler that runs on Chez or Racket
@@ -1151,9 +1178,9 @@ should target this file (`CHANGELOG_NEXT`).
 * `make` with the RefC backend links the compiler with the C support library
   (`support/c`) of the tree, and compiles its C with the headers of that
   library, as a compiler on Chez loads it: it used the ones of the prefix of
-  `IDRIS2_BOOT`, so a change to `support/c` was not seen (or a new function
+  `IDRIS2I_1_BOOT`, so a change to `support/c` was not seen (or a new function
   of it did not link) until it was installed.  The RefC runtime
-  (`support/refc`) is still the one of `IDRIS2_BOOT`, which matches the C
+  (`support/refc`) is still the one of `IDRIS2I_1_BOOT`, which matches the C
   that it writes.
 * A module whose imports were built again with the same interface (after a
   change to a comment or a private definition of one of them) is no longer
@@ -1177,7 +1204,7 @@ should target this file (`CHANGELOG_NEXT`).
   inside one jumps back to it (`sigsetjmp`/`siglongjmp` on the stack of the
   thread, `support/refc/crash.c`) instead of exiting.  The crash sites that
   may be caught are those raised by the code of the thread itself
-  (`idris2_crash`, `idris2_crashMsg`, the new `idris2_crashCheck` of the
+  (`idris2i_1_crash`, `idris2i_1_crashMsg`, the new `idris2i_1_crashCheck` of the
   failed checks of the support code, the range checks of buffers), never
   under a lock of the runtime; a constant whose evaluation crashed is given
   back to the other threads.  With backtraces on, the boundary gets the
@@ -1236,10 +1263,10 @@ should target this file (`CHANGELOG_NEXT`).
   typical browser request (5,600 to 3,000 for a minimal one), the HPACK
   decoder from 36,800 to 24,000 for the requests of RFC 7541 C.4, and the
   JSON parser of `contrib` from 2.15 G to 1.28 G instructions for a document
-  of 10 MB.  New in `buffer.h`: `idris2_bufferCompare` (`memcmp` of two ranges),
-  `idris2_bufferFindByte` (`memchr`) and `idris2_bufferHashFNV31`, checked
+  of 10 MB.  New in `buffer.h`: `idris2i_1_bufferCompare` (`memcmp` of two ranges),
+  `idris2i_1_bufferFindByte` (`memchr`) and `idris2i_1_bufferHashFNV31`, checked
   like `copyBuffer`.  With `--directive refc-backtrace`, the frame of such a
-  foreign function is kept (`IDRIS2_BT_KEEP_FRAME`).  The tests
+  foreign function is kept (`IDRIS2I_1_BT_KEEP_FRAME`).  The tests
   `refc/unboxedforeign001` and `contrib/bytestring_ranges`.
 
 * A library that wraps a C library can tell what to link: the directives
@@ -1247,7 +1274,7 @@ should target this file (`CHANGELOG_NEXT`).
   found in the `lib` directories of the packages, linked by its path) and
   `refc-pkg-config=<names>` (the flags of `pkg-config --cflags` and `--libs`),
   given with `%cg refc` in a module, reach every program that imports it, so
-  that its users need no `IDRIS2_LDLIBS`.  The `lib` directories of the
+  that its users need no `IDRIS2I_1_LDLIBS`.  The `lib` directories of the
   packages are also include directories, for the headers that a package ships
   with its C code.  An unknown `refc-` directive, or one with a value that
   cannot be, is now an error that names it (it was ignored).  The stamp of an
@@ -1258,23 +1285,23 @@ should target this file (`CHANGELOG_NEXT`).
 * A green thread can wait for a file descriptor without blocking its
   worker: the runtime has a reactor (`support/refc/reactor.c`; epoll on
   Linux, kqueue on macOS and the BSDs, poll(2) elsewhere or with
-  `-DIDRIS2_REACTOR_POLL`), which the idle workers wait in and the busy ones
-  look at now and then.  Its C API (`reactor.h`): `idris2_ioWait`,
-  `idris2_ioClose`, `idris2_ioForget`.  The deadlock report does not fire
+  `-DIDRIS2I_1_REACTOR_POLL`), which the idle workers wait in and the busy ones
+  look at now and then.  Its C API (`reactor.h`): `idris2i_1_ioWait`,
+  `idris2i_1_ioClose`, `idris2i_1_ioForget`.  The deadlock report does not fire
   while a thread waits for a descriptor.  See `System.IO.Wait` in base.
   The tests `refc/reactor001` to `refc/reactor004`.
 * The threads with a deadline are kept in a 4-ary heap instead of a sorted
   list: 10000 sleeping threads (the test `refc/timers002`) take 80% fewer
   instructions.
-* `idris2_blockingCall(fn, arg)` (`reactor.h`), for C code, runs a call that
-  blocks on a pool of OS threads (at most `IDRIS2_BLOCKING_THREADS`, 64 by
+* `idris2i_1_blockingCall(fn, arg)` (`reactor.h`), for C code, runs a call that
+  blocks on a pool of OS threads (at most `IDRIS2I_1_BLOCKING_THREADS`, 64 by
   default) while the green thread that makes it parks.  The test
   `refc/blocking001`.
 
 * A function that matches a borrowed constructor with fields stored raw (an
   `Int` or a `Double`, see below) and passes one of them back to itself in
   tail position, as `go k (MkP x rest) = go x rest`, failed to compile (an
-  `Idris2_Value *` assigned to an `int64_t` or a `double`, an error with GCC
+  `Idris2i_1_Value *` assigned to an `int64_t` or a `double`, an error with GCC
   14 and later) when it gives an `Int` or a `Double`, and otherwise lost the
   tail call, so that a long loop overflowed the C stack.  The borrowing
   takes such a field as owned (it is read into a new value), which makes
@@ -1358,10 +1385,10 @@ should target this file (`CHANGELOG_NEXT`).
   `--directive refc-check-layout` makes every match test the number of
   pointer fields of the cell (after a `believe_me` between types laid out
   differently, which is undefined behaviour).  Code that reads such a cell in
-  C uses `idris2_rawField`.  The tests `refc/rawfields001` and
+  C uses `idris2i_1_rawField`.  The tests `refc/rawfields001` and
   `refc/rawfields002`; the design in `docs/source/backends/refc-flat-layout.rst`.
 * The values that do not come from the pools (larger than 256 bytes, or all
-  of them under Valgrind or with `IDRIS2_REFC_NO_POOLS`) are aligned on 8
+  of them under Valgrind or with `IDRIS2I_1_REFC_NO_POOLS`) are aligned on 8
   bytes on 32 bit platforms too (they were aligned on the size of a pointer),
   as the cells of the pools are, for the unboxed fields of constructors to
   come.  The test `refc/rawcells001` checks the runtime (release, marking of
@@ -1403,14 +1430,14 @@ should target this file (`CHANGELOG_NEXT`).
   case in `partial` code, a division by zero, a missing foreign function, or
   `SIGSEGV`, `SIGBUS`, `SIGFPE`, `SIGILL` or `SIGABRT` from foreign code or a
   stack overflow) can print the functions of the thread that died on stderr,
-  after the message.  `--directive refc-backtrace` puts the Idris names of
+  after the message.  `--directive refc-backtrace` puts the Idris2i-1 names of
   the functions and where they are defined in the program (and compiles them
-  with `noinline`) and turns the backtraces on; `IDRIS2_REFC_BACKTRACE=1` or
+  with `noinline`) and turns the backtraces on; `IDRIS2I_1_REFC_BACKTRACE=1` or
   `0` turns them on or off when the program runs.  The stack is walked by the
   unwinder of the C compiler only when the error happens: a program runs the
-  same code with or without them.  With `IDRIS2_REFC_DEMANGLE=1`, a program
+  same code with or without them.  With `IDRIS2I_1_REFC_DEMANGLE=1`, a program
   compiled with the directive replaces the C names of its functions in its
-  input by their Idris names (for the output of `perf`), see "Backtraces" and
+  input by their Idris2i-1 names (for the output of `perf`), see "Backtraces" and
   "Profiling with perf" in the RefC documentation.  `idris_crash` is
   declared `noreturn` in the runtime, so that the C compiler does not make its
   call a jump (which hid the frame of the function that crashed).
@@ -1420,7 +1447,7 @@ should target this file (`CHANGELOG_NEXT`).
   for their C functions, and GCC 14 refuses the implicit declarations.  The
   `%foreign` declaration of `isNull` in `Network.Socket.Data` names the header
   that declares it, `idris_net.h`.  `support/refc/check-foreign.sh` checks
-  that every C function of the `%foreign` declarations of a set of Idris
+  that every C function of the `%foreign` declarations of a set of Idris2i-1
   sources that RefC calls is declared in the headers that the generated C
   includes and defined by the support libraries; the test
   `refc/foreigndecl001` runs it on the libraries.
@@ -1433,7 +1460,7 @@ should target this file (`CHANGELOG_NEXT`).
   passed to and returned from foreign functions (compiling a program with one
   used to stop with `INTERNAL ERROR: Struct access not implemented`), and
   `getField` and `setField` read and write its fields.  As in the Chez
-  backend, the layout is that of the C `struct` that the fields of the Idris
+  backend, the layout is that of the C `struct` that the fields of the Idris2i-1
   type describe (`Int` is `int`, the fixed width integers, `Double`, `Char`,
   `Ptr t`/`AnyPtr`, and another `Struct`, which is a pointer to a struct), and
   the generated C defines it under a name of its own, so no header is needed.
@@ -1485,46 +1512,46 @@ should target this file (`CHANGELOG_NEXT`).
 * A definition whose name ends like that of a C function that the code
   generator makes for another one (`x_constant` for a constant `x`, `f_borrow`
   for a foreign function `f`) no longer has the C name of that function, which
-  the C compiler rejected: these functions are now named `idris2_caf_...` and
-  `idris2_borrow_...`.  The C names that begin with `idris2_` are the support
+  the C compiler rejected: these functions are now named `idris2i_1_caf_...` and
+  `idris2i_1_borrow_...`.  The C names that begin with `idris2i_1_` are the support
   library's and the code generator's: a definition whose C name would begin
-  with it (one of a namespace `idris2`) is given the prefix `idris2_user_`.
+  with it (one of a namespace `idris2i-1`) is given the prefix `idris2i_1_user_`.
 * Fixed an issue to do with `alligned_alloc` not existing on older MacOS
   versions, causing builds targeting PowerPC to fail (#3662).  For these
   systems, the compiler will now use `posix_memalign`.
 * Fixed integer comparison operators returning incorrect results on WASM32.
-  The `idris2_extractInt` function incorrectly used `idris2_vp_to_Int32` for
-  unboxed values, which dereferences unboxed pointers as `Idris2_Int32*`
+  The `idris2i_1_extractInt` function incorrectly used `idris2i_1_vp_to_Int32` for
+  unboxed values, which dereferences unboxed pointers as `Idris2i_1_Int32*`
   (previously `Value_Int32*`) on 32-bit platforms when `UINTPTR_WIDTH` is not
   defined (common in Emscripten).
 * Fix missing support for sized, signed integers in FFI.
 * Fix headers for numeric negation.
-* Prefix RefC Idris values with `Idris2_` to prevent name collisions with third
+* Prefix RefC Idris2i-1 values with `Idris2i_1_` to prevent name collisions with third
   partly libraries.
 * Fixed casts from `String` failing to compile
   ([#3812](https://github.com/idris-lang/Idris2/issues/3812)): the support
-  library exported the cast helpers as `idris2_cast_String_to_*` while the
-  generated code calls `idris2_cast_string_to_*`.
+  library exported the cast helpers as `idris2i_1_cast_String_to_*` while the
+  generated code calls `idris2i_1_cast_string_to_*`.
 * Fix missing FFI of Data.Buffer.
 * Added support for green threads: `fork` and `threadWait` from `Prelude.IO`,
   and the whole of `System.Concurrency` (mutexes, condition variables,
   semaphores, barriers, channels and thread local data) are now implemented
   in terms of green threads, i.e. user level threads scheduled by the RefC
   runtime.  Once a program forks a thread, they run in parallel on a pool of
-  OS threads, one per processor (or `IDRIS2_WORKERS`; `IDRIS2_WORKERS=1` runs
+  OS threads, one per processor (or `IDRIS2I_1_WORKERS`; `IDRIS2I_1_WORKERS=1` runs
   them all on the main OS thread), that take work from each other.  A thread
   that wakes another one up lets it run next on the same OS thread, so that
   message passing stays as fast as with a single OS thread.  The values that
   threads hand over to each other are reference counted atomically; the
   others are not.  A thread that runs for more than 10ms while others wait
   for its OS thread yields at the end of an iteration of a loop
-  (`IDRIS2_PREEMPT=0` turns this off).  A blocking system call (such as
+  (`IDRIS2I_1_PREEMPT=0` turns this off).  A blocking system call (such as
   reading from standard input) only blocks the OS thread that makes it;
   `sleep` and `usleep` block no OS thread, as they are implemented in terms
   of the scheduler.  Mutexes are taken and released with one atomic
   operation when no thread waits for them.  Like in the Chez backend, the
   program ends when the main expression is done.  Every forked thread runs
-  on a stack of its own, 8MB by default (`IDRIS2_THREAD_STACK_SIZE` changes
+  on a stack of its own, 8MB by default (`IDRIS2I_1_THREAD_STACK_SIZE` changes
   it), followed by a guard page.  Green threads are currently only supported
   on POSIX systems; on Windows and WebAssembly the backend still builds and
   runs programs, but forking a thread reports an error.
@@ -1613,7 +1640,7 @@ should target this file (`CHANGELOG_NEXT`).
   is needed: in a constructor or a closure, or as the argument of a function
   that takes a value.  The results are those of the values, NaN, signed
   zeros and the casts out of range included, and so is the rounding on a
-  32 bit x86 that computes in more precision (`IDRIS2_DOUBLE`).  A Mandelbrot
+  32 bit x86 that computes in more precision (`IDRIS2I_1_DOUBLE`).  A Mandelbrot
   loop runs 25 times fewer instructions, an n-body simulation (the bodies in
   records) 2 times fewer, an update of an array of records of `Double`s 1.3
   times fewer.  `--directive refc-no-unbox-double` turns this off.
@@ -1637,7 +1664,7 @@ should target this file (`CHANGELOG_NEXT`).
   like in the Scheme backends, instead of being undefined behaviour when it is
   out of range.  Casting to `Int8` no longer fails to compile.
 * `Integer` and the type of foreign objects (`CFForeignObj`) can now be passed
-  to and returned from foreign functions; they are passed as `Idris2_Value *`.
+  to and returned from foreign functions; they are passed as `Idris2i_1_Value *`.
 * A constructor can now take over the memory of a unique value of another
   constructor with as many fields (`Left x` to `Right x`, `Mul a b` to
   `Add a b`), not only of the same constructor, and the fields that keep
@@ -1654,9 +1681,9 @@ should target this file (`CHANGELOG_NEXT`).
   copied (and leaked).  This fixes leaks in `pack`, `concat` and
   `Data.Buffer.getString`.  Functions of the `C` calling convention are not
   affected.
-* Declare `idris2_fileIsTTY` in `idris_file.h`, so that `isTTY` compiles.
+* Declare `idris2i_1_fileIsTTY` in `idris_file.h`, so that `isTTY` compiles.
 * The main expression runs on a large stack of its own (4GB on 64-bit
-  systems, reserved lazily, `IDRIS2_MAIN_STACK_SIZE` to change it) instead of
+  systems, reserved lazily, `IDRIS2I_1_MAIN_STACK_SIZE` to change it) instead of
   the stack of the process.  Much of the library is not tail recursive, so
   sorting or mapping a long list used to crash with a stack overflow, while
   the Chez backend grows its stack as needed.
@@ -1665,7 +1692,7 @@ should target this file (`CHANGELOG_NEXT`).
   * Values are allocated from pages of values of the same size, with a free
     list per page, instead of `malloc` and `free`.  Under Valgrind every
     value still comes from `malloc`; for other memory checkers, compile the
-    support library and the program with `-DIDRIS2_REFC_NO_POOLS`.
+    support library and the program with `-DIDRIS2I_1_REFC_NO_POOLS`.
   * A call in tail position no longer allocates a closure: it is stored in a
     pending call that the trampoline of the caller makes.  Applying a shared
     closure to its last argument does the same.
@@ -1679,7 +1706,7 @@ should target this file (`CHANGELOG_NEXT`).
 * Freeing a long list no longer needs a deep stack.
 * Faster generated code again, by a factor of 1.4 to 2.1 (the compiler itself
   by about 1.5):
-  * The generated C is compiled with `-O2` unless `IDRIS2_CFLAGS` or `CFLAGS`
+  * The generated C is compiled with `-O2` unless `IDRIS2I_1_CFLAGS` or `CFLAGS`
     say otherwise; it used to be compiled without optimisation.
   * `Int`, `Int64`, `Bits64` and `Integer` values that fit in 32 bits are no
     longer allocated on 64-bit systems, and arithmetic on small `Integer`s no
@@ -1715,7 +1742,7 @@ should target this file (`CHANGELOG_NEXT`).
   still receive a C string, which ends at the first NUL.  `putStr`,
   `fPutStr` and `stringByteLength` take the whole string.
 * Foreign functions of the `RefC` calling convention take and return a
-  `String` as an Idris value (`Idris2_Value *`) instead of a `char *`, like
+  `String` as an Idris2i-1 value (`Idris2i_1_Value *`) instead of a `char *`, like
   `Integer`: the arguments are borrowed, and a result is a new reference.
 * Arithmetic on `Int`, `Int8`, `Int16`, `Int32` and `Int64` wrapped around by
   relying on the overflow of signed C integers, which is undefined behaviour
@@ -1723,34 +1750,34 @@ should target this file (`CHANGELOG_NEXT`).
   integers.
 * Decrementing the reference count of a shared closure could make an
   immortal closure mortal again.
-* `IDRIS2_CC_JOBS=0` (or a value that is not a number of at least 1) is the
+* `IDRIS2I_1_CC_JOBS=0` (or a value that is not a number of at least 1) is the
   default number of C compilers for the units of a big program: with 0, no
   unit was compiled, and the link failed on the missing object files.
 * The compiler itself can be compiled with RefC.  Such a compiler has no Chez
   Scheme evaluator (`:set eval scheme` in the REPL).
 * Big programs (more than 4MB of C) are compiled in parts by C compilers
-  running in parallel (`IDRIS2_CC_JOBS` of them, the number of processors by
+  running in parallel (`IDRIS2I_1_CC_JOBS` of them, the number of processors by
   default).  The generated file is still a single file: its definitions are
-  in chunks guarded by `#if`, and `-DIDRIS2_PARTS=p -DIDRIS2_PART=i` selects
+  in chunks guarded by `#if`, and `-DIDRIS2I_1_PARTS=p -DIDRIS2I_1_PART=i` selects
   the `i`th of `p` parts; without these flags it compiles whole.  Add
   `-flto` (or `-flto=auto`) to the C flags to keep the inlining across parts.
 * The units of a big program that the C compilers compile (one file per unit,
   `<name>.u<k>.c`, with the definitions of the unit and the declarations they
   use) are the same when the program is compiled again after a small change,
   and then their object files are reused: a unit is compiled again only when
-  its text, the C compiler and its flags (`IDRIS2_CC`, `IDRIS2_CFLAGS`,
-  `IDRIS2_CPPFLAGS`), the runtime headers, or the other headers that the
+  its text, the C compiler and its flags (`IDRIS2I_1_CC`, `IDRIS2I_1_CFLAGS`,
+  `IDRIS2I_1_CPPFLAGS`), the runtime headers, or the other headers that the
   program includes (and those they include, as `cc -M` lists them) changed
   (texts are compared, not hashed).  `--log compiler.refc.cc:2` tells why
   the object files are not reused.  For that, definitions are put in units
   by their module, the number of units depends only on the size of the
-  program (not on `IDRIS2_CC_JOBS`, which only limits the C compilers that
+  program (not on `IDRIS2I_1_CC_JOBS`, which only limits the C compilers that
   run at once),
   constants are named after their values instead of numbered, local
   variables are numbered in each function, the numbers that the elaborator
   puts in the names of nested functions and case blocks are made stable, and
   the positions in the source (comments) are left out of the units (but not
-  of the single file).  `IDRIS2_REFC_SPLIT_SIZE` (or `--directive
+  of the single file).  `IDRIS2I_1_REFC_SPLIT_SIZE` (or `--directive
   refc-split-size=N`) lowers the size from which a program is split, to try
   this on small programs.
 * Functions borrow the parameters that they only look at: a whole program
@@ -1762,7 +1789,7 @@ should target this file (`CHANGELOG_NEXT`).
   once the caller is done with the value, rather than when the function is.
   `--directive refc-no-borrow` turns it off.
 * Empty pages of the allocator are used for values of any size, and beyond 16
-  of them per OS thread (`IDRIS2_REFC_KEEP_PAGES`) their memory goes back to
+  of them per OS thread (`IDRIS2I_1_REFC_KEEP_PAGES`) their memory goes back to
   the system; an idle OS thread gives its empty pages to the others.  A
   program that moves from values of one size to another no longer needs the
   memory of both.
@@ -1793,7 +1820,7 @@ should target this file (`CHANGELOG_NEXT`).
   allocated every time (`--directive refc-no-static` turns it off).  No
   references are counted for the variables that hold them, nor for string
   constants, and taking or releasing a reference to another immortal value no
-  longer calls the runtime (`-DIDRIS2_REFC_SMALL_CODE` in the C flags makes it
+  longer calls the runtime (`-DIDRIS2I_1_REFC_SMALL_CODE` in the C flags makes it
   call again, for code that is 10% smaller).  A list comprehension over `Int`s
   runs with 27% fewer instructions.
 * An expression that occurs several times inside delayed code is evaluated
@@ -1808,9 +1835,9 @@ should target this file (`CHANGELOG_NEXT`).
   for the only constructor of a type, no reference counting of `NULL` or of
   the values of the small integer types that a `case` looks at, and no dead
   statements after a jump.
-* `IDRIS2_REFC_MEMSTATS=1` and `IDRIS2_REFC_LEAKCHECK=1` report the memory of a
+* `IDRIS2I_1_REFC_MEMSTATS=1` and `IDRIS2I_1_REFC_LEAKCHECK=1` report the memory of a
   program, and the values that leaked, when it exits; with
-  `-DIDRIS2_REFC_STATS` they count the reference count operations, reuses and
+  `-DIDRIS2I_1_REFC_STATS` they count the reference count operations, reuses and
   closure applications.  `make install-support-refc-asan` installs a support
   library built with AddressSanitizer.
 * A division (`div`, `mod`) of a `Bits`, `Int` or `Integer` by zero stops
@@ -1849,7 +1876,7 @@ should target this file (`CHANGELOG_NEXT`).
 * A C function that is declared to return a `const char *` can be bound with
   the result type `String`: the generated C no longer fails to compile with
   "initialization discards 'const' qualifier" (the C compiler runs with
-  `-Werror`).  `idris2_mkString` of the runtime takes a `const char *`.
+  `-Werror`).  `idris2i_1_mkString` of the runtime takes a `const char *`.
 * Casting a `String` to a `Double` reads the values that are not numbers the
   way `show` writes them, like the Chez backend: `"+inf.0"`, `"-inf.0"` and
   `"+nan.0"` (and `"-nan.0"`), in any case, which all gave 0.0, so that `cast
@@ -1907,8 +1934,8 @@ should target this file (`CHANGELOG_NEXT`).
   next safepoint, and the one that woke up runs first.  It used to wait until
   a thread that computes blocked or ended (with two workers and two threads
   computing for 2.7s, a `sleep 1` took 2.7s).  With a single worker
-  (`IDRIS2_WORKERS=1`), threads are now preempted for that too, but still not
-  to let the other runnable threads run.  `IDRIS2_PREEMPT=0` turns this off,
+  (`IDRIS2I_1_WORKERS=1`), threads are now preempted for that too, but still not
+  to let the other runnable threads run.  `IDRIS2I_1_PREEMPT=0` turns this off,
   with the rest of the preemption.
 * The support library compiles for 64 bit Windows with GCC 15 or later again
   (MSYS2 MINGW64): the runtime jumped (`musttail`) from a function of two or
@@ -1916,10 +1943,10 @@ should target this file (`CHANGELOG_NEXT`).
   Windows ABI (four arguments in registers) cannot do, and GCC refused to
   compile it.  Like the generated code, the runtime now only jumps to a
   function that takes all its arguments in registers, or no more arguments
-  than the caller (`IDRIS2_MUSTTAIL_REG_ARGS`).  On Windows that is four
+  than the caller (`IDRIS2I_1_MUSTTAIL_REG_ARGS`).  On Windows that is four
   arguments, where it was taken to be none: the generated code makes these
   jumps there too now.
-* `IDRIS2_REFC_MEMSTATS=1` (and `IDRIS2_REFC_LEAKCHECK`) stops the threads
+* `IDRIS2I_1_REFC_MEMSTATS=1` (and `IDRIS2I_1_REFC_LEAKCHECK`) stops the threads
   that still run before it reports, as they changed the pages that it looked
   at (it reported broken free lists, or wrong counts).  A thread that does not
   stop within a second (in a system call, say) makes it skip the report.
@@ -1943,12 +1970,12 @@ should target this file (`CHANGELOG_NEXT`).
 
 * Backtraces: a program that dies of a fatal error (`idris_crash`, a missing
   case in `partial` code, or an error that Chez raises and nothing handles)
-  can print the Idris
+  can print the Idris2i-1
   functions of its continuation on stderr, after the message, in the same
-  form as with RefC.  `--directive chez-backtrace` puts the Idris names of the
+  form as with RefC.  `--directive chez-backtrace` puts the Idris2i-1 names of the
   functions and where they are defined in the program, keeps Chez from
   inlining them (2% to 18% more instructions on `benchmark/`), and turns the
-  backtraces on; `IDRIS2_CHEZ_BACKTRACE=1` or `0` turns them on or off when
+  backtraces on; `IDRIS2I_1_CHEZ_BACKTRACE=1` or `0` turns them on or off when
   the program runs.  Without the directive, the code of the program is the
   same with them on or off; the continuation is only walked when the error
   happens.  See "Backtraces" in the Chez documentation.
@@ -1960,7 +1987,7 @@ should target this file (`CHANGELOG_NEXT`).
   Scheme code (next to its `.ss` file) instead of a `compileChez` file shared
   by the whole package: with modules built in parallel, a module could run
   the script of another one, or a half-written one ("variable cs.ss is not
-  bound"), which broke `make bootstrap` and `make libs IDRIS2_CG=chez`.
+  bound"), which broke `make bootstrap` and `make libs IDRIS2I_1_CG=chez`.
 * `shiftR` of a signed fixed width type (`Int8` to `Int64`, `Int`) by a
   negative count, which is a left shift, wraps around like the other
   operations of the type: `prim__shr_Int8 100 (-1)` gave 200, now -56 (as with
@@ -1973,7 +2000,7 @@ should target this file (`CHANGELOG_NEXT`).
   was -200).  (`negate` of the `Num` implementations, which is `0 - x`, was
   right.)  The same for the Racket, Gambit and JavaScript backends.
 * `getLine` no longer leaks the line that it reads (120 bytes for a short
-  line): `idris2_getStr` of the support library gave it in a buffer from
+  line): `idris2i_1_getStr` of the support library gave it in a buffer from
   `malloc`, which the `C` calling convention copied into a string and never
   freed.  It now gives it in a buffer of the thread, valid until the next
   call (the previous line is freed).  The Racket and Gambit backends, and the
@@ -1981,10 +2008,10 @@ should target this file (`CHANGELOG_NEXT`).
 * A `String` or `Buffer` argument of a C function no longer moves while the
   function runs.  Chez passed it as the address of a bytevector in the Scheme
   heap, which a collection could move or free when the C function called back
-  into Idris (or, for `__collect_safe`, when another thread collected), so C
+  into Idris2i-1 (or, for `__collect_safe`, when another thread collected), so C
   then read another object or crashed.  The bytevector is now locked during
   the call.  It costs about 100ns per call with a `String` argument: a call
-  of `strlen` from an Idris loop takes 450ns instead of 350ns on a 16 byte
+  of `strlen` from an Idris2i-1 loop takes 450ns instead of 350ns on a 16 byte
   string, and 3% more on a 1KB one.
   The test `chez/ffiPin001` collects in a callback.
 * The calling convention `C__scoped_callbacks` (`%foreign
@@ -2023,7 +2050,7 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### JavaScript Backends
 
-* Crash boundaries (`System.Crash.catchCrash`) catch the crashes of Idris code
+* Crash boundaries (`System.Crash.catchCrash`) catch the crashes of Idris2i-1 code
   and the errors that JavaScript raises (as `FailedCheck`, with the stack of
   the error as the backtrace).
 
@@ -2038,7 +2065,7 @@ should target this file (`CHANGELOG_NEXT`).
     benchmarks is from -30% (`mergeStr`) to +40% (`triples`) instructions;
     `--directive no-trampoline` turns it off.  Function arguments of foreign
     functions are wrapped to run the pending calls of their results.  No
-    pending call reaches JavaScript code: an Idris function that it calls
+    pending call reaches JavaScript code: an Idris2i-1 function that it calls
     otherwise (a closure in an `AnyPtr` or a record, stored by JavaScript
     and called later, from the event loop) makes its tail calls directly,
     where it returned an object of class `__TC` after 64 nested calls; and an
@@ -2051,7 +2078,7 @@ should target this file (`CHANGELOG_NEXT`).
   + With Node, the main expression runs on a stack of 1GB in a worker
     thread, as with RefC, so that recursion that is not a tail call
     (`foldr`, `sort`, `traverse` on lists of 10^6 elements) works: four of
-    the five benchmarks overflowed the stack before.  `IDRIS2_MAIN_STACK_SIZE`
+    the five benchmarks overflowed the stack before.  `IDRIS2I_1_MAIN_STACK_SIZE`
     sets the size (`0` runs on the main thread).  The browser keeps its
     limit for such recursion.
 * `getChar` with Node reads file descriptor 0 instead of `process.stdin.fd`.
@@ -2117,7 +2144,7 @@ should target this file (`CHANGELOG_NEXT`).
   and `popen2Wait` returns its exit status.  The pipes are FIFOs that the
   program opens itself, instead of the pipes of Node's child process, whose
   file descriptor is not part of Node's API.  With
-  `IDRIS2_MAIN_STACK_SIZE=0` they work too (`popen2` and `popen` for writing
+  `IDRIS2I_1_MAIN_STACK_SIZE=0` they work too (`popen2` and `popen` for writing
   stopped the program with an error, `popen` for reading ran the command to
   its end first): a small Node process waits for the child and passes its
   exit status on.
@@ -2307,7 +2334,7 @@ should target this file (`CHANGELOG_NEXT`).
   (and, for the linear arrays, a call of `unsafePerformIO`); at a known
   implementation they are now specialised (`%spec`) and inlined to the
   primitive and its bounds check.  Copying is done by the backend (the new
-  primitive `prim__arrayCopy` of `Data.IOArray.Prims`) instead of an Idris
+  primitive `prim__arrayCopy` of `Data.IOArray.Prims`) instead of an Idris2i-1
   loop of reads and writes.  In instructions per element, for an array of
   1024 `Int`s, RefC / Chez: read 551 → 134 / 143 → 73 (the loop around it
   alone takes 39 / 52), write 1353 → 191 / 310 → 83, copy 1799 → 36 /
@@ -2481,7 +2508,7 @@ should target this file (`CHANGELOG_NEXT`).
 * Reading a file that fails (a directory, `EISDIR`) returns an error:
   `fGetLine` returned an empty string without an error, so `readFile`,
   `readFilePage`, `fRead` and the other loops that read until the end of the
-  file never stopped (`idris2 --check` on a directory named `Foo.idr` hung,
+  file never stopped (`idris2i-1 --check` on a directory named `Foo.idr` hung,
   once the compiler is built with this `base`).  `replWith` and `repl` stop
   on an error of `stdin` too.
 
@@ -2888,8 +2915,8 @@ should target this file (`CHANGELOG_NEXT`).
   server connections over the non-blocking sockets of
   `Network.Socket.Async`, with OpenSSL 3, used from green threads without
   blocking a worker.  It is built, tested and installed only when
-  `pkg-config` finds OpenSSL 3 (`make IDRIS2_TLS=1` builds it anyway,
-  `IDRIS2_TLS=0` leaves it out); otherwise `make` says once that it is
+  `pkg-config` finds OpenSSL 3 (`make IDRIS2I_1_TLS=1` builds it anyway,
+  `IDRIS2I_1_TLS=0` leaves it out); otherwise `make` says once that it is
   skipped.  Its C part (`libs/tls/c`) is installed in the `lib` directory of
   the package, and linked by itself into the programs that import it, on
   RefC (a static archive, and OpenSSL through `pkg-config`) and on Chez (a

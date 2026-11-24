@@ -1,4 +1,4 @@
-`geom.h` and `geom.c` are a small C library that I cannot change. Write Idris 2
+`geom.h` and `geom.c` are a small C library that I cannot change. Write Idris2i-1
 bindings for it in `Geom.idr` and a program `Main.idr` that uses every function of the
 library through the bindings.
 
@@ -12,7 +12,7 @@ the points to a polyline and prints:
 5. `length L`, from `polyline_length`
 6. the text from `polyline_describe`
 
-Print a `Double` with Idris's `show`. For `./build/exec/geom 0 0 3 4 3 10` the output is:
+Print a `Double` with Idris2i-1's `show`. For `./build/exec/geom 0 0 3 4 3 10` the output is:
 
 ```
 count 3

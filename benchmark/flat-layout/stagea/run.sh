@@ -4,7 +4,7 @@
 # refc-no-raw-fields`, and by a base compiler if one is given, checked to
 # print the same, and measured (instructions:u, median of RUNS).
 #
-# Usage: run.sh NEW_IDRIS2 [BASE_IDRIS2]   (IDRIS2_PREFIX / BASE_PREFIX for
+# Usage: run.sh NEW_IDRIS2I_1 [BASE_IDRIS2I_1]   (IDRIS2I_1_PREFIX / BASE_PREFIX for
 # their libraries; RUNS=3, FAST=1 for the fast inputs)
 set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -30,7 +30,7 @@ build() { # variant compiler prefix directive prog pkgs
   local d="$WORK/$v"
   mkdir -p "$d"
   cp "$here/$p.idr" "$d/"
-  (cd "$d" && IDRIS2_PREFIX=$pre "$c" --cg refc ${pk:+-p $pk} ${dir:+--directive $dir} -o "$p" "$p.idr" > /dev/null)
+  (cd "$d" && IDRIS2I_1_PREFIX=$pre "$c" --cg refc ${pk:+-p $pk} ${dir:+--directive $dir} -o "$p" "$p.idr" > /dev/null)
 }
 
 median() { sort -n | awk '{a[NR]=$1} END {print a[int((NR+1)/2)]}'; }
@@ -45,8 +45,8 @@ measure() { # exe input
 printf "program\traw\tnoraw\tbase\tnoraw/raw\tbase/raw\n"
 echo "$progs" | while IFS=: read -r p pk full fast; do
   in=$full; [ "${FAST:-}" = 1 ] && in=$fast
-  build raw "$NEW" "${IDRIS2_PREFIX:-}" "" "$p" "$pk"
-  build noraw "$NEW" "${IDRIS2_PREFIX:-}" refc-no-raw-fields "$p" "$pk"
+  build raw "$NEW" "${IDRIS2I_1_PREFIX:-}" "" "$p" "$pk"
+  build noraw "$NEW" "${IDRIS2I_1_PREFIX:-}" refc-no-raw-fields "$p" "$pk"
   [ -n "$BASE" ] && build base "$BASE" "${BASE_PREFIX:-}" "" "$p" "$pk"
   ref="$("$WORK/raw/build/exec/$p" < "$in")"
   for v in noraw ${BASE:+base}; do

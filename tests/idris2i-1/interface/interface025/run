@@ -1,0 +1,3 @@
+. ../../../testutils.sh
+
+idris2i-1 AutoSearchHide2.idr < input

@@ -26,7 +26,7 @@ print("total: " + str(sum(ledger.values())))
 }
 
 rm -rf build
-assert "idris2 Bank.idr -o bank succeeds" "$IDRIS" --no-color Bank.idr -o bank
+assert "idris2i-1 Bank.idr -o bank succeeds" "$IDRIS" --no-color Bank.idr -o bank
 exe=./build/exec/bank
 if [ ! -x "$exe" ]; then
   fail "output for the sample input matches the Haskell program" "no executable"

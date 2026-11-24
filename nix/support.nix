@@ -1,7 +1,7 @@
-{ stdenv, lib, gmp, idris2Version }:
+{ stdenv, lib, gmp, idris2i_1Version }:
 stdenv.mkDerivation rec {
-  pname = "libidris2_support";
-  version = idris2Version;
+  pname = "libidris2i_1_support";
+  version = idris2i_1Version;
 
   # we don't rebuild Idris when changing the buildIdris nix
   # function:
@@ -22,8 +22,8 @@ stdenv.mkDerivation rec {
   installTargets = "install-support";
 
   postInstall = ''
-    mv $out/idris2-${version}/lib $out/lib
-    mv $out/idris2-${version}/support $out/share
-    rmdir $out/idris2-${version}
+    mv $out/idris2i-1-${version}/lib $out/lib
+    mv $out/idris2i-1-${version}/support $out/share
+    rmdir $out/idris2i-1-${version}
   '';
 }

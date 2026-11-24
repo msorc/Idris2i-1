@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2 -o main Main.idr
+idris2i-1 -o main Main.idr
 $VALGRIND ./build/exec/main
 
 # A partial application that is applied once (in one branch, as the
@@ -8,12 +8,12 @@ $VALGRIND ./build/exec/main
 # call: no closure is made for it.
 count() {
   for f in oneBranch manyMissing nested reuseBranch tree lazyClosure; do
-    printf '%s %s\n' $f $(awk -v RS= "/Value \\*Main_$f\\n/" build/exec/$1.c | grep -c 'idris2_mkClosure')
+    printf '%s %s\n' $f $(awk -v RS= "/Value \\*Main_$f\\n/" build/exec/$1.c | grep -c 'idris2i_1_mkClosure')
   done
 }
 count main
 
 # Without the rewrite, closures are made, and the program gives the same.
-idris2 --directive refc-no-local-closures -o main2 Main.idr
+idris2i-1 --directive refc-no-local-closures -o main2 Main.idr
 ./build/exec/main2
 count main2

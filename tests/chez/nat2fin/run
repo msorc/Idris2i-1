@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2 --quiet -o test Test.idr
+idris2i-1 --quiet -o test Test.idr
 run Check.idr

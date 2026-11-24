@@ -12,13 +12,13 @@ import Data.Buffer
 -- archive (in the `lib` directory of the package, or the current one), and
 -- OpenSSL as pkg-config finds it.  The Scheme back ends load the shared
 -- library of the foreign specifiers below.
-%cg refc refc-archive=libidris2_tls.a
+%cg refc refc-archive=libidris2i_1_tls.a
 %cg refc refc-pkg-config=openssl
 
 %default total
 
 tlsC : String -> String
-tlsC fn = "C:\{fn},libidris2_tls,idris_tls.h"
+tlsC fn = "C:\{fn},libidris2i_1_tls,idris_tls.h"
 
 -- ---------------------------------------------------------------------------
 -- Contexts
@@ -159,7 +159,7 @@ prim__opensslVersion : PrimIO String
 ||| The wait of `System.IO.Wait`, without its `Maybe` and result type: a
 ||| deadline below 0 is none; the result is 1 ready, 0 deadline, or -errno.
 export
-%foreign "RefC:idris2_ioWait"
-         "C__collect_safe:idris2_fdWaitBlocking, libidris2_support, idris_fd.h"
-         "C:idris2_fdWaitBlocking, libidris2_support, idris_fd.h"
+%foreign "RefC:idris2i_1_ioWait"
+         "C__collect_safe:idris2i_1_fdWaitBlocking, libidris2i_1_support, idris_fd.h"
+         "C:idris2i_1_fdWaitBlocking, libidris2i_1_support, idris_fd.h"
 prim__wait : (fd : Int) -> (event : Int) -> (deadline : Int64) -> PrimIO Int

@@ -102,7 +102,7 @@ data CLOpt
   Help (Maybe HelpTopic) |
    ||| Suppress the banner
   NoBanner |
-   ||| Run Idris 2 in quiet mode
+   ||| Run Idris2i-1 in quiet mode
   Quiet |
    ||| Show implicits when pretty printing
   ShowImplicits |
@@ -110,7 +110,7 @@ data CLOpt
   ShowMachineNames |
    ||| Show namespaces when pretty printing
   ShowNamespaces |
-   ||| Run Idris 2 in verbose mode (cancels quiet if it's the default)
+   ||| Run Idris2i-1 in verbose mode (cancels quiet if it's the default)
   Verbose |
    ||| Set the console width for REPL output
   ConsoleWidth (Maybe Nat) |
@@ -331,7 +331,7 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
               (Just "Interactively initialise a new project"),
            MkOpt ["--dump-ipkg-json"] [Optional "package file"]
               (\ f => [Package DumpJson f])
-              (Just "Dump an Idris2 package file in the JSON format"),
+              (Just "Dump an Idris2i-1 package file in the JSON format"),
            MkOpt ["--dump-installdir"] [Optional "package file"]
               (\ f => [Package DumpInstallDir f])
               (Just "Dump the location where the given package will be installed"),
@@ -454,12 +454,12 @@ options = [MkOpt ["--check", "-c"] [] [CheckOnly]
            MkOpt ["--bash-completion-script"]
                  [ Required "function name" ]
                  (\n => [BashCompletionScript n])
-                 (Just "Generate a bash script to activate autocompletion for Idris2"),
+                 (Just "Generate a bash script to activate autocompletion for Idris2i-1"),
            -- zsh completion
            MkOpt ["--zsh-completion-script"]
                  [ Required "function name" ]
                  (\n => [ZshCompletionScript n])
-                 (Just "Generate a zsh script (via bashcompinit) to activate autocompletion for Idris2")
+                 (Just "Generate a zsh script (via bashcompinit) to activate autocompletion for Idris2i-1")
            ]
 
 optShow : OptDesc -> (String, Maybe String)
@@ -497,13 +497,13 @@ envsUsage = makeTextFromOptionsOrEnvs $ map (\e => (e.name, Just e.help)) envs
 
 export
 versionMsg : String
-versionMsg = "Idris 2, version " ++ show version
+versionMsg = "Idris2i-1, version " ++ show version
 
 export
 usage : String
 usage = """
   \{ versionMsg }
-  Usage: idris2 [options] [input file]
+  Usage: idris2i-1 [options] [input file]
 
   Available options:
   \{ optsUsage }
@@ -595,7 +595,7 @@ getCmdOpts = do (_ :: opts) <- getArgs
 
 ||| Find an opt that would have matched if only the user had prefixed it with
 ||| double-dashes. It is common to see the user error of specifying a command
-||| like "idris2 repl ..." when they mean to write "idris2 --repl ..."
+||| like "idris2i-1 repl ..." when they mean to write "idris2i-1 --repl ..."
 export
 findNearMatchOpt : String -> Maybe String
 findNearMatchOpt arg =
@@ -608,7 +608,7 @@ findNearMatchOpt arg =
 
 ||| Suggest an opt that would have matched if only the user had prefixed it with
 ||| double-dashes. It is common to see the user error of specifying a command
-||| like "idris2 repl ..." when they mean to write "idris2 --repl ..."
+||| like "idris2i-1 repl ..." when they mean to write "idris2i-1 --repl ..."
 export
 nearMatchOptSuggestion : String -> Maybe (Doc IdrisAnn)
 nearMatchOptSuggestion arg =

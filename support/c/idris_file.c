@@ -19,7 +19,7 @@
 
 #include "idris_util.h"
 
-FILE *idris2_openFile(char *name, char *mode) {
+FILE *idris2i_1_openFile(char *name, char *mode) {
 #ifdef _WIN32
   FILE *f = win32_u8fopen(name, mode);
 #else
@@ -28,11 +28,11 @@ FILE *idris2_openFile(char *name, char *mode) {
   return (void *)f;
 }
 
-void idris2_closeFile(FILE *f) {
-  IDRIS2_VERIFY(fclose(f) == 0, "fclose failed: %s", strerror(errno));
+void idris2i_1_closeFile(FILE *f) {
+  IDRIS2I_1_VERIFY(fclose(f) == 0, "fclose failed: %s", strerror(errno));
 }
 
-int idris2_getFileNo(FILE *f) {
+int idris2i_1_getFileNo(FILE *f) {
 #ifdef _WIN32
   return win32_getFileNo(f);
 #else
@@ -40,9 +40,9 @@ int idris2_getFileNo(FILE *f) {
 #endif
 }
 
-int idris2_fileError(FILE *f) { return ferror(f); }
+int idris2i_1_fileError(FILE *f) { return ferror(f); }
 
-int idris2_fileErrno() {
+int idris2i_1_fileErrno() {
   switch (errno) {
   case ENOENT:
     return 2;
@@ -55,7 +55,7 @@ int idris2_fileErrno() {
   }
 }
 
-int idris2_chmod(const char *path, mode_t mode) {
+int idris2i_1_chmod(const char *path, mode_t mode) {
 #ifdef _WIN32
   // return _chmod(path, mode);
   return 0; /* ??? (from win_hack.c) */
@@ -64,10 +64,10 @@ int idris2_chmod(const char *path, mode_t mode) {
 #endif
 }
 
-int idris2_removeFile(const char *filename) { return remove(filename); }
+int idris2i_1_removeFile(const char *filename) { return remove(filename); }
 
-int idris2_fileSize(FILE *f) {
-  int fd = idris2_getFileNo(f);
+int idris2i_1_fileSize(FILE *f) {
+  int fd = idris2i_1_getFileNo(f);
 
   struct stat buf;
   if (fstat(fd, &buf) == 0) {
@@ -77,7 +77,7 @@ int idris2_fileSize(FILE *f) {
   }
 }
 
-int idris2_fpoll(FILE *f) {
+int idris2i_1_fpoll(FILE *f) {
 #ifdef _WIN32
   return win_fpoll(f);
 #else
@@ -85,7 +85,7 @@ int idris2_fpoll(FILE *f) {
   struct timeval timeout;
   timeout.tv_sec = 1;
   timeout.tv_usec = 0;
-  int fd = idris2_getFileNo(f);
+  int fd = idris2i_1_getFileNo(f);
 
   FD_ZERO(&x);
   FD_SET(fd, &x);
@@ -95,7 +95,7 @@ int idris2_fpoll(FILE *f) {
 #endif
 }
 
-void *idris2_popen(const char *cmd, const char *mode) {
+void *idris2i_1_popen(const char *cmd, const char *mode) {
 #ifdef _WIN32
   FILE *f = win32_u8popen(cmd, mode);
 #else
@@ -104,21 +104,21 @@ void *idris2_popen(const char *cmd, const char *mode) {
   return f;
 }
 
-int idris2_pclose(void *stream) {
+int idris2i_1_pclose(void *stream) {
 #ifdef _WIN32
   int r = _pclose(stream);
-  IDRIS2_VERIFY(r != -1, "pclose failed");
+  IDRIS2I_1_VERIFY(r != -1, "pclose failed");
   return r;
 #else
   int r = pclose(stream);
-  IDRIS2_VERIFY(WIFEXITED(r), "pclose failed");
+  IDRIS2I_1_VERIFY(WIFEXITED(r), "pclose failed");
   return WEXITSTATUS(r);
 #endif
 }
 
 // seek through the next newline, consuming and
 // throwing away anything until then.
-int idris2_seekLine(FILE *f) {
+int idris2i_1_seekLine(FILE *f) {
   while (1) {
     int c = fgetc(f);
     if (c == -1) {
@@ -135,10 +135,10 @@ int idris2_seekLine(FILE *f) {
 }
 
 // NULL when nothing was read: at the end of the file, or on an error (then
-// `idris2_fileError` tells, see getStringAndFree in System.File.ReadWrite;
+// `idris2i_1_fileError` tells, see getStringAndFree in System.File.ReadWrite;
 // an empty string would make the loops that read until the end of the file,
 // which an error never reaches, run forever: reading a directory fails).
-char *idris2_readLine(FILE *f) {
+char *idris2i_1_readLine(FILE *f) {
   char *buffer = NULL;
   size_t n = 0;
   ssize_t len;
@@ -150,9 +150,9 @@ char *idris2_readLine(FILE *f) {
   return buffer; // freed by RTS
 }
 
-char *idris2_readChars(int num, FILE *f) {
+char *idris2i_1_readChars(int num, FILE *f) {
   char *buffer = malloc((num + 1) * sizeof(char));
-  IDRIS2_VERIFY(buffer, "malloc failed: %s", strerror(errno));
+  IDRIS2I_1_VERIFY(buffer, "malloc failed: %s", strerror(errno));
   size_t len;
   len = fread(buffer, sizeof(char), (size_t)num, f);
   buffer[len] = '\0';
@@ -165,11 +165,11 @@ char *idris2_readChars(int num, FILE *f) {
   }
 }
 
-size_t idris2_readBufferData(FILE *h, char *buffer, size_t loc, size_t max) {
+size_t idris2i_1_readBufferData(FILE *h, char *buffer, size_t loc, size_t max) {
   return fread(buffer + loc, sizeof(uint8_t), max, h);
 }
 
-int idris2_writeLine(FILE *f, char *str) {
+int idris2i_1_writeLine(FILE *f, char *str) {
   if (fputs(str, f) == EOF) {
     return 0;
   } else {
@@ -177,12 +177,12 @@ int idris2_writeLine(FILE *f, char *str) {
   }
 }
 
-size_t idris2_writeBufferData(FILE *h, const char *buffer, size_t loc,
+size_t idris2i_1_writeBufferData(FILE *h, const char *buffer, size_t loc,
                               size_t len) {
   return fwrite(buffer + loc, sizeof(uint8_t), len, h);
 }
 
-int idris2_eof(FILE *f) { return feof(f); }
+int idris2i_1_eof(FILE *f) { return feof(f); }
 
 struct filetime {
   int atime_sec;
@@ -193,7 +193,7 @@ struct filetime {
   int ctime_nsec;
 };
 
-struct filetime *idris2_fileTime(FILE *f) {
+struct filetime *idris2i_1_fileTime(FILE *f) {
   struct filetime *ft = malloc(sizeof(*ft));
 
 #ifdef _WIN32
@@ -205,7 +205,7 @@ struct filetime *idris2_fileTime(FILE *f) {
 
   return ft;
 #else
-  int fd = idris2_getFileNo(f);
+  int fd = idris2i_1_getFileNo(f);
 
   struct stat buf;
   if (fstat(fd, &buf)) {
@@ -237,8 +237,8 @@ struct filetime *idris2_fileTime(FILE *f) {
 #endif
 }
 
-int idris2_fileModifiedTime(FILE *f) {
-  int fd = idris2_getFileNo(f);
+int idris2i_1_fileModifiedTime(FILE *f) {
+  int fd = idris2i_1_getFileNo(f);
 
   struct stat buf;
   if (fstat(fd, &buf) == 0) {
@@ -248,28 +248,28 @@ int idris2_fileModifiedTime(FILE *f) {
   }
 }
 
-int idris2_filetimeAccessTimeSec(struct filetime *ft) { return ft->atime_sec; }
+int idris2i_1_filetimeAccessTimeSec(struct filetime *ft) { return ft->atime_sec; }
 
-int idris2_filetimeAccessTimeNsec(struct filetime *ft) {
+int idris2i_1_filetimeAccessTimeNsec(struct filetime *ft) {
   return ft->atime_nsec;
 }
 
-int idris2_filetimeModifiedTimeSec(struct filetime *ft) {
+int idris2i_1_filetimeModifiedTimeSec(struct filetime *ft) {
   return ft->mtime_sec;
 }
 
-int idris2_filetimeModifiedTimeNsec(struct filetime *ft) {
+int idris2i_1_filetimeModifiedTimeNsec(struct filetime *ft) {
   return ft->mtime_nsec;
 }
 
-int idris2_filetimeStatusTimeSec(struct filetime *ft) { return ft->ctime_sec; }
+int idris2i_1_filetimeStatusTimeSec(struct filetime *ft) { return ft->ctime_sec; }
 
-int idris2_filetimeStatusTimeNsec(struct filetime *ft) {
+int idris2i_1_filetimeStatusTimeNsec(struct filetime *ft) {
   return ft->ctime_nsec;
 }
 
-int idris2_fileIsTTY(FILE *f) {
-  int fd = idris2_getFileNo(f);
+int idris2i_1_fileIsTTY(FILE *f) {
+  int fd = idris2i_1_getFileNo(f);
 #ifdef _WIN32
   return win32_isTTY(fd);
 #else
@@ -277,11 +277,11 @@ int idris2_fileIsTTY(FILE *f) {
 #endif
 }
 
-FILE *idris2_stdin() { return stdin; }
+FILE *idris2i_1_stdin() { return stdin; }
 
-FILE *idris2_stdout() { return stdout; }
+FILE *idris2i_1_stdout() { return stdout; }
 
-FILE *idris2_stderr() { return stderr; }
+FILE *idris2i_1_stderr() { return stderr; }
 
 struct child_process {
 #ifdef _WIN32
@@ -294,7 +294,7 @@ struct child_process {
 
 // Open a bi-directional pipe, returning the above structure
 // with pid and two file handles.
-struct child_process *idris2_popen2(char *cmd) {
+struct child_process *idris2i_1_popen2(char *cmd) {
 #ifdef _WIN32
   SECURITY_ATTRIBUTES saAttr;
   HANDLE pipes[4];
@@ -390,13 +390,13 @@ struct child_process *idris2_popen2(char *cmd) {
 #endif
 }
 
-int idris2_popen2ChildPid(struct child_process *ptr) {
+int idris2i_1_popen2ChildPid(struct child_process *ptr) {
   if (!ptr)
     return 0;
   return ptr->pid;
 }
 
-void *idris2_popen2ChildHandler(struct child_process *ptr) {
+void *idris2i_1_popen2ChildHandler(struct child_process *ptr) {
 #ifdef _WIN32
   if (!ptr)
     return NULL;
@@ -407,25 +407,25 @@ void *idris2_popen2ChildHandler(struct child_process *ptr) {
 #endif
 }
 
-FILE *idris2_popen2FileIn(struct child_process *ptr) {
+FILE *idris2i_1_popen2FileIn(struct child_process *ptr) {
   if (!ptr)
     return NULL;
   return ptr->in;
 }
 
-FILE *idris2_popen2FileOut(struct child_process *ptr) {
+FILE *idris2i_1_popen2FileOut(struct child_process *ptr) {
   if (!ptr)
     return NULL;
   return ptr->out;
 }
 
-int idris2_popen2WaitByHandler(void *hProcess) {
+int idris2i_1_popen2WaitByHandler(void *hProcess) {
 #ifdef _WIN32
   DWORD r;
   DWORD wres = WaitForSingleObject(hProcess, INFINITE);
-  IDRIS2_VERIFY(wres == WAIT_OBJECT_0, "waiting after popen2 failed");
+  IDRIS2I_1_VERIFY(wres == WAIT_OBJECT_0, "waiting after popen2 failed");
   int eres = GetExitCodeProcess(hProcess, &r);
-  IDRIS2_VERIFY(eres != 0, "getting exitcode after popen2 failed");
+  IDRIS2I_1_VERIFY(eres != 0, "getting exitcode after popen2 failed");
   CloseHandle(hProcess);
   return (int)r;
 #else
@@ -434,15 +434,15 @@ int idris2_popen2WaitByHandler(void *hProcess) {
 #endif
 }
 
-int idris2_popen2WaitByPid(pid_t pid) {
+int idris2i_1_popen2WaitByPid(pid_t pid) {
 #ifdef _WIN32
   perror("cannot wait by pid in Windows");
   return -1;
 #else
   int r = -1;
   int w = waitpid(pid, &r, 0);
-  IDRIS2_VERIFY(w != -1, "waitpid after popen2 failed");
-  IDRIS2_VERIFY(WIFEXITED(r), "process launched by popen2 didn't exit well");
+  IDRIS2I_1_VERIFY(w != -1, "waitpid after popen2 failed");
+  IDRIS2I_1_VERIFY(WIFEXITED(r), "process launched by popen2 didn't exit well");
   return WEXITSTATUS(r);
 #endif
 }

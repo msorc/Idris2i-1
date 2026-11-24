@@ -180,7 +180,7 @@ static SSL_CTX *new_ssl_ctx(tls_ctx *c) {
   // a Buffer of RefC does not).
   SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
   if (c->is_server) {
-    static const unsigned char sid[] = "idris2-tls";
+    static const unsigned char sid[] = "idris2i-1-tls";
     SSL_CTX_set_session_id_context(ctx, sid, sizeof sid - 1);
     SSL_CTX_set_alpn_select_cb(ctx, alpn_select, c);
   }
@@ -526,7 +526,7 @@ static pthread_once_t sock_method_once = PTHREAD_ONCE_INIT;
 
 static void make_sock_method(void) {
   BIO_METHOD *m = BIO_meth_new(BIO_get_new_index() | BIO_TYPE_SOURCE_SINK | BIO_TYPE_DESCRIPTOR,
-                               "idris2 non-blocking socket");
+                               "idris2i-1 non-blocking socket");
   if (m == NULL) return;
   BIO_meth_set_write(m, bio_write);
   BIO_meth_set_read(m, bio_read);

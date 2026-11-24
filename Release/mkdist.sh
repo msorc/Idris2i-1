@@ -1,6 +1,6 @@
 #!/bin/sh
 
-IDRIS2_DIR=Idris2-"$1"
+IDRIS2I_1_DIR=Idris2i-1-"$1"
 
 set -e
 
@@ -10,8 +10,8 @@ if [ $# -eq 0 ]; then
 fi
 
 git clone https://github.com/idris-lang/Idris2.git
-mv Idris2 "$IDRIS2_DIR"
-cd "$IDRIS2_DIR"
+mv Idris2i-1 "$IDRIS2I_1_DIR"
+cd "$IDRIS2I_1_DIR"
 
 # Go to the tag for the release we're making
 git checkout tags/v"$1"
@@ -26,6 +26,6 @@ find . -type f -name '.gitignore' -exec rm -f {} \;
 
 cd ..
 
-tar zcf idris2-"$1".tgz "$IDRIS2_DIR"
+tar zcf idris2i-1-"$1".tgz "$IDRIS2I_1_DIR"
 
-echo "idris2-$1.tgz created."
+echo "idris2i-1-$1.tgz created."

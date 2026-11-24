@@ -1,6 +1,6 @@
 -- Closures that hold no argument and constructors whose fields are all
--- static are data of the C program (IDRIS2_STATIC_CLOSURE,
--- IDRIS2_STATIC_CONSTRUCTOR): nothing is allocated for them, they are
+-- static are data of the C program (IDRIS2I_1_STATIC_CLOSURE,
+-- IDRIS2I_1_STATIC_CONSTRUCTOR): nothing is allocated for them, they are
 -- never released, and applying them does not write to them.
 import Data.List
 

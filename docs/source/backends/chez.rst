@@ -4,7 +4,7 @@ Chez Scheme Code Generator
 
 The Chez Scheme code generator is not the default one (that is
 :doc:`RefC <refc>`): select it with ``--cg chez`` on the command line,
-with ``IDRIS2_CG=chez`` in the environment, or via a REPL command:
+with ``IDRIS2I_1_CG=chez`` in the environment, or via a REPL command:
 
 ::
 
@@ -43,7 +43,7 @@ Again, ``expr`` must have type ``IO ()``. This will generate a temporary
 executable script ``_tmpchez`` in the ``build/exec`` directory, and execute
 that.
 
-If you invoke ``idris2 --cg chez`` with the ``-o execname`` flag, it will generate an executable script
+If you invoke ``idris2i-1 --cg chez`` with the ``-o execname`` flag, it will generate an executable script
 ``build/exec/execname``, again with support files in ``build/exec/execname_app``.
 
 Separate compilation
@@ -63,11 +63,11 @@ generated.  The Scheme sources are removed after they are compiled.
 
 ::
 
-    $ idris2 --cg chez-sep -p contrib -o prog Main.idr
+    $ idris2i-1 --cg chez-sep -p contrib -o prog Main.idr
     $ ./build/exec/prog
 
 The backtraces below work the same way with it (``--directive chez-backtrace``
-and ``IDRIS2_CHEZ_BACKTRACE``).
+and ``IDRIS2I_1_CHEZ_BACKTRACE``).
 
 Chez Directives
 ===============
@@ -92,7 +92,7 @@ Chez Directives
 
   ::
 
-    $ idris2 --codegen chez --directive extraRuntime=/path/to/extensions.scm -o main Main.idr
+    $ idris2i-1 --codegen chez --directive extraRuntime=/path/to/extensions.scm -o main Main.idr
 
 * ``--directive lazy=weakMemo``
 
@@ -105,13 +105,13 @@ Chez Directives
 
 * ``--directive chez-backtrace``
 
-  Makes a program that dies of a fatal error print a backtrace, with the Idris
+  Makes a program that dies of a fatal error print a backtrace, with the Idris2i-1
   names of its functions and where they are defined: see `Backtraces`_.
 
 Backtraces
 ==========
 
-A program that dies of a fatal error can print the Idris functions that it
+A program that dies of a fatal error can print the Idris2i-1 functions that it
 was in, the innermost first, on the standard error after the message of the
 error, in the same form as with :doc:`RefC <refc>`.  This works for
 ``idris_crash``, a missing case in ``partial`` code (a division by zero is one,
@@ -121,7 +121,7 @@ thread and on the threads of ``fork``:
 
 ::
 
-    $ idris2 --cg chez --directive chez-backtrace -o prog Main.idr
+    $ idris2i-1 --cg chez --directive chez-backtrace -o prog Main.idr
     $ ./build/exec/prog
     ERROR: too big
     Backtrace of the main thread, innermost call first:
@@ -136,15 +136,15 @@ thread and on the threads of ``fork``:
       Main.run (Main:44:1)
 
 - ``--directive chez-backtrace`` puts a table of the functions of the program
-  in it: their Scheme names, their Idris names and where they are defined,
+  in it: their Scheme names, their Idris2i-1 names and where they are defined,
   and turns the backtraces on by default.  It also keeps Chez from inlining
   the functions of the program, so that every call that is not in tail
   position has a frame of its own, and makes a crash a call that is not in
   tail position, so that the function where it happens is in the backtrace.
-- The environment variable ``IDRIS2_CHEZ_BACKTRACE`` turns them on (``1``) or
+- The environment variable ``IDRIS2I_1_CHEZ_BACKTRACE`` turns them on (``1``) or
   off (``0``) when the program runs, with or without the directive.  Without
   it, the frames show the Scheme names of the functions turned back into
-  Idris names (``Main.describe``, without where it is), and the functions
+  Idris2i-1 names (``Main.describe``, without where it is), and the functions
   that Chez inlined are not there (it inlines a lot: a small function, or one
   that is called from one place only).
 
@@ -163,7 +163,7 @@ to 40% bigger.  What a backtrace does not show:
   them a jump, so that a loop runs in constant space, and the backtraces of
   code written as loops have fewer frames than with RefC;
 - without the directive, the functions that Chez inlined; and, with or without
-  it, the functions that the Idris compiler inlined (``%noinline`` keeps a
+  it, the functions that the Idris2i-1 compiler inlined (``%noinline`` keeps a
   function), and the anonymous functions (``\x => ...``) passed to other
   functions;
 - where in a function the call is: only the line where the function is
@@ -173,12 +173,12 @@ to 40% bigger.  What a backtrace does not show:
   reference", "arithmetic overflow"), whose message is followed by a
   backtrace, but it loses the continuation of the call doing so ("Some
   debugging context lost"): the backtrace says that it has ``no frames of
-  Idris functions``.
+  Idris2i-1 functions``.
 
 A deep continuation shows its 48 innermost frames and its 12 outermost ones,
 with consecutive frames of the same function on one line (``Main.depth
 (Main:39:1), 47 frames``); it is not walked beyond 5 million frames.  In an
-incremental build (``IDRIS2_INC_CGS=chez``, see :doc:`incremental`), the
+incremental build (``IDRIS2I_1_INC_CGS=chez``, see :doc:`incremental`), the
 modules are compiled without the directive: given when the program is built,
 it only turns the backtraces on, and the names are those of the Scheme code
 (Chez does not inline a function of a module, which is defined at the top
@@ -193,7 +193,7 @@ the backtrace.  What the backtraces do not cover:
 - ``SIGABRT`` and the other signals that Chez does not handle (a C library
   that calls ``abort``): the program dies of the signal without a backtrace.
   A handler of the signals in the support library could only print the C
-  frames (``backtrace(3)``), not the Idris ones, which C cannot walk, and it
+  frames (``backtrace(3)``), not the Idris2i-1 ones, which C cannot walk, and it
   would replace the handlers with which Chez turns ``SIGSEGV`` and ``SIGFPE``
   into errors: there is none;
 - the errors of unsafe code: the program is compiled with ``optimize-level
@@ -205,7 +205,7 @@ the backtrace.  What the backtraces do not cover:
 Making a freestanding executable
 ================================
 
-It's possible to embed the Chez Scheme system and the built Idris2 program into a freestanding executable with `chez-exe <https://github.com/gwatt/chez-exe>`_.
+It's possible to embed the Chez Scheme system and the built Idris2i-1 program into a freestanding executable with `chez-exe <https://github.com/gwatt/chez-exe>`_.
 
   * Build and install the ``compile-chez-program-tool`` by running the
     configuration script and then make:

@@ -51,7 +51,7 @@ map d f = go d where
 
 ||| A regular type is obtained by taking the fixpoint of
 ||| the decoding of a description.
-||| Unfortunately Idris 2 does not currently detect that this definition
+||| Unfortunately Idris2i-1 does not currently detect that this definition
 ||| is total because we do not track positivity in function arguments
 public export
 data Fix : Desc p -> Type where

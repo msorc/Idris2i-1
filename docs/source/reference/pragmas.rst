@@ -5,7 +5,7 @@ Pragmas
 .. role:: idris(code)
     :language: idris
 
-Idris2 supports a number of pragmas (identifiable by the `%` prefix). Some pragmas change compiler behavior
+Idris2i-1 supports a number of pragmas (identifiable by the `%` prefix). Some pragmas change compiler behavior
 until the behavior is changed back using the same pragma while others apply to the following declaration. A
 small niche of pragmas apply directly to one or more arguments instead of the code following the pragma
 (like the `%name` pragma described below).
@@ -59,14 +59,14 @@ definition.
 ``%ambiguity_depth``
 --------------------
 
-Set how deep nested ambiguous names can be before Idris gives up. The default is 3, increasing this
+Set how deep nested ambiguous names can be before Idris2i-1 gives up. The default is 3, increasing this
 will effect compiler performance. For more details, see :ref:`ambiguous-name-resolution`.
 
 ``%totality_depth``
 -------------------
 
-Set the number of matching constructors Idris will look under when checking totality.  For instance
-`Just xs` is smaller than `Just (x :: xs)` if Idris looks under the matching constructor. The default
+Set the number of matching constructors Idris2i-1 will look under when checking totality.  For instance
+`Just xs` is smaller than `Just (x :: xs)` if Idris2i-1 looks under the matching constructor. The default
 value is 5.  Increasing the value may slow down totality checking.
 
 ``%auto_implicit_depth``
@@ -166,7 +166,7 @@ Pragmas on declarations
 ``%deprecate``
 --------------------
 
-Mark the following definition as deprecated. Whenever the function is used, Idris will show a deprecation
+Mark the following definition as deprecated. Whenever the function is used, Idris2i-1 will show a deprecation
 warning.
 
 .. code-block:: idris
@@ -345,7 +345,7 @@ the one from the most recently loaded module.
 ``%export``
 --------------------
 
-Export an Idris function to the underlying host language. The the name for each backend is
+Export an Idris2i-1 function to the underlying host language. The the name for each backend is
 given in an indented block of string expressions, similar to ``%foreign``.  Currently this
 pragma is only supported by the javascript backend.
 
@@ -528,13 +528,13 @@ Pragmas that occur inside expressions.
 --------------------
 
 The ``%runElab`` pragma can be used at the top level or as an expression. It takes an elaborator
-script as an argument which runs in the ``Elab`` monad, has access to Idris' type-checking machinery,
+script as an argument which runs in the ``Elab`` monad, has access to Idris2i-1's type-checking machinery,
 and can generate code.
 
 ``%search``
 --------------------
 
-Ask Idris to fill in the value with auto-implicit search. See :ref:`auto-implicits` for more details.
+Ask Idris2i-1 to fill in the value with auto-implicit search. See :ref:`auto-implicits` for more details.
 
 ``%World``
 --------------------

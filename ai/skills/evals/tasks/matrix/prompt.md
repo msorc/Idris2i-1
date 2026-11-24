@@ -11,4 +11,4 @@ compile unchanged; it says exactly which names and types are needed:
 - `showM`: one line per row, elements separated by one space, lines joined by `\n`
 
 Write the functions yourself; do not use `transpose` or other matrix functions from the
-library. `idris2 Check.idr -o check && ./build/exec/check` should print the results.
+library. `idris2i-1 Check.idr -o check && ./build/exec/check` should print the results.

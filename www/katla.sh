@@ -9,7 +9,7 @@ while IFS= read -r rawfile; do
     mdfile="${htmldir}/${filename}.md"
     htmlfile="${htmldir}/${filename}.html"
     mkdir -p "${htmldir}"
-    idris2 -c "${rawfile}"
+    idris2i-1 -c "${rawfile}"
     ttc_version=$(ls build/ttc)
     katla markdown "$rawfile" "build/ttc/${ttc_version}/source/${filename}.ttm" >"$mdfile"
     markdown "$mdfile" >"$htmlfile"

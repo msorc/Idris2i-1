@@ -137,14 +137,14 @@ function support_system_file_seekLine (file_ptr) {
 }
 
 // The next line, with its newline; null at the end of the input (with
-// nothing read) or on an error, as `idris2_readLine` in C.
+// nothing read) or on an error, as `idris2i_1_readLine` in C.
 function support_system_file_readLine (file_ptr) {
   const line = support_system_file_takeLine(file_ptr)
   return line === null ? null : line.toString('utf-8')
 }
 
 // At most `max` bytes (fewer only at the end of the input), as a string;
-// null if none could be read, as `idris2_readChars` in C.
+// null if none could be read, as `idris2i_1_readChars` in C.
 function support_system_file_readChars (max, file_ptr) {
   const parts = []
   let len = 0
@@ -203,14 +203,14 @@ function support_system_file_writeBufferData (file_ptr, buf, off, len) {
   }
 }
 
-// 1 on success, 0 on an error, as `idris2_writeLine` in C.
+// 1 on success, 0 on an error, as `idris2i_1_writeLine` in C.
 function support_system_file_writeLine (file_ptr, str) {
   const buf = Buffer.from(str, 'utf-8')
   return support_system_file_writeBufferData(file_ptr, buf, 0, buf.length) === buf.length ? 1 : 0
 }
 
 // A line of stdin without its line terminator, "" at the end of the input:
-// as `idris2_getStr` in C, which cuts the line at the first '\r' or '\n'.
+// as `idris2i_1_getStr` in C, which cuts the line at the first '\r' or '\n'.
 function support_system_file_getStr () {
   const line = support_system_file_readLine(support_system_file_stdinFile)
   if (line === null) return ''
@@ -262,16 +262,16 @@ function support_system_file_removeFile (filename) {
 
 // Child processes: popen, pclose and popen2.
 //
-// The pipes are FIFOs that the program opened itself (see `__idris2_makePipe`
+// The pipes are FIFOs that the program opened itself (see `__idris2i_1_makePipe`
 // in node_main.js), which the thread that runs `main` reads and writes with
 // `readSync` and `writeSync`, like any file.  So the child runs at the same
 // time as the program and the pipes behave as in C: the child blocks when
 // the pipe is full, and the program when it reads an empty one.  The child
 // is started by the main thread, whose event loop runs while `main` waits in
-// its worker and sees the child exit (see `__idris2_spawnChild`); when `main`
-// runs on the main thread (IDRIS2_MAIN_STACK_SIZE=0), by a monitor process
+// its worker and sees the child exit (see `__idris2i_1_spawnChild`); when `main`
+// runs on the main thread (IDRIS2I_1_MAIN_STACK_SIZE=0), by a monitor process
 // that waits for it and passes its exit status on through a pipe (see
-// `__idris2_spawnMonitored`).
+// `__idris2i_1_spawnMonitored`).
 //
 // A file that is a pipe has `child` (the process id).
 
@@ -289,7 +289,7 @@ function support_system_file_pipeFile(fd, name, child, pipe) {
 // stdout; null (and `lasterr`) if it could not be started.
 function support_system_file_spawnChild(cmd, stdin, stdout) {
   try {
-    return __idris2_startChild(cmd, stdin, stdout)
+    return __idris2i_1_startChild(cmd, stdin, stdout)
   } catch (e) {
     process.__lasterr = e
     return null
@@ -324,8 +324,8 @@ function support_system_file_close (file_ptr) {
 // 128 + the signal that killed it).
 function support_system_file_waitChild (pid) {
   try {
-    if (__idris2_rpc === null) return __idris2_waitMonitored(pid)
-    return __idris2_rpc({ op: 'wait', pid: pid })
+    if (__idris2i_1_rpc === null) return __idris2i_1_waitMonitored(pid)
+    return __idris2i_1_rpc({ op: 'wait', pid: pid })
   } catch (e) {
     process.__lasterr = e
     return -1

@@ -15,7 +15,7 @@
 #include <unistd.h>
 #endif
 
-int idris2_fdSetNonBlocking(int fd) {
+int idris2i_1_fdSetNonBlocking(int fd) {
 #ifdef _WIN32
   (void)fd;
   return -ENOSYS;
@@ -28,7 +28,7 @@ int idris2_fdSetNonBlocking(int fd) {
 #endif
 }
 
-int idris2_fdRead(int fd, char *buffer, int offset, int max) {
+int idris2i_1_fdRead(int fd, char *buffer, int offset, int max) {
   for (;;) {
 #ifdef _WIN32
     int n = _read(fd, buffer + offset,
@@ -75,7 +75,7 @@ static ssize_t write_no_sigpipe(int fd, const char *buf, size_t len) {
 }
 #endif
 
-int idris2_fdWrite(int fd, const char *buffer, int offset, int len) {
+int idris2i_1_fdWrite(int fd, const char *buffer, int offset, int len) {
   for (;;) {
 #ifdef _WIN32
     int n = _write(fd, buffer + offset,
@@ -92,7 +92,7 @@ int idris2_fdWrite(int fd, const char *buffer, int offset, int len) {
   }
 }
 
-int64_t idris2_fdPipe(void) {
+int64_t idris2i_1_fdPipe(void) {
   int fds[2];
 #ifdef _WIN32
   if (_pipe(fds, 65536, _O_BINARY | _O_NOINHERIT) != 0) {
@@ -109,7 +109,7 @@ int64_t idris2_fdPipe(void) {
   return (int64_t)(uint32_t)fds[0] | ((int64_t)fds[1] << 32);
 }
 
-int idris2_fdClose(int fd) {
+int idris2i_1_fdClose(int fd) {
 #ifdef _WIN32
   if (_close((int)fd) != 0) {
     return -errno;
@@ -123,7 +123,7 @@ int idris2_fdClose(int fd) {
   return 0;
 }
 
-int64_t idris2_fdMonotonicNanoseconds(void) {
+int64_t idris2i_1_fdMonotonicNanoseconds(void) {
 #ifdef _WIN32
   static LARGE_INTEGER frequency;
   LARGE_INTEGER counter;
@@ -139,7 +139,7 @@ int64_t idris2_fdMonotonicNanoseconds(void) {
 #endif
 }
 
-int idris2_fdWaitBlocking(int fd, int event, int64_t deadline_ns) {
+int idris2i_1_fdWaitBlocking(int fd, int event, int64_t deadline_ns) {
   if (fd < 0) {
     return -EBADF;
   }
@@ -156,7 +156,7 @@ int idris2_fdWaitBlocking(int fd, int event, int64_t deadline_ns) {
   for (;;) {
     int timeout = -1;
     if (deadline_ns >= 0) {
-      int64_t remaining = deadline_ns - idris2_fdMonotonicNanoseconds();
+      int64_t remaining = deadline_ns - idris2i_1_fdMonotonicNanoseconds();
       if (remaining <= 0) {
         timeout = 0;
       } else {
@@ -182,10 +182,10 @@ int idris2_fdWaitBlocking(int fd, int event, int64_t deadline_ns) {
 #endif
 }
 
-void idris2_fdForget(int fd) { (void)fd; }
+void idris2i_1_fdForget(int fd) { (void)fd; }
 
-int idris2_fdEAGAIN(void) { return EAGAIN; }
-int idris2_fdEWOULDBLOCK(void) { return EWOULDBLOCK; }
-int idris2_fdEINTR(void) { return EINTR; }
-int idris2_fdEBADF(void) { return EBADF; }
-int idris2_fdEINVAL(void) { return EINVAL; }
+int idris2i_1_fdEAGAIN(void) { return EAGAIN; }
+int idris2i_1_fdEWOULDBLOCK(void) { return EWOULDBLOCK; }
+int idris2i_1_fdEINTR(void) { return EINTR; }
+int idris2i_1_fdEBADF(void) { return EBADF; }
+int idris2i_1_fdEINVAL(void) { return EINVAL; }

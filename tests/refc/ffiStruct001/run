@@ -15,11 +15,11 @@ export LDLIBS="-lstructs"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:./library/"
 export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:./library/"
 
-idris2 -o structs Main.idr
+idris2i-1 -o structs Main.idr
 
 $VALGRIND ./build/exec/structs
 # (not under Valgrind: the leak check looks at the pages)
-IDRIS2_REFC_LEAKCHECK=1 ./build/exec/structs 2>&1 >/dev/null | sed 's/,.*//'
+IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/structs 2>&1 >/dev/null | sed 's/,.*//'
 
 cd ./library/
     make clean > /dev/null

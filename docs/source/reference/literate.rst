@@ -4,12 +4,12 @@
 Literate Programming
 **********************
 
-Idris2 supports several types of literate mode styles.
+Idris2i-1 supports several types of literate mode styles.
 
 The unlit'n has been designed based such that we assume that we are parsing markdown-like languages
 The unlit'n is performed by a Lexer that uses a provided literate style to recognise code blocks and code lines.
 Anything else is ignored.
-Idris2 also provides support for recognising both 'visible' and 'invisible' code blocks using 'native features' of each literate style.
+Idris2i-1 also provides support for recognising both 'visible' and 'invisible' code blocks using 'native features' of each literate style.
 
 A literate style consists of:
 
@@ -21,7 +21,7 @@ Lexing is simple and greedy in that when consuming anything that is a code block
 This means that use of verbatim modes in a literate file will also be treated as active code.
 
 In future we should add support for literate ``LaTeX`` files, and potentially other common document formats.
-But more importantly, a more intelligent processing of literate documents using a pandoc like library in Idris such as:
+But more importantly, a more intelligent processing of literate documents using a pandoc like library in Idris2i-1 such as:
 `Edda <https://github.com/jfdm/edda>`_ would also be welcome.
 
 Bird Style Literate Files
@@ -43,7 +43,7 @@ Embedding in Markdown-like documents
 
 While Bird Style literate mode is useful, it does not lend itself well
 to more modern markdown-like notations such as Org-Mode and CommonMark.
-Idris2 also provides support for recognising both 'visible' and 'invisible'
+Idris2i-1 also provides support for recognising both 'visible' and 'invisible'
 code blocks and lines in both CommonMark and OrgMode documents using native code blocks and lines..
 
 The idea being is that:

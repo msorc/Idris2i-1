@@ -1,0 +1,3 @@
+. ../../../testutils.sh
+
+idris2i-1 Do.idr < input

@@ -1,13 +1,13 @@
 // ---------------------------------------------------------------------------
 // Crash boundaries.
 //
-// A boundary (idris2_crashCatch, behind System.Crash.catchCrash) records a
+// A boundary (idris2i_1_crashCatch, behind System.Crash.catchCrash) records a
 // recovery point with sigsetjmp, on the stack of the green thread that runs
-// it, in a frame that it links into the thread (Idris2_CrashState, see
+// it, in a frame that it links into the thread (Idris2i_1_CrashState, see
 // threads.c): nested boundaries make a stack.  A crash of that thread
-// (idris2_crash, idris2_crashMsg, idris2_crashCheck, a range check of a
-// Buffer) asks idris2_crashCatchable whether it may end at the innermost
-// boundary; if so, idris2_crashThrow records what happened and jumps back to
+// (idris2i_1_crash, idris2i_1_crashMsg, idris2i_1_crashCheck, a range check of a
+// Buffer) asks idris2i_1_crashCatchable whether it may end at the innermost
+// boundary; if so, idris2i_1_crashThrow records what happened and jumps back to
 // the recovery point with siglongjmp, abandoning every C frame in between,
 // and the boundary keeps the record in the thread, where System.Crash reads
 // it.  Otherwise the crash does what it always did: print its message and
@@ -23,7 +23,7 @@
 //   stack wherever it runs: it may have moved to another worker since the
 //   boundary started (siglongjmp only restores the stack pointer and the
 //   callee saved registers, and the code after the recovery point finds its
-//   worker again with idris2_worker(), see worker.h).
+//   worker again with idris2i_1_worker(), see worker.h).
 // * The crashes that may end at a boundary are raised by the generated code
 //   and by support functions that it calls, never under a spin lock of the
 //   runtime nor inside the allocator.  Idris code only runs under the
@@ -33,12 +33,12 @@
 //   its own (`finalisers` counts the finalisers that the thread runs; a
 //   frame only catches when none started after it).  The other piece of
 //   runtime state that the abandoned frames may be in the middle of is the
-//   evaluation of a constant (see idris2_makeConstant): the constants that
+//   evaluation of a constant (see idris2i_1_makeConstant): the constants that
 //   the thread claimed since the boundary started are given back, so that
 //   another thread may evaluate them (or crash in turn).
 // * The values that the abandoned frames own are never released: a crash
 //   leaks them (the request of a handler, say).  Nothing reclaims them
-//   later.  idris2_crashesCaught counts the crashes, for an operator who
+//   later.  idris2i_1_crashesCaught counts the crashes, for an operator who
 //   restarts a long-running program that leaks too much.
 // * A value updated in place (a cell taken over for a new constructor, a
 //   closure applied in place) has a single reference, that of the frame
@@ -47,7 +47,7 @@
 //   before the crash stays written, and a Mutex that it held stays held, by
 //   the same thread.
 // * The pending tail call of the worker (see runtime.h) is only read right
-//   after the function that set it returns IDRIS2_TAILCALL, so whatever an
+//   after the function that set it returns IDRIS2I_1_TAILCALL, so whatever an
 //   abandoned frame left there is never read.
 // ---------------------------------------------------------------------------
 
@@ -61,22 +61,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct Idris2_CrashFrame {
+struct Idris2i_1_CrashFrame {
   sigjmp_buf buf;
-  Idris2_CrashFrame *prev;
+  Idris2i_1_CrashFrame *prev;
   // The finalisers that the thread ran and the constants that it evaluated
   // when the boundary started.
   int finalisers;
-  Idris2_ConstantClaim *constants;
-  // Written by idris2_crashThrow before it jumps back (so `volatile`, as
+  Idris2i_1_ConstantClaim *constants;
+  // Written by idris2i_1_crashThrow before it jumps back (so `volatile`, as
   // the C standard asks of what changes between setjmp and longjmp).
-  Idris2_CrashInfo *volatile info;
+  Idris2i_1_CrashInfo *volatile info;
 };
 
 static int64_t crashes_caught = 0;
 
-int idris2_crashCatchable(void) {
-  Idris2_CrashState *cs = idris2_crashState();
+int idris2i_1_crashCatchable(void) {
+  Idris2i_1_CrashState *cs = idris2i_1_crashState();
   if (!cs || !cs->frame) {
     return 0;
   }
@@ -92,10 +92,10 @@ static char *copy_bytes(const char *s, size_t len) {
   return r;
 }
 
-void idris2_crashThrow(int kind, const char *msg, size_t len) {
-  Idris2_CrashState *cs = idris2_crashState();
-  Idris2_CrashFrame *frame = cs->frame;
-  Idris2_CrashInfo *info = (Idris2_CrashInfo *)malloc(sizeof(*info));
+void idris2i_1_crashThrow(int kind, const char *msg, size_t len) {
+  Idris2i_1_CrashState *cs = idris2i_1_crashState();
+  Idris2i_1_CrashFrame *frame = cs->frame;
+  Idris2i_1_CrashInfo *info = (Idris2i_1_CrashInfo *)malloc(sizeof(*info));
   char *message = copy_bytes(msg, len);
   if (!info || !message) {
     fputs("RefC: out of memory while catching a crash\n", stderr);
@@ -104,10 +104,10 @@ void idris2_crashThrow(int kind, const char *msg, size_t len) {
   info->kind = kind;
   info->message = message;
   info->messageLen = len;
-  info->backtrace = idris2_backtraceCapture();
+  info->backtrace = idris2i_1_backtraceCapture();
   // The constants that the thread was evaluating since the boundary
   // started: the other threads that wait for them may evaluate them now.
-  for (Idris2_ConstantClaim *c = cs->constants; c != frame->constants;
+  for (Idris2i_1_ConstantClaim *c = cs->constants; c != frame->constants;
        c = c->prev) {
     __atomic_store_n(c->maker, 0, __ATOMIC_RELEASE);
   }
@@ -117,7 +117,7 @@ void idris2_crashThrow(int kind, const char *msg, size_t len) {
   siglongjmp(frame->buf, 1);
 }
 
-static void free_info(Idris2_CrashInfo *i) {
+static void free_info(Idris2i_1_CrashInfo *i) {
   if (i) {
     free(i->message);
     free(i->backtrace);
@@ -128,12 +128,12 @@ static void free_info(Idris2_CrashInfo *i) {
 #if defined(__GNUC__) || defined(__clang__)
 __attribute__((noinline))
 #endif
-Idris2_Value *idris2_crashCatch(Idris2_Value *erased, Idris2_Closure *action) {
+Idris2i_1_Value *idris2i_1_crashCatch(Idris2i_1_Value *erased, Idris2i_1_Closure *action) {
   (void)erased;
   // (`cs` and the fields of `frame` other than `info` do not change after
   // sigsetjmp, so they keep their values when it returns again)
-  Idris2_CrashState *cs = idris2_crashState();
-  Idris2_CrashFrame frame;
+  Idris2i_1_CrashState *cs = idris2i_1_crashState();
+  Idris2i_1_CrashFrame frame;
   frame.prev = cs->frame;
   frame.finalisers = cs->finalisers;
   frame.constants = cs->constants;
@@ -142,8 +142,8 @@ Idris2_Value *idris2_crashCatch(Idris2_Value *erased, Idris2_Closure *action) {
   // (0: the signal mask is not saved, which would cost a system call; a
   // crash is not raised in a signal handler, so the mask is the same)
   if (sigsetjmp(frame.buf, 0) == 0) {
-    Idris2_Value *result = idris2_run_primio(
-        (Idris2_Closure *)idris2_newReference((Idris2_Value *)action));
+    Idris2i_1_Value *result = idris2i_1_run_primio(
+        (Idris2i_1_Closure *)idris2i_1_newReference((Idris2i_1_Value *)action));
     cs->frame = frame.prev;
     return result;
   }
@@ -153,32 +153,32 @@ Idris2_Value *idris2_crashCatch(Idris2_Value *erased, Idris2_Closure *action) {
   return NULL;
 }
 
-int64_t idris2_crashCaught(void) { return idris2_crashState()->caught != NULL; }
+int64_t idris2i_1_crashCaught(void) { return idris2i_1_crashState()->caught != NULL; }
 
-int64_t idris2_crashKind(void) { return idris2_crashState()->caught->kind; }
+int64_t idris2i_1_crashKind(void) { return idris2i_1_crashState()->caught->kind; }
 
-Idris2_Value *idris2_crashMessage(void) {
-  Idris2_CrashInfo *i = idris2_crashState()->caught;
-  return (Idris2_Value *)idris2_mkStringN(i->message, i->messageLen);
+Idris2i_1_Value *idris2i_1_crashMessage(void) {
+  Idris2i_1_CrashInfo *i = idris2i_1_crashState()->caught;
+  return (Idris2i_1_Value *)idris2i_1_mkStringN(i->message, i->messageLen);
 }
 
-Idris2_Value *idris2_crashBacktrace(void) {
-  const char *bt = idris2_crashState()->caught->backtrace;
-  return (Idris2_Value *)idris2_mkString(bt ? bt : "");
+Idris2i_1_Value *idris2i_1_crashBacktrace(void) {
+  const char *bt = idris2i_1_crashState()->caught->backtrace;
+  return (Idris2i_1_Value *)idris2i_1_mkString(bt ? bt : "");
 }
 
-int64_t idris2_crashHasBacktrace(void) {
-  return idris2_crashState()->caught->backtrace != NULL;
+int64_t idris2i_1_crashHasBacktrace(void) {
+  return idris2i_1_crashState()->caught->backtrace != NULL;
 }
 
-void idris2_crashClear(void) {
-  Idris2_CrashState *cs = idris2_crashState();
+void idris2i_1_crashClear(void) {
+  Idris2i_1_CrashState *cs = idris2i_1_crashState();
   free_info(cs->caught);
   cs->caught = NULL;
 }
 
-int64_t idris2_crashesCaught(void) {
+int64_t idris2i_1_crashesCaught(void) {
   return __atomic_load_n(&crashes_caught, __ATOMIC_RELAXED);
 }
 
-int64_t idris2_crashBoundaries(void) { return 1; }
+int64_t idris2i_1_crashBoundaries(void) { return 1; }

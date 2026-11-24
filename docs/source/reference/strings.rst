@@ -1,5 +1,5 @@
-String literals in Idris
-========================
+String literals in Idris2i-1
+============================
 
 To facilitate the use of string literals, idris provides three features
 in addition to plain string literals: multiline strings, raw strings and interpolated
@@ -38,7 +38,7 @@ from each line of the text.
 
     welcome : String
     welcome = """
-        Welcome to Idris 2
+        Welcome to Idris2i-1
 
         We hope you enjoy your stay
           This line will remain indented with 2 spaces
@@ -49,7 +49,7 @@ printing the variable `welcome` will result in the following text:
 
 ::
 
-    Welcome to Idris 2
+    Welcome to Idris2i-1
 
     We hope you enjoy your stay
       This line will remain indented with 2 spaces

@@ -1,0 +1,15 @@
+. ../../../testutils.sh
+
+# All the modules are checked in one process, which reads each of them once
+# and keeps what it read for the modules checked after it: what a module sees
+# must be the same as when every module is checked in a process of its own.
+export IDRIS2I_1_BUILD_JOBS=1
+
+idris2i-1 --typecheck cache.ipkg
+idris2i-1 --exec main Main.idr
+check Fail.idr
+
+# The same, one process per module
+rm -rf build
+IDRIS2I_1_BUILD_JOBS=2 idris2i-1 --typecheck cache.ipkg | grep Building | sed -e 's/^ *[0-9]*\/[0-9]*: //' | safesort
+idris2i-1 --exec main Main.idr

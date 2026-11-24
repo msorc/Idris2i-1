@@ -10,7 +10,7 @@ Builtins
 Natural numbers
 ===============
 
-Idris2 supports an optimized runtime representation of natural numbers (non-negative integers).
+Idris2i-1 supports an optimized runtime representation of natural numbers (non-negative integers).
 This optimization is automatic,
 however it only works when natural numbers are represented in a specific way
 
@@ -25,7 +25,7 @@ Here is an example of a natural number that would be optimized:
 Natural numbers are generally represented as either zero or the successor (1 more than)
 of another natural number. These are called Peano numbers.
 
-At runtime, Idris2 will automatically represent this the same as the ``Integer`` type.
+At runtime, Idris2i-1 will automatically represent this the same as the ``Integer`` type.
 This will massively reduce the memory usage.
 
 There are a few rules governing when this optimization occurs:
@@ -53,7 +53,7 @@ To ensure that a type is optimized to an ``Integer``, use ``%builtin Natural`` i
 Casting between natural numbers and integer
 ===========================================
 
-Idris optimizes functions which convert between natural numbers and integers,
+Idris2i-1 optimizes functions which convert between natural numbers and integers,
 so that it takes constant time rather than linear time.
 
 Such functions must be written in a specific way,

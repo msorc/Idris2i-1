@@ -1,5 +1,5 @@
 ||| The codes of the kinds of errors and warnings, and their explanations
-||| (`idris2 --explain E0101`, `:explain E0101` at the REPL).
+||| (`idris2i-1 --explain E0101`, `:explain E0101` at the REPL).
 |||
 ||| Each kind of error or warning that a user can meet has a code: `E` and
 ||| four digits for an error, `W` and four digits for a warning. The first two
@@ -10,7 +10,7 @@
 ||| code of its area. Errors that are internal, or a message without a kind of
 ||| its own (`GenericMsg`), share `E0000`; warnings without a kind share
 ||| `W0000`. The reference page `docs/source/reference/error-codes.rst` is
-||| printed from this registry (`idris2 --list-error-codes`), and a test
+||| printed from this registry (`idris2i-1 --list-error-codes`), and a test
 ||| checks that it is up to date.
 module Idris.ErrorCode
 
@@ -179,7 +179,7 @@ registry =
       , "Check the arguments: a missing or an extra argument makes the type of an application differ." ]
   , stub "E0102" "A constraint between two types was left unsolved"
   , explained "E0103" "A pattern variable stands for a value that is known"
-      [ "In a pattern, a variable (or an implicit argument) must be free to match anything. When unification finds that it can only be one particular value, because of the type of another argument, the variable does not really bind anything new, and Idris reports it."
+      [ "In a pattern, a variable (or an implicit argument) must be free to match anything. When unification finds that it can only be one particular value, because of the type of another argument, the variable does not really bind anything new, and Idris2i-1 reports it."
       , "This often happens with implicit arguments that are named in the pattern, or when an argument's type forces another one." ]
       [ "data Vect : Nat -> Type -> Type where"
       , "  Nil  : Vect Z a"
@@ -209,7 +209,7 @@ registry =
       [ "A name is used that is not defined, or not defined in any module that is imported. The message suggests names that are spelt alike, and the modules in the build directory or in the packages in use that export a definition of that name." ]
       [ "main : IO ()"
       , "main = printLn (sort [3, 1, 2])     -- sort is in Data.List" ]
-      [ "Import the module that defines it (`import Data.List`), or add the package that provides it to `depends` in the `.ipkg` file, or pass `-p` to `idris2`."
+      [ "Import the module that defines it (`import Data.List`), or add the package that provides it to `depends` in the `.ipkg` file, or pass `-p` to `idris2i-1`."
       , "Fix the spelling."
       , "Define the name before it is used in a `mutual` block, or declare its type first." ]
   , explained "E0202" "A name exists, but is not in scope here"
@@ -349,7 +349,7 @@ registry =
       , "isZero Z = True" ]
       [ "Add the missing clauses."
       , "Add a final clause with a variable or `_` that covers the rest."
-      , "If a case is impossible, write it with `impossible` so that Idris checks it." ]
+      , "If a case is impossible, write it with `impossible` so that Idris2i-1 checks it." ]
   , explained "E0602" "A definition is not covering: it calls a function that is not"
       [ "A definition that must be covering calls a function that is not covering (or is only `partial`). The call is shown, and why the function called is not covering." ]
       [ "%default total"
@@ -422,7 +422,7 @@ registry =
       , "count : Nat -> Nat"
       , "count n = count (S n)" ]
       [ "Recurse on a structurally smaller argument (a variable bound inside a constructor pattern)."
-      , "Use `assert_smaller` or `assert_total` where you know the call terminates but Idris can't see it."
+      , "Use `assert_smaller` or `assert_total` where you know the call terminates but Idris2i-1 can't see it."
       , "Recurse on a separate argument that decreases (a fuel argument, `Nat`)." ]
   , explained "E0705" "Not total: a type is matched on"
       [ "A clause takes a type apart by pattern matching, and the type is neither `Type` nor small, so the match can't be checked to terminate." ]
@@ -491,7 +491,7 @@ registry =
       [ "An imported module can't be found in the source directory, in the build directory or in any package in use." ]
       [ "import Data.Lists      -- the module is Data.List" ]
       [ "Fix the name of the module."
-      , "Add the package that provides it to `depends` in the `.ipkg` file, or pass `-p <package>` to `idris2`."
+      , "Add the package that provides it to `depends` in the `.ipkg` file, or pass `-p <package>` to `idris2i-1`."
       , "Check `sourcedir` in the `.ipkg` file, and that the file is where its module name says (`Data/Foo.idr` for `Data.Foo`)." ]
   , explained "E1202" "Modules import each other in a cycle"
       [ "A module imports, directly or through other modules, itself. Modules are checked one after another, so their imports can't form a cycle. The message lists the modules of the cycle." ]
@@ -507,9 +507,9 @@ registry =
   , explained "E1203" "A compiled module (TTC file) has a format of another version"
       [ "A `.ttc` file was written by another version of the compiler, which stores modules in another format. This happens after the compiler is upgraded, or when the build directory or an installed package was built by another compiler." ]
       []
-      [ "Remove the build directory (`rm -r build`, or `idris2 --clean <package>.ipkg`) and build again."
+      [ "Remove the build directory (`rm -r build`, or `idris2i-1 --clean <package>.ipkg`) and build again."
       , "Reinstall the packages in use with the current compiler."
-      , "Check that the `idris2` in the `PATH` is the one the packages were installed with (`idris2 --version`, `idris2 --paths`)." ]
+      , "Check that the `idris2i-1` in the `PATH` is the one the packages were installed with (`idris2i-1 --version`, `idris2i-1 --paths`)." ]
   , stub "E1204" "A compiled module (TTC file) is corrupt"
   , stub "E1205" "A file can't be read or written"
   , stub "E1206" "A package can't be found"
@@ -594,15 +594,15 @@ codesRST
         , "Error codes"
         , "***********"
         , ""
-        , ".. This page is printed by `idris2 --list-error-codes` from the registry in"
+        , ".. This page is printed by `idris2i-1 --list-error-codes` from the registry in"
         , "   src/Idris/ErrorCode.idr; edit that and print it again, as the test"
-        , "   idris2/error/errorcodes001 compares the two."
+        , "   idris2i-1/error/errorcodes001 compares the two."
         , ""
         , "Each kind of error and warning has a code, printed in brackets at the end"
         , "of the first line of its message (unless ``--no-error-codes`` is given), and"
         , "as the ``code`` field of JSON diagnostics (``--error-format json``). Errors"
         , "have codes ``E`` followed by four digits, warnings ``W`` and four digits;"
-        , "the first two digits are the area. ``idris2 --explain E0101`` (or"
+        , "the first two digits are the area. ``idris2i-1 --explain E0101`` (or"
         , "``:explain E0101`` at the REPL) prints the explanation of a code."
         , ""
         , "Codes are never renumbered and never given to another kind of error. A"

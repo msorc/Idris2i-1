@@ -361,7 +361,7 @@ printErrs pkgDirs x es =
   in """
      \{errors}
      \{dirs}
-     For more details on what packages Idris2 can locate, run `idris2 --list-packages`
+     For more details on what packages Idris2i-1 can locate, run `idris2i-1 --list-packages`
      """
 
 -- try all possible resolution paths, keeping the first
@@ -514,12 +514,12 @@ setupCompilation pkg opts =
 
     ignore $ preOptions opts
 
--- How many processes build the modules: --jobs, or IDRIS2_BUILD_JOBS
+-- How many processes build the modules: --jobs, or IDRIS2I_1_BUILD_JOBS
 buildJobs : List CLOpt -> IO Nat
 buildJobs (BuildJobs n :: _) = pure n
 buildJobs (_ :: opts) = buildJobs opts
 buildJobs []
-  = do Just jobs <- idrisGetEnv "IDRIS2_BUILD_JOBS"
+  = do Just jobs <- idrisGetEnv "IDRIS2I_1_BUILD_JOBS"
          | Nothing => pure 1
        pure $ fromMaybe 1 $ parsePositive jobs
 
@@ -573,7 +573,7 @@ assertIdrisCompatibility pkg
     = do let Just requiredBounds = pkg.langversion
            | Nothing => pure ()
          unless (inBounds version requiredBounds) $
-           throw (GenericMsg emptyFC "\{pkg.name} requires Idris2 \{show requiredBounds} but the installed version of Idris2 is \{show Version.version}.")
+           throw (GenericMsg emptyFC "\{pkg.name} requires Idris2i-1 \{show requiredBounds} but the installed version of Idris2i-1 is \{show Version.version}.")
 
 export
 build : {auto c : Ref Ctxt Defs} ->
@@ -768,7 +768,7 @@ install pkg opts installSrc -- not used but might be in the future
 
          -- The postinstall script can put files of its own (C libraries and
          -- headers, in `lib`) where the package was installed.
-         _ <- coreLift $ setEnv "IDRIS2_PACKAGE_INSTALL_DIR" libTargetDir True
+         _ <- coreLift $ setEnv "IDRIS2I_1_PACKAGE_INSTALL_DIR" libTargetDir True
          runScript (postinstall pkg)
   where
     savePkgMetadata : PkgDesc -> PkgDesc

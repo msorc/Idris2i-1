@@ -40,7 +40,7 @@ stringList = fastConcat . intersperse "," . map show
 --          JS Strings
 --------------------------------------------------------------------------------
 
--- Convert an Idris2 string to a Javascript String
+-- Convert an Idris2i-1 string to a Javascript String
 -- by escaping most non-alphanumeric characters.
 jsString : String -> String
 jsString s = "'" ++ (concatMap okchar (unpack s)) ++ "'"
@@ -980,7 +980,7 @@ compileToES c s cg tm ccTypes = do
       -- (see `js/node_main.js`)
       onNode = "node" `elem` ccTypes
 
-      main = if onNode then "__idris2_runMain(() => {" ++ runMain ++ "})"
+      main = if onNode then "__idris2i_1_runMain(() => {" ++ runMain ++ "})"
                        else runMain
 
       allDecls = fastUnlines $ foreigns ++ defDecls

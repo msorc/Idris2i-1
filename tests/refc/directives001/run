@@ -14,7 +14,7 @@ programs="trmc001 borrow001 localClosures001 reuse002 reuse003"
 directives="refc-no-trmc refc-no-borrow refc-no-local-closures refc-no-direct-results refc-no-lazy-constants refc-no-static refc-size-reuse refc-no-multi-reuse refc-no-reuse-copy refc-backtrace"
 
 # (trmc001 nests a million calls without TRMC: give it a big stack)
-export IDRIS2_THREAD_STACK_SIZE=1073741824
+export IDRIS2I_1_THREAD_STACK_SIZE=1073741824
 
 # compile and run a program with one configuration, in the background (in a
 # build directory of its own)
@@ -22,7 +22,7 @@ build() {
   name=$1
   shift
   {
-    idris2_no_clean "$@" --build-dir "build-$name" -o "$name" Main.idr \
+    idris2i_1_no_clean "$@" --build-dir "build-$name" -o "$name" Main.idr \
       > "$name.log" 2>&1 || cat "$name.log"
     ./"build-$name/exec/$name" > "$name.out" 2>&1
     echo "exit code $?" >> "$name.out"

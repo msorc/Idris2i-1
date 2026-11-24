@@ -4,7 +4,7 @@
 Further Reading
 ***************
 
-Further information about Idris programming, and programming with
+Further information about Idris2i-1 programming, and programming with
 dependent types in general, can be obtained from various sources:
 
 *  `Type-Driven Development with Idris <https://www.manning.com/books/type-driven-development-with-idris>`_
@@ -37,7 +37,7 @@ dependent types in general, can be obtained from various sources:
 
    * https://github.com/idris-community
 
-*  The papers describing Idris2 [#Brady2021]_ and the older Idris1
+*  The papers describing Idris2i-1 [#Brady2021]_ and the older Idris1
    [#Brady2013]_ [#Brady2011]_.  There is a wider (non-exhaustive) list of
    papers involving Idris
    `on the website <https://www.idris-lang.org/pages/papers.html>`_.

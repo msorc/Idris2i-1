@@ -1,0 +1,8 @@
+. ../../../testutils.sh
+
+echo "unclosed1.idr"
+idris2i-1 unclosed1.idr < input
+echo "unclosed2.idr"
+idris2i-1 unclosed2.idr < input
+echo "unclosed3.idr"
+idris2i-1 unclosed3.idr < input

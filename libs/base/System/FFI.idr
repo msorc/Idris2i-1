@@ -48,10 +48,10 @@ setField : {sn : _} -> (s : Struct sn fs) -> (n : String) ->
            {auto fieldok : FieldType n ty fs} -> (val : ty) -> IO ()
 setField s n val = primIO (prim__setField s n fieldok val)
 
-%foreign "C:idris2_malloc, libidris2_support, idris_memory.h"
+%foreign "C:idris2i_1_malloc, libidris2i_1_support, idris_memory.h"
 prim__malloc : (size : Int) -> PrimIO AnyPtr
 
-%foreign "C:idris2_free, libidris2_support, idris_memory.h"
+%foreign "C:idris2i_1_free, libidris2i_1_support, idris_memory.h"
          "javascript:lambda:()=>undefined"
 prim__free : AnyPtr -> PrimIO ()
 

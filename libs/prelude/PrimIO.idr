@@ -73,12 +73,12 @@ export %inline
 toPrim : (1 act : IO a) -> PrimIO a
 toPrim (MkIO fn) = fn
 
-%foreign "C:idris2_isNull, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_isNull, libidris2i_1_support, idris_support.h"
          "javascript:lambda:x=>x===undefined||x===null?1:0"
 export
 prim__nullAnyPtr : AnyPtr -> Int
 
-%foreign "C:idris2_getNull, libidris2_support, idris_support.h"
+%foreign "C:idris2i_1_getNull, libidris2i_1_support, idris_support.h"
 export
 prim__getNullAnyPtr : AnyPtr
 
