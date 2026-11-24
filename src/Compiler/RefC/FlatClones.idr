@@ -90,11 +90,11 @@ layoutParams defs = go 0 empty
                        let uses = layoutUses lp b empty
                            ps = fromList (map fst (filter (\(_, a) => contains a uses)
                                                           (zip [0 .. length args] args))) in
-                           if null (SortedSet.toList ps) then m else insert n ps m)
+                           if null (Prelude.toList ps) then m else insert n ps m)
                     empty funs
 
     size : LayoutParams -> Nat
-    size lp = sum (map (length . SortedSet.toList) (values lp))
+    size lp = sum (map (length . Prelude.toList) (values lp))
 
     go : Nat -> LayoutParams -> LayoutParams
     go k lp = let lp' = step lp in

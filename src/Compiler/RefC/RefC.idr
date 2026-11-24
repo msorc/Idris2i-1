@@ -2950,7 +2950,6 @@ cTypeOfCFType (CFIORes x)     = "void *"
 cTypeOfCFType (CFStruct x ys) = "void *"
 cTypeOfCFType (CFUser x ys)   = "void *"
 cTypeOfCFType CFForeignObj    = "void *"
-cTypeOfCFType n = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
 
 varNamesFromList : List ty -> Nat -> List String
 varNamesFromList str k = map (("var_" ++) . show) (getArgsNrList str k)
@@ -3035,7 +3034,6 @@ packCFType (CFIORes x)     varName = packCFType x varName
 packCFType (CFStruct x xs) varName = "idris2i_1_makePointer(" ++ varName ++ ")"
 packCFType (CFUser x xs)   varName = varName
 packCFType CFForeignObj    varName = varName
-packCFType n _ = assert_total $ idris_crash ("INTERNAL ERROR: Unknown FFI type in C backend: " ++ show n)
 
 ||| The result of a foreign function.  A String returned by a function of the
 ||| `RefC` calling convention is an Idris value (a new reference); one from a
@@ -4423,7 +4421,7 @@ generateCSourceFileParts defs0 outn =
      noCycleSafepoints <- pure $ "refc-no-cycle-safepoints" `elem` !(getDirectives RefC)
      let opts = { optCycleFns := if noCycleSafepoints then empty
                                    else cycleFunctions named } opts
-     log "compiler.refc" 5 $ "Functions in cycles of calls: " ++ show (length (SortedSet.toList opts.optCycleFns))
+     log "compiler.refc" 5 $ "Functions in cycles of calls: " ++ show (length (Prelude.toList opts.optCycleFns))
      bodies <- traverse (\((cn, n, d), canonN) =>
                  do put OutfileText DList.Nil
                     put ArgCounter 0
