@@ -1,0 +1,8 @@
+. ../../testutils.sh
+
+idris2i-1 -o main Main.idr
+$VALGRIND ./build/exec/main
+# (not under Valgrind: the leak check looks at the pages)
+IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null
+IDRIS2I_1_WORKERS=4 IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null
+IDRIS2I_1_REFC_MEMSTATS=1 ./build/exec/main 2>&1 >/dev/null | grep -c 'is broken'

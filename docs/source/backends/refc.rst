@@ -784,7 +784,12 @@ atomically.  Shared values are never updated in place.  A shared ``IORef``
 is read and written under a spin lock of its own: a reader takes a
 reference to the value while the lock keeps a writer from replacing and
 dropping it in the meantime.  Every worker
-allocates from memory of its own, without locks.
+allocates from memory of its own, without locks.  The generated code finds
+the worker of its OS thread, at every allocation, with one instruction on
+x86-64 (a thread local variable of the local exec model, which only an
+executable can have); code compiled with ``-fpic``, as the runtime and a
+program built as a library are, uses the initial exec model, which works in
+shared libraries too.
 
 Much of the library is not tail recursive (``map``, ``++``, ``sort``, ...),
 so working on a long list needs a deep stack.  Like in the Chez backend,

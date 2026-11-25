@@ -222,12 +222,20 @@ Idris2i_1_Worker *idris2i_1_workerSlow(void);
 static inline Idris2i_1_Worker *idris2i_1_worker(void) {
   Idris2i_1_Worker *w;
 #if defined(__x86_64__) && defined(__ELF__) && defined(__GNUC__)
-  // The initial exec TLS model, which works in executables and shared
-  // libraries alike.  `volatile` keeps the compiler from reusing the result
-  // across a context switch.
+  // `volatile` keeps the compiler from reusing the result across a context
+  // switch.
+#if defined(__PIC__) && !defined(__PIE__)
+  // Code that may go into a shared library (the runtime itself, and a
+  // program built as a library, which is compiled with -fpic): the initial
+  // exec TLS model, which works in executables and shared libraries alike.
   __asm__ volatile("movq idris2i_1_tlsWorker@gottpoff(%%rip), %0\n\t"
                    "movq %%fs:(%0), %0"
                    : "=r"(w));
+#else
+  // Code for an executable, which has the variable (the runtime is linked
+  // into it statically): the local exec model, one instruction.
+  __asm__ volatile("movq %%fs:idris2i_1_tlsWorker@tpoff, %0" : "=r"(w));
+#endif
 #elif defined(__aarch64__) && defined(__ELF__) && defined(__GNUC__)
   void *offset;
   __asm__ volatile("mrs %0, tpidr_el0\n\t"

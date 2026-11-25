@@ -1219,6 +1219,14 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* On x86-64, the generated code of an executable reads the worker of its
+  OS thread (at every allocation and tail call) with one instruction, a
+  thread local variable of the local exec model, instead of two (the
+  initial exec model, through the GOT).  Code compiled with `-fpic` (the
+  runtime, and a program built as a library) keeps the initial exec model,
+  which works in shared libraries too.  The compiler built by itself has
+  0.2% less machine code, and runs 0.4% fewer instructions.
+
 * On Unix systems other than macOS, a program is linked with
   `-Wl,--gc-sections`, its C is compiled with `-ffunction-sections`, and the
   runtime libraries are built with `-ffunction-sections -fdata-sections`, so
