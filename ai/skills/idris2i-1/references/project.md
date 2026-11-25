@@ -240,7 +240,6 @@ failing "Can't find an implementation for FromString Nat"
 |---|---|---|
 | `refc` (default, this fork) | a C compiler | native executable; reference counting |
 | `chez` | Chez Scheme | upstream's default |
-| `racket` | Racket | |
 | `node`, `javascript` | Node.js, or a browser | `Int` is 32-bit; the output is a `.js` file |
 
 `IDRIS2I_1_CG=chez` sets the default for a shell. Libraries with C parts (`network`,

@@ -74,19 +74,16 @@ data Ticket : Type -> Type where [external]
 
 %foreign "RefC:refc_readForCAS"
          "scheme,chez:(lambda (ty r) (unbox r))"
-         "scheme,racket:(lambda (ty r) (unbox r))"
          "javascript:lambda:(ty, r) => r.value"
 prim__readForCAS : Mut a -> PrimIO (Ticket a)
 
 %foreign "RefC:refc_peekTicket"
          "scheme,chez:(lambda (ty t) t)"
-         "scheme,racket:(lambda (ty t) t)"
          "javascript:lambda:(ty, t) => t"
 prim__peekTicket : Ticket a -> a
 
 %foreign "RefC:refc_casIORef"
          "scheme,chez:blodwen-box-cas"
-         "scheme,racket:blodwen-box-cas"
          "javascript:lambda:(ty, r, t, v) => Object.is(r.value, t) ? ((r.value = v), 1) : 0"
 prim__casIORef : Mut a -> Ticket a -> a -> PrimIO Int
 
@@ -119,7 +116,7 @@ peekTicket t = prim__peekTicket t
 ||| differs.  A ticket keeps its value alive, so a value that was written
 ||| and replaced cannot be mistaken for a new one at the same address.
 |||
-||| Supported by the RefC, Chez, Racket and JavaScript back ends.
+||| Supported by the RefC, Chez and JavaScript back ends.
 %spec hio
 %inline
 export

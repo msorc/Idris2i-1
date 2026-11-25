@@ -24,12 +24,11 @@ executables via C (see :doc:`../backends/refc`).  That is all that the
 bootstrap from C needs, apart from ``xz``.
 
 To bootstrap from the Scheme code instead, which gives a faster compiler, you
-also need either Chez Scheme or Racket. You can get one of these from:
+also need Chez Scheme. You can get it from:
 
 - `Chez Scheme <https://cisco.github.io/ChezScheme/>`_
-- `Racket <https://download.racket-lang.org/>`_
 
-Both are also available from MacPorts/Homebrew and all major Linux
+It is also available from MacPorts/Homebrew and all major Linux
 distributions. Windows requires some further prerequisites, see :ref:`windows-install`.
 
 **Note**: If you install Chez Scheme from source files, building it locally, make sure
@@ -53,10 +52,7 @@ Or, with Chez Scheme::
 
 Where `chez` is the executable name of the Chez Scheme compiler. This will
 vary from system to system, but is often one of ``scheme``, ``chezscheme``, or
-``chezscheme9.5``. If you are building via Racket, you can install it as
-follows::
-
-    make bootstrap-racket
+``chezscheme9.5``.
 
 Once you've successfully bootstrapped with any of the above commands, you can
 install with the command ``make install``.  This will, by default, install

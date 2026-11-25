@@ -27,7 +27,7 @@ example, in C:
 It is up to specific code generators to decide how to locate the function and
 the library. In this document, we will assume that the foreign language is C.
 The examples work with the default RefC code generator, which compiles via C,
-and with the Scheme ones (Chez Scheme, selected with ``--cg chez``, Racket or
+and with the Scheme ones (Chez Scheme, selected with ``--cg chez``, or
 Gambit), which load the library at run time.
 
 FFI declarations for C functions can also, optionally, take a C header file to
@@ -60,7 +60,6 @@ general scheme specifier present that matches every flavor, e.g.
 .. code-block:: idris
 
     %foreign "scheme,chez:foreign-alloc"
-             "scheme,racket:malloc"
              "C:malloc,libc"
     allocMem : (bytes : Int) -> PrimIO AnyPtr
 
@@ -387,9 +386,7 @@ So, when passing ``String`` to and from C, remember the following:
   function that keeps the string for later must copy it (``strdup``), not
   store the pointer. It stays valid while the function calls back into Idris2i-1
   (with Chez the bytes are locked during the call, so that a collection does
-  not move them; the same holds for a ``Buffer``). The Racket backend does not
-  lock them: there, a C function that calls back into Idris2i-1 may find that a
-  ``String`` or ``Buffer`` argument has moved.
+  not move them; the same holds for a ``Buffer``).
 
 When using ``Ptr String``, the value will be passed as a ``void*``, and
 therefore not accessible directly by Idris2i-1 code. This is to protect against
@@ -563,9 +560,6 @@ The backends differ in how long that pointer stays valid:
 
   A function bound this way must not keep a callback: calling it after the
   call returns would run code that has been freed.
-* With Racket, nothing refers to it once the foreign function has returned,
-  so a C library that keeps the pointer and calls it later may call code that
-  has been collected. Only use callbacks during the call with Racket.
 * With RefC and the ``C`` calling convention, C does not get a function
   pointer but the Idris2i-1 closure (an ``Idris2i_1_Value *``), which a
   ``RefC:`` wrapper applies with ``idris2i_1_apply_closure``, see
@@ -767,6 +761,6 @@ the pointer is no longer accessible, or at the end of execution.
 
 Note that finalisers might not be supported by all back ends, since they depend
 on the facilities offered by a specific back end's run time system. They are
-certainly supported in the Chez Scheme and Racket back ends, and in the RefC
+certainly supported in the Chez Scheme back end, and in the RefC
 back end, which calls the finaliser as soon as the last reference to the
 pointer goes away.

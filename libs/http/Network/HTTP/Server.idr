@@ -64,8 +64,8 @@
 ||| # Threads
 |||
 ||| On the RefC back end the connections are green threads, spread over
-||| `IDRIS2I_1_WORKERS` OS threads (one per processor by default).  On Chez and
-||| Racket they are OS threads, and a read or a write blocks its thread.
+||| `IDRIS2I_1_WORKERS` OS threads (one per processor by default).  On Chez
+||| they are OS threads, and a read or a write blocks its thread.
 module Network.HTTP.Server
 
 import Data.Buffer

@@ -302,8 +302,7 @@ Back ends
 The library works with RefC, where the waits park green threads, and with
 Chez, which loads its shared library, and where the waits block OS threads
 in ``poll(2)`` (and closing a connection does not wake up a thread that
-waits for it).  Racket loads the same shared library, but has not been
-tested.  It does not work on Windows, where the non-blocking sockets do not,
+waits for it).  It does not work on Windows, where the non-blocking sockets do not,
 nor with the JavaScript back ends.  It has only been tested on Linux.
 
 What it does not do

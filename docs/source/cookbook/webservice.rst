@@ -206,7 +206,7 @@ non-blocking sockets.  It runs one worker per processor; ``IDRIS2I_1_WORKERS=1``
 runs every thread on one OS thread, ``IDRIS2I_1_WORKERS=4`` on four.  Each
 green thread has a stack of 8 MB of address space (``IDRIS2I_1_THREAD_STACK_SIZE``)
 of which only the pages it touches use memory, so an idle connection costs
-little.  On Chez and Racket the same program works with an OS thread per
+little.  On Chez the same program works with an OS thread per
 connection, each read and write blocking its thread.
 
 HTTPS

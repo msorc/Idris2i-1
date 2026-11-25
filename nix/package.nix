@@ -60,7 +60,7 @@ stdenv.mkDerivation rec {
   # checks happen against built compiler prior to the postInstall
   # wrapper below so we must augment some paths to point at prebuilt
   # support paths regardless of whether we are bootstrapping or not.
-  checkInputs = [ gambit nodejs ]; # racket ];
+  checkInputs = [ gambit nodejs ];
   checkFlags = [
     "INTERACTIVE="
     "IDRIS2I_1_DATA=${supportSharePath}"

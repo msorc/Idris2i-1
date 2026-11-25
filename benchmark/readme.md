@@ -28,7 +28,7 @@ If you've got any Idris2i-1 code that you think could be adapted to make a good 
 Usage: bench.sh [OPTION]...
    -b   build each test first
    -c   specify the backend to use during compilation (requires -b flag)
-        must be one of chez, refc, racket, gambit
+        must be one of chez, refc, gambit
         (default is chez)
    -f   perform a faster version of the benchmark
    -o   specify name of output csv file

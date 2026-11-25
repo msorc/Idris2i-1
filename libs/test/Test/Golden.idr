@@ -348,7 +348,7 @@ Eq Requirement where
 ||| Some test may involve Idris' backends and have requirements.
 ||| We define here the ones supported by Idris
 public export
-data BackendRequirement = ReqC | ReqChez | ReqNodeJS | ReqRacket | ReqGambit
+data BackendRequirement = ReqC | ReqChez | ReqNodeJS | ReqGambit
 
 export
 checkRequirement : BackendRequirement -> IO (Maybe String)
@@ -363,12 +363,10 @@ checkRequirement req
     requirement ReqC = ("CC", ["cc"])
     requirement ReqChez = ("CHEZ", ["chez", "chezscheme9.5", "chezscheme", "chez-scheme", "scheme"])
     requirement ReqNodeJS = ("NODE", ["node"])
-    requirement ReqRacket = ("RACKET", ["racket"])
     requirement ReqGambit = ("GAMBIT", ["gsc"])
 
     platformSupport : BackendRequirement -> Bool
     platformSupport ReqC = not isWindows
-    platformSupport ReqRacket = not isWindows
     platformSupport _ = True
 
 export
@@ -384,10 +382,6 @@ Node : Requirement
 Node = MkReq "node" (checkRequirement ReqNodeJS)
 
 export
-Racket : Requirement
-Racket = MkReq "racket" (checkRequirement ReqRacket)
-
-export
 Gambit : Requirement
 Gambit = MkReq "gambit" (checkRequirement ReqGambit)
 
@@ -397,7 +391,6 @@ findCG
   = do Nothing <- getEnv "IDRIS2I_1_TESTS_CG" | p => pure p
        Nothing <- checkRequirement ReqChez    | p => pure (Just "chez")
        Nothing <- checkRequirement ReqNodeJS  | p => pure (Just "node")
-       Nothing <- checkRequirement ReqRacket  | p => pure (Just "racket")
        Nothing <- checkRequirement ReqGambit  | p => pure (Just "gsc")
        Nothing <- checkRequirement ReqC       | p => pure (Just "refc")
        pure Nothing

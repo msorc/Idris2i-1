@@ -2420,7 +2420,6 @@ knownCommands =
       , "  cg                  specify the codegen/backend to use"
       , "                      builtin codegens are:"
       , "                        chez"
-      , "                        racket"
       , "                        refc"
       , "                        node"
       , ""

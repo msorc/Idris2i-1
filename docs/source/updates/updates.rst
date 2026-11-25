@@ -865,7 +865,7 @@ Chez Scheme target
 
 When Idris 2 was first released, its default code generator was `Chez Scheme
 <https://www.scheme.com/>`_. It is now RefC, which compiles via C (see
-:doc:`../backends/refc`); Chez Scheme, Racket and Gambit code generators are also
+:doc:`../backends/refc`); Chez Scheme and Gambit code generators are also
 available.  Like Idris 1, Idris2i-1 `supports plug-in code generation
 <https://idris2.readthedocs.io/en/latest/backends/custom.html>`_
 to allow you to write a back end for the platform of your choice.
@@ -873,7 +873,7 @@ To change the code generator, you can use the ``:set cg`` command:
 
 ::
 
-    Main> :set cg racket
+    Main> :set cg chez
 
 Early experience shows that both are much faster than the Idris 1 C code
 generator, in both compile time and execution time (but we haven't done any

@@ -52,7 +52,7 @@ the compiler that is in the repository (`make bootstrap-c`, see
   means on some systems the package you need to install will be named
   something more like `libgmp3-dev`. macOS ships with `clang` whereas `gcc` is
   more common for other \*nix distributions.
-- Optionally, a Scheme compiler: Chez Scheme or Racket. You can bootstrap
+- Optionally, Chez Scheme. You can bootstrap
   from the generated Scheme code instead of the C code, build the compiler
   with a Scheme backend, and compile your programs with it.
 
@@ -60,11 +60,11 @@ On Windows, [MSYS2](https://www.msys2.org/) is required. On Windows older
 than Windows 8, you may need to set an environment variable `OLD_WIN=1` or
 modify it in `config.mk`.
 
-On Raspberry Pi, you can bootstrap from the C code, or via Racket.
+On Raspberry Pi, you can bootstrap from the C code.
 
 By default, code generation is via the RefC backend, which needs a C compiler.
-You can use Chez Scheme or Racket instead, by setting the environment variable
-`IDRIS2I_1_CG=chez` or `IDRIS2I_1_CG=racket` before running `make`.
+You can use Chez Scheme instead, by setting the environment variable
+`IDRIS2I_1_CG=chez` before running `make`.
 If you install Chez Scheme from source files, building it locally,
 make sure you run `./configure --threads` to build multithreading support in.
 
@@ -104,11 +104,9 @@ The simplest way needs only a C compiler: see
 below.
 
 You can also build from pre-built Chez Scheme source, as long as you have Chez
-Scheme installed (or, alternatively, Racket). To do this, enter one of the
-following:
+Scheme installed. To do this, enter:
 
 - `make bootstrap SCHEME=chez`
-- `make bootstrap-racket`
 
 `chez` is the executable name of the Chez Scheme compiler. You may need to
 replace this with the executable for Chez Scheme on your system. This could be
@@ -116,8 +114,7 @@ replace this with the executable for Chez Scheme on your system. This could be
 system and the Chez Scheme version.
 
 On Windows, if bootstrapping from Chez Scheme gives an error about not being
-able to find `Program.boot`, either move Chez Scheme to a path with no spaces
-or use Racket instead. This is
+able to find `Program.boot`, move Chez Scheme to a path with no spaces. This is
 [a known issue with Chez Scheme on Windows](https://github.com/cisco/ChezScheme/issues/1078).
 
 This builds an Idris2i-1 compiler from Scheme code output from a working Idris2i-1
@@ -136,12 +133,12 @@ of the modules of the libraries, which incremental builds with Chez use
 (`LIBS_INC_CGS`, see `make help`).
 
 The compiler built this way still compiles programs with the RefC backend by
-default: pass `--cg chez` (or `--cg racket`), or set `IDRIS2I_1_CG`, to use the
+default: pass `--cg chez`, or set `IDRIS2I_1_CG`, to use the
 Scheme backend.
 
 #### Bootstrapping with only a C compiler
 
-If neither Chez Scheme nor Racket is available, you can bootstrap from the C
+If Chez Scheme is not available, you can bootstrap from the C
 code that the RefC backend generated for the compiler
 (`bootstrap/idris2i-1_app/idris2i-1.c.xz`). This needs only a C compiler, `make`,
 `xz` and GMP:
@@ -213,9 +210,7 @@ that everything has worked correctly. Assuming that `idris2i-1` is in your
 - `make clean` -- to make sure you're building everything with the new version
 - `make all && make install` -- to build with RefC, the default, OR
 `IDRIS2I_1_CG=chez make all && IDRIS2I_1_CG=chez make install`
-if using Chez Scheme, OR
-`IDRIS2I_1_CG=racket make all && IDRIS2I_1_CG=racket make install`
-if using Racket.
+if using Chez Scheme.
 
 ### 6: Running tests
 
@@ -273,8 +268,7 @@ You can also add them to your `.zshrc` file.
 ### Troubleshooting
 
 If you get the message `variable make-thread-parameter is not bound` while
-bootstrapping via Chez Scheme, or while running the tests when bootstrapping via
-Racket, then your copy of Chez Scheme was built without thread support. Pass
+bootstrapping via Chez Scheme, then your copy of Chez Scheme was built without thread support. Pass
 `--threads` to `./configure` while building Chez Scheme to correct the issue.
 
 ## Running in text editor

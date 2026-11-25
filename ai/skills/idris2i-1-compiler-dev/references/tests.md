@@ -43,17 +43,16 @@ a back end or tool does need a pool or an entry.
 
 A pool can say:
 
-- `codegen = Just Chez` (or `C`, `Node`, `Racket`): the runner passes
+- `codegen = Just Chez` (or `C`, `Node`): the runner passes
   `--cg <name>` inside `$1`, and the pool is skipped if that tool is missing.
   Without it, no `--cg` is passed and the compiler uses its default (RefC).
 - `requirements = [...]`: tools that must exist, without changing the
   back end (`base`, `contrib` and `linear` need both Chez and Node).
-- `pred`: tests of the directory to leave out (`chez/channels009`,
-  `racket/conditions006` and `007`, some `allbackends` tests on some back
-  ends).
+- `pred`: tests of the directory to leave out (`chez/channels009`, some
+  `allbackends` tests on some back ends).
 
 `allschemes` runs once per Scheme back end and `allbackends` once for each
-of Chez, Node, Racket and C. `idris2i-1/schemeeval` runs only when the
+of Chez, Node and C. `idris2i-1/schemeeval` runs only when the
 compiler under test runs on Scheme (it is skipped for a RefC-built
 compiler). `tls` and `http-tls` run only when the libraries were built
 (OpenSSL 3, `IDRIS2I_1_TLS`) and the `openssl` tool is on `PATH`.
@@ -173,8 +172,7 @@ machine-generated number usually means a `run` script lacks
 | most of `idris2i-1/*`, `ttimp`, `typedd-book`, `ideMode`, `prelude`, `codegen`, `cli`, `http`, `vmcode`, `templates` | only the compiler; those that run programs use RefC, so a C compiler and GMP |
 | `refc`, `allbackends` (C instance) | C compiler (`CC` or `cc`) |
 | `chez`, `chezsep`, `allschemes`, `allbackends` (Chez) | Chez Scheme (`CHEZ`, or `chez`, `chezscheme`, `scheme`...) |
-| `racket`, `allschemes`, `allbackends` (Racket) | Racket |
 | `node`, `allbackends` (Node) | Node.js |
 | `base`, `contrib`, `linear` | Chez and Node both |
 | `tls`, `http-tls` | the libraries built (OpenSSL 3) and `openssl` |
-| `idris2i-1/schemeeval` | a compiler built with Chez or Racket |
+| `idris2i-1/schemeeval` | a compiler built with Chez |

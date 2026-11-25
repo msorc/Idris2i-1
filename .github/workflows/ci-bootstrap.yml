@@ -1,14 +1,13 @@
 ######################################################################
 # Unlike the main yml file this uses the LTS version of the tools
-# (chezscheme, racket, gcc) of an older LTS runner, not the newest one.
+# (chezscheme, gcc) of an older LTS runner, not the newest one.
 # The main purpose is to make sure that the bootstraps do not rely on
 # something that only newer tools have: `make bootstrap` must not rely
 # on `__collect_safe` (Chez Scheme), and `make bootstrap-c` must work
 # with the C compiler of a long term support distribution.
 #
 # It runs when one of the inputs of the bootstraps changes: the
-# generated code (bootstrap/idris2i-1_app/idris2i-1.ss, idris2i-1.rkt and
-# idris2i-1.c.xz), the scripts that build from it and the rest of bootstrap/,
+# generated code (bootstrap/idris2i-1_app/idris2i-1.ss and idris2i-1.c.xz), the scripts that build from it and the rest of bootstrap/,
 # the support libraries (the checked-in C is compiled against the headers
 # of support/refc and support/c as they are now, and every bootstrap links
 # libidris2i_1_support), and the Makefile and config.mk that drive them.
@@ -87,26 +86,6 @@ jobs:
       - name: Build bootstrap
         run: make bootstrap
 
-  # Racket: bootstrap/idris2i-1_app/idris2i-1.rkt
-
-  bootstrap-racket:
-    needs: initialise
-    runs-on: ubuntu-22.04
-    if: |
-      !contains(needs.initialise.outputs.commit_message, '[ci: skip]')
-    env:
-      IDRIS2I_1_CG: racket
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install build dependencies (LTS versions)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y racket
-          echo "$HOME/.idris2i-1/bin" >> "$GITHUB_PATH"
-      - name: Build bootstrap
-        run: make bootstrap-racket
-
   # C (RefC): bootstrap/idris2i-1_app/idris2i-1.c.xz.  The main yml file also
   # tests the compiler that this builds, here it is only built.
 
@@ -126,6 +105,6 @@ jobs:
           sudo apt-get install -y libgmp-dev xz-utils
           echo "$HOME/.idris2i-1/bin" >> "$GITHUB_PATH"
       - name: Check that no Scheme is available
-        run: "! command -v chez && ! command -v scheme && ! command -v racket"
+        run: "! command -v chez && ! command -v scheme"
       - name: Build bootstrap
         run: make bootstrap-c

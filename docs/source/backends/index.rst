@@ -74,12 +74,12 @@ modules and executables *incrementally*:
 If the backend supports it, you can generate profiling data by setting
 the ``profile`` flag, either by starting Idris2i-1 with ``--profile``, or
 running ``:set profile`` at the REPL. The profile data generated will depend
-on the back end you are using. Currently, the Chez and Racket back ends
-support generating profile data.
+on the back end you are using. Currently, the Chez back end
+supports generating profile data.
 
-There are five code generators provided in Idris2i-1, and there is
+There are four code generators provided in Idris2i-1, and there is
 a system for plugging in new code generators for a variety of targets. The
-default is to compile via C with the RefC backend, with alternatives via Chez Scheme, Racket or Gambit.
+default is to compile via C with the RefC backend, with alternatives via Chez Scheme or Gambit.
 You can set the code generator at the REPL with the ``:set cg`` command
 (for instance ``:set cg chez``), with the ``--cg`` option, or via the
 ``IDRIS2I_1_CG`` environment variable.
@@ -88,7 +88,6 @@ You can set the code generator at the REPL with the ``:set cg`` command
    :maxdepth: 1
 
    chez
-   racket
    gambit
    javascript
    refc

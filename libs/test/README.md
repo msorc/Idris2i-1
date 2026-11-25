@@ -48,8 +48,8 @@ It will be printed before the tests from this pool are started.
 
 The second argument to `MkTestPool` (empty in the above example) is a list of
 constraints that need to be satisfied to be able to run the tests in the given
-pool. An empty list means no requirements. If your tests required racket to be
-installed, you could for instance specify `[Racket]`.
+pool. An empty list means no requirements. If your tests required Chez Scheme to be
+installed, you could for instance specify `[Chez]`.
 See the [`Requirement` type](./Test/Golden.idr#L335) for more.
 
 You may have requirements for a particular `TestPool` that aren't simply "The

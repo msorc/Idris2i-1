@@ -26,17 +26,13 @@ clean-refc:
 clean-chez:
 	@${MAKE} -C chez clean
 
-.PHONY: install install-docs install-racket install-gambit install-js install-c install-refc install-chez
+.PHONY: install install-docs install-gambit install-js install-c install-refc install-chez
 
-install: install-docs install-racket install-gambit install-js install-c install-refc install-chez
+install: install-docs install-gambit install-js install-c install-refc install-chez
 
 install-docs:
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/docs
 	install -p -m 644 docs/*.css ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/docs
-
-install-racket:
-	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/racket
-	install -p -m 644 racket/* ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/racket
 
 install-gambit:
 	mkdir -p ${DESTDIR}${PREFIX}/${NAME_VERSION}/support/gambit

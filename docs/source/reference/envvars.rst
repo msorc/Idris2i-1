@@ -22,7 +22,7 @@ with their current values):
 * ``IDRIS2I_1_BOOT`` - The Idris2i-1 compiler that builds the compiler (default:
   ``idris2i-1``).
 * ``IDRIS2I_1_CG`` - The code generator that the compiler is built with:
-  ``refc`` (the default), ``chez`` or ``racket``.
+  ``refc`` (the default) or ``chez``.
 * ``LIBS_INC_CGS`` - The code generators that the libraries are also compiled
   with for incremental builds (``IDRIS2I_1_INC_CGS``; only ``chez`` has them).
   The default is ``chez`` when ``IDRIS2I_1_CG`` is ``chez`` or when the compiler
@@ -68,8 +68,6 @@ Both
 * ``IDRIS2I_1_LIBS`` - Directories where Idris2i-1 looks for libraries (for code
   generation).
 * ``CHEZ`` - Chez backend: location of the ``chez`` executable.
-* ``RACKET`` - Racket backend: location of the ``racket`` executable.
-* ``RACKET_RACO`` - Racket backend: location of the ``raco`` executable.
 * ``IDRIS2I_1_INC_CGS`` - Code generators to use (comma separated) when compiling
   modules incrementally.
 * ``IDRIS2I_1_BUILD_JOBS`` - How many processes build the modules of a package in

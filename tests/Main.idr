@@ -112,7 +112,7 @@ idrisTestsTotality = testsInDir "idris2i-1/total" "Totality checking"
 
 ||| The Scheme evaluator (`:set eval scheme`) runs the code in the Scheme
 ||| system that the compiler runs on, so it only works with a compiler
-||| compiled with Chez or Racket.  Ask the compiler under test whether it
+||| compiled with Chez.  Ask the compiler under test whether it
 ||| evaluates with Scheme: a compiler compiled with another backend (RefC, the
 ||| default) says that the Scheme evaluator is not available, and the tests
 ||| are skipped.  Whatever else happens (the evaluator gives a wrong result, or
@@ -162,10 +162,6 @@ chezSepTests = testsInDir "chezsep" "Chez backend with separate compilation"
 
 refcTests : IO TestPool
 refcTests = testsInDir "refc" "Reference counting C backend" {codegen = Just C}
-
-racketTests : IO TestPool
-racketTests = testsInDir "racket" "Racket backend" {codegen = Just Racket}
-  { pred = not . (`elem` ["conditions006", "conditions007"]) }
 
 nodeTests : IO TestPool
 nodeTests = testsInDir "node" "Node backend" {codegen = Just Node}
@@ -282,12 +278,11 @@ main = do
       , chezTests
       , chezSepTests
       , refcTests
-      , racketTests
       , nodeTests
       , vmcodeInterpTests
       , templateTests
       , codegenTests
       , commandLineTests
       ]
-      ++ map idrisTestsAllSchemes [Chez, Racket]
-      ++ map idrisTestsAllBackends [Chez, Node, Racket, C]
+      ++ map idrisTestsAllSchemes [Chez]
+      ++ map idrisTestsAllBackends [Chez, Node, C]

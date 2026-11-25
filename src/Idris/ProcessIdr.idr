@@ -3,7 +3,6 @@ module Idris.ProcessIdr
 import Compiler.RefC.RefC
 import Compiler.Scheme.Chez
 import Compiler.Scheme.ChezSep
-import Compiler.Scheme.Racket
 import Compiler.Scheme.Gambit
 import Compiler.ES.Node
 import Compiler.ES.Javascript
@@ -369,7 +368,6 @@ getCG : {auto o : Ref ROpts REPLOpts} ->
         CG -> Core (Maybe Codegen)
 getCG Chez = pure $ Just codegenChez
 getCG ChezSep = pure $ Just codegenChezSep
-getCG Racket = pure $ Just codegenRacket
 getCG Gambit = pure $ Just codegenGambit
 getCG Node = pure $ Just codegenNode
 getCG Javascript = pure $ Just codegenJavascript

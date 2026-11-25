@@ -48,8 +48,8 @@
 ||| # Back ends
 |||
 ||| RefC and Chez Scheme catch crashes (Chez catches the errors that Scheme
-||| raises too, as failed checks: `vector-ref` out of range, say); Racket and
-||| the JavaScript back ends do as well.  On a back end without boundaries
+||| raises too, as failed checks: `vector-ref` out of range, say); the
+||| JavaScript back ends do as well.  On a back end without boundaries
 ||| (Gambit), `catchCrash` runs the action without one: a crash exits as
 ||| before, and `crashBoundaries` is `False`.
 module System.Crash
@@ -65,8 +65,8 @@ data CrashKind : Type where
   ||| `partial` or `assert_total` function), or a hole.
   MissingCase : CrashKind
   ||| A check of the runtime that failed: an access out of a `Buffer`, an
-  ||| invalid length, an `Integer` division by zero (on Chez, Racket and
-  ||| JavaScript, any error that the runtime raises).
+  ||| invalid length, an `Integer` division by zero (on Chez and JavaScript,
+  ||| any error that the runtime raises).
   FailedCheck : CrashKind
 
 export

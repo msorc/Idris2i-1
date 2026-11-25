@@ -4,8 +4,8 @@
 ||| go on at once waits for the socket (`System.IO.Wait`): on the RefC back
 ||| end the green thread parks in the scheduler while the other threads of
 ||| its worker run, so a program can serve thousands of connections with a
-||| thread each.  On the Chez and Racket back ends, whose threads are OS
-||| threads, a wait blocks its thread in poll(2), and closing a socket does
+||| thread each.  On the Chez back end, whose threads are OS threads, a
+||| wait blocks its thread in poll(2), and closing a socket does
 ||| not wake up a thread that waits for it.  The JavaScript back ends do not
 ||| support this module.
 |||

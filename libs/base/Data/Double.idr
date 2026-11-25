@@ -11,9 +11,6 @@ unitRoundoff : Double
 
 ||| Machine epsilon is the smallest floating-point number that distinguishes two
 ||| floating-point numbers; the step size on the floating-point number line.
--- /!\ See `support/racket/support.rkt:42-45`
--- %foreign "scheme,chez:blodwen-calcFlonumEpsilon"
---          "scheme,racket:blodwen-flonumEpsilon"
 %foreign "scheme:blodwen-calcFlonumEpsilon"
          "RefC:idris2i_1_flonumEpsilon"
          "node:lambda:()=>Number.EPSILON"

@@ -12,7 +12,7 @@
 ||| fixnums have 61 bits; a product of 64-bit numbers would allocate a big
 ||| number for every operation), and the numbers are of 31 bits so that the RefC
 ||| back end can do the arithmetic on machine words.  The same value has the same
-||| hash on every back end (Chez Scheme, Racket, RefC, JavaScript, ...), with
+||| hash on every back end (Chez Scheme, RefC, JavaScript, ...), with
 ||| two exceptions that come from the back ends and not from the hashing: `Int`
 ||| has 32 bits on the JavaScript back ends, so an `Int` that does not fit in 32
 ||| bits is not the same number there, and the JavaScript back ends see a

@@ -41,10 +41,9 @@ bootstrap from the generated C or Scheme code, as described in Section
 Why does Idris2i-1 target Scheme? Surely a dynamically typed target language is going to be slow?
 =================================================================================================
 
-You may be surprised at how fast Chez Scheme is! `Racket <https://download.racket-lang.org/>`_,
-as an alternative target, also performs well. Both perform better than the
+You may be surprised at how fast Chez Scheme is! It performs better than the
 Idris 1 back end, which is written in C but has not had the decades of
-engineering effort by run time system specialists that Chez and Racket have.
+engineering effort by run time system specialists that Chez has.
 Chez Scheme also allows us to turn off run time checks, which we do.
 
 As anecdotal evidence of the performance improvement, we compared the

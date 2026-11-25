@@ -8,7 +8,7 @@
 ||| be ready for a wait that says `Ready` when the descriptor is not (another
 ||| thread took the data first): try again, and wait again on `EAGAIN`.
 |||
-||| On the Chez and Racket back ends, whose threads are OS threads, a wait
+||| On the Chez back end, whose threads are OS threads, a wait
 ||| blocks the thread that waits in poll(2).  The JavaScript back ends do not
 ||| support it.
 |||

@@ -79,7 +79,6 @@ argument of type PrimIO.IO Int to foreign function"; RefC: a C error).
 |---|---|
 | RefC (default) | `"RefC:fn"` (Idris2i-1 values, for runtime code), `"C:fn,lib,header.h"` |
 | Chez (`--cg chez`) | `"scheme,chez:expr"`, `"scheme:expr"`, `"C__scoped_callbacks:fn,lib"`, `"C:fn,lib"` |
-| Racket | `"scheme,racket:expr"`, `"scheme:expr"`, `"C:fn,lib"` |
 | Node, browser | `"node:lambda:js"`, `"browser:lambda:js"`, `"javascript:lambda:js"`, `"node:support:fn,file"` |
 
 A back end picks by its own order, not by the order you wrote: with `"C:getenv,..."`
@@ -241,7 +240,7 @@ passed where zlib's `compress` wants a `uLong *` ran with RefC and Chez, and
    handle still uses (RefC finalises early), a `String` argument kept by C, a pointer read
    with pure `getField` after its cell was freed.
 6. A callback that C keeps after the call returns (RefC: the closure is only borrowed;
-   take a reference with `idris2i_1_newReference`; Racket: never keep one), or that a thread
+   take a reference with `idris2i_1_newReference`), or that a thread
    started by C calls.
 7. Run under `valgrind`; `IDRIS2I_1_REFC_LEAKCHECK=1` reports Idris2i-1 values that leaked.
 
@@ -251,5 +250,5 @@ passed where zlib's `compress` wants a `uLong *` ran with RefC and Chez, and
   out-parameters, strings both ways, errors as `Either`, a callback trampoline,
   finalisers, blobs through `Buffer`, a libc `struct tm`, and the build commands. Read it
   before wrapping any real library.
-- `references/backends.md`: RefC, Chez, Racket and JavaScript side by side: specifiers,
+- `references/backends.md`: RefC, Chez and JavaScript side by side: specifiers,
   callbacks, structs, buffers, `%foreign_impl`, `%export`, `C__scoped_callbacks`.

@@ -12,8 +12,8 @@ or `depends = contrib, network, http` in the `.ipkg`. All three `-p` flags are
 needed: `-p` does not load the packages a package depends on, and `-p http`
 alone fails with "Module Network.Socket.Async not found".
 
-On RefC (the default backend) each connection is a green thread; on Chez and
-Racket an OS thread. Not on the JavaScript backends; on Windows the sockets are
+On RefC (the default backend) each connection is a green thread; on Chez an
+OS thread. Not on the JavaScript backends; on Windows the sockets are
 stubs that fail.
 
 Every example below is a complete program: its imports are in the first block,

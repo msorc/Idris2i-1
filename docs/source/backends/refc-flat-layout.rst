@@ -460,7 +460,7 @@ Correctness on the existing paths
   evaluator of elaborator scripts, or the Scheme evaluator) are terms, not
   RefC cells; the table does not apply to them.  No primitive of the RefC
   runtime makes or reads a user constructor.
-- **Other back ends** (Chez, Racket, Gambit, JavaScript, the interpreter and
+- **Other back ends** (Chez, Gambit, JavaScript, the interpreter and
   the Scheme evaluator used at compile time) ignore the table.  The only
   change in their ``CExp`` is the one of the intrinsic renaming above.
 - **32 bit platforms**: the struct layout is left to the C compiler; the

@@ -7,8 +7,6 @@ run --cg node Time.idr
 
 # The following backends failed for reasons unrelated to this test. They can be
 # uncommented at a future date.
-# RACKET failed to find the builtin idris support library
-# run --cg racket ReadFilePage.idr
 # REFC doesn't support :exec yet
 # run --cg refc ReadFilePage.idr
 # GAMBIT hung seemingly indefinitely

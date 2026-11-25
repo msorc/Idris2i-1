@@ -4,19 +4,19 @@
 import Data.Buffer
 -->
 
-What differs between RefC (the default of this fork), Chez, Racket and JavaScript, and
+What differs between RefC (the default of this fork), Chez and JavaScript, and
 the pragmas around `%foreign`. Everything marked "ran" was built and run with this
-compiler; Racket was not installed, so its lines come from the FFI documentation.
+compiler.
 
-| | RefC (default) | Chez (`--cg chez`) | Racket | Node / browser |
-|---|---|---|---|---|
-| specifiers | `RefC:`, `C:` | `scheme,chez:`, `scheme:`, `C__scoped_callbacks:`, `C:` | `scheme,racket:`, `scheme:`, `C:` | `node:` or `browser:`, then `javascript:` |
-| C library | linked by `cc` (`%cg refc refc-...`), header required | `.so` loaded at run time | `.so` loaded at run time | none |
-| `Int` | `int64_t` | `int` (truncates) | `int` | 32-bit `Number` |
-| callback | an `Idris2i_1_Closure *` (glue applies it) | a C function pointer, kept for ever | a C function pointer, valid during the call only | a curried JS function |
-| `Struct` | yes (this fork) | yes | not documented | not documented |
-| `Buffer` | argument, as `char *` | argument, as `u8*`; not a result | argument | not checked |
-| finaliser runs | at the last reference | at a collection or exit | supported (documentation) | not checked |
+| | RefC (default) | Chez (`--cg chez`) | Node / browser |
+|---|---|---|---|
+| specifiers | `RefC:`, `C:` | `scheme,chez:`, `scheme:`, `C__scoped_callbacks:`, `C:` | `node:` or `browser:`, then `javascript:` |
+| C library | linked by `cc` (`%cg refc refc-...`), header required | `.so` loaded at run time | none |
+| `Int` | `int64_t` | `int` (truncates) | 32-bit `Number` |
+| callback | an `Idris2i_1_Closure *` (glue applies it) | a C function pointer, kept for ever | a curried JS function |
+| `Struct` | yes (this fork) | yes | not documented |
+| `Buffer` | argument, as `char *` | argument, as `u8*`; not a result | not checked |
+| finaliser runs | at the last reference | at a collection or exit | not checked |
 
 ## RefC
 
@@ -113,13 +113,6 @@ namespace ChezCallback
 - A segfault in C becomes a Scheme error ("invalid memory reference") with a backtrace
   that lacks the C frames; a `NULL` returned as `String` fails later, where it is used:
   `Exception in string-append: #f is not a string`.
-
-## Racket (from the documentation)
-
-The same `C:` specifiers, plus `scheme,racket:`. A callback is valid only during the
-call: a library that keeps it may later call code that was collected. `String` and
-`Buffer` arguments are not locked, so a C function that calls back into Idris2i-1 may see
-them move.
 
 ## JavaScript: Node and the browser
 

@@ -107,28 +107,23 @@ mutexRelease m = primIO (prim__mutexRelease m)
 export
 data Condition : Type where [external]
 
-%foreign "scheme,racket:blodwen-make-cv"
-         "scheme,chez:blodwen-make-condition"
+%foreign "scheme,chez:blodwen-make-condition"
          "RefC:refc_makeCondition"
          "javascript:support:makeCondition,support_concurrency"
 prim__makeCondition : PrimIO Condition
-%foreign "scheme,racket:blodwen-cv-wait"
-         "scheme,chez:blodwen-condition-wait"
+%foreign "scheme,chez:blodwen-condition-wait"
          "RefC:refc_conditionWait"
          "javascript:support:conditionWait,support_concurrency"
 prim__conditionWait : Condition -> Mutex -> PrimIO ()
 %foreign "scheme,chez:blodwen-condition-wait-timeout"
---         "scheme,racket:blodwen-cv-wait-timeout"
          "RefC:refc_conditionWaitTimeout"
          "javascript:support:conditionWaitTimeout,support_concurrency"
 prim__conditionWaitTimeout : Condition -> Mutex -> Int -> PrimIO ()
-%foreign "scheme,racket:blodwen-cv-signal"
-         "scheme,chez:blodwen-condition-signal"
+%foreign "scheme,chez:blodwen-condition-signal"
          "RefC:refc_conditionSignal"
          "javascript:support:conditionSignal,support_concurrency"
 prim__conditionSignal : Condition -> PrimIO ()
-%foreign "scheme,racket:blodwen-cv-broadcast"
-         "scheme,chez:blodwen-condition-broadcast"
+%foreign "scheme,chez:blodwen-condition-broadcast"
          "RefC:refc_conditionBroadcast"
          "javascript:support:conditionBroadcast,support_concurrency"
 prim__conditionBroadcast : Condition -> PrimIO ()
@@ -252,12 +247,10 @@ data Channel : Type -> Type where [external]
          "javascript:support:makeChannel,support_concurrency"
 prim__makeChannel : PrimIO (Channel a)
 %foreign "scheme,chez:blodwen-make-buffered-channel"
-         "scheme,racket:blodwen-make-buffered-channel"
          "RefC:refc_makeBufferedChannel"
          "javascript:support:makeBufferedChannel,support_concurrency"
 prim__makeBufferedChannel : Int -> PrimIO (Channel a)
 %foreign "scheme,chez:blodwen-make-unbounded-channel"
-         "scheme,racket:blodwen-make-unbounded-channel"
          "RefC:refc_makeUnboundedChannel"
          "javascript:support:makeUnboundedChannel,support_concurrency"
 prim__makeUnboundedChannel : PrimIO (Channel a)
@@ -266,12 +259,10 @@ prim__makeUnboundedChannel : PrimIO (Channel a)
          "javascript:support:channelGet,support_concurrency"
 prim__channelGet : Channel a -> PrimIO a
 %foreign "scheme,chez:blodwen-channel-get-non-blocking"
-         "scheme,racket:blodwen-channel-get-non-blocking"
          "RefC:refc_channelGetNonBlocking"
          "javascript:support:channelGetNonBlocking,support_concurrency"
 prim__channelGetNonBlocking : Channel a -> PrimIO (Maybe a)
 %foreign "scheme,chez:blodwen-channel-get-with-timeout"
-         "scheme,racket:blodwen-channel-get-with-timeout"
          "RefC:refc_channelGetWithTimeout"
          "javascript:support:channelGetWithTimeout,support_concurrency"
 prim__channelGetWithTimeout : Channel a -> Int -> PrimIO (Maybe a)

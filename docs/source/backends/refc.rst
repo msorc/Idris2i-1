@@ -891,7 +891,7 @@ starts threads as the calls need them, up to ``IDRIS2I_1_BLOCKING_THREADS``
 (64 by default); more calls wait for a thread.  Without several workers the
 call runs in the calling thread.
 
-On the Chez and Racket backends, whose threads are OS threads, a wait
+On the Chez backend, whose threads are OS threads, a wait
 blocks its thread in ``poll(2)``, and closing a descriptor does not wake up
 a thread that waits for it.  On Windows and WebAssembly, which have no green
 threads, a wait blocks the program (on Windows it returns at once, as the
@@ -939,7 +939,7 @@ each socket on macOS): the RefC runtime does not ignore ``SIGPIPE``, which
 would end the program, and ignoring it for the whole program would change
 what a program writing to a closed pipe does.
 
-On the Chez and Racket backends the same module works, a wait blocking its
+On the Chez backend the same module works, a wait blocking its
 OS thread in ``poll(2)``; the name lookup blocks the calling thread there.
 It does not work on Windows yet (every operation fails with ``ENOSYS``), nor
 on the JavaScript backends.

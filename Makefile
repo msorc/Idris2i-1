@@ -8,7 +8,7 @@ NAME = idris2i-1
 TARGETDIR = ${CURDIR}/build/exec
 TARGET = ${TARGETDIR}/${NAME}
 
-# The code generator that builds the compiler (refc, chez or racket), with the
+# The code generator that builds the compiler (refc or chez), with the
 # compiler of IDRIS2I_1_BOOT.  It does not change the code generator that the
 # compiler uses by default, which is RefC.
 IDRIS2I_1_CG ?= refc
@@ -498,7 +498,7 @@ endif
 	install -m 644 support/docs/*   ${DESTDIR}${PREFIX}/${NAME_VERSION}/docs
 
 
-.PHONY: bootstrap bootstrap-build bootstrap-c bootstrap-racket bootstrap-racket-build bootstrap-test bootstrap-clean
+.PHONY: bootstrap bootstrap-build bootstrap-c bootstrap-test bootstrap-clean
 
 # Bootstrapping using SCHEME
 #
@@ -515,16 +515,6 @@ bootstrap: support
 		> bootstrap-build/idris2i-1_app/idris2i-1-boot.ss
 	$(SHELL) ./bootstrap-stage1-chez.sh
 	IDRIS2I_1_CG="chez" $(SHELL) ./bootstrap-stage2.sh
-
-# Bootstrapping using racket
-bootstrap-racket: support
-	mkdir -p bootstrap-build/idris2i-1_app
-	cp ${IDRIS2I_1_SUPPORT_DIR}/${IDRIS2I_1_SUPPORT} bootstrap-build/idris2i-1_app/
-	sed 's|__PREFIX__|${IDRIS2I_1_BOOT_PREFIX}|g' \
-		bootstrap/idris2i-1_app/idris2i-1.rkt \
-		> bootstrap-build/idris2i-1_app/idris2i-1-boot.rkt
-	$(SHELL) ./bootstrap-stage1-racket.sh
-	IDRIS2I_1_CG="racket" $(SHELL) ./bootstrap-stage2.sh
 
 # Bootstrapping using only a C compiler, from the C code that the RefC backend
 # generated for the compiler.  The final compiler is built with RefC too.
@@ -587,7 +577,6 @@ Build
 Bootstrap, without an existing Idris2i-1 (see INSTALL.md)
   bootstrap-c            With a C compiler only, from bootstrap/idris2i-1_app/idris2i-1.c.xz
   bootstrap              With Chez Scheme (SCHEME=chez), from idris2i-1.ss
-  bootstrap-racket       With Racket, from idris2i-1.rkt
   bootstrap-test         Run the tests with the bootstrapped compiler
 
 Test
@@ -616,7 +605,7 @@ Variables (current value)
   IDRIS2I_1_BOOT=${IDRIS2I_1_BOOT}
                          The Idris2i-1 that builds the compiler
   IDRIS2I_1_CG=${IDRIS2I_1_CG}
-                         The code generator the compiler is built with (refc, chez, racket)
+                         The code generator the compiler is built with (refc, chez)
   IDRIS2I_1_JOBS=${IDRIS2I_1_JOBS}
                          Modules to build in parallel, 1 for one after the other
   IDRIS2I_1_CC_JOBS         RefC: C compilers that compile the compiler's C in parallel

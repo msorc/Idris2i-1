@@ -31,8 +31,6 @@ envs = [
     MkEnvDesc "IDRIS2I_1_BUILD_JOBS"    "How many processes build the modules of a package in parallel (see --jobs).",
     MkEnvDesc "IDRIS2I_1_TTC_CACHE_MB"  "How many megabytes of TTC files a process keeps, once read, for the modules it checks next (default: 32; 0 keeps none).",
     MkEnvDesc "CHEZ"                 "Chez backend: chez executable.",
-    MkEnvDesc "RACKET"               "Racket backend: racket executable.",
-    MkEnvDesc "RACKET_RACO"          "Racket backend: raco executable.",
     MkEnvDesc "GAMBIT_GSI"           "Gambit backend: gsi executable.",
     MkEnvDesc "GAMBIT_GSC"           "Gambit backend: gsc executable.",
     MkEnvDesc "GAMBIT_GSC_BACKEND"   "Gambit backend: arguments passed to gsc.",

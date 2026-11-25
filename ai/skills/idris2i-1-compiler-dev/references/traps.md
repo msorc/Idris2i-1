@@ -72,7 +72,7 @@ compiler repository and have happened in practice.
 
 ### Skipped pools look like success
 
-- **Cause**: a pool whose tool (Chez, Node, Racket, cc, OpenSSL) is missing
+- **Cause**: a pool whose tool (Chez, Node, cc, OpenSSL) is missing
   is skipped, not failed.
 - **Symptom**: `N/N tests successful` while your Chez change was never
   tested.

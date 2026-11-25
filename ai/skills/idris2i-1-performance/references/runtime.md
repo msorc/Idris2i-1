@@ -404,7 +404,7 @@ spawnAll ch = for_ (the (List Int) [1, 2, 3, 4]) $ \i => ignore (fork (doBind ch
   `-O2` first, so `IDRIS2I_1_CFLAGS=-g` keeps the optimisation and a later `-O` wins.
   *Measured* on the tree insert: `-O0` 2.5× the instructions, `-O3` 2% fewer than the
   default. There is no `-O` flag of the Idris2i-1 compiler for RefC; `--profile` only
-  affects the Chez and Racket back ends (the generated C is identical).
+  affects the Chez back end (the generated C is identical).
 - `-DIDRIS2I_1_REFC_SMALL_CODE` in `IDRIS2I_1_CFLAGS`: about 10% smaller code that compiles as
   much faster and runs a few percent slower (RefC documentation).
 - A program of more than 4 MB of C is compiled in parallel units (`IDRIS2I_1_CC_JOBS`),

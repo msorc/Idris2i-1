@@ -56,7 +56,6 @@ toString d@(MkDirs wdir sdir bdir ldir odir dfix edirs ppaths pdirs ldirs ddirs)
 public export
 data CG = Chez
         | ChezSep
-        | Racket
         | Gambit
         | Node
         | Javascript
@@ -68,7 +67,6 @@ export
 Eq CG where
   Chez == Chez = True
   ChezSep == ChezSep = True
-  Racket == Racket = True
   Gambit == Gambit = True
   Node == Node = True
   Javascript == Javascript = True
@@ -86,7 +84,6 @@ Ord CG where
       constrToInt : CG -> Int
       constrToInt Chez = 1
       constrToInt ChezSep = 2
-      constrToInt Racket = 3
       constrToInt Gambit = 4
       constrToInt Node = 5
       constrToInt Javascript = 6
@@ -99,7 +96,6 @@ export
 Show CG where
   show Chez = "chez"
   show ChezSep = "chez-sep"
-  show Racket = "racket"
   show Gambit = "gambit"
   show Node = "node"
   show Javascript = "javascript"
@@ -290,7 +286,6 @@ availableCGs : Options -> List (String, CG)
 availableCGs o
     = [("chez", Chez),
        ("chez-sep", ChezSep),
-       ("racket", Racket),
        ("node", Node),
        ("javascript", Javascript),
        ("refc", RefC),

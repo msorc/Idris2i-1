@@ -5,7 +5,6 @@
 
 -- Turn on weak memoisation
 %cg chez lazy=weakMemo
-%cg racket lazy=weakMemo
 
 -- We return lazy values in a monad to avoid behaviour of common expression elimination
 

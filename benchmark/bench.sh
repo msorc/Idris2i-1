@@ -19,7 +19,7 @@ function usage {
         echo "Usage: $(basename $0) [OPTION]..." 2>&1
         echo '   -b   build each test first'
         echo '   -c   specify the backend to use during compilation (requires -b flag)'
-        echo '        must be one of chez, refc, racket, gambit'
+        echo '        must be one of chez, refc, gambit'
         echo '        (default is chez)'
         echo '   -f   perform a faster version of the benchmark'
         echo '   -o   specify name of output csv file'
@@ -38,7 +38,7 @@ while getopts ${optstring} arg; do
     b) BUILD=true ;;
     # set codegen (redundant unless -b passed)
     c)  case $OPTARG in
-            chez|refc|racket|gambit)
+            chez|refc|gambit)
               BACKEND="$OPTARG"
               export IDRIS2I_1_CG=$BACKEND ;;
             *)

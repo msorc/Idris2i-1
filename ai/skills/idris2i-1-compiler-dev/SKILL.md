@@ -27,12 +27,12 @@ Read the reference files when the task needs them:
 | `src/Core` | TT, the core language: terms, context, unification (`Core.Unify`), normalisation, coverage, termination, TTC serialisation (`Core.Binary`, `Core.TTC`), the `Error` type (`Core.Core`) |
 | `src/TTImp` | the implicit core language and its elaborator (`TTImp.Elab.*`, `ProcessDef`, `ProcessData`, elaborator reflection) |
 | `src/Idris` | the surface language: parser, desugarer, REPL, IDE mode, the build driver (`ModTree`, `ProcessIdr`, `Package`), error text (`Idris.Error`), error codes (`Idris.ErrorCode`), command line (`Idris.CommandLine`) |
-| `src/Compiler` | back ends after type checking: `CompileExpr`, `Inline`, `Opts/*`, `ANF`, `RefC/*` (the default code generator), `Scheme/*` (Chez, Racket, Gambit), `ES/*` (Node, JavaScript) |
+| `src/Compiler` | back ends after type checking: `CompileExpr`, `Inline`, `Opts/*`, `ANF`, `RefC/*` (the default code generator), `Scheme/*` (Chez, Gambit), `ES/*` (Node, JavaScript) |
 | `src/Libraries` | the compiler's own copies of data structures and utilities |
 | `libs/*` | `prelude`, `base`, `linear`, `network`, `contrib`, `test` (the golden test library), `papers`, `http`, `tls`, `http-tls`; `libs/api` holds API snapshots |
 | `support/c` | C support library (`libidris2i_1_support`) that every back end links |
 | `support/refc` | the RefC runtime: values, reference counting, threads, the reactor |
-| `support/chez`, `support/racket`, `support/js` | the Scheme and JavaScript support code |
+| `support/chez`, `support/gambit`, `support/js` | the Scheme and JavaScript support code |
 | `tests/` | golden tests: `tests/<group>/<category>/<name>/` with `run` and `expected` |
 | `docs/source` | the Sphinx manual; `implementation/` for compiler internals, `reference/error-codes.rst`, `backends/` |
 | `bootstrap/`, `bootstrap-*.sh` | generated C and Scheme of an older compiler, to build without an Idris2i-1 |
@@ -121,7 +121,7 @@ make test INTERACTIVE='' threads=8 < /dev/null                    # everything, 
 - Every run rewrites `tests/failures` with the failures of *that* run, and
   `make retest` reads it. A scoped run after the full suite loses the list:
   copy it first if you need it.
-- A pool whose tool is missing (Chez, Node, Racket, a C compiler, OpenSSL)
+- A pool whose tool is missing (Chez, Node, a C compiler, OpenSSL)
   is skipped with `✗ ... not found`, not failed. "N/N tests successful"
   counts only what ran; read the pool banners.
 - On a shared machine pass `threads=N` (default: all processors) and

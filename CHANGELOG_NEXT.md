@@ -1205,6 +1205,18 @@ should target this file (`CHANGELOG_NEXT`).
 
 ### Backend changes
 
+#### Racket Backend
+
+* The Racket back end is removed, with its support code (`support/racket`),
+  the Racket bootstrap (`bootstrap/idris2i-1_app/idris2i-1.rkt`, `make
+  bootstrap-racket`), its tests and its CI jobs.  `--cg racket` and `:set cg
+  racket` are no longer accepted, the `scheme,racket:` specifiers are gone
+  from the libraries, `%cg racket` directives are ignored like those of any
+  unknown back end, the `RACKET` and `RACKET_RACO` environment variables are
+  no longer read, the Scheme evaluator (`:set eval scheme`) runs only in a
+  compiler built with Chez, and the `test` library no longer has the
+  `Racket` requirement.  The TTC format version changes accordingly.
+
 #### RefC Backend
 
 * Crash boundaries (`System.Crash.catchCrash`): a crash of a green thread

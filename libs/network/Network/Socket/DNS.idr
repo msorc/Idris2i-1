@@ -2,8 +2,8 @@
 |||
 ||| On the RefC back end, getaddrinfo(3), which blocks, runs on a thread of
 ||| the pool of blocking calls of the runtime while the calling green thread
-||| parks (the other threads of its worker keep running).  On the Chez and
-||| Racket back ends it blocks the calling OS thread.  A numeric host is
+||| parks (the other threads of its worker keep running).  On the Chez back
+||| end it blocks the calling OS thread.  A numeric host is
 ||| converted at once, without a lookup.
 module Network.Socket.DNS
 

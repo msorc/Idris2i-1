@@ -205,7 +205,6 @@ jobs:
       !contains(needs.initialise.outputs.commit_message, '[ci:')
       || contains(needs.initialise.outputs.commit_message, '[ci: windows]')
       || contains(needs.initialise.outputs.commit_message, '[ci: chez]')
-      || contains(needs.initialise.outputs.commit_message, '[ci: racket]')
     # Pinned to Chez: the RefC layout (a launcher script next to
     # idris2i-1_app/idris2i-1, see the Makefile and bootstrap/idris2i-1-refc.sh) does
     # not know about Windows yet (idris2i-1.exe, no Windows branch in the
@@ -275,37 +274,6 @@ jobs:
         NIX_CONFIG: "experimental-features = nix-command flakes"
       run: nix build .#checks.x86_64-linux.idris2i_1Tests -L
 
-  # RACKET
-
-  ubuntu-bootstrap-racket:
-    needs: [initialise, quick-check]
-    runs-on: ubuntu-latest
-    if: |
-      !contains(needs.initialise.outputs.commit_message, '[ci:')
-      || contains(needs.initialise.outputs.commit_message, '[ci: ubuntu]')
-      || contains(needs.initialise.outputs.commit_message, '[ci: racket]')
-
-    env:
-      IDRIS2I_1_CG: racket
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y racket
-          echo "$HOME/.idris2i-1/bin" >> "$GITHUB_PATH"
-      - name: Make bootstrap folder readonly
-        run: chmod -R a-w bootstrap
-      - name: Build from bootstrap
-        run: make bootstrap-racket && make install
-      - name: Artifact Bootstrapped Idris2i-1
-        uses: actions/upload-artifact@v4
-        with:
-          include-hidden-files: true
-          name: ubuntu-installed-bootstrapped-idris2i-1-racket
-          path: ~/.idris2i-1/
-
   # C (RefC)
 
   ubuntu-bootstrap-c:
@@ -327,7 +295,7 @@ jobs:
           sudo apt-get install -y libgmp-dev xz-utils
           echo "$HOME/.idris2i-1/bin" >> "$GITHUB_PATH"
       - name: Check that no Scheme is available
-        run: "! command -v chez && ! command -v scheme && ! command -v racket"
+        run: "! command -v chez && ! command -v scheme"
       - name: Make bootstrap folder readonly
         run: chmod -R a-w bootstrap
       - name: Build from bootstrap
@@ -469,33 +437,6 @@ jobs:
       - name: Test self-hosted
         run: make ci-ubuntu-test INTERACTIVE=''
 
-  # RACKET
-
-  ubuntu-self-host-racket:
-    needs: ubuntu-bootstrap-racket
-    runs-on: ubuntu-latest
-    if: false
-    timeout-minutes: 60
-    env:
-      IDRIS2I_1_CG: racket
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Download Idris2i-1 Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ubuntu-installed-bootstrapped-idris2i-1-racket
-          path: ~/.idris2i-1/
-      - name: Install build dependencies
-        run: |
-          sudo apt-get install -y racket
-          echo "$HOME/.idris2i-1/bin" >> "$GITHUB_PATH"
-          chmod +x "$HOME/.idris2i-1/bin/idris2i-1" "$HOME/.idris2i-1/bin/idris2i-1_app/"*
-      - name: Build self-hosted
-        run: make all IDRIS2I_1_BOOT="idris2i-1 -Werror" && make install
-      - name: Test self-hosted
-        run: make ci-ubuntu-test INTERACTIVE=''
-
   ubuntu-self-host-previous-version:
     needs: [initialise, quick-check]
     runs-on: ubuntu-latest
@@ -530,62 +471,6 @@ jobs:
           include-hidden-files: true
           name: idris2i-1-nightly-chez
           path: ~/.idris2i-1/
-
-  windows-self-host-racket:
-    needs: [initialise, windows-bootstrap-chez]
-    runs-on: windows-latest
-    if: |
-      !contains(needs.initialise.outputs.commit_message, '[ci:')
-      || contains(needs.initialise.outputs.commit_message, '[ci: windows]')
-      || contains(needs.initialise.outputs.commit_message, '[ci: racket]')
-    env:
-      IDRIS2I_1_CG: racket
-      MSYSTEM: MINGW64
-      MSYS2_PATH_TYPE: inherit
-      CC: gcc
-      RACKET_RACO: raco
-    steps:
-      - name: Init
-        run: |
-          git config --global core.autocrlf false
-          echo "PWD=$(c:\msys64\usr\bin\cygpath -u $(pwd))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Get Chez Scheme
-        run: |
-          git clone --depth 1 --branch v10.4.1 https://github.com/cisco/ChezScheme
-          c:\msys64\usr\bin\bash -l -c "pacman -S --noconfirm tar make mingw-w64-x86_64-gcc"
-          echo "PWD=$(c:\msys64\usr\bin\cygpath -u $(pwd))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Configure and Build Chez Scheme
-        run: |
-          c:\msys64\usr\bin\bash -l -c "cd $env:PWD && cd ChezScheme && ./configure --threads && make"
-      - name: Set Path
-        run: |
-          $chez="$(pwd)\ChezScheme\ta6nt\bin\ta6nt"
-          $idris="$(pwd)\.idris2i-1"
-          echo "$chez" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "$idris\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "IDRIS_PREFIX=$idris" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "PREFIX=$(c:\msys64\usr\bin\cygpath -u $idris)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Download Idris2i-1 Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-installed-bootstrapped-idris2i-1-chez
-          path: ${{ env.IDRIS_PREFIX }}
-      - name: Install build dependencies
-        uses: Bogdanp/setup-racket@v1.14
-        with:
-          variant: 'CS'
-          version: 'stable'
-          distribution: 'full'
-      - name: Self host
-        run: |
-          c:\msys64\usr\bin\bash -l -c "cd $env:PWD && make"
-      # TODO: fix the broken tests!
-      # - name: Test
-      #  run: c:\msys64\usr\bin\bash -l -c "cd $env:PWD && make ci-windows-test"
-      - name: Install
-        run: c:\msys64\usr\bin\bash -l -c "cd $env:PWD && make install"
 
   ######################################################################
   # Ubuntu API
@@ -912,8 +797,7 @@ jobs:
 
   overall-success:
     needs:
-      [ ubuntu-bootstrap-racket # ubuntu-self-host-racket
-      , macos-self-host-chez
+      [ macos-self-host-chez
       , macos-bootstrap-c
       , ubuntu-bootstrap-c
       , ubuntu-self-host-refc
@@ -926,7 +810,6 @@ jobs:
       , nix-bootstrap-chez
       , ubuntu-self-host-chez
       , ubuntu-build-api
-      , windows-self-host-racket
       ]
     runs-on: ubuntu-latest
     steps:

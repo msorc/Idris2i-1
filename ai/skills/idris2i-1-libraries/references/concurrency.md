@@ -31,7 +31,7 @@ import System.IO.Fd
   WebAssembly) the program builds, but `fork` reports an error, descriptor waits
   return at once and the non-blocking sockets fail with `ENOSYS`. The JavaScript
   backends have none of `network`, `http`, `tls`.
-- **Chez and Racket**: `fork` is an OS thread; the same programs work, each wait
+- **Chez**: `fork` is an OS thread; the same programs work, each wait
   blocking its thread.
 - The program ends when `main` returns: threads still running are abandoned.
   `threadWait` (from the Prelude) waits for one. If every thread is blocked
@@ -129,7 +129,7 @@ It is for isolation, not error handling. A caught crash **leaks** what the
 abandoned code still held (about 50 bytes to 1 KB each), a `Mutex` it held
 **stays held**, and its writes to `IORef`s and files stay done. It does not
 catch a stack overflow or other signals, a crash in a finaliser, a crash of a
-thread forked inside it, `exit`, or out of memory. On RefC, Chez, Racket and
+thread forked inside it, `exit`, or out of memory. On RefC, Chez and
 JavaScript (`crashBoundaries` says whether this backend has them).
 
 ```idris

@@ -26,17 +26,12 @@ supportNode fn = "node:support:\{fn},support_system"
 libc : (fn : String) -> String
 libc fn = "C:" ++ fn ++ ", libc 6"
 
--- `sleep` and `usleep` need to be tied to `blodwen-[u]sleep` for threading
--- reasons (see support/racket/support.rkt)
-
-%foreign "scheme,racket:blodwen-sleep"
-         "RefC:refc_sleep"
+%foreign "RefC:refc_sleep"
          supportC "idris2i_1_sleep"
          supportNode "sleep"
 prim__sleep : Int -> PrimIO ()
 
-%foreign "scheme,racket:blodwen-usleep"
-         "RefC:refc_usleep"
+%foreign "RefC:refc_usleep"
          supportC "idris2i_1_usleep"
          supportNode "usleep"
 prim__usleep : Int -> PrimIO ()

@@ -169,7 +169,7 @@ reading them yourself the default format, which shows the source lines, is bette
 | `-Werror` | warnings fail the build |
 | `--no-color`, `--console-width 0` | plain output on one line each; good for logs |
 | `--explain CODE`, `--list-error-codes` | the reference for error codes (this fork) |
-| `--cg NAME` | back end: `refc` (default), `chez`, `racket`, `node`, `javascript` |
+| `--cg NAME` | back end: `refc` (default), `chez`, `node`, `javascript` |
 | `--timing-summary` | where compile time went (this fork) |
 | `--log topic:N` | compiler logging; `--help logging` lists topics |
 | `--show-implicits` | print implicit arguments in types and errors |

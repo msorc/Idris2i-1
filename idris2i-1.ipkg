@@ -8,7 +8,7 @@ sourcedir = "src"
 -- opts = "--timing 1"
 
 -- Set if you want the executable to generate profiling data
--- (Currently supported by Racket and Chez back ends, others ignore it)
+-- (Currently supported by the Chez back end, others ignore it)
 -- opts = "--profile"
 
 -- Set if you want incremental builds. This is good for development, since

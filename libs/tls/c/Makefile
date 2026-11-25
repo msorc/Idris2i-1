@@ -1,5 +1,5 @@
 # The C part of the tls library: a static archive for the RefC back end and
-# a shared library for the Chez and Racket back ends, both linked with
+# a shared library for the Chez back end, both linked with
 # OpenSSL 3 as pkg-config finds it.
 
 include ../../../config.mk

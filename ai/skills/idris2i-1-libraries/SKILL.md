@@ -113,12 +113,11 @@ so not of installed ones).
   ElabReflection` in the file; `Eq`, `Ord`, `DecEq`, `Show` the same way with
   `%runElab derive`. No `deriving` clause. A derived `Foldable`'s
   `toList`/`foldr` comes out reversed (see `references/json.md`).
-- **Backends.** RefC (C, the default) and Chez run everything; Racket should
-  (less tested). `network`, `http`, `tls` do not support the JavaScript backends.
+- **Backends.** RefC (C, the default) and Chez run everything. `network`, `http`, `tls` do not support the JavaScript backends.
   Green threads, descriptor waits and non-blocking sockets are POSIX only
   (Linux tested; macOS/BSD written, untested); on Windows `fork` reports an
   error and the sockets fail with `ENOSYS`. `catchCrash` works on RefC, Chez,
-  Racket, JavaScript, not Gambit.
+  JavaScript, not Gambit.
 - **RefC memory.** Reference counting, no cycle collector: a long-running
   server leaks every reference cycle it creates. `catchCrash` leaks what the
   crashed code held.

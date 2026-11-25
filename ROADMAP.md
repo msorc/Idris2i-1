@@ -18,10 +18,7 @@ unless they say otherwise.
   masking keys (declared in another header there), the `tls` library.
 * Windows has no green threads: a wait for a descriptor returns at once, and
   the non-blocking socket functions are stubs that return `ENOSYS`.
-* Racket: the support code for atomic `IORef`s, buffered channels, crash
-  boundaries and the TLS library has never been run (Racket is not installed
-  on the machine all of this was developed on). Gambit has no atomic `IORef`
-  operations and no crash boundary.
+* Gambit has no atomic `IORef` operations and no crash boundary.
 * Node: `Int` has 32 bits there, so `FromJSON Int` wraps above 2^31, and some
   tests of `contrib` and `http` fail on Node for that reason and for the way
   it prints `Double`s. The `network`, `http` and `tls` libraries do not
