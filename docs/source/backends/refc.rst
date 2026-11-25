@@ -104,6 +104,8 @@ gets), are:
 - ``refc-backtrace``: backtraces, see "Backtraces" below.
 - ``refc-split-size=<bytes>``: the size of C from which a program is compiled
   in units, see "Big programs".
+- ``refc-no-gc-sections``: keep the code that nothing calls, see "Code that
+  nothing calls".
 - ``refc-no-...``, ``refc-size-reuse``, ``refc-check-layout`` and
   ``refc-no-flat-arrays``: see "Optimisations" below.
 
@@ -171,6 +173,24 @@ is called, a big one is not inlined anyway.  With ``--directive
 refc-backtrace`` every function is written, so that a backtrace shows the
 names of the functions that ran.  This takes the machine code of the
 Idris2i-1 compiler from 56.3MB to 52.8MB.
+
+Code that nothing calls
+-----------------------
+
+On Unix systems other than macOS (Linux and the BSDs), every function of the
+generated C is compiled in a section of its own (``-ffunction-sections``), the
+runtime libraries are built with ``-ffunction-sections -fdata-sections``, and
+the program is linked with ``-Wl,--gc-sections``: the linker leaves out what
+the program never reaches.  A hello world keeps the parts of the runtime that
+start and stop it (the scheduler, the trampolines, reference counting, the
+backtrace and the memory reports at exit) and loses the others (casts,
+string and arithmetic primitives that it does not use): its executable goes
+from 168KB to 85KB.  A big program loses the out-of-line copies of the
+functions that the C compiler inlined everywhere (1.5% of the machine code
+of the compiler).  The speed is the same.  ``--directive refc-no-gc-sections``
+compiles and links as before; ``IDRIS2I_1_CFLAGS=-fno-function-sections`` keeps
+the generated code in one section but still lets the linker drop the unused
+parts of the runtime.
 
 Strings and characters
 ======================

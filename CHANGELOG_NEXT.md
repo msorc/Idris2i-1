@@ -1219,6 +1219,21 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* On Unix systems other than macOS, a program is linked with
+  `-Wl,--gc-sections`, its C is compiled with `-ffunction-sections`, and the
+  runtime libraries are built with `-ffunction-sections -fdata-sections`, so
+  that the linker leaves out the functions that nothing calls.  It used to
+  link every function of every runtime object file that the program
+  touched: a hello world is now 85KB instead of 168KB (machine code 43KB
+  instead of 91KB), the test runner and the websocket test are 16% and 7%
+  smaller, and the compiler built by itself has 1.5% less machine code
+  (the out-of-line copies of functions that were inlined everywhere).
+  Instructions and cycles of the compiler and of the RefC benchmarks are
+  the same within their noise, and so is the C compile time of the
+  compiler.  `--directive refc-no-gc-sections` turns it off.  See "Code
+  that nothing calls" in the RefC documentation.  The test
+  `refc/gcSections001`.
+
 * A function whose C code is that of another one but for its own names is
   not written: its name (and that of its worker) is a macro for the other
   one, `#define Main_sumU Main_sumT`.  In a program compiled in units, two

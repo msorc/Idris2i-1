@@ -1,0 +1,24 @@
+. ../../testutils.sh
+
+# The linker drops the parts of the runtime that the program does not use
+# (--gc-sections), on Unix other than macOS; --directive
+# refc-no-gc-sections keeps them.
+idris2i-1 -o main Main.idr
+./build/exec/main
+IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null | sed 's/,.*//'
+idris2i-1 --directive refc-no-gc-sections -o kept Main.idr
+./build/exec/kept
+if [ "$OS" = "darwin" ] || [ "$OS" = "windows" ]; then
+    # (no collection of sections there)
+    echo "casts of the runtime: only those it uses with gc, all without"
+else
+    with=$(nm build/exec/main | grep -c ' idris2i_1_cast_')
+    without=$(nm build/exec/kept | grep -c ' idris2i_1_cast_')
+    # (printLn of an Int needs one; the Double ones are not used)
+    double=$(nm build/exec/main | grep -c ' idris2i_1_cast_Double')
+    if [ "$double" -eq 0 ] && [ "$with" -lt 5 ] && [ "$without" -gt 20 ]; then
+        echo "casts of the runtime: only those it uses with gc, all without"
+    else
+        echo "casts of the runtime: $with with gc, $without without"
+    fi
+fi

@@ -10,6 +10,11 @@ DEPS = $(OBJS:.o=.d)
 
 CFLAGS += -O2
 
+# Every function and variable in a section of its own, so that the linker
+# of a RefC program (with --gc-sections, see src/Compiler/RefC/CC.idr)
+# leaves out the parts of the library that the program does not use.
+CFLAGS += -ffunction-sections -fdata-sections
+
 ifeq ($(OLD_WIN), 1)
 	CPPFLAGS += -D_OLD_WIN
 endif

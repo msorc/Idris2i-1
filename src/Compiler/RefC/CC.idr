@@ -101,7 +101,7 @@ refcFlagDirectives : List String
 refcFlagDirectives
     = [ "refc-backtrace", "refc-check-layout", "refc-flat-arrays"
       , "refc-no-borrow", "refc-no-cycle-safepoints", "refc-no-direct-results"
-      , "refc-no-flat-arrays"
+      , "refc-no-flat-arrays", "refc-no-gc-sections"
       , "refc-no-lazy-constants", "refc-no-local-closures"
       , "refc-no-multi-reuse", "refc-no-raw-fields", "refc-no-reuse-copy"
       , "refc-no-static", "refc-no-trmc", "refc-no-unbox-double"
@@ -267,9 +267,25 @@ packageLibDirs
     = do d <- getDirs
          pure (map (</> "lib") (package_dirs d ++ extra_dirs d))
 
+||| Is the program linked with garbage collection of sections?  Every
+||| function of the generated code and of the runtime is in a section of its
+||| own (`-ffunction-sections`; the runtime is also built with
+||| `-fdata-sections`), and the linker drops the sections that nothing
+||| reaches (`--gc-sections`): a hello world loses about half of its file,
+||| the parts of the runtime that it never calls (casts, string and
+||| arithmetic primitives, ...), and a big program the out-of-line copies
+||| of the functions that the C compiler inlined everywhere.  Only on Unix
+||| systems other than macOS, whose linkers (GNU ld, gold, lld, mold) all
+||| have `--gc-sections`; `--directive refc-no-gc-sections` turns it off.
+gcSections : {auto c : Ref Ctxt Defs} -> Core Bool
+gcSections
+    = do ds <- getDirectives RefC
+         pure (os == "unix" && not ("refc-no-gc-sections" `elem` map trim ds))
+
 -- The flags of the C compiler that do not depend on the file: the include
 -- directories of the runtime and of the packages, the flags of
--- `refc-pkg-config` directives and those of the user.
+-- `refc-pkg-config` directives and those of the user (last, so that they
+-- can undo the others).
 ccFlags : {auto c : Ref Ctxt Defs} -> Core String
 ccFlags =
   do cFlags <- coreLift findCFLAGS
@@ -278,8 +294,10 @@ ccFlags =
      cDir <- findDataFile "c"
      pkgDirs <- packageLibDirs
      pkgConfig <- pkgConfigFlags "--cflags"
+     sections <- gcSections
      pure $ escapeCmd (["-I" ++ refcDir, "-I" ++ cDir] ++ map ("-I" ++) pkgDirs)
-              ++ " " ++ pkgConfig ++ " " ++ cppFlags ++ " " ++ cFlags
+              ++ " " ++ pkgConfig ++ " " ++ cppFlags
+              ++ (if sections then " -ffunction-sections " else " ") ++ cFlags
 
 -- The command that runs the C compiler on `sourceFile`, writing `outFile`,
 -- with the flags `mode` (what to make) and `flags` (see `ccFlags`).
@@ -691,6 +709,8 @@ compileCFiles {asShared} objectFiles outFile =
      archives <- refcArchives
      libs <- refcLibs
      pkgConfig <- pkgConfigFlags "--libs"
+     sections <- gcSections
+     let gcFlag = if sections then "-Wl,--gc-sections " else ""
 
      let runcc = (escapeCmd $
          [cc, "-Werror"] ++ sharedFlag ++ objectFiles ++ archives
@@ -702,7 +722,7 @@ compileCFiles {asShared} objectFiles outFile =
               "-L" ++ refcDir
               ] ++ clibdirs (lib_dirs dirs) ++ [
               "-lgmp", "-lm", "-pthread"])
-              ++ " " ++ (unwords [cFlags, ldFlags, ldLibs])
+              ++ " " ++ gcFlag ++ (unwords [cFlags, ldFlags, ldLibs])
 
      log "compiler.refc.cc" 10 runcc
      0 <- coreLift $ system runcc

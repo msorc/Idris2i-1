@@ -1,0 +1,6 @@
+hello
+42
+RefC leak check: 0 leaked values
+hello
+42
+casts of the runtime: only those it uses with gc, all without
