@@ -1219,6 +1219,13 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* The units of a program compiled in units (`<name>.u<k>.c`) have no
+  indentation and short prototypes, on one line and without the names of the
+  parameters: the C of the units of the compiler goes from 142.9MB to
+  104.4MB (-27%), which the C compilers read and the next build compares.
+  The single file `<name>.c` is written as before, and the machine code is
+  the same.
+
 * Crash boundaries (`System.Crash.catchCrash`): a crash of a green thread
   inside one jumps back to it (`sigsetjmp`/`siglongjmp` on the stack of the
   thread, `support/refc/crash.c`) instead of exiting.  The crash sites that

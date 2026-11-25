@@ -153,6 +153,9 @@ its definitions again, and those that refer to something that changed.
 ``-DIDRIS2I_1_PARTS=p -DIDRIS2I_1_PART=i`` the C compiler builds only the ``i``-th of
 ``p`` parts of it (this is how the Idris2i-1 compiler is bootstrapped).  Add
 ``-flto`` (or ``-flto=auto``) to the C flags to keep the inlining across units.
+The units are only compiled, not meant to be read: their lines are not
+indented and their prototypes are short (no names of parameters), which
+makes them a quarter smaller.  ``<name>.c`` keeps the readable layout.
 
 Strings and characters
 ======================

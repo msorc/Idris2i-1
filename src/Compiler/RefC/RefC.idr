@@ -263,6 +263,7 @@ data ForeignWorkers : Type where
 data RawCons : Type where
 data IntSigs : Type where
 data FunctionDefinitions : Type where
+data ShortProtos : Type where
 data IndentLevel : Type where
 data HeaderFiles : Type where
 data ConstDef
@@ -3473,6 +3474,7 @@ createCFunctions : {auto c : Ref Ctxt Defs}
                 -> {auto a : Ref ArgCounter Nat}
                 -> {auto _ : Ref ConstDef ConstTable}
                 -> {auto f : Ref FunctionDefinitions (SortedMap String (List String))}
+                -> {auto sp : Ref ShortProtos (SortedMap String (List String))}
                 -> {auto oft : Ref OutfileText Output}
                 -> {auto il : Ref IndentLevel Nat}
                 -> {auto h : Ref HeaderFiles (SortedSet String)}
@@ -3500,6 +3502,14 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
                           "\{maybe "Idris2i_1_Value *" (\t => cIntType t ++ " ") w.rawResult}\{workerName cn}"
                           ++ "\n(\n" ++ showSep "\n" (addCommaToList ps) ++ "\n)") worker
     addProtos cn ((fn ++ ";\n") :: maybe [] (\w => [w ++ ";\n"]) wfn)
+    -- The same on a line each, without the names of the parameters, for the
+    -- units (see `units'`)
+    let types = if nargs == 0 then "void"
+                  else if nargs > MaxExtractFunArgs then "Idris2i_1_Value **"
+                  else showSep ", " (replicate nargs "Idris2i_1_Value *")
+    let wshort = map (\w => "\{maybe "Idris2i_1_Value *" (\t => cIntType t ++ " ") w.rawResult}\{workerName cn}("
+                            ++ showSep ", " (map (maybe "Idris2i_1_Value *" cIntType) w.params) ++ ");") worker
+    update ShortProtos $ insert cn (("Idris2i_1_Value *\{cn}(\{types});") :: maybe [] pure wshort)
     -- A definition without arguments (a constant) is evaluated once, the
     -- first time that it is needed, like the top level constants of the
     -- Scheme backends: its body is in a function of its own, and its value is
@@ -3944,6 +3954,16 @@ record DefOut where
   defRefs : List String
   ||| The names of the constants that it uses.
   defConsts : List String
+
+||| Lines of C without their indentation, for the units, which are not read
+||| (the single file is).
+dropIndentation : String -> String
+dropIndentation l = go (strLength l) 0
+  where
+    go : Int -> Int -> String
+    go len i = if i < len && assert_total (strIndex l i) == ' '
+                  then go len (i + 1)
+                  else if i == 0 then l else strSubstr i (len - i) l
 
 moduleOf : Name -> String
 moduleOf (NS ns _) = showNSWithSep "." ns
@@ -4407,6 +4427,7 @@ generateCSourceFileParts defs0 outn =
                            _ => pure tbl)
                        (MkStructTable empty empty) named
      _ <- newRef FunctionDefinitions Data.SortedMap.empty
+     _ <- newRef ShortProtos Data.SortedMap.empty
      _ <- newRef ConstDef emptyConsts
      _ <- newRef OutfileText DList.Nil
      _ <- newRef HeaderFiles empty
@@ -4439,6 +4460,7 @@ generateCSourceFileParts defs0 outn =
      footer !(if opts.optBacktrace then Just <$> backtraceTable (mergeLeft workers foreignWorkers) named else pure Nothing)
      footerLines <- reify <$> get OutfileText
      protos <- get FunctionDefinitions
+     shortProtos <- get ShortProtos
      consts <- constantTexts <$> get ConstDef
      headerFiles <- Prelude.toList <$> get HeaderFiles
      let pre = preamble headerFiles structs
@@ -4472,7 +4494,7 @@ generateCSourceFileParts defs0 outn =
             | Left err => throw $ FileErr outn err
           -- The main function is in the unit 0.
           let mainRef = cName (MN "__mainExpression" 0)
-          (present, todo) <- units' units protos consts pre footerLines mainRef nunits groups h
+          (present, todo) <- units' units protos shortProtos consts pre footerLines mainRef nunits groups h
           coreLift_ $ closeFile h
           log "compiler.refc" 10 $
             "Generated C file " ++ outn ++ " in " ++ show (length present) ++ " units, "
@@ -4481,12 +4503,16 @@ generateCSourceFileParts defs0 outn =
   where
     -- Make the files of the units, and the guarded definitions of the
     -- single file.
+    -- The C of a unit is only compiled, not read: it has the short
+    -- prototypes of the functions (see `ShortProtos`), and no indentation.
     units' : Units
-          -> SortedMap String (List String) -> SortedMap String String
+          -> (protos : SortedMap String (List String))
+          -> (shortProtos : SortedMap String (List String))
+          -> SortedMap String String
           -> (pre : List String) -> (footerLines : List String) -> (mainRef : String)
           -> (nunits : Nat) -> SortedMap Nat (List DefOut) -> (h : File)
           -> Core (List Nat, List (Nat, Nat))
-    units' units protos consts pre footerLines mainRef nunits groups h = go 0 [<] [<]
+    units' units protos shortProtos consts pre footerLines mainRef nunits groups h = go 0 [<] [<]
       where
         go : Nat -> SnocList Nat -> SnocList (Nat, Nat) -> Core (List Nat, List (Nat, Nat))
         go k present todo
@@ -4504,11 +4530,14 @@ generateCSourceFileParts defs0 outn =
                                    (if isMain then [mainRef] else []) ++ concatMap defRefs ds
                       let used = SortedSet.fromList $ concatMap defConsts ds
                       let protoLines : List String
-                            = concatMap (\r => fromMaybe [] (lookup r protos)) (Prelude.toList refs)
+                            = concatMap (\r => fromMaybe (fromMaybe [] (lookup r protos))
+                                                          (lookup r shortProtos))
+                                        (Prelude.toList refs)
                       let constLines : List String
                             = mapMaybe (\n => lookup n consts) (Prelude.toList used)
                       let codeLines : List String
-                            = withoutComments defsLines ++ (if isMain then footerLines else [])
+                            = map dropIndentation (withoutComments defsLines)
+                              ++ (if isMain then footerLines else [])
                       let unitLines : List String
                             = pre ++ declarations protoLines constLines ++ codeLines
                       let guarded = "#if !defined(IDRIS2I_1_PARTS) || \{show k} * IDRIS2I_1_PARTS / \{show nunits} == IDRIS2I_1_PART"
