@@ -21,6 +21,15 @@ is `CASE SIZE [REPEATS]`, and each case (`vmap`, `fplus`, `nlte`, ...) stands be
 Feed a single line to the executable to measure a single case, e.g.
 `echo "vtabulate 3000 1" | perf stat -e instructions:u ./vectFin`.
 
+Four more, `dropsEither`, `dropsMaybe`, `dropsRecord` and `dropsReuse`, are collections of
+cases in the same form (`CASE STEPS`) that make hot the code RefC writes for paths that are
+usually cold: the error branch of an inlined bind of `Either` or `Maybe`, which releases the
+values that the rest of the computation captured (2 to 16 of them, of every kind), in tail
+position and not; a value of 4 to 16 fields taken apart using none, one or two of them,
+unique or shared; and updates of a list or a record that the loop keeps, so that the cell
+is never unique and every reuse site copies it.  They are there to check that a change to
+that code (taking it out of line, say) costs nothing even when it runs all the time.
+
 If you've got any Idris2i-1 code that you think could be adapted to make a good benchmark, please do contribute!
 
 ## Using the script
