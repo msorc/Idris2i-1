@@ -185,7 +185,7 @@ the program never reaches.  A hello world keeps the parts of the runtime that
 start and stop it (the scheduler, the trampolines, reference counting, the
 backtrace and the memory reports at exit) and loses the others (casts,
 string and arithmetic primitives that it does not use): its executable goes
-from 168KB to 85KB.  A big program loses the out-of-line copies of the
+from 168KB to 82KB.  A big program loses the out-of-line copies of the
 functions that the C compiler inlined everywhere (1.5% of the machine code
 of the compiler).  The speed is the same.  ``--directive refc-no-gc-sections``
 compiles and links as before; ``IDRIS2I_1_CFLAGS=-fno-function-sections`` keeps

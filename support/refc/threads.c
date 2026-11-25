@@ -380,7 +380,17 @@ typedef struct Sched {
 // thread, even before the scheduler starts.
 static Idris2i_1_Thread main_thread;
 static Sched main_sched;
+#if defined(__GNUC__)
+// Zero in the file (in .bss: the worker is a few KB, which a hello world
+// would otherwise carry), and linked to its scheduler before anything runs,
+// constructors of foreign libraries included.
+Idris2i_1_Worker idris2i_1_mainWorker;
+__attribute__((constructor(101))) static void init_main_worker(void) {
+  idris2i_1_mainWorker.sched = &main_sched;
+}
+#else
 Idris2i_1_Worker idris2i_1_mainWorker = {.sched = &main_sched};
+#endif
 static Sched main_sched = {
     .worker = &idris2i_1_mainWorker, .current = &main_thread, .current_id = 0};
 

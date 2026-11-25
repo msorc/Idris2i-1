@@ -1219,6 +1219,12 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* The worker of the main OS thread (the allocator, the statistics, the
+  pending tail call: about 3KB) is zero in the executable file (`.bss`)
+  and is linked to its scheduler by a constructor, with GCC and Clang.  It
+  used to be initialised data, which every executable carried: a hello
+  world is 81.5KB instead of 84.7KB.
+
 * On x86-64, the generated code of an executable reads the worker of its
   OS thread (at every allocation and tail call) with one instruction, a
   thread local variable of the local exec model, instead of two (the
