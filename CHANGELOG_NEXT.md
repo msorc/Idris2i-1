@@ -1219,6 +1219,20 @@ should target this file (`CHANGELOG_NEXT`).
 
 #### RefC Backend
 
+* A function whose C code is that of another one but for its own names is
+  not written: its name (and that of its worker) is a macro for the other
+  one, `#define Main_sumU Main_sumT`.  In a program compiled in units, two
+  functions are merged when they are in the same unit, or when they are
+  bigger than 1,500 bytes of C, so that no call that the C compiler could
+  inline goes to another unit.  It used to write each copy, 7.6% of the C of
+  the functions of the compiler.  With `--directive refc-backtrace` every
+  function is still written.  The machine code of the compiler goes from
+  56.3MB to 52.8MB (-6.2%); its instructions to build `base` are the same,
+  its cycles 1.3% fewer, and the RefC benchmarks run the same instructions.
+  The C of the units of the compiler goes from 104.4MB to 97.0MB.  See
+  "Functions with the same code" in the RefC documentation.  The test
+  `refc/dupDefs001`.
+
 * The units of a program compiled in units (`<name>.u<k>.c`) have no
   indentation and short prototypes, on one line and without the names of the
   parameters: the C of the units of the compiler goes from 142.9MB to

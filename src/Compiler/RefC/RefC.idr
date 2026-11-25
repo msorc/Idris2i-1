@@ -3954,6 +3954,121 @@ record DefOut where
   defRefs : List String
   ||| The names of the constants that it uses.
   defConsts : List String
+  ||| The C names that the definition is known by, when another definition
+  ||| with the same code may stand for it (see `duplicateDefs`); none
+  ||| otherwise.
+  defOwnNames : List String
+
+-- A definition whose code is that of another one but for its own names (the
+-- specialisations of a function at types that are erased, the methods of
+-- two implementations that do the same, ...) is not written: its names are
+-- macros for those of the other one (see `duplicateDefs`).  Only the
+-- functions with arguments are taken, and two of them only when they are in
+-- the same unit, or are big (see `duplicateBigDefs`): a call to a small
+-- function in the unit may be inlined by the C compiler, one to a function in
+-- another unit is not.
+
+||| Is the character a part of a C identifier?
+isIdentChar : Char -> Bool
+isIdentChar c = isAlphaNum c || c == '_'
+
+||| The text of a line, in pieces, with the C identifiers that are the names
+||| `names` replaced by marks (their positions in `names`).
+maskIdents : List String -> String -> List String
+maskIdents names line = go (strLength line) 0 0 [<]
+  where
+    position : String -> Nat -> List String -> Maybe Nat
+    position _ _ [] = Nothing
+    position s k (n :: ns) = if s == n then Just k else position s (S k) ns
+
+    identEnd : Int -> Int -> Int
+    identEnd len i = if i < len && isIdentChar (assert_total (strIndex line i))
+                        then identEnd len (i + 1)
+                        else i
+
+    -- (`start`: where the text not yet taken begins; `i`: where the scan is)
+    go : Int -> Int -> Int -> SnocList String -> List String
+    go len start i acc
+        = if i >= len
+             then if start == 0 then [line]
+                  else acc <>> [strSubstr start (len - start) line]
+             else if isIdentChar (assert_total (strIndex line i))
+               then let e = identEnd len (i + 1) in
+                        if any (\n => strLength n == e - i) names
+                           then case position (strSubstr i (e - i) line) 0 names of
+                                  Just k => go len e e (acc :< strSubstr start (i - start) line
+                                                            :< "\x05\{show k}\x05")
+                                  Nothing => go len start e acc
+                           else go len start e acc
+               else go len start (i + 1) acc
+
+||| The code of a definition without its own names, for `duplicateDefs`.
+maskedCode : DefOut -> String
+maskedCode d = fastConcat $ concatMap (\l => maskIdents d.defOwnNames l ++ ["\n"])
+                                      (withoutComments d.defLines)
+
+||| The definitions of `defs` that have the code of another one, with the C
+||| name of the one that is written for them: of those that have the same
+||| code, the first by name.
+duplicateDefs : List DefOut -> SortedMap String String
+duplicateDefs defs
+    = let keyed = sortBy (\a, b => compare (fst a) (fst b))
+                         (map (\d => (maskedCode d, d.defName))
+                              (filter (not . null . defOwnNames) defs)) in
+          runs keyed empty
+  where
+    sameCode : String -> List (String, String) -> (List String, List (String, String))
+    sameCode code ((c, n) :: rest)
+        = if c == code then let (ns, rest') = sameCode code rest in (n :: ns, rest')
+                       else ([], (c, n) :: rest)
+    sameCode _ [] = ([], [])
+
+    runs : List (String, String) -> SortedMap String String -> SortedMap String String
+    runs [] acc = acc
+    runs ((code, n) :: rest) acc
+        = let (ns, rest') = sameCode code rest in
+              case ns of
+                   [] => runs rest' acc
+                   _ => let names = n :: ns
+                            kept = foldl min n ns in
+                            runs rest' (foldl (\m, d => if d == kept then m else insert d kept m)
+                                              acc names)
+
+||| A 64 bit hash (FNV-1a) of a text, without making a list of its
+||| characters.
+textHash : String -> Bits64
+textHash s = go (strLength s) 0 14695981039346656037
+  where
+    go : Int -> Int -> Bits64 -> Bits64
+    go len i h = if i >= len then h
+                    else go len (i + 1) ((h `xor` cast (ord (assert_total (strIndex s i)))) * 1099511628211)
+
+||| The size in bytes of C from which a function is never inlined by the C
+||| compiler (the limits of GCC and Clang are tens of instructions): it may
+||| be written in another unit than the duplicates that stand for it.
+minSharedSize : Nat
+minSharedSize = 1500
+
+||| `duplicateDefs` for the definitions of the whole program that are bigger
+||| than `minSharedSize`: those with the same hash of their code are compared.
+duplicateBigDefs : List DefOut -> SortedMap String String
+duplicateBigDefs defs
+    = let hashed = sortBy (\a, b => compare (fst a) (fst b))
+                     (map (\d => (textHash (maskedCode d), d))
+                          (filter (\d => not (null d.defOwnNames) && d.defSize >= minSharedSize) defs)) in
+          buckets hashed empty
+  where
+    sameHash : Bits64 -> List (Bits64, DefOut) -> (List DefOut, List (Bits64, DefOut))
+    sameHash h ((h', d) :: rest)
+        = if h == h' then let (ds, rest') = sameHash h rest in (d :: ds, rest')
+                     else ([], (h', d) :: rest)
+    sameHash _ [] = ([], [])
+
+    buckets : List (Bits64, DefOut) -> SortedMap String String -> SortedMap String String
+    buckets [] acc = acc
+    buckets ((h, d) :: rest) acc
+        = let (ds, rest') = sameHash h rest in
+              buckets rest' (if null ds then acc else mergeLeft acc (duplicateDefs (d :: ds)))
 
 ||| Lines of C without their indentation, for the units, which are not read
 ||| (the single file is).
@@ -4443,7 +4558,7 @@ generateCSourceFileParts defs0 outn =
      let opts = { optCycleFns := if noCycleSafepoints then empty
                                    else cycleFunctions named } opts
      log "compiler.refc" 5 $ "Functions in cycles of calls: " ++ show (length (Prelude.toList opts.optCycleFns))
-     bodies <- traverse (\((cn, n, d), canonN) =>
+     bodies0 <- traverse (\((cn, n, d), canonN) =>
                  do put OutfileText DList.Nil
                     put ArgCounter 0
                     update ConstDef { constUses := empty }
@@ -4453,26 +4568,54 @@ generateCSourceFileParts defs0 outn =
                     let refs = case d of
                                  MkAFun _ anf => anfRefs anf (SortedSet.singleton cn)
                                  _ => SortedSet.singleton cn
+                    -- (with backtraces every function keeps its name)
+                    let own = case d of
+                                MkAFun (_ :: _) _ =>
+                                  if opts.optBacktrace then [] else [cn, workerName cn]
+                                _ => []
                     pure (MkDefOut (the Nat (foldl (\s, l => s + length l + 1) 0 ls)) ls
                                    (moduleOf canonN) cn (Prelude.toList refs)
-                                   (Prelude.toList tbl.constUses))) (zip named canons)
+                                   (Prelude.toList tbl.constUses) own)) (zip named canons)
      put OutfileText DList.Nil
      footer !(if opts.optBacktrace then Just <$> backtraceTable (mergeLeft workers foreignWorkers) named else pure Nothing)
      footerLines <- reify <$> get OutfileText
-     protos <- get FunctionDefinitions
-     shortProtos <- get ShortProtos
+     protos0 <- get FunctionDefinitions
      consts <- constantTexts <$> get ConstDef
      headerFiles <- Prelude.toList <$> get HeaderFiles
      let pre = preamble headerFiles structs
-     -- added after the definition traversal in order to add all encountered
-     -- function defintions and constants
-     let headerLines = pre ++ declarations (concat (values protos)) (values consts)
 
-     let totalSize = the Nat (foldl (\s, d => s + d.defSize) 0 bodies)
+     let totalSize = the Nat (foldl (\s, d => s + d.defSize) 0 bodies0)
      split <- refcSplitSize
      let nunits = the Nat $ if totalSize < fromMaybe minSplitSize split || isWindows
                      then 0
                      else unitCount (maybe minChunkSize (\n => max 1 (n `natDiv` 16)) split) totalSize
+     -- The definitions that have the code of another one in their unit (see
+     -- `duplicateDefs`), which are names for that one.
+     let groups0 = the (SortedMap Nat (List DefOut)) $
+                     if nunits == 0 then empty else groupUnits nunits bodies0
+     let local = the (SortedMap String String) $
+                   if nunits == 0 then duplicateDefs bodies0
+                     else foldl (\m, ds => mergeLeft m (duplicateDefs ds)) empty (values groups0)
+     -- (and the big ones in other units, see `minSharedSize`)
+     let shared = the (SortedMap String String) $
+                    if nunits == 0 then empty
+                      else duplicateBigDefs (filter (\d => isNothing (lookup d.defName local)) bodies0)
+     let dups = mergeLeft (map (\k => fromMaybe k (SortedMap.lookup k shared)) local) shared
+     log "compiler.refc" 5 $ "Definitions that have the code of another: " ++ show (length (SortedMap.toList dups))
+     let kept : DefOut -> Bool
+         kept d = isNothing (lookup d.defName dups)
+     let bodies = filter kept bodies0
+     let groups = map (filter kept) groups0
+     let protos = foldl (\m, (d, k) =>
+                           insert d ("#define \{d} \{k}\n"
+                                     :: (if isJust (lookup d workers)
+                                            then ["#define \{workerName d} \{workerName k}\n"]
+                                            else [])) m)
+                        protos0 (SortedMap.toList dups)
+     shortProtos <- get ShortProtos
+     -- added after the definition traversal in order to add all encountered
+     -- function defintions and constants
+     let headerLines = pre ++ declarations (concat (values protos)) (values consts)
      let text : List String -> String
          text ls = fastConcat (map (++ "\n") ls)
      let base = if Data.String.isSuffixOf ".c" outn
@@ -4487,14 +4630,13 @@ generateCSourceFileParts defs0 outn =
                 pure Nothing
         else do
           units <- prepareUnits base extra
-          let groups = groupUnits nunits bodies
           Right h <- coreLift $ openFile outn WriteTruncate
             | Left err => throw $ FileErr outn err
           Right () <- coreLift $ fPutStr h (text headerLines)
             | Left err => throw $ FileErr outn err
           -- The main function is in the unit 0.
           let mainRef = cName (MN "__mainExpression" 0)
-          (present, todo) <- units' units protos shortProtos consts pre footerLines mainRef nunits groups h
+          (present, todo) <- units' units protos shortProtos dups consts pre footerLines mainRef nunits groups h
           coreLift_ $ closeFile h
           log "compiler.refc" 10 $
             "Generated C file " ++ outn ++ " in " ++ show (length present) ++ " units, "
@@ -4508,11 +4650,12 @@ generateCSourceFileParts defs0 outn =
     units' : Units
           -> (protos : SortedMap String (List String))
           -> (shortProtos : SortedMap String (List String))
+          -> (dups : SortedMap String String)
           -> SortedMap String String
           -> (pre : List String) -> (footerLines : List String) -> (mainRef : String)
           -> (nunits : Nat) -> SortedMap Nat (List DefOut) -> (h : File)
           -> Core (List Nat, List (Nat, Nat))
-    units' units protos shortProtos consts pre footerLines mainRef nunits groups h = go 0 [<] [<]
+    units' units protos shortProtos dups consts pre footerLines mainRef nunits groups h = go 0 [<] [<]
       where
         go : Nat -> SnocList Nat -> SnocList (Nat, Nat) -> Core (List Nat, List (Nat, Nat))
         go k present todo
@@ -4526,12 +4669,17 @@ generateCSourceFileParts defs0 outn =
                     else do
                       let defsLines = concatMap defLines ds
                       let ls = concatMap (withComments . defLines) ds ++ (if isMain then footerLines else [])
-                      let refs = SortedSet.fromList $
-                                   (if isMain then [mainRef] else []) ++ concatMap defRefs ds
+                      let refs0 = SortedSet.fromList $
+                                    (if isMain then [mainRef] else []) ++ concatMap defRefs ds
+                      -- (a duplicate is a macro for a function that is declared too)
+                      let refs = union refs0 $ SortedSet.fromList $
+                                   mapMaybe (\r => lookup r dups) (Prelude.toList refs0)
                       let used = SortedSet.fromList $ concatMap defConsts ds
                       let protoLines : List String
-                            = concatMap (\r => fromMaybe (fromMaybe [] (lookup r protos))
-                                                          (lookup r shortProtos))
+                            = concatMap (\r => if isJust (lookup r dups)
+                                                  then fromMaybe [] (lookup r protos)
+                                                  else fromMaybe (fromMaybe [] (lookup r protos))
+                                                                 (lookup r shortProtos))
                                         (Prelude.toList refs)
                       let constLines : List String
                             = mapMaybe (\n => lookup n consts) (Prelude.toList used)

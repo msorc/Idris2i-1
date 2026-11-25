@@ -157,6 +157,21 @@ The units are only compiled, not meant to be read: their lines are not
 indented and their prototypes are short (no names of parameters), which
 makes them a quarter smaller.  ``<name>.c`` keeps the readable layout.
 
+Functions with the same code
+----------------------------
+
+Two functions whose C code is the same but for their own names (a
+specialisation of a function at types that are erased, the methods of two
+implementations that do the same, ...) are written once: the other one is a
+macro, ``#define Main_sumU Main_sumT``, in the prototypes.  In a program
+compiled in units, this is done for the functions of a unit, and for the
+functions of more than 1,500 bytes of C across units: a small function that
+moved to another unit could no longer be inlined by the C compiler where it
+is called, a big one is not inlined anyway.  With ``--directive
+refc-backtrace`` every function is written, so that a backtrace shows the
+names of the functions that ran.  This takes the machine code of the
+Idris2i-1 compiler from 56.3MB to 52.8MB.
+
 Strings and characters
 ======================
 

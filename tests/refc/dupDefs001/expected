@@ -1,0 +1,36 @@
+(6, 6)
+(3, 1)
+([22, 22], 18)
+zero a1 b2 zero a1 b2
+one a1 b2a1 b2 one a1 b2a1 b2
+two 2b 1a two 2b 1a
+three 5 three 5
+four 12 four 12
+five A1 B2 five A1 B2
+six a1 b2 six a1 b2
+seven a1 b2a1 b2a1 b2 seven a1 b2a1 b2a1 b2
+eight ["a1", "b2"] eight ["a1", "b2"]
+nine ["a1 b2"] nine ["a1 b2"]
+10 a1 b2 10 a1 b2
+RefC leak check: 0 leaked values
+#define Main_addC Main_addB
+#define idris2i_1_raw_Main_addC idris2i_1_raw_Main_addB
+#define Main_bigB Main_bigA
+#define Main_lenM Main_lenL
+#define Main_sumU Main_sumT
+#define idris2i_1_raw_Main_sumU idris2i_1_raw_Main_sumT
+(6, 6)
+(3, 1)
+([22, 22], 18)
+zero a1 b2 zero a1 b2
+one a1 b2a1 b2 one a1 b2a1 b2
+two 2b 1a two 2b 1a
+three 5 three 5
+four 12 four 12
+five A1 B2 five A1 B2
+six a1 b2 six a1 b2
+seven a1 b2a1 b2a1 b2 seven a1 b2a1 b2a1 b2
+eight ["a1", "b2"] eight ["a1", "b2"]
+nine ["a1 b2"] nine ["a1 b2"]
+10 a1 b2 10 a1 b2
+bodies of bigA and bigB: 1

@@ -1,0 +1,12 @@
+. ../../testutils.sh
+
+idris2i-1 -o main Main.idr
+$VALGRIND ./build/exec/main
+# (not under Valgrind: the leak check looks at the pages)
+IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null | sed 's/,.*//'
+grep '^#define [A-Za-z0-9_]*Main_' build/exec/main.c
+# Split in units: the big functions are written once, the small ones only
+# when they are in the same unit
+IDRIS2I_1_REFC_SPLIT_SIZE=1 idris2i-1 -o main2 Main.idr
+./build/exec/main2
+echo "bodies of bigA and bigB: $(cat build/exec/main2.u*.c | grep -c '^Idris2i_1_Value \*Main_big[AB]$')"
