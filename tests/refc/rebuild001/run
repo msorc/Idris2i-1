@@ -1,0 +1,19 @@
+. ../../testutils.sh
+
+# The branches that build again the cell they matched (see
+# Compiler.RefC.Rebuild), with and without the directive that turns it off:
+# the same results, nothing leaked, and how many uniqueness tests (reuse
+# blocks) and new cells each function has.
+idris2i-1 --log compiler.refc.rebuild:2 -o main Main.idr 2>&1 | grep "exact rebuilds" | sed 's/.*exact/exact/'
+IDRIS2I_1_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
+grep "leaked values" leaks.txt | sed 's/,.*//'
+idris2i-1 --directive refc-no-exact-rebuild -o main2 Main.idr
+IDRIS2I_1_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main2 > out2.txt 2> leaks2.txt
+./build/exec/main | cmp - out2.txt && echo "same results without the rewrite"
+grep "leaked values" leaks2.txt | sed 's/,.*//'
+fn() { awk -v RS= "/Value \\*Main_$2\\n/ && /\\{/" "build/exec/$1.c"; }
+for f in bindE withZero withLength idPair swapE swapP firstTwice keepTwo idVect reBox boxNat samePoint flipPoint pushAgain consAgain tailIfPositive tailOr; do
+  echo "$f: $(fn main $f | grep -c "idris2i_1_isUnique") $(fn main $f | grep -c "idris2i_1_new[A-Za-z]*Constructor") / $(fn main2 $f | grep -c "idris2i_1_isUnique") $(fn main2 $f | grep -c "idris2i_1_new[A-Za-z]*Constructor")"
+done
+fn main bindE
+rm -f leaks.txt leaks2.txt out2.txt

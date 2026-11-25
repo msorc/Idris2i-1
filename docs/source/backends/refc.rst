@@ -318,6 +318,21 @@ The code generator does the following, each of which a directive turns off
 - ``refc-no-direct-results``: the calls of the functions that always return a
   value (rather than a call left to the trampoline of their caller) are not
   trampolined.
+- ``refc-no-exact-rebuild``: a branch of a ``case`` that builds again the
+  value it matched, the same constructor with the fields that the branch
+  bound in the same order (``Left e => Left e`` in the bind of a monad of
+  ``Either``, where the types of the two differ), gives the value itself: it
+  neither takes the cell over when it is unique nor copies it when it is not.
+  The constructors are the same when their names and tags are, which fixes
+  the layout of the fields (raw fields included); an erased value written in
+  the constructor is not taken for a field, and constructors without fields
+  are left alone.  This is only done where it is less work on every path:
+  when the branch uses neither the fields nor the value anywhere else, and
+  the constructor is its result or the value of a ``let`` that leads to it,
+  not inside a ``case`` of the branch.  (In ``merge (x :: xs) (y :: ys) = if
+  x < y then x :: merge xs (y :: ys) else ...``, giving the second list for
+  ``y :: ys`` would keep it alive in both paths, which take over both cells
+  now.)
 - ``refc-no-local-closures``: a closure that a function makes and applies only
   once is not made: the application is a call.
 - ``refc-no-workers``: a function whose parameters of a fixed width integer

@@ -66,6 +66,7 @@ knownTopics = [
     ("compiler.refc", Nothing),
     ("compiler.refc.cc", Nothing),
     ("compiler.refc.flat", Just "Dump the definitions that the flat arrays change (see Compiler.RefC.FlatClones and FlatOpt)."),
+    ("compiler.refc.rebuild", Just "Count the branches that build again the cell they matched (see Compiler.RefC.Rebuild)."),
     ("compiler.scheme.chez", Nothing),
     ("coverage", Nothing),
     ("coverage.empty", Nothing),

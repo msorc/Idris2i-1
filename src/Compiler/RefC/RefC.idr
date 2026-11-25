@@ -5,6 +5,7 @@ import Compiler.RefC.CC
 import Compiler.RefC.FlatClones
 import Compiler.RefC.FlatOpt
 import Compiler.RefC.LocalClosures
+import Compiler.RefC.Rebuild
 import Compiler.RefC.Unbox
 
 import Compiler.Common
@@ -4409,6 +4410,16 @@ generateCSourceFileParts defs0 outn =
      -- Compiler.RefC.LocalClosures), unless
      -- `--directive refc-no-local-closures`.
      local <- pure $ not ("refc-no-local-closures" `elem` !(getDirectives RefC))
+     -- The branches that build again the cell they matched give the cell
+     -- (see Compiler.RefC.Rebuild), unless `--directive
+     -- refc-no-exact-rebuild`.
+     rebuild <- pure $ not ("refc-no-exact-rebuild" `elem` !(getDirectives RefC))
+     let rebuilt : List (Name, (Nat, ANFDef))
+                 = if rebuild then map (\(n, d) => (n, exactRebuilds d)) defs0
+                              else map (\(n, d) => (n, (0, d))) defs0
+     logC "compiler.refc.rebuild" 2 $ pure $
+       "exact rebuilds: " ++ show (sum (map (fst . snd) rebuilt))
+     let defs0r : List (Name, ANFDef) = map (\(n, (_, d)) => (n, d)) rebuilt
      -- (and the casts of Integer literals to fixed width integers are
      -- literals, see `foldIntegerCasts`)
      -- (and the functions that take the layout of the elements of an array
@@ -4417,8 +4428,8 @@ generateCSourceFileParts defs0 outn =
      optsD <- refcOptions
      let defs1' : List (Name, ANFDef)
                = map (mapSnd foldCasts)
-                     (if local then map (\(n, d) => (n, applyLocalClosures d)) defs0
-                               else defs0)
+                     (if local then map (\(n, d) => (n, applyLocalClosures d)) defs0r
+                               else defs0r)
      -- (the flat arrays are made, copied for and accessed by their fields
      -- when the program uses them, see `flatMode`)
      let flatOn = flatMode optsD defs1'

@@ -1234,6 +1234,21 @@ should target this file (`CHANGELOG_NEXT`).
   that nothing calls" in the RefC documentation.  The test
   `refc/gcSections001`.
 
+* A branch of a `case` that builds again the value it matched (the same
+  constructor with the fields that the branch bound, in order), such as
+  `Left e => Left e` in the bind of a monad of `Either`, gives the value
+  itself, where that is less work on every path: when the branch uses
+  neither the fields nor the value elsewhere, and the constructor is its
+  result or the value of a `let` that leads to it.  It used to take the
+  cell over when it was unique and copy it otherwise (a uniqueness test, and
+  a new cell with a reference to each field in the shared case).  In the
+  compiler the error branch of every step of a `do` block in `Core` is one
+  (13,379 branches): its machine code goes from 56.4MB to 53.1MB (-5.9%),
+  it runs 0.2% fewer instructions to check `prelude` and `base`, and its C
+  compiles 6% faster.  The benchmarks run the same instructions.  See
+  Compiler.RefC.Rebuild; `--directive refc-no-exact-rebuild` turns it off.
+  The test `refc/rebuild001`.
+
 * A function whose C code is that of another one but for its own names is
   not written: its name (and that of its worker) is a macro for the other
   one, `#define Main_sumU Main_sumT`.  In a program compiled in units, two
