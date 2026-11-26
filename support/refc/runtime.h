@@ -82,6 +82,15 @@ extern Idris2i_1_Value const idris2i_1_tailCallMarker;
 #define IDRIS2I_1_PLAIN_RETURN
 #endif
 
+// The function that evaluates a constant of the program, the first time that
+// it is needed (see `createCFunctions` in RefC.idr): it runs once, so it is
+// compiled for size and kept apart from the code that runs often.
+#if defined(__GNUC__) || defined(__clang__)
+#define IDRIS2I_1_CONSTANT_MAKER __attribute__((cold))
+#else
+#define IDRIS2I_1_CONSTANT_MAKER
+#endif
+
 // How many arguments a function takes in registers: a call in tail position
 // of a function with no more arguments than that can be a jump whatever the
 // arguments of its caller are, as nothing is passed on the stack.

@@ -1265,6 +1265,16 @@ should target this file (`CHANGELOG_NEXT`).
   preemption and a poll call through a pointer, and the making of a
   channel or a mutex tests one.  The test `refc/smallRuntime001`.
 
+* The function that evaluates a constant of the program (a definition
+  without arguments), which runs once, is `cold`, so that the C compiler
+  compiles it for size and puts it in `.text.unlikely`: the compiler built
+  by itself has 0.34% less machine code, the websocket test 1.1% and the
+  test runner 2.1% (a hello world is the same: its main expression is left
+  alone); instructions and cycles of the compiler and of the RefC
+  benchmarks are the same within their noise, and so is the C compile time
+  of the compiler.  `--directive refc-no-cold-constants` turns it off.  The
+  test `refc/coldConstants001`.
+
 * A branch of a `case` that builds again the value it matched (the same
   constructor with the fields that the branch bound, in order), such as
   `Left e => Left e` in the bind of a monad of `Either`, gives the value

@@ -3197,6 +3197,8 @@ record RefCOptions where
   optFlatArrays : Bool
   ||| `--directive refc-no-flat-arrays`: never (see `flatMode`)
   optNoFlatArrays : Bool
+  ||| not `--directive refc-no-cold-constants` (see `createCFunctions`)
+  optColdConstants : Bool
   ||| The functions that start with a safepoint (see `cycleFunctions`), by
   ||| C name: set for the program, empty until then.
   optCycleFns : SortedSet String
@@ -3216,6 +3218,7 @@ refcOptions = do
                          ("refc-check-layout" `elem` ds)
                          ("refc-flat-arrays" `elem` ds)
                          ("refc-no-flat-arrays" `elem` ds)
+                         (not ("refc-no-cold-constants" `elem` ds))
                          empty
 
 ||| Are the flat arrays on in a program?  They are when it uses the slot
@@ -3526,11 +3529,19 @@ createCFunctions opts structs n canonN (MkAFun args anf) = do
     -- first time that it is needed, like the top level constants of the
     -- Scheme backends: its body is in a function of its own, and its value is
     -- kept for good (it is immortal).
+    -- That function runs once: it is `cold` (IDRIS2I_1_CONSTANT_MAKER), so
+    -- that the C compiler compiles it for size, apart from the code that
+    -- runs often (`--directive refc-no-cold-constants` turns this off).  But
+    -- for the main expression, which every program has and whose maker is a
+    -- few instructions: a function of its own in `.text.unlikely` would only
+    -- add an unwind entry to a hello world.
     -- (with `--directive refc-backtrace`, the C compiler keeps the frame of
     -- every function, see `backtraceTable`)
     let noinline = if opts.optBacktrace then "IDRIS2I_1_BT_NOINLINE " else ""
+    let cold = if opts.optColdConstants && n /= MN "__mainExpression" 0
+                  then "IDRIS2I_1_CONSTANT_MAKER " else ""
     let body = if nargs == 0
-                  then "\{noinline}static Idris2i_1_Value *\{cafName cn}" ++ params
+                  then "\{noinline}\{cold}static Idris2i_1_Value *\{cafName cn}" ++ params
                   else noinline ++ fromMaybe fn wfn
 
     -- The parameters that the function borrows (see Compiler.RefC.Borrow):

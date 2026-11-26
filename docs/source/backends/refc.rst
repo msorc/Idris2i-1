@@ -364,6 +364,13 @@ The code generator does the following, each of which a directive turns off
 - ``refc-no-borrow``: the parameters that a function only looks at are
   borrowed: the caller keeps its reference, and no reference is taken and
   released around the call.
+- ``refc-no-cold-constants``: the function that evaluates a constant of the
+  program (a definition without arguments), which runs once, the first time
+  that the constant is needed, is ``cold``: the C compiler compiles it for
+  size, in ``.text.unlikely``, apart from the code that runs often.  This
+  takes 0.34% off the machine code of the Idris2i-1 compiler and 1.1% off the
+  websocket test of ``tests/http``; the main expression of the program is
+  left alone (its function is a few instructions).
 - ``refc-no-direct-results``: the calls of the functions that always return a
   value (rather than a call left to the trampoline of their caller) are not
   trampolined.

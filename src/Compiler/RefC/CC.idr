@@ -100,7 +100,8 @@ clibdirs ds = map (\d => "-L" ++ d) ds
 refcFlagDirectives : List String
 refcFlagDirectives
     = [ "refc-backtrace", "refc-check-layout", "refc-flat-arrays"
-      , "refc-no-borrow", "refc-no-cycle-safepoints", "refc-no-direct-results"
+      , "refc-no-borrow", "refc-no-cold-constants", "refc-no-cycle-safepoints"
+      , "refc-no-direct-results"
       , "refc-no-exact-rebuild"
       , "refc-no-flat-arrays", "refc-no-gc-sections"
       , "refc-no-lazy-constants", "refc-no-local-closures"
