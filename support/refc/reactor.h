@@ -46,12 +46,21 @@ void idris2i_1_ioForget(int64_t fd);
 
 // For the scheduler: wait up to `timeout_ns` nanoseconds (0: do not block,
 // negative: no limit) for descriptors to become ready, and wake up their
-// waiters.  Returns the number of threads woken up.  Called on workers only.
+// waiters.  Returns the number of threads woken up.  Called on workers only,
+// through idris2i_1_reactorPollHook (below), once the reactor exists.
 int idris2i_1_reactorPoll(int64_t timeout_ns);
 
 // Make a call of idris2i_1_reactorPoll that blocks, in any thread, return
 // early.  Safe to call from any OS thread.
 void idris2i_1_reactorWakeup(void);
+
+// idris2i_1_reactorPoll and idris2i_1_reactorWakeup, once the reactor exists
+// (NULL until then; defined in threads.c, set by reactor.c).  The scheduler
+// calls them through these, so that a program that never waits for a
+// descriptor does not link the reactor.  Until the reactor exists, a poll
+// would wake nobody up and a wakeup would have no poller to wake.
+extern int (*idris2i_1_reactorPollHook)(int64_t timeout_ns);
+extern void (*idris2i_1_reactorWakeupHook)(void);
 
 // The number of threads that wait for a descriptor, plus the blocking calls
 // in progress (see idris2i_1_blockingCall).  The scheduler polls while it is

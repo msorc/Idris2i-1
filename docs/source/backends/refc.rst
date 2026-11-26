@@ -216,6 +216,31 @@ merged, see above: the two overlap).  The speed is the same.
 ``IDRIS2I_1_CFLAGS=-fno-function-sections`` keeps the generated code in one
 section but still lets the linker drop the unused parts of the runtime.
 
+The runtime reaches its scheduler, its reactor and the code that shares values
+between workers through function pointers that are set when the program first
+needs them, so that a program that never needs them does not link them: the
+loop of the scheduler is set when the program makes something that threads
+block on (a channel, a mutex, ...), sleeps, waits for a descriptor or forks;
+what a yield and a preemption do, and the stop of the other workers at exit,
+by the first ``fork``; the poller of the reactor, by the reactor when it is made (the first
+wait for a descriptor); the marking of the constants as shared, when the
+second worker starts.  These calls were all on slow paths already (a yield
+or a preemption, a poll, the evaluation of a constant, the exit, the making
+of a channel or a mutex): the paths that run often (allocation, reference
+counting, the trampoline, the safepoints, a thread that blocks or sleeps)
+are the same.  A hello world loses about 10KB of machine code this way (71KB
+instead of 82KB), and a program that does not fork, like the benchmarks of
+``benchmark/``, 5 to 11% of its file.  What a hello world still has is what
+any program may need at run time: the reports of ``IDRIS2I_1_REFC_LEAKCHECK``
+and ``IDRIS2I_1_REFC_MEMSTATS`` (about 7KB) and the backtraces of
+``IDRIS2I_1_REFC_BACKTRACE`` (about 6.5KB), which environment variables turn on
+when the program runs, and the trampolines, the application of closures and
+the allocator.
+
+The executable keeps its symbol table, for the backtraces.  To strip it, pass
+``-s`` to the linker: ``IDRIS2I_1_LDFLAGS=-s`` (a hello world is then 61KB);
+a backtrace then shows ``??`` for the functions of the program.
+
 Strings and characters
 ======================
 

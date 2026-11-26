@@ -170,5 +170,6 @@ static inline Idris2i_1_Value *idris2i_1_constantValue(Idris2i_1_Constant *c,
   return idris2i_1_makeConstant(c, make);
 }
 
-// Make the constants evaluated so far shared (when the second worker starts).
+// Make the constants evaluated so far shared, and those evaluated from now on
+// (on the main worker, when the second worker is about to start).
 void idris2i_1_shareConstants(void);

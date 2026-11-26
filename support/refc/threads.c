@@ -432,6 +432,33 @@ static inline int io_pending(void) {
       __atomic_load_n(&idris2i_1_ioPending, __ATOMIC_RELAXED) != 0, 0);
 }
 
+// The reactor is called through the hooks that it sets once it exists (see
+// reactor.h), so that a program that never waits for a descriptor does not
+// link it.  Before that, a poll has nothing to report, and no worker waits
+// in the poller.
+int (*idris2i_1_reactorPollHook)(int64_t timeout_ns) = NULL;
+void (*idris2i_1_reactorWakeupHook)(void) = NULL;
+
+#if IDRIS2I_1_GREEN_THREADS
+// (the test of the hook replaces the test of idris2i_1_reactorPoll, which
+// looked whether the reactor exists)
+static inline int reactor_poll(int64_t timeout_ns) {
+  int (*poll)(int64_t) =
+      __atomic_load_n(&idris2i_1_reactorPollHook, __ATOMIC_ACQUIRE);
+  return poll ? poll(timeout_ns) : 0;
+}
+#endif
+
+#if IDRIS2I_1_MULTICORE
+static void reactor_wakeup(void) {
+  void (*wakeup)(void) =
+      __atomic_load_n(&idris2i_1_reactorWakeupHook, __ATOMIC_ACQUIRE);
+  if (wakeup) {
+    wakeup();
+  }
+}
+#endif
+
 static void fatal(const char *message) {
   fprintf(stderr, "RefC: %s\n", message);
   exit(1);
@@ -863,7 +890,7 @@ static void wakep(void) {
     }
     pthread_cond_signal(&w->cond);
     if (w->polling) {
-      idris2i_1_reactorWakeup();
+      reactor_wakeup();
     }
   } else {
     __atomic_fetch_sub(&n_spinning, 1, __ATOMIC_SEQ_CST);
@@ -887,7 +914,7 @@ static void timer_kick(void) {
   if (w) {
     pthread_cond_signal(&w->cond);
     if (w->polling) {
-      idris2i_1_reactorWakeup();
+      reactor_wakeup();
     }
   }
   pthread_mutex_unlock(&idle_lock);
@@ -969,12 +996,12 @@ static void deadlock(void) {
 static int sched_poll(Sched *s, int64_t timeout_ns) {
 #if IDRIS2I_1_MULTICORE
   s->local_wake = 1;
-  int woken = idris2i_1_reactorPoll(timeout_ns);
+  int woken = reactor_poll(timeout_ns);
   s->local_wake = 0;
   return woken;
 #else
   (void)s;
-  return idris2i_1_reactorPoll(timeout_ns);
+  return reactor_poll(timeout_ns);
 #endif
 }
 
@@ -1115,9 +1142,9 @@ static void park(Sched *s) {
     // earliest deadline.  (A deadline that the poller cannot wait for
     // exactly is waited for up to a millisecond late.)
     int64_t now = idris2i_1_monotonicNanoseconds();
-    idris2i_1_reactorPoll(deadline == INT64_MAX ? -1
-                       : deadline > now      ? deadline - now
-                                             : 0);
+    reactor_poll(deadline == INT64_MAX ? -1
+                 : deadline > now      ? deadline - now
+                                       : 0);
     return;
   }
   if (deadline == INT64_MAX) {
@@ -1246,6 +1273,22 @@ int64_t idris2i_1_threadId(Idris2i_1_Thread *thread) {
   return thread ? thread->id : 0;
 }
 
+#if IDRIS2I_1_GREEN_THREADS
+static void scheduler_loop(void);
+// The loop that the scheduler of the main worker runs (see scheduler_start),
+// set before a thread may switch to it: by idris2i_1_threadsMayBlock, or the
+// first fork.  So a program that does neither does not link the scheduler.
+static void (*scheduler_body)(void) = NULL;
+#endif
+
+void idris2i_1_threadsMayBlock(void) {
+#if IDRIS2I_1_GREEN_THREADS
+  if (__atomic_load_n(&scheduler_body, __ATOMIC_RELAXED) == NULL) {
+    __atomic_store_n(&scheduler_body, scheduler_loop, __ATOMIC_RELAXED);
+  }
+#endif
+}
+
 // Block the current thread, see idris2i_1_threadBlockOnUntil.  `queue` and
 // `lock` may be NULL (to sleep).
 static int block_current(Idris2i_1_WaitQueue *queue, Idris2i_1_SpinLock *lock,
@@ -1309,7 +1352,7 @@ static void yield_current(int preempted) {
   expire_timers(preempted);
   // (not on every yield: fork yields)
   if (preempted && io_pending()) {
-    idris2i_1_reactorPoll(0);
+    reactor_poll(0);
   }
   Sched *s = self();
   if (!queued(s)) {
@@ -1322,15 +1365,28 @@ static void yield_current(int preempted) {
 }
 #endif
 
+#if IDRIS2I_1_GREEN_THREADS
+// What idris2i_1_threadYield and idris2i_1_preemptYield do, set by the first
+// fork (see first_fork).  Until then there is nothing to do: the only thread
+// is the one that runs, no thread waits for a deadline, and nobody asks it to
+// yield.  They are called through these hooks, so that a program that never
+// forks does not link the scheduler.
+static void (*yield_hook)(int preempted) = NULL;
+static void (*preempt_hook)(void) = NULL;
+#endif
+
 void idris2i_1_threadYield(void) {
 #if IDRIS2I_1_GREEN_THREADS
-  yield_current(0);
+  void (*yield)(int) = __atomic_load_n(&yield_hook, __ATOMIC_RELAXED);
+  if (yield) {
+    yield(0);
+  }
 #endif
 }
 
 int idris2i_1_preemptPending = 0;
 
-void idris2i_1_preemptYield(void) {
+static void preempt_yield(void) {
   Idris2i_1_Worker *w = idris2i_1_worker();
   if (__atomic_load_n(&w->preempt, __ATOMIC_RELAXED)) {
     __atomic_store_n(&w->preempt, 0, __ATOMIC_RELAXED);
@@ -1345,25 +1401,61 @@ void idris2i_1_preemptYield(void) {
   }
 }
 
-void idris2i_1_threadSleep(int64_t microseconds) {
+void idris2i_1_preemptYield(void) {
+#if IDRIS2I_1_GREEN_THREADS
+  void (*preempt)(void) = __atomic_load_n(&preempt_hook, __ATOMIC_RELAXED);
+  if (preempt) {
+    preempt();
+  }
+#else
+  preempt_yield();
+#endif
+}
+
+// A sleep, once the scheduler is set up.
+static void sleep_plain(int64_t microseconds) {
   if (microseconds <= 0) {
     return;
   }
   block_current(NULL, NULL, idris2i_1_deadlineAfter(microseconds));
 }
 
+void idris2i_1_threadSleep(int64_t microseconds) {
+  idris2i_1_threadsMayBlock();
+  sleep_plain(microseconds);
+}
+
+// The first sleep through idris2i_1_threadSleepHook sets the scheduler up,
+// and the hook to the plain sleep: the later calls test nothing.
+static void sleep_first(int64_t microseconds) {
+  idris2i_1_threadsMayBlock();
+  __atomic_store_n(&idris2i_1_threadSleepHook, sleep_plain, __ATOMIC_RELAXED);
+  sleep_plain(microseconds);
+}
+
+void (*idris2i_1_threadSleepHook)(int64_t microseconds) = sleep_first;
+
 // ---------------------------------------------------------------------------
 // Thread lifecycle
 // ---------------------------------------------------------------------------
 
-// Called on the stack of the thread, once its action is done.
-static void thread_finish(Idris2i_1_Thread *self) {
+// The thread is done (the main one, which has no handle, when the main
+// expression is).
+static void thread_done(Idris2i_1_Thread *self) {
   self->state = THREAD_FINISHED;
   __atomic_fetch_sub(&live_threads, 1, __ATOMIC_RELAXED);
   if (self->thread_data) {
     idris2i_1_removeReference(self->thread_data);
     self->thread_data = NULL;
   }
+}
+
+#if IDRIS2I_1_GREEN_THREADS
+// Called on the stack of a forked thread, once its action is done.  (Out of
+// line, as it was when the main thread called it too: thread_entry stays
+// small.)
+__attribute__((noinline)) static void thread_finish(Idris2i_1_Thread *self) {
+  thread_done(self);
   Idris2i_1_ThreadID *handle = self->handle;
   if (handle) {
     // From now on the handle says that the thread is finished.
@@ -1375,8 +1467,6 @@ static void thread_finish(Idris2i_1_Thread *self) {
     idris2i_1_removeReference((Idris2i_1_Value *)handle);
   }
 }
-
-#if IDRIS2I_1_GREEN_THREADS
 
 // The size of the stacks of the forked threads.  It defaults to 8MB, which
 // matches the stack of a typical process, and it can be changed with the
@@ -1614,11 +1704,22 @@ static void scheduler_loop(void) {
   }
 }
 
+// The entry of the scheduler of the main worker, the first time that a thread
+// switches to it.
+static void scheduler_start(void) {
+  void (*body)(void) = __atomic_load_n(&scheduler_body, __ATOMIC_RELAXED);
+  if (!body) {
+    fatal("a thread blocked before idris2i_1_threadsMayBlock was called");
+  }
+  body();
+  fatal("the scheduler returned");
+}
+
 static void scheduler_init(void) {
   stack_configure();
   sched_stack = stack_map(SCHEDULER_STACK_SIZE);
   prepare_context(&main_sched.ctx, sched_stack, SCHEDULER_STACK_SIZE,
-                  scheduler_loop);
+                  scheduler_start);
 #ifdef IDRIS2I_1_HAVE_VALGRIND
   (void)VALGRIND_STACK_REGISTER((char *)sched_stack + page_size,
                                 (char *)sched_stack + page_size +
@@ -1817,6 +1918,11 @@ static void *monitor_main(void *arg) {
   return NULL;
 }
 
+// What idris2i_1_threadStopOthers does once there are other workers (set by
+// start_workers, so that a program that never forks does not link it).
+static int stop_others(void);
+static int (*stop_others_hook)(void) = NULL;
+
 // Start the other workers, the first time that a thread is forked, and the
 // monitor.
 static void start_workers(void) {
@@ -1866,6 +1972,7 @@ static void start_workers(void) {
       all[created++] = s;
     }
     workers = all;
+    __atomic_store_n(&stop_others_hook, stop_others, __ATOMIC_RELEASE);
     __atomic_store_n(&n_workers, created, __ATOMIC_RELEASE);
     for (int i = 1; i < created; i++) {
       pthread_t pthread;
@@ -1972,12 +2079,12 @@ void idris2i_1_threadSchedulerRun(Idris2i_1_Value *(*mainAction)(void)) {
   }
   // Like in the Chez backend, the program is over once the main expression
   // is done: the other threads, if any, are abandoned.
-  thread_finish(&main_thread);
+  thread_done(&main_thread);
   idris2i_1_reportAtExit(1, __atomic_load_n(&live_threads, __ATOMIC_RELAXED));
 }
 
-int idris2i_1_threadStopOthers(void) {
 #if IDRIS2I_1_MULTICORE
+static int stop_others(void) {
   int n = idris2i_1_workerCount();
   if (n <= 1) {
     return 0;
@@ -2011,6 +2118,13 @@ int idris2i_1_threadStopOthers(void) {
     struct timespec delay = {0, 100000};
     nanosleep(&delay, NULL);
   }
+}
+#endif
+
+int idris2i_1_threadStopOthers(void) {
+#if IDRIS2I_1_MULTICORE
+  int (*stop)(void) = __atomic_load_n(&stop_others_hook, __ATOMIC_ACQUIRE);
+  return stop ? stop() : 0;
 #else
   return 0;
 #endif
@@ -2034,8 +2148,22 @@ int idris2i_1_threadRunsElsewhere(int worker, int64_t thread) {
 // FFI
 // ---------------------------------------------------------------------------
 
+#if IDRIS2I_1_GREEN_THREADS
+// From the first fork on, there may be other threads to switch to (see
+// yield_hook and scheduler_body).
+static void first_fork(void) {
+  __atomic_store_n(&scheduler_body, scheduler_loop, __ATOMIC_RELAXED);
+  __atomic_store_n(&yield_hook, yield_current, __ATOMIC_RELAXED);
+  __atomic_store_n(&preempt_hook, preempt_yield, __ATOMIC_RELAXED);
+}
+#endif
+
 void *refc_fork(Idris2i_1_Closure *fct) {
 #if IDRIS2I_1_GREEN_THREADS
+  if (__builtin_expect(
+          __atomic_load_n(&yield_hook, __ATOMIC_RELAXED) == NULL, 0)) {
+    first_fork(); // (before the other workers start)
+  }
   start_workers();
   Sched *s = self();
   Idris2i_1_Thread *parent = s->current;

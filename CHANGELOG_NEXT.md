@@ -1250,6 +1250,21 @@ should target this file (`CHANGELOG_NEXT`).
   that nothing calls" in the RefC documentation.  The test
   `refc/gcSections001`.
 
+* The runtime calls its scheduler, its reactor and the code that shares
+  values between workers through function pointers that the program sets
+  when it first needs them (the first channel, mutex, condition variable,
+  semaphore or barrier, sleep, wait for a descriptor or fork, the start of
+  the second worker), so that with `--gc-sections` a program that never
+  needs them does not link them.  It used to link them all, as the start,
+  the exit and the safepoints of every program referred to them: a hello
+  world is now 71KB instead of 82KB (machine code 33KB instead of 43KB),
+  the RefC benchmarks, which do not fork, are 5 to 11% smaller, and a
+  program that forks and waits for descriptors is about the same.  The
+  paths that run often are the same, blocking and sleeping included (a
+  sleep goes through a pointer that its first call replaces); a yield, a
+  preemption and a poll call through a pointer, and the making of a
+  channel or a mutex tests one.  The test `refc/smallRuntime001`.
+
 * A branch of a `case` that builds again the value it matched (the same
   constructor with the fields that the branch bound, in order), such as
   `Left e => Left e` in the bind of a monad of `Either`, gives the value

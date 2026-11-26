@@ -530,11 +530,15 @@ int64_t idris2i_1_extractInt64Boxed(Idris2i_1_Value *v) {
 static Idris2i_1_Value **unshared_constants = NULL;
 static size_t n_unshared_constants = 0, unshared_capacity = 0;
 
+// idris2i_1_markShared, set by idris2i_1_shareConstants: a program that never
+// starts a second worker does not link it.
+static void (*mark_shared)(Idris2i_1_Value *) = NULL;
+
 static void publish_constant(Idris2i_1_Value *v) {
   if (!v || idris2i_1_vp_is_unboxed(v))
     return;
   if (__atomic_load_n(&idris2i_1_multicoreStarted, __ATOMIC_ACQUIRE)) {
-    idris2i_1_markShared(v);
+    mark_shared(v);
     return;
   }
   if (n_unshared_constants == unshared_capacity) {
@@ -549,6 +553,7 @@ static void publish_constant(Idris2i_1_Value *v) {
 }
 
 void idris2i_1_shareConstants(void) {
+  mark_shared = idris2i_1_markShared;
   for (size_t i = 0; i < n_unshared_constants; i++)
     idris2i_1_markShared(unshared_constants[i]);
   free(unshared_constants);

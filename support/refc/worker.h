@@ -308,6 +308,11 @@ static inline void idris2i_1_cpuRelax(void) {
 
 void idris2i_1_spinLockSlow(Idris2i_1_SpinLock *lock);
 
+// (always inlined: GCC made a call of it in a path of the scheduler that it
+// took for cold, the wait with a deadline of every sleep)
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((always_inline))
+#endif
 static inline void idris2i_1_spinLock(Idris2i_1_SpinLock *lock) {
 #if IDRIS2I_1_MULTICORE
   if (__atomic_exchange_n(lock, 1, __ATOMIC_ACQUIRE))

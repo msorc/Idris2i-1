@@ -84,12 +84,26 @@ int idris2i_1_threadWakeOne(Idris2i_1_WaitQueue *queue);
 // the queue.
 void idris2i_1_threadWakeAll(Idris2i_1_WaitQueue *queue);
 
+// Called before a thread may block for the first time on a new kind of thing:
+// by the functions that make the objects that threads block on (mutexes,
+// channels, ...), by those that block without one (sleep), and by the
+// reactor when it is made (see reactor.c).  It sets up the loop of the scheduler, which a program that
+// never blocks nor forks then does not link (see scheduler_start in
+// threads.c); idris2i_1_threadBlockOn and the like do not test it.
+void idris2i_1_threadsMayBlock(void);
+
 // Let the other runnable threads run before the current one carries on.
 void idris2i_1_threadYield(void);
 
 // Sleep for the given number of microseconds.  Unlike a system call, this
 // does not block the other green threads.
 void idris2i_1_threadSleep(int64_t microseconds);
+
+// The same, for the sleeps of the FFI (see concurrency.c): a pointer that a
+// program which never sleeps does not link, and that sets the scheduler up
+// on its first call only (see idris2i_1_threadsMayBlock), so that a sleep
+// costs no test.
+extern void (*idris2i_1_threadSleepHook)(int64_t microseconds);
 
 // The index of the current worker.
 int idris2i_1_workerIndex(void);

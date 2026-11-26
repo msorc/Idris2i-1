@@ -1,0 +1,36 @@
+. ../../testutils.sh
+
+# The parts of the runtime that a program does not use are left out, even
+# when the runtime refers to them: the scheduler, the reactor and the
+# sharing of values between workers are called through hooks, which the
+# first fork, the first wait and the reactor set.  The features that are
+# switched on by environment variables still work, and so do the features
+# when a program starts using them late.
+ulimit -c 0
+idris2i-1 -o main Main.idr
+./build/exec/main hello
+IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main hello 2>&1 >/dev/null | sed 's/,.*//'
+IDRIS2I_1_REFC_MEMSTATS=1 ./build/exec/main hello 2> stats > /dev/null
+grep -c "pages in use at the peak" stats
+IDRIS2I_1_REFC_BACKTRACE=1 ./build/exec/main crash 2>&1 | grep -v '^  '
+for mode in sleep fork; do
+  ./build/exec/main $mode
+  IDRIS2I_1_WORKERS=2 ./build/exec/main $mode | tail -1
+  IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main $mode 2>&1 >/dev/null | sed 's/,.*//'
+done
+(sleep 0.2; echo "late") | ./build/exec/main io
+(sleep 0.2; echo "late") | IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main io 2>&1 >/dev/null | sed 's/,.*//'
+idris2i-1 -o hello Hello.idr
+./build/exec/hello
+if [ "$OS" = "darwin" ] || [ "$OS" = "windows" ]; then
+    # (no collection of sections there)
+    echo "left out of hello: 5 of 5"
+else
+    nm build/exec/hello > syms
+    n=0
+    for f in scheduler_loop steal_work os_poll idris2i_1_markShared stop_others; do
+        grep -q " $f\$" syms || n=$((n + 1))
+    done
+    echo "left out of hello: $n of 5"
+fi
+rm -f stats syms

@@ -54,6 +54,7 @@ static int64_t self_id(void) { return idris2i_1_threadId(idris2i_1_currentThread
 #define STARVING_NS ((int64_t)1000000)
 
 void *refc_makeMutex(void) {
+  idris2i_1_threadsMayBlock();
   Idris2i_1_Mutex *mutex =
       (Idris2i_1_Mutex *)idris2i_1_newZeroedValue(sizeof(Idris2i_1_Mutex));
   mutex->header.tag = MUTEX_TAG;
@@ -198,6 +199,7 @@ static void mutex_reacquire(Idris2i_1_Mutex *m, int64_t depth) {
 // ---------------------------------------------------------------------------
 
 void *refc_makeCondition(void) {
+  idris2i_1_threadsMayBlock();
   Idris2i_1_Condition *condition =
       (Idris2i_1_Condition *)idris2i_1_newZeroedValue(sizeof(Idris2i_1_Condition));
   condition->header.tag = CONDITION_TAG;
@@ -246,6 +248,7 @@ void refc_conditionBroadcast(Idris2i_1_Value *condition) {
 // ---------------------------------------------------------------------------
 
 void *refc_makeSemaphore(int64_t count) {
+  idris2i_1_threadsMayBlock();
   Idris2i_1_Semaphore *semaphore =
       (Idris2i_1_Semaphore *)idris2i_1_newZeroedValue(sizeof(Idris2i_1_Semaphore));
   semaphore->header.tag = SEMAPHORE_TAG;
@@ -283,6 +286,7 @@ void refc_semaphoreWait(Idris2i_1_Value *semaphore) {
 // ---------------------------------------------------------------------------
 
 void *refc_makeBarrier(int64_t num_threads) {
+  idris2i_1_threadsMayBlock();
   Idris2i_1_Barrier *barrier =
       (Idris2i_1_Barrier *)idris2i_1_newZeroedValue(sizeof(Idris2i_1_Barrier));
   barrier->header.tag = BARRIER_TAG;
@@ -324,6 +328,7 @@ void refc_barrierWait(Idris2i_1_Value *barrier) {
 #define CHANNEL_FIRST_SLOTS 16
 
 static Idris2i_1_Channel *channel_new(int64_t capacity) {
+  idris2i_1_threadsMayBlock();
   Idris2i_1_Channel *c =
       (Idris2i_1_Channel *)idris2i_1_newZeroedValue(sizeof(Idris2i_1_Channel));
   c->header.tag = CHANNEL_TAG;
@@ -631,9 +636,11 @@ void *refc_awaitFuture(Idris2i_1_Value *erased, Idris2i_1_Value *future) {
 
 void refc_sleep(int64_t seconds) {
   if (seconds > 0) {
-    idris2i_1_threadSleep(seconds > INT64_MAX / 1000000 ? INT64_MAX
-                                                     : seconds * 1000000);
+    __atomic_load_n(&idris2i_1_threadSleepHook, __ATOMIC_RELAXED)(
+        seconds > INT64_MAX / 1000000 ? INT64_MAX : seconds * 1000000);
   }
 }
 
-void refc_usleep(int64_t microseconds) { idris2i_1_threadSleep(microseconds); }
+void refc_usleep(int64_t microseconds) {
+  __atomic_load_n(&idris2i_1_threadSleepHook, __ATOMIC_RELAXED)(microseconds);
+}

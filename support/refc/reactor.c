@@ -276,6 +276,20 @@ void idris2i_1_reactorWakeup(void) {
   }
 }
 
+// The reactor exists: the scheduler may poll it and wake its poller up from
+// now on.  The scheduler calls them through the hooks of reactor.h, so that
+// a program that never waits for a descriptor does not link the poller.  And
+// threads will block in idris2i_1_ioWait and idris2i_1_blockingCall, which
+// make the reactor first.
+static void reactor_publish(void) {
+  idris2i_1_threadsMayBlock();
+  __atomic_store_n(&idris2i_1_reactorPollHook, idris2i_1_reactorPoll,
+                   __ATOMIC_RELEASE);
+  __atomic_store_n(&idris2i_1_reactorWakeupHook, idris2i_1_reactorWakeup,
+                   __ATOMIC_RELEASE);
+  __atomic_store_n(&reactor_ready, 1, __ATOMIC_RELEASE);
+}
+
 #if REACTOR_EPOLL
 
 static int epfd = -1;
@@ -313,7 +327,7 @@ static void reactor_create(void) {
     // (the wake up descriptor cannot be ready yet: nothing is lost)
   }
 #endif
-  __atomic_store_n(&reactor_ready, 1, __ATOMIC_RELEASE);
+  reactor_publish();
 }
 
 // Register `fd` (its entry is locked).  Returns 0 or -errno.
@@ -362,7 +376,7 @@ static void reactor_create(void) {
     return;
   }
   idris2i_1_reactorFineTimeout = 1; // kevent takes a timespec
-  __atomic_store_n(&reactor_ready, 1, __ATOMIC_RELEASE);
+  reactor_publish();
 }
 
 static void os_deregister(int fd) {
@@ -420,7 +434,7 @@ static void reactor_create(void) {
     defined(__OpenBSD__) || defined(__DragonFly__)
   idris2i_1_reactorFineTimeout = 1; // ppoll takes a timespec
 #endif
-  __atomic_store_n(&reactor_ready, 1, __ATOMIC_RELEASE);
+  reactor_publish();
 }
 
 static int os_register(int fd, IoEntry *e) {
@@ -881,10 +895,9 @@ static int finish_blocking_calls(void) {
   return woken;
 }
 
+// (called through idris2i_1_reactorPollHook, which is set once the reactor
+// exists: it need not look whether it does)
 int idris2i_1_reactorPoll(int64_t timeout_ns) {
-  if (!__atomic_load_n(&reactor_ready, __ATOMIC_ACQUIRE)) {
-    return 0;
-  }
   int woken = os_poll(timeout_ns);
   if (__atomic_load_n(&completed, __ATOMIC_RELAXED) &&
       !idris2i_1_threadStopping()) {

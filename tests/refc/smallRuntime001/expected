@@ -1,0 +1,21 @@
+work: 632919, table: 15150
+hello
+RefC leak check: 0 leaked values
+1
+work: 632919, table: 15150
+ERROR: a crash
+Backtrace of the main thread, innermost call first:
+work: 632919, table: 15150
+slept
+slept
+RefC leak check: 0 leaked values
+work: 632919, table: 15150
+the spinner stopped: True
+forked late: 514326
+forked late: 514326
+RefC leak check: 0 leaked values
+work: 632919, table: 15150
+stdin: late
+RefC leak check: 0 leaked values
+hello
+left out of hello: 5 of 5
