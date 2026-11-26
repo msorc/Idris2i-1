@@ -195,7 +195,8 @@ when their text changes, see above).
 Built by itself at ``-O2``, the Idris2i-1 compiler has 52.5MB of machine code
 when only the functions that differ in their own names are merged, 50.0MB
 with the rounds, and 49.3MB when the functions only made into closures are
-also merged across units.
+also merged across units (49.1MB with the cold constant makers of
+``refc-no-cold-constants`` below).
 
 Code that nothing calls
 -----------------------
@@ -205,13 +206,14 @@ generated C is compiled in a section of its own (``-ffunction-sections``), the
 runtime libraries are built with ``-ffunction-sections -fdata-sections``, and
 the program is linked with ``-Wl,--gc-sections``: the linker leaves out what
 the program never reaches.  A hello world keeps the parts of the runtime that
-start and stop it (the scheduler, the trampolines, reference counting, the
-backtrace and the memory reports at exit) and loses the others (casts,
-string and arithmetic primitives that it does not use): its executable goes
-from 165KB to 82KB.  A big program loses the out-of-line copies of the
-functions that the C compiler inlined everywhere (0.3% of the machine code
-of the compiler, and 1.4% when the functions with the same code are not
-merged, see above: the two overlap).  The speed is the same.
+start and stop it (the trampolines, reference counting, the backtrace and
+the memory reports at exit; not the scheduler, see the hooks described
+below) and loses the others (casts, string and arithmetic primitives that it
+does not use): its executable goes from 166KB to 71KB (82KB without the
+hooks).  A big program loses the out-of-line copies of the functions that the
+C compiler inlined everywhere (0.3% of the machine code of the compiler, and
+1.4% when the functions with the same code are not merged, see above: the
+two overlap).  The speed is the same.
 ``--directive refc-no-gc-sections`` compiles and links as before;
 ``IDRIS2I_1_CFLAGS=-fno-function-sections`` keeps the generated code in one
 section but still lets the linker drop the unused parts of the runtime.
@@ -228,9 +230,9 @@ second worker starts.  These calls were all on slow paths already (a yield
 or a preemption, a poll, the evaluation of a constant, the exit, the making
 of a channel or a mutex): the paths that run often (allocation, reference
 counting, the trampoline, the safepoints, a thread that blocks or sleeps)
-are the same.  A hello world loses about 10KB of machine code this way (71KB
-instead of 82KB), and a program that does not fork, like the benchmarks of
-``benchmark/``, 5 to 11% of its file.  What a hello world still has is what
+are the same.  A hello world loses about 10KB of machine code this way (its
+file is 71KB instead of 82KB), and a program that does not fork, like the
+benchmarks of ``benchmark/``, 5 to 11% of its file.  What a hello world still has is what
 any program may need at run time: the reports of ``IDRIS2I_1_REFC_LEAKCHECK``
 and ``IDRIS2I_1_REFC_MEMSTATS`` (about 7KB) and the backtraces of
 ``IDRIS2I_1_REFC_BACKTRACE`` (about 6.5KB), which environment variables turn on
@@ -368,7 +370,7 @@ The code generator does the following, each of which a directive turns off
   program (a definition without arguments), which runs once, the first time
   that the constant is needed, is ``cold``: the C compiler compiles it for
   size, in ``.text.unlikely``, apart from the code that runs often.  This
-  takes 0.34% off the machine code of the Idris2i-1 compiler and 1.1% off the
+  takes 0.37% off the machine code of the Idris2i-1 compiler and 1.1% off the
   websocket test of ``tests/http``; the main expression of the program is
   left alone (its function is a few instructions).
 - ``refc-no-direct-results``: the calls of the functions that always return a

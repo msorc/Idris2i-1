@@ -1268,7 +1268,7 @@ should target this file (`CHANGELOG_NEXT`).
 * The function that evaluates a constant of the program (a definition
   without arguments), which runs once, is `cold`, so that the C compiler
   compiles it for size and puts it in `.text.unlikely`: the compiler built
-  by itself has 0.34% less machine code, the websocket test 1.1% and the
+  by itself has 0.37% less machine code, the websocket test 1.1% and the
   test runner 2.1% (a hello world is the same: its main expression is left
   alone); instructions and cycles of the compiler and of the RefC
   benchmarks are the same within their noise, and so is the C compile time
