@@ -1170,6 +1170,17 @@ static void releaseDeep(Idris2i_1_Value *elem) {
 // The last reference to `elem` is gone: release what it refers to, and free
 // it.  The common cases of idris2i_1_removeReference are inlined (see
 // memoryManagement.h).
+//
+// Aligned on a cache line, so that its speed does not depend on what the
+// program links before it.  It is hot in programs that drop lists (15% of
+// the cycles of the spellcheck benchmark), and on Zen 3 its cycles moved by
+// up to 7% with its place alone: the tail that frees the cell and drops its
+// last field, where the release of a list loops, starts 12 bytes before
+// the end of a 64-byte line when the function starts at 16 modulo 64, and
+// spellcheck takes 5% more cycles than at 48 (with the same instructions).
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((aligned(64)))
+#endif
 void idris2i_1_releaseValue(Idris2i_1_Value *elem) {
 #ifdef IDRIS2I_1_REFC_STATS
   // (the nesting of the releases: the finalisers of GC pointers)
