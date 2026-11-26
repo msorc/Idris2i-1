@@ -456,6 +456,8 @@ do_measure() {
       fi
       if [ "$what" != compiler ]; then
         for b in "${benches[@]}"; do
+          # (an OUT built before the benchmark existed has no executable)
+          [ -x "$o/bench/$label/$b/exec/$b" ] || { echo "no $b in $o, skipped" >&2; continue; }
           # refc-perf.sh runs the executable that `build` made
           rm -f "$work/perf.csv"
           "$here/refc-perf.sh" -B -d "$o/bench" -l "$label" -n 1 -o "$work/perf.csv" "$b" > /dev/null
