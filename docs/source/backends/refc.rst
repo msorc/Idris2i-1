@@ -165,14 +165,37 @@ Functions with the same code
 Two functions whose C code is the same but for their own names (a
 specialisation of a function at types that are erased, the methods of two
 implementations that do the same, ...) are written once: the other one is a
-macro, ``#define Main_sumU Main_sumT``, in the prototypes.  In a program
-compiled in units, this is done for the functions of a unit, and for the
-functions of more than 1,500 bytes of C across units: a small function that
-moved to another unit could no longer be inlined by the C compiler where it
-is called, a big one is not inlined anyway.  With ``--directive
+macro, ``#define Main_sumU Main_sumT``, in the prototypes.  The names of the
+functions that they call count as the same when those functions are merged
+themselves: once ``sumU`` is ``sumT``, a function that calls ``sumU`` is
+merged with one that calls ``sumT``, and so on, in rounds until nothing
+changes.  Two functions that call each other are not merged with two others
+that do the same (each pair would have to be merged before the other).
+
+In a program compiled in units, a function is replaced by one of another unit
+only when it is bigger than 1,500 bytes of C, or when it is only made into
+closures: the whole program never calls it by its name (nor its worker),
+it only passes it around.  A small function that moved to another unit could
+no longer be inlined by the C compiler where it is called; a big one is not
+inlined anyway, and a call through a closure never is.  The other functions
+are merged with those of their unit only.  With ``--directive
 refc-backtrace`` every function is written, so that a backtrace shows the
-names of the functions that ran.  This takes the machine code of the
-Idris2i-1 compiler from 56.3MB to 52.8MB.
+names of the functions that ran.  ``--directive refc-no-merge-rounds`` merges
+only the functions whose code is the same but for their own names (one
+round), and ``--directive refc-no-merge-closures`` merges the small functions
+that are only made into closures with those of their unit only.
+
+A function written for functions of other units is written by a name made
+of a hash of its code, ``idris2i_1_same_<hash>``, and the names of all of
+them are macros for that one: when the one that was written is removed or
+renamed, the copy moves to the unit of another one, and the units that
+refer to the others are the same as before (they are compiled again only
+when their text changes, see above).
+
+Built by itself at ``-O2``, the Idris2i-1 compiler has 56.4MB of machine code
+when only the functions that differ in their own names are merged, 53.3MB
+with the rounds, and 52.6MB when the functions only made into closures are
+also merged across units.
 
 Code that nothing calls
 -----------------------
@@ -335,6 +358,8 @@ The code generator does the following, each of which a directive turns off
   now.)
 - ``refc-no-local-closures``: a closure that a function makes and applies only
   once is not made: the application is a call.
+- ``refc-no-merge-rounds`` and ``refc-no-merge-closures``: see "Functions
+  with the same code" above.
 - ``refc-no-workers``: a function whose parameters of a fixed width integer
   type (``Int``, ``Bits64``, ...) are C integers in its body, or whose result
   is one that it computes, has a second C function, its worker, that takes

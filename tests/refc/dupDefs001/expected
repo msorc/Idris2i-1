@@ -17,6 +17,8 @@ RefC leak check: 0 leaked values
 #define idris2i_1_raw_Main_addC idris2i_1_raw_Main_addB
 #define Main_bigB Main_bigA
 #define Main_lenM Main_lenL
+#define Main_main_1 Main_main_0
+#define Main_main_6 Main_main_5
 #define Main_sumU Main_sumT
 #define idris2i_1_raw_Main_sumU idris2i_1_raw_Main_sumT
 (6, 6)

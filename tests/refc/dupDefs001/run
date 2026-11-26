@@ -9,4 +9,5 @@ grep '^#define [A-Za-z0-9_]*Main_' build/exec/main.c
 # when they are in the same unit
 IDRIS2I_1_REFC_SPLIT_SIZE=1 idris2i-1 -o main2 Main.idr
 ./build/exec/main2
-echo "bodies of bigA and bigB: $(cat build/exec/main2.u*.c | grep -c '^Idris2i_1_Value \*Main_big[AB]$')"
+t=$(grep '^#define Main_bigB ' build/exec/main2.c | awk '{print $3}')
+echo "bodies of bigA and bigB: $(cat build/exec/main2.u*.c | grep -c "^Idris2i_1_Value \*\(Main_big[AB]\|${t:-none}\)\$")"

@@ -1263,6 +1263,27 @@ should target this file (`CHANGELOG_NEXT`).
   Compiler.RefC.Rebuild; `--directive refc-no-exact-rebuild` turns it off.
   The test `refc/rebuild001`.
 
+* More functions with the same code are written once.  The names of the
+  functions that a function calls count as the same when those are merged:
+  once `sumU` is `sumT`, a function that calls `sumU` is merged with one that
+  calls `sumT`, in rounds until nothing changes.  In a program compiled in
+  units, a small function that is only made into closures (never called by
+  its name, nor its worker, anywhere in the program) is merged with one of
+  another unit, as a call through a closure is never inlined; it used to be
+  merged only with those of its unit.  A function written for functions of
+  other units is named by a hash of its code, `idris2i_1_same_<hash>`, so
+  that removing the one written does not change every unit that refers to
+  one of them.  `--directive refc-no-merge-rounds` and
+  `--directive refc-no-merge-closures` turn the two parts off.  The machine
+  code of the compiler built by itself at `-O2` goes from 56.4MB to 52.6MB
+  (-6.8%; the rounds -5.5%, the closures -1.3% more); a hello world is the
+  same.  To type-check `base` it runs 0.007% more instructions (the
+  difference between two builds of the same code is up to 0.01%) and 1.4%
+  fewer cycles; the RefC benchmarks run the same instructions.  The C of
+  the units of the compiler goes from 97.0MB to 90.4MB, and compiling them
+  from 149s to 140s.  See "Functions with the same code" in the RefC
+  documentation.  The test `refc/dupDefs002`.
+
 * A function whose C code is that of another one but for its own names is
   not written: its name (and that of its worker) is a macro for the other
   one, `#define Main_sumU Main_sumT`.  In a program compiled in units, two

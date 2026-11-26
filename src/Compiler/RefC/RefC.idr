@@ -377,11 +377,22 @@ record StaticVal where
   ||| the depth, so that a constructor comes after its fields.
   depth : Nat
 
+||| What the name of a static closure begins with: then come the C name of the
+||| function, `_` and its arity (see `staticClosure`, and `scanLine`, which
+||| reads them).
+staticClosurePrefix : String
+staticClosurePrefix = "idris2i_1_static_closure_"
+
+||| The code that makes a closure of a function, before its C name (see
+||| `makeClosure`, and `scanLine`, which looks for it).
+mkClosurePrefix : String
+mkClosurePrefix = "idris2i_1_mkClosure((Idris2i_1_Value *(*)())"
+
 ||| The static value of a closure of the function `n` (by its C name) that
 ||| has no arguments yet, and takes `arity`.
 staticClosure : {auto _ : Ref ConstDef ConstTable} -> String -> Nat -> Core StaticVal
 staticClosure fn arity = do
-    let name = "idris2i_1_static_closure_\{fn}_\{show arity}"
+    let name = "\{staticClosurePrefix}\{fn}_\{show arity}"
     update ConstDef { staticDefs $= insert name "IDRIS2I_1_STATIC_CLOSURE(\{name}, \{fn}, \{show arity});"
                     , constUses $= insert name }
     pure (MkStaticVal "((Idris2i_1_Value *)&\{name})" [name] 0)
@@ -1358,7 +1369,7 @@ makeClosure : {auto a : Ref ArgCounter Nat}
 makeClosure fc n args missing = do
     let closure = "closure_\{!(getNextCounter)}"
     let nargs = length args
-    emit fc "Idris2i_1_Value *\{closure} = (Idris2i_1_Value *)idris2i_1_mkClosure((Idris2i_1_Value *(*)())\{cName n}, \{show $ nargs + missing}, \{show nargs});"
+    emit fc "Idris2i_1_Value *\{closure} = (Idris2i_1_Value *)\{mkClosurePrefix}\{cName n}, \{show $ nargs + missing}, \{show nargs});"
     fillArgs !(get EnvTracker) "((Idris2i_1_Closure*)\{closure})->args" args 0
     pure closure
 
@@ -3960,80 +3971,139 @@ record DefOut where
   ||| otherwise.
   defOwnNames : List String
 
--- A definition whose code is that of another one but for its own names (the
--- specialisations of a function at types that are erased, the methods of
--- two implementations that do the same, ...) is not written: its names are
--- macros for those of the other one (see `duplicateDefs`).  Only the
--- functions with arguments are taken, and two of them only when they are in
--- the same unit, or are big (see `duplicateBigDefs`): a call to a small
--- function in the unit may be inlined by the C compiler, one to a function in
--- another unit is not.
+-- A definition whose code is that of another one but for the names of
+-- functions (the specialisations of a function at types that are erased, the
+-- methods of two implementations that do the same, ...) is not written: its
+-- names are macros for those of the other one (see `duplicateDefs`).  Only
+-- the functions with arguments are taken.  Two of them have the same code
+-- when their code is the same once their own names and those of the functions
+-- that they refer to are marks, and the functions at the same marks have the
+-- same code too: the functions that call two functions merged are merged in
+-- turn, in rounds (see `mergeClasses`).  Two functions that call each other
+-- are not merged with two others that do the same, as each one would have to
+-- be merged before the other.  A function is merged with
+-- one in another unit only when it is big (see `minSharedSize`), or when it is
+-- only made into closures (see `Scan.direct`): a call to a small function in
+-- the unit may be inlined by the C compiler, one to a function in another
+-- unit is not, and a call through a closure never is.  A function that
+-- stands for functions of other units is written by a name made of its code,
+-- `idris2i_1_same_<hash>`, and their names are macros for that one: when the
+-- one written is removed or renamed, the copy moves to the unit of another
+-- one, and the units that refer to the others do not change.
 
 ||| Is the character a part of a C identifier?
 isIdentChar : Char -> Bool
 isIdentChar c = isAlphaNum c || c == '_'
 
-||| The text of a line, in pieces, with the C identifiers that are the names
-||| `names` replaced by marks (their positions in `names`).
-maskIdents : List String -> String -> List String
-maskIdents names line = go (strLength line) 0 0 [<]
-  where
-    position : String -> Nat -> List String -> Maybe Nat
-    position _ _ [] = Nothing
-    position s k (n :: ns) = if s == n then Just k else position s (S k) ns
+||| The C names that `scanLine` looks for in the code of a definition, the
+||| names of the functions that may be merged, with the function that each
+||| one is the name of, `True` for the name of its worker, and `True` when the
+||| name is not a mark but kept in the code (see `holeNames`).
+HoleNames : Type
+HoleNames = SortedMap String (Bool, String, Bool)
 
+||| The names of `HoleNames` for the definition `d`: those of the functions
+||| that may be merged (`cands`) that it refers to, itself among them (only
+||| itself with `onlyOwn`, the others being kept in the code).
+holeNames : (onlyOwn : Bool) -> SortedSet String -> DefOut -> HoleNames
+holeNames onlyOwn cands d
+    = foldl (\m, r => if contains r cands
+                         then let kept = onlyOwn && r /= d.defName in
+                                  insert (workerName r) (True, r, kept) (insert r (False, r, kept) m)
+                         else m)
+            empty d.defRefs
+
+||| What `scanLine` finds in the code of a definition.
+record Scan where
+  constructor MkScan
+  ||| The code in pieces, with marks where the names of `HoleNames` (or of
+  ||| static closures of those functions) were.
+  pieces : SnocList String
+  ||| The functions at the marks, in order.
+  holes : SnocList String
+  ||| The functions that the code refers to otherwise than by making a
+  ||| closure of them (calls, tail calls, calls of their workers, ...), but
+  ||| the definition itself.
+  direct : SnocList String
+
+emptyScan : Scan
+emptyScan = MkScan [<] [<] [<]
+
+||| The function and the arity in the name of a static closure, without
+||| `staticClosurePrefix` ("<function>_<arity>", see `staticClosure`).
+staticTarget : String -> Maybe (String, String)
+staticTarget s = back (strLength s - 1)
+  where
+    back : Int -> Maybe (String, String)
+    back i = if i <= 0 then Nothing
+               else let c = assert_total (strIndex s i) in
+                        if isDigit c then back (i - 1)
+                        else if c == '_' && i < strLength s - 1
+                               then Just (strSubstr 0 i s, strSubstr (i + 1) (strLength s - i - 1) s)
+                               else Nothing
+
+||| Add a line of the code of the definition `self` to a `Scan`: the C
+||| identifiers that are in `names` become marks, and so do the names of the
+||| static closures of those functions.  `lens` are the lengths of the names.
+scanLine : HoleNames -> (lens : SortedSet Int) -> (self : String) -> Scan -> String -> Scan
+scanLine names lens self sc line = go (strLength line) 0 0 sc
+  where
     identEnd : Int -> Int -> Int
     identEnd len i = if i < len && isIdentChar (assert_total (strIndex line i))
                         then identEnd len (i + 1)
                         else i
 
+    -- (the mark `m` of the function `t`, for the text from `i`)
+    marked : Int -> Int -> String -> String -> Scan -> Scan
+    marked start i m t s = { pieces $= (:< m) . (:< strSubstr start (i - start) line)
+                           , holes $= (:< t) } s
+
+    -- Is the name at `i` that of the function of a closure being made?
+    closureAt : Int -> Bool
+    closureAt i = let k = strLength mkClosurePrefix in
+                      i >= k && strSubstr (i - k) k line == mkClosurePrefix
+
+    -- (a use of `t` at `i`, which is a worker when `raw`)
+    used : Bool -> String -> Int -> Scan -> Scan
+    used raw t i s = if t == self || (not raw && closureAt i) then s
+                        else { direct $= (:< t) } s
+
     -- (`start`: where the text not yet taken begins; `i`: where the scan is)
-    go : Int -> Int -> Int -> SnocList String -> List String
-    go len start i acc
+    go : Int -> Int -> Int -> Scan -> Scan
+    go len start i s
         = if i >= len
-             then if start == 0 then [line]
-                  else acc <>> [strSubstr start (len - start) line]
+             then { pieces $= (:< (if start == 0 then line else strSubstr start (len - start) line)) } s
              else if isIdentChar (assert_total (strIndex line i))
-               then let e = identEnd len (i + 1) in
-                        if any (\n => strLength n == e - i) names
-                           then case position (strSubstr i (e - i) line) 0 names of
-                                  Just k => go len e e (acc :< strSubstr start (i - start) line
-                                                            :< "\x05\{show k}\x05")
-                                  Nothing => go len start e acc
-                           else go len start e acc
-               else go len start (i + 1) acc
+               then let e = identEnd len (i + 1)
+                        n = e - i
+                        pl = strLength staticClosurePrefix in
+                        if n > pl && assert_total (strIndex line i) == 'i'
+                                  && strSubstr i pl line == staticClosurePrefix
+                           then case staticTarget (strSubstr (i + pl) (n - pl) line) of
+                                  Just (f, ar) => case lookup f names of
+                                     Just (False, t, False) => go len e e (marked start i "\x07\{ar}\x07" t s)
+                                     _ => go len start e s
+                                  Nothing => go len start e s
+                        else if contains n lens
+                           then case lookup (strSubstr i n line) names of
+                                  Just (raw, t, kept) =>
+                                    if kept then go len start e (used raw t i s)
+                                       else go len e e (used raw t i (marked start i (if raw then "\x06" else "\x05") t s))
+                                  Nothing => go len start e s
+                        else go len start e s
+               else go len start (i + 1) s
 
-||| The code of a definition without its own names, for `duplicateDefs`.
-maskedCode : DefOut -> String
-maskedCode d = fastConcat $ concatMap (\l => maskIdents d.defOwnNames l ++ ["\n"])
-                                      (withoutComments d.defLines)
+||| `scanLine` on lines of code.
+scanLines : HoleNames -> (self : String) -> List String -> Scan
+scanLines names self ls
+    = let lens = SortedSet.fromList (map strLength (keys names)) in
+          foldl (\s, l => { pieces $= (:< "\n") } (scanLine names lens self s l)) emptyScan ls
 
-||| The definitions of `defs` that have the code of another one, with the C
-||| name of the one that is written for them: of those that have the same
-||| code, the first by name.
-duplicateDefs : List DefOut -> SortedMap String String
-duplicateDefs defs
-    = let keyed = sortBy (\a, b => compare (fst a) (fst b))
-                         (map (\d => (maskedCode d, d.defName))
-                              (filter (not . null . defOwnNames) defs)) in
-          runs keyed empty
-  where
-    sameCode : String -> List (String, String) -> (List String, List (String, String))
-    sameCode code ((c, n) :: rest)
-        = if c == code then let (ns, rest') = sameCode code rest in (n :: ns, rest')
-                       else ([], (c, n) :: rest)
-    sameCode _ [] = ([], [])
-
-    runs : List (String, String) -> SortedMap String String -> SortedMap String String
-    runs [] acc = acc
-    runs ((code, n) :: rest) acc
-        = let (ns, rest') = sameCode code rest in
-              case ns of
-                   [] => runs rest' acc
-                   _ => let names = n :: ns
-                            kept = foldl min n ns in
-                            runs rest' (foldl (\m, d => if d == kept then m else insert d kept m)
-                                              acc names)
+||| The size in bytes of C from which a function is never inlined by the C
+||| compiler (the limits of GCC and Clang are tens of instructions): it may
+||| be written in another unit than the duplicates that stand for it.
+minSharedSize : Nat
+minSharedSize = 1500
 
 ||| A 64 bit hash (FNV-1a) of a text, without making a list of its
 ||| characters.
@@ -4044,32 +4114,231 @@ textHash s = go (strLength s) 0 14695981039346656037
     go len i h = if i >= len then h
                     else go len (i + 1) ((h `xor` cast (ord (assert_total (strIndex s i)))) * 1099511628211)
 
-||| The size in bytes of C from which a function is never inlined by the C
-||| compiler (the limits of GCC and Clang are tens of instructions): it may
-||| be written in another unit than the duplicates that stand for it.
-minSharedSize : Nat
-minSharedSize = 1500
+runsFrom : Eq k => k -> SnocList a -> List (k, a) -> List (List a)
+runsFrom key acc [] = [acc <>> []]
+runsFrom key acc ((key', y) :: ys)
+    = if key == key' then runsFrom key (acc :< y) ys
+                     else (acc <>> []) :: runsFrom key' [<y] ys
 
-||| `duplicateDefs` for the definitions of the whole program that are bigger
-||| than `minSharedSize`: those with the same hash of their code are compared.
-duplicateBigDefs : List DefOut -> SortedMap String String
-duplicateBigDefs defs
-    = let hashed = sortBy (\a, b => compare (fst a) (fst b))
-                     (map (\d => (textHash (maskedCode d), d))
-                          (filter (\d => not (null d.defOwnNames) && d.defSize >= minSharedSize) defs)) in
-          buckets hashed empty
+||| Runs of equal keys of a sorted list.
+runsOf : Eq k => List (k, a) -> List (List a)
+runsOf [] = []
+runsOf ((key, x) :: rest) = runsFrom key [<x] rest
+
+||| The class of the function numbered `i` (see `mergeClasses`): `-1` for the
+||| function itself (`self`).
+classIn : SortedMap Int Int -> (self : Int) -> Int -> Int
+classIn cls self i = if i == self then -1 else fromMaybe i (lookup i cls)
+
+||| One round of `mergeClasses` on the groups `todo`: the classes, and the
+||| functions whose class changed.
+mergeRound : SortedMap Int (List (Int, List Int)) -> List Int
+          -> (SortedMap Int Int, SnocList Int) -> (SortedMap Int Int, SnocList Int)
+mergeRound groups todo acc = foldl group acc todo
   where
-    sameHash : Bits64 -> List (Bits64, DefOut) -> (List DefOut, List (Bits64, DefOut))
-    sameHash h ((h', d) :: rest)
-        = if h == h' then let (ds, rest') = sameHash h rest in (d :: ds, rest')
-                     else ([], (h', d) :: rest)
-    sameHash _ [] = ([], [])
+    -- (the functions of a run of the same key are one class now, numbered by
+    -- the smallest of their classes)
+    joinRun : (SortedMap Int Int, SnocList Int) -> List Int -> (SortedMap Int Int, SnocList Int)
+    joinRun (cls, changed) is
+        = let ks = map (\i => fromMaybe i (lookup i cls)) is
+              k = foldl min (fromMaybe 0 (head' ks)) ks in
+              foldl (\(c, ch), (i, ki) => if ki == k then (c, ch) else (insert i k c, ch :< i))
+                    (cls, changed) (zip is ks)
 
-    buckets : List (Bits64, DefOut) -> SortedMap String String -> SortedMap String String
-    buckets [] acc = acc
-    buckets ((h, d) :: rest) acc
-        = let (ds, rest') = sameHash h rest in
-              buckets rest' (if null ds then acc else mergeLeft acc (duplicateDefs (d :: ds)))
+    group : (SortedMap Int Int, SnocList Int) -> Int -> (SortedMap Int Int, SnocList Int)
+    group (cls, changed) g
+        = let ms = fromMaybe [] (lookup g groups)
+              keyed = the (List (List Int, Int)) $
+                        sortBy (\a, b => compare (fst a) (fst b))
+                               (map (\(i, hs) => (map (classIn cls i) hs, i)) ms) in
+              foldl joinRun (cls, changed) (filter (\r => length r >= 2) (runsOf keyed))
+
+||| Classes of functions with the same code, merged in rounds until nothing
+||| changes (at most `fuel` rounds).  The functions are numbered, and
+||| `groups` are those that have the same code with marks, with the numbers
+||| of the functions at their marks; `users` are the groups that have a
+||| function at a mark; `cls` are the classes that are not the number of the
+||| function itself.  Two functions are put in a class when they have the
+||| same code with marks and the functions at the same marks are in the same
+||| classes or are themselves.  A round looks again at the groups that have
+||| a function at a mark whose class changed in the round before.  Gives the
+||| classes and the number of rounds.
+mergeClasses : (fuel : Nat) -> (rounds : Nat) -> (groups : SortedMap Int (List (Int, List Int)))
+            -> (users : SortedMap Int (List Int)) -> (todo : List Int)
+            -> SortedMap Int Int -> (SortedMap Int Int, Nat)
+mergeClasses Z rounds _ _ _ cls = (cls, rounds)
+mergeClasses (S fuel) rounds groups users todo cls
+    = let (cls', changed) = mergeRound groups todo (cls, [<]) in
+          if null changed
+             then (cls', rounds)
+             else let next = Prelude.toList $ SortedSet.fromList $
+                               concatMap (\i => fromMaybe [] (lookup i users)) (changed <>> []) in
+                      mergeClasses fuel (S rounds) groups users next cls'
+
+||| The names of the copies of the functions `rs` written for functions of
+||| other units (see above), `idris2i_1_same_<hash>`: the hash is that of
+||| their code with marks and of the codes of the functions at the marks
+||| (`hashes`, `holes`), and the copies with the same hash are told apart by
+||| their rank by name.  (The maps are arguments, so that they are made once.)
+sharedNamesOf : (hashes : SortedMap String Bits64) -> (holes : SortedMap String (List String))
+             -> (rs : List String) -> SortedMap String String
+sharedNamesOf hashes holes rs
+    = fromList $ concatMap (\ns => zipWith (\r, i => (r, sameName (keyOf r) i)) ns [0 .. length ns]) $
+        runsOf (sortBy (\a, b => compare a b) (map (\r => (keyOf r, r)) rs))
+  where
+    keyOf : String -> Bits64
+    keyOf r = textHash $ fastConcat $
+                show (fromMaybe 0 (lookup r hashes))
+                :: map (\t => if t == r then ",s" else "," ++ show (fromMaybe 0 (lookup t hashes)))
+                       (fromMaybe [] (lookup r holes))
+
+    sameName : Bits64 -> Nat -> String
+    sameName h Z = "idris2i_1_same_\{show h}"
+    sameName h i = "idris2i_1_same_\{show h}_\{show i}"
+
+||| The names for the functions that stand for others, from those of each
+||| class (see `duplicateDefs`) and the names of the copies written for
+||| functions of other units: the function written by another name stands for
+||| it too.  (`sharedNames` is an argument, so that it is made once.)
+withSharedNames : (sharedNames : SortedMap String String)
+               -> List (SortedMap String String, Maybe String) -> SortedMap String String
+withSharedNames sharedNames
+    = foldl (\acc, (m, r) =>
+               case r >>= (\r' => map (\sn => (r', sn)) (lookup r' sharedNames)) of
+                 Nothing => mergeLeft acc m
+                 Just (r', sn) => insert r' sn (mergeLeft acc (map (\k => if k == r' then sn else k) m)))
+            empty
+
+||| The definitions of `defs` that have the code of another one (see above),
+||| with the C name of the one that is written for them, the functions
+||| written by another name (see above) with that name, and the number of
+||| rounds of `mergeClasses`.  `single`: the program is not split in units (every
+||| function may be merged with any other); `unitOf`: the unit of a
+||| definition; `others`: the rest of the code (constants, the main
+||| function), which may use the functions too.  `--directive
+||| refc-no-merge-rounds` (`noRounds`): only the own names of a function are
+||| marks, so that its callers are not merged when it is; `--directive
+||| refc-no-merge-closures` (`noClosures`): the small functions only made into
+||| closures are merged in their unit only, like the others.
+duplicateDefs : (noRounds, noClosures, single : Bool) -> (unitOf : String -> Nat)
+             -> (others : List String) -> List DefOut
+             -> (SortedMap String String, SortedMap String String, Nat)
+duplicateDefs noRounds noClosures single unitOf others defs
+    = let cands = SortedSet.fromList (map defName (filter (not . null . defOwnNames) defs))
+          -- (the code with marks of the functions that may be merged only:
+          -- the pieces of the others are dropped at once)
+          scans = mapMaybe (\d => if any (`contains` cands) d.defRefs
+                                     then let sc = scanLines (holeNames noRounds cands d) d.defName
+                                                             (withoutComments d.defLines) in
+                                              Just (sc.direct,
+                                                    if contains d.defName cands
+                                                       then let code = fastConcat (sc.pieces <>> []) in
+                                                                Just ((textHash code, code), (d.defName, sc.holes <>> []))
+                                                       else Nothing)
+                                     else Nothing) defs
+          -- (in the constants and the main function, every name of a function
+          -- is a use other than a closure, but that of a static closure,
+          -- which makes one)
+          allNames = foldl (\m, r => insert (workerName r) (True, r, True) (insert r (False, r, True) m))
+                           empty (Prelude.toList cands)
+          otherScan = scanLines allNames "" (filter (not . Data.String.isPrefixOf "IDRIS2I_1_STATIC_CLOSURE(") others)
+          direct = foldl (\s, (ds, _) => foldl (flip insert) s ds)
+                         (SortedSet.fromList (otherScan.direct <>> [])) scans
+          -- Classes of the same code with marks, by its hash, then by itself
+          shaped = sortBy (\a, b => compare (fst a) (fst b)) (mapMaybe snd scans)
+          -- (the functions are numbered by their place in `shaped`)
+          index = the (SortedMap String Int) $
+                    fromList (zipWith (\(_, (n, _)), i => (n, i)) shaped [0 .. the Int (cast (length shaped))])
+          -- (every function at a mark is in `shaped`: it may be merged, so
+          -- it is scanned, as it refers to itself)
+          numberOf = the (String -> Int) (\n => fromMaybe (-2) (lookup n index))
+          -- (only the functions whose code with marks is that of others)
+          runs = filter (\r => length r >= 2) (runsOf shaped)
+          groupList = the (List (Int, List (Int, List Int))) $
+                        zip [0 .. cast (length runs)]
+                            (map (map (\(n, hs) => (numberOf n, map numberOf hs))) runs)
+          groups = SortedMap.fromList groupList
+          users = the (SortedMap Int (List Int)) $
+                    foldl (\m, (g, ms) =>
+                             foldl (\m', i => insert i (g :: fromMaybe [] (lookup i m')) m') m
+                                   (Prelude.toList (SortedSet.fromList (concatMap snd ms))))
+                          (the (SortedMap Int (List Int)) empty) groupList
+          (classNums, rounds) = mergeClasses 100000 0 groups users (map fst groupList) empty
+          -- (the classes, by the names of the functions)
+          cls = the (SortedMap String Int) $
+                  fromList (map (\(n, i) => (n, fromMaybe i (lookup i classNums))) (SortedMap.toList index))
+          byName = the (SortedMap String DefOut) $
+                     fromList (map (\d => (d.defName, d)) (filter (\d => contains d.defName cands) defs))
+          classes = runsOf (sortBy (\a, b => compare (fst a) (fst b))
+                                   (map (\(n, k) => (k, n)) (SortedMap.toList cls)))
+          -- May the function be replaced by one of another unit?
+          movable : String -> Bool
+          movable n = single || not (noClosures || contains n direct)
+                        || maybe False (\d => d.defSize >= minSharedSize) (lookup n byName)
+          perClass = map (merged movable) classes
+          -- (the names of the copies written for several units)
+          sharedNames = sharedNamesOf (fromList (map (\((h, _), (n, _)) => (n, h)) shaped))
+                                      (fromList (map (\(_, (n, hs)) => (n, hs)) shaped))
+                                      (mapMaybe snd perClass)
+          dups = withSharedNames sharedNames perClass in
+          (dups, sharedNames, rounds)
+  where
+
+    -- The names of a class of functions with the same code that are not
+    -- written, with the one that is written for each: the first by name of
+    -- those that may move, for them and for those in its unit, and the first
+    -- by name of the others in their unit for the others.
+    -- Also gives the one written, when some in another unit stand for it.
+    merged : (String -> Bool) -> List String -> (SortedMap String String, Maybe String)
+    merged _ [] = (empty, Nothing)
+    merged _ [_] = (empty, Nothing)
+    merged movable ns
+        = let shared = case filter movable ns of
+                         [] => Nothing
+                         (m :: ms) => Just (foldl min m ms)
+              stay = filter (\n => not (movable n) && map unitOf shared /= Just (unitOf n)) ns
+              locals = the (SortedMap Nat String) $
+                         foldl (\m, n => insert (unitOf n) (maybe n (min n) (lookup (unitOf n) m)) m)
+                               empty stay
+              staySet = SortedSet.fromList stay
+              keptFor : String -> String
+              keptFor n = if contains n staySet
+                             then fromMaybe n (lookup (unitOf n) locals)
+                             else fromMaybe n shared
+              m = foldl (\m, n => let k = keptFor n in if k == n then m else insert n k m) empty ns in
+              (m, if single then Nothing
+                     else shared >>= \r => if any (\(n, k) => k == r && unitOf n /= unitOf r) (SortedMap.toList m)
+                                              then Just r else Nothing)
+
+||| A line with the C identifiers that are keys of `ren` replaced by their
+||| values.
+renameIdents : SortedMap String String -> String -> String
+renameIdents ren line = fastConcat (go (strLength line) 0 0 [<])
+  where
+    identEnd : Int -> Int -> Int
+    identEnd len i = if i < len && isIdentChar (assert_total (strIndex line i))
+                        then identEnd len (i + 1)
+                        else i
+
+    go : Int -> Int -> Int -> SnocList String -> List String
+    go len start i acc
+        = if i >= len
+             then if start == 0 then [line] else acc <>> [strSubstr start (len - start) line]
+             else if isIdentChar (assert_total (strIndex line i))
+               then let e = identEnd len (i + 1) in
+                        case lookup (strSubstr i (e - i) line) ren of
+                          Just n => go len e e (acc :< strSubstr start (i - start) line :< n)
+                          Nothing => go len start e acc
+               else go len start (i + 1) acc
+
+||| The definition `d` by the name `n` (and its worker by that of `n`).
+renamedDef : String -> DefOut -> DefOut
+renamedDef n d
+    = let ren = SortedMap.fromList [(d.defName, n), (workerName d.defName, workerName n)] in
+          { defLines $= map (renameIdents ren)
+          , defName := n
+          , defRefs $= map (\r => if r == d.defName then n else r)
+          , defOwnNames := [n, workerName n] } d
 
 ||| Lines of C without their indentation, for the units, which are not read
 ||| (the single file is).
@@ -4600,30 +4869,46 @@ generateCSourceFileParts defs0 outn =
      let nunits = the Nat $ if totalSize < fromMaybe minSplitSize split || isWindows
                      then 0
                      else unitCount (maybe minChunkSize (\n => max 1 (n `natDiv` 16)) split) totalSize
-     -- The definitions that have the code of another one in their unit (see
+     -- The definitions that have the code of another one (see
      -- `duplicateDefs`), which are names for that one.
      let groups0 = the (SortedMap Nat (List DefOut)) $
                      if nunits == 0 then empty else groupUnits nunits bodies0
-     let local = the (SortedMap String String) $
-                   if nunits == 0 then duplicateDefs bodies0
-                     else foldl (\m, ds => mergeLeft m (duplicateDefs ds)) empty (values groups0)
-     -- (and the big ones in other units, see `minSharedSize`)
-     let shared = the (SortedMap String String) $
-                    if nunits == 0 then empty
-                      else duplicateBigDefs (filter (\d => isNothing (lookup d.defName local)) bodies0)
-     let dups = mergeLeft (map (\k => fromMaybe k (SortedMap.lookup k shared)) local) shared
+     let unitOfDef = the (SortedMap String Nat) $
+                       fromList [(d.defName, k) | (k, ds) <- SortedMap.toList groups0, d <- ds]
+     noRounds <- pure $ "refc-no-merge-rounds" `elem` !(getDirectives RefC)
+     noClosures <- pure $ "refc-no-merge-closures" `elem` !(getDirectives RefC)
+     let (dups, sharedNames, rounds)
+           = duplicateDefs noRounds noClosures (nunits == 0) (\n => fromMaybe 0 (lookup n unitOfDef))
+                           (values consts ++ footerLines) bodies0
+     -- (a function that stands for others in other units is written by a
+     -- name of its code, see `duplicateDefs`, in its unit)
+     let renamed : DefOut -> DefOut
+         renamed d = maybe d (\n => renamedDef n d) (lookup d.defName sharedNames)
+     let unitOfDef = foldl (\m, (r, n) => maybe m (\k => insert n k m) (lookup r m))
+                           unitOfDef (SortedMap.toList sharedNames)
+     log "compiler.refc" 5 $ "Rounds of merging of the functions with the same code: " ++ show rounds
+     log "compiler.refc" 5 $ "Definitions that stand for one of another unit: "
+       ++ show (length (filter (\(d, k) => lookup d unitOfDef /= lookup k unitOfDef) (SortedMap.toList dups)))
      log "compiler.refc" 5 $ "Definitions that have the code of another: " ++ show (length (SortedMap.toList dups))
      let kept : DefOut -> Bool
          kept d = isNothing (lookup d.defName dups)
-     let bodies = filter kept bodies0
-     let groups = map (filter kept) groups0
+     let bodies = filter kept (map renamed bodies0)
+     let groups = map (filter kept . map renamed) groups0
+     -- (the prototypes of the functions written by a new name)
+     let withRenamed : SortedMap String (List String) -> SortedMap String (List String)
+         withRenamed ps
+           = foldl (\m, (r, n) =>
+                      case lookup r ps of
+                        Just ls => let ren = SortedMap.fromList [(r, n), (workerName r, workerName n)] in
+                                       insert n (map (renameIdents ren) ls) m
+                        Nothing => m) ps (SortedMap.toList sharedNames)
      let protos = foldl (\m, (d, k) =>
                            insert d ("#define \{d} \{k}\n"
                                      :: (if isJust (lookup d workers)
                                             then ["#define \{workerName d} \{workerName k}\n"]
                                             else [])) m)
-                        protos0 (SortedMap.toList dups)
-     shortProtos <- get ShortProtos
+                        (withRenamed protos0) (SortedMap.toList dups)
+     shortProtos <- withRenamed <$> get ShortProtos
      -- added after the definition traversal in order to add all encountered
      -- function defintions and constants
      let headerLines = pre ++ declarations (concat (values protos)) (values consts)

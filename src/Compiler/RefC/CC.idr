@@ -104,6 +104,7 @@ refcFlagDirectives
       , "refc-no-exact-rebuild"
       , "refc-no-flat-arrays", "refc-no-gc-sections"
       , "refc-no-lazy-constants", "refc-no-local-closures"
+      , "refc-no-merge-closures", "refc-no-merge-rounds"
       , "refc-no-multi-reuse", "refc-no-raw-fields", "refc-no-reuse-copy"
       , "refc-no-static", "refc-no-trmc", "refc-no-unbox-double"
       , "refc-no-workers", "refc-size-reuse" ]
