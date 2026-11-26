@@ -192,9 +192,9 @@ renamed, the copy moves to the unit of another one, and the units that
 refer to the others are the same as before (they are compiled again only
 when their text changes, see above).
 
-Built by itself at ``-O2``, the Idris2i-1 compiler has 56.4MB of machine code
-when only the functions that differ in their own names are merged, 53.3MB
-with the rounds, and 52.6MB when the functions only made into closures are
+Built by itself at ``-O2``, the Idris2i-1 compiler has 52.5MB of machine code
+when only the functions that differ in their own names are merged, 50.0MB
+with the rounds, and 49.3MB when the functions only made into closures are
 also merged across units.
 
 Code that nothing calls
@@ -208,12 +208,13 @@ the program never reaches.  A hello world keeps the parts of the runtime that
 start and stop it (the scheduler, the trampolines, reference counting, the
 backtrace and the memory reports at exit) and loses the others (casts,
 string and arithmetic primitives that it does not use): its executable goes
-from 168KB to 82KB.  A big program loses the out-of-line copies of the
-functions that the C compiler inlined everywhere (1.5% of the machine code
-of the compiler).  The speed is the same.  ``--directive refc-no-gc-sections``
-compiles and links as before; ``IDRIS2I_1_CFLAGS=-fno-function-sections`` keeps
-the generated code in one section but still lets the linker drop the unused
-parts of the runtime.
+from 165KB to 82KB.  A big program loses the out-of-line copies of the
+functions that the C compiler inlined everywhere (0.3% of the machine code
+of the compiler, and 1.4% when the functions with the same code are not
+merged, see above: the two overlap).  The speed is the same.
+``--directive refc-no-gc-sections`` compiles and links as before;
+``IDRIS2I_1_CFLAGS=-fno-function-sections`` keeps the generated code in one
+section but still lets the linker drop the unused parts of the runtime.
 
 Strings and characters
 ======================

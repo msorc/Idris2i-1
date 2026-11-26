@@ -1240,8 +1240,10 @@ should target this file (`CHANGELOG_NEXT`).
   link every function of every runtime object file that the program
   touched: a hello world is now 85KB instead of 168KB (machine code 43KB
   instead of 91KB), the test runner and the websocket test are 16% and 7%
-  smaller, and the compiler built by itself has 1.5% less machine code
-  (the out-of-line copies of functions that were inlined everywhere).
+  smaller, and the compiler built by itself has 0.3% less machine code
+  (the out-of-line copies of functions that were inlined everywhere; 1.4%
+  without the merging of functions with the same code below, which
+  overlaps with it).
   Instructions and cycles of the compiler and of the RefC benchmarks are
   the same within their noise, and so is the C compile time of the
   compiler.  `--directive refc-no-gc-sections` turns it off.  See "Code
@@ -1257,7 +1259,7 @@ should target this file (`CHANGELOG_NEXT`).
   cell over when it was unique and copy it otherwise (a uniqueness test, and
   a new cell with a reference to each field in the shared case).  In the
   compiler the error branch of every step of a `do` block in `Core` is one
-  (13,379 branches): its machine code goes from 56.4MB to 53.1MB (-5.9%),
+  (13,379 branches): its machine code goes from 52.4MB to 49.3MB (-6.0%),
   it runs 0.2% fewer instructions to check `prelude` and `base`, and its C
   compiles 6% faster.  The benchmarks run the same instructions.  See
   Compiler.RefC.Rebuild; `--directive refc-no-exact-rebuild` turns it off.
@@ -1275,8 +1277,8 @@ should target this file (`CHANGELOG_NEXT`).
   that removing the one written does not change every unit that refers to
   one of them.  `--directive refc-no-merge-rounds` and
   `--directive refc-no-merge-closures` turn the two parts off.  The machine
-  code of the compiler built by itself at `-O2` goes from 56.4MB to 52.6MB
-  (-6.8%; the rounds -5.5%, the closures -1.3% more); a hello world is the
+  code of the compiler built by itself at `-O2` goes from 52.5MB to 49.3MB
+  (-6.1%; the rounds -4.8%, the closures -1.4% more); a hello world is the
   same.  To type-check `base` it runs 0.007% more instructions (the
   difference between two builds of the same code is up to 0.01%) and 1.4%
   fewer cycles; the RefC benchmarks run the same instructions.  The C of
