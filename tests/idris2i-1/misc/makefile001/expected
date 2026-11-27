@@ -6,5 +6,3 @@ retest: ok
 test-installed runner: ok
 test-installed: ok
 support of the tests: ok
-prebuilt support of the tests: ok
-ERROR: TEST_IDRIS2I_1_SUPPORT_DIR is set but .../missing/libidris2i_1_support is missing

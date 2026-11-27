@@ -9,16 +9,14 @@
 # the environment only.
 
 root=$(cd ../../../.. && pwd)
-mkdir -p build/top build/brew/include build/brew/lib build/prebuilt
+mkdir -p build/top build/brew/include build/brew/lib
 cp "$root/Makefile" "$root/config.mk" build/top/
 : > build/brew/include/gmp.h
-for suffix in .so .dylib .dll; do : > "build/prebuilt/libidris2i_1_support$suffix"; done
 brew=$(cd build/brew && pwd)
-prebuilt=$(cd build/prebuilt && pwd)
 
 # Only what this test sets, not what the make that runs the tests passes on.
 unset MAKEFLAGS MFLAGS MAKELEVEL CPPFLAGS LDFLAGS IDRIS2I_1_CPPFLAGS IDRIS2I_1_LDFLAGS \
-      IDRIS2I_1_CG TEST_PREFIX TEST_IDRIS2I_1_SUPPORT_DIR IDRIS2I_1_SUPPORT_DIR
+      IDRIS2I_1_CG TEST_PREFIX IDRIS2I_1_SUPPORT_DIR
 make=${MAKE:-make}
 
 topmake() {
@@ -59,19 +57,9 @@ expect "test-installed runner" "$(printf '%s\n' "$out" | grep -e '^-C tests test
 expect "test-installed" "$(printf '%s\n' "$out" | grep -e '^-C tests only=' | sed -n '$p')" \
     "CPPFLAGS=-I$brew/include" "LDFLAGS=-L$brew/lib"
 
-# The support libraries of the tests are installed under build/env, unless
-# TEST_IDRIS2I_1_SUPPORT_DIR names prebuilt ones.
+# The support libraries of the tests are installed under build/env.
 out=$(topmake test-support)
 expect "support of the tests" "$(printf '%s\n' "$out" | grep -e 'install-support')" \
     "install-support PREFIX="
-out=$(topmake test-support TEST_IDRIS2I_1_SUPPORT_DIR="$prebuilt")
-if printf '%s\n' "$out" | grep -qe 'install-support'; then
-    echo "prebuilt support of the tests: installed again"; printf '%s\n' "$out"
-else
-    echo "prebuilt support of the tests: ok"
-fi
-(cd build/top && "$make" MAKE=echo test-support TEST_IDRIS2I_1_SUPPORT_DIR="$prebuilt/missing" 2>&1) \
-  | grep -o 'ERROR: TEST_IDRIS2I_1_SUPPORT_DIR is set but .*/missing/libidris2i_1_support[.a-z]* is missing' \
-  | sed "s|but .*/missing/libidris2i_1_support[.a-z]* is|but .../missing/libidris2i_1_support is|"
 
 rm -rf build

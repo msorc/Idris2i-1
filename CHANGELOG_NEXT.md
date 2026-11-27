@@ -1148,11 +1148,6 @@ should target this file (`CHANGELOG_NEXT`).
   that builds the compiler: it built the compiler with RefC, its default code
   generator, while the `Makefile` went on as if it were built with Chez or
   Racket.
-* `make test` with `TEST_IDRIS2I_1_SUPPORT_DIR` naming prebuilt support
-  libraries only checks that they are
-  there again, instead of building the support libraries in the source tree
-  and installing them in `build/env`.  Its default is now the `lib` directory
-  under `build/env`, where `make test` installs them.
 * The tests of the Scheme evaluator (`idris2i-1/schemeeval`) are skipped only
   when the compiler under test says that it does not run on Scheme ("Scheme
   evaluator not available").  They were skipped too when the evaluator gave a
@@ -1199,7 +1194,10 @@ should target this file (`CHANGELOG_NEXT`).
   again, failed to start ("not found").
 * The Nix flake and packages (`flake.nix`, `default.nix`, `nix/`) are
   removed, with the job of the CI that built them: they were not kept up
-  with the build, and Idris2i-1 is installed from source.
+  with the build, and Idris2i-1 is installed from source.  So are
+  `TEST_IDRIS2I_1_SUPPORT_DIR` of the `Makefile` and `TEST_IDRIS2I_1_LIBS` and
+  `TEST_IDRIS2I_1_DATA` of the tests, which only the check of the flake set
+  (to run the tests with support libraries built beforehand).
 
 ### Backend changes
 
