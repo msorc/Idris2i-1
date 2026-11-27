@@ -12,7 +12,6 @@
     - [ ] `papers/papers.ipkg`
     - [ ] `test/test.ipkg`
 - [ ] Change version number in idris2i-1-api.ipkg
-- [ ] Change version number in flake.nix
 - [ ] Move CHANGELOG_NEXT.md entries into CHANGELOG.md under a heading for the
      upcoming release version. Reset CHANGELOG_NEXT.md, leaving the
      "[Next version]"-heading blank.

@@ -35,9 +35,6 @@ idris2i_1docs_venv
 
 /custom.mk
 
-# NixOS
-/result
-
 # Editor/IDE Related
 # WARNING:
 #   do not put comments on the same line as a regex

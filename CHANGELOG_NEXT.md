@@ -1094,8 +1094,6 @@ should target this file (`CHANGELOG_NEXT`).
   must set or import them itself.
 
 * Fix parsing of capitalised package names containing hyphens.
-* Change `flake.nix` to point at `idris-community/idris2-mode` as the URL for
-  `inputs.idris-emacs-src` (from the user fork `redfish64/idris2-mode`).
 * Fix UTF-8 character handling in package description fields.
 * A project's data directory can now be specified with the `datadir` entry in
   an `ipkg` file.
@@ -1139,15 +1137,6 @@ should target this file (`CHANGELOG_NEXT`).
   16, like `IDRIS2I_1_JOBS`.  A library that `make` builds on its own (as in `make
   linear`, or the bootstrap libraries) uses all of `IDRIS2I_1_JOBS` instead of
   half of them.
-* The nix package (`nix build`, the default package of the flake) follows the
-  switch of `make` to RefC: the compiler, built with RefC from a compiler
-  bootstrapped with Chez, is `bin/idris2i-1_app/idris2i-1` with a wrapper that lifts
-  the stack limit like the launcher of `make` does.  Its wrapper, and that of
-  the Chez bootstrap package, give the compiler a C compiler (`IDRIS2I_1_CC`,
-  else `CC`, else the one of nixpkgs) and GMP (added to `IDRIS2I_1_CPPFLAGS` and
-  `IDRIS2I_1_LDFLAGS`), which the RefC backend needs to compile programs; `CHEZ`
-  is still set for `--cg chez`.  `buildIdris` installs the executable of RefC
-  without its C sources and objects.
 * On macOS with the GMP of Homebrew and on FreeBSD, `make`, the second stage
   of `make bootstrap-c`, the build of the test runner, `make retest` and `make
   test-installed` find `gmp.h` and `-lgmp` again without `CPPFLAGS` and
@@ -1160,7 +1149,7 @@ should target this file (`CHANGELOG_NEXT`).
   generator, while the `Makefile` went on as if it were built with Chez or
   Racket.
 * `make test` with `TEST_IDRIS2I_1_SUPPORT_DIR` naming prebuilt support
-  libraries (as the check of the nix package does) only checks that they are
+  libraries only checks that they are
   there again, instead of building the support libraries in the source tree
   and installing them in `build/env`.  Its default is now the `lib` directory
   under `build/env`, where `make test` installs them.
@@ -1208,6 +1197,9 @@ should target this file (`CHANGELOG_NEXT`).
   Chez Scheme of the machine that generated the code, and the processes that
   build the modules of the libraries in parallel, which run the compiler
   again, failed to start ("not found").
+* The Nix flake and packages (`flake.nix`, `default.nix`, `nix/`) are
+  removed, with the job of the CI that built them: they were not kept up
+  with the build, and Idris2i-1 is installed from source.
 
 ### Backend changes
 

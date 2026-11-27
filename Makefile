@@ -336,9 +336,9 @@ endif
 # reinstalling the same files does not make the executables that were built
 # with them, like the test runner, look out of date.  When
 # TEST_IDRIS2I_1_SUPPORT_DIR points elsewhere, to support libraries that were
-# built beforehand (as the check of nix/package.nix does), they are only
-# checked for, as with IDRIS2I_1_SUPPORT_DIR (the tests find them through
-# TEST_IDRIS2I_1_LIBS and TEST_IDRIS2I_1_DATA, see tests/testutils.sh).
+# built beforehand, they are only checked for, as with IDRIS2I_1_SUPPORT_DIR
+# (the tests find them through TEST_IDRIS2I_1_LIBS and TEST_IDRIS2I_1_DATA, see
+# tests/testutils.sh).
 ifeq (${TEST_IDRIS2I_1_SUPPORT_DIR},${TEST_PREFIX}/${NAME_VERSION}/lib)
 test-support:
 	${MAKE} install-support PREFIX=${TEST_PREFIX}

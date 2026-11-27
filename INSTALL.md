@@ -26,18 +26,6 @@ on GitHub.
 brew install idris2i-1
 ```
 
-### Installing with [Nix](https://nixos.org/features.html)
-
-```sh
-nix-env -i idris2i-1
-```
-
-### Installing with [Nix Flakes](https://nixos.wiki/wiki/Flakes)
-
-```sh
-nix profile install github:idris-lang/Idris2
-```
-
 ## Installing from source
 
 The easiest way to install from source is to bootstrap from the C code of
@@ -270,17 +258,6 @@ You can also add them to your `.zshrc` file.
 If you get the message `variable make-thread-parameter is not bound` while
 bootstrapping via Chez Scheme, then your copy of Chez Scheme was built without thread support. Pass
 `--threads` to `./configure` while building Chez Scheme to correct the issue.
-
-## Running in text editor
-
-### Run on emacs using nix flakes
-
-If you are a [nix flakes](https://nixos.wiki/wiki/Flakes) user you can run
-Idris2i-1 in emacs by running the following command:
-
-```sh
-nix run github:idris-lang/Idris2#emacs-with-idris idrisCode.idr
-```
 
 ## Installing Chez Scheme on Apple Silicon
 

@@ -60,7 +60,7 @@ expect "test-installed" "$(printf '%s\n' "$out" | grep -e '^-C tests only=' | se
     "CPPFLAGS=-I$brew/include" "LDFLAGS=-L$brew/lib"
 
 # The support libraries of the tests are installed under build/env, unless
-# TEST_IDRIS2I_1_SUPPORT_DIR names prebuilt ones (as the nix check does).
+# TEST_IDRIS2I_1_SUPPORT_DIR names prebuilt ones.
 out=$(topmake test-support)
 expect "support of the tests" "$(printf '%s\n' "$out" | grep -e 'install-support')" \
     "install-support PREFIX="
