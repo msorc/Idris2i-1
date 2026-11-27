@@ -9,4 +9,15 @@ rules:
   terminology:
     # AST: https://github.com/textlint/textlint/blob/master/docs/txtnode.md
     skip: ["BlockQuote", "Link", "Code", "CodeBlock"]
-
+    # Terms that the documents use on purpose, with a meaning that their
+    # replacement does not always have ("run time" is when a program runs,
+    # the runtime is its support code; "command line" is a noun).
+    exclude:
+      - "back[- ]end(\\w*)"
+      - "bug[- ]fix(es)?"
+      - "built ?in(s)?"
+      - "command ?line"
+      - "file[- ]name(s)?"
+      - "host[- ]name(s)?"
+      - "run[- ]time"
+      - "web[- ]?site(s)?"

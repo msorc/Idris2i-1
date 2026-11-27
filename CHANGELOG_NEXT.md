@@ -182,7 +182,7 @@ should target this file (`CHANGELOG_NEXT`).
   cause: Can't find an implementation for S, which is needed by a matching
   implementation.":
 
-  ```
+  ```text
   Error: While processing right hand side of nested. Can't find an implementation for Show (List (Box Foo)).
   ...
   The implementation Show a => Show (List a) (in Prelude.Show) matches, but needs Show (Box Foo).
@@ -239,7 +239,7 @@ should target this file (`CHANGELOG_NEXT`).
   about the same two types, the line "Mismatch between: ..." comes first and
   the labelled pair after it, instead of printing the pair twice:
 
-  ```
+  ```text
   Error: While processing right hand side of wrong. Mismatch between: a and Vect ?k ?a.
   When unifying:
       Expected: Vect ?k ?a
@@ -260,7 +260,7 @@ should target this file (`CHANGELOG_NEXT`).
   of them (0 for all).  The 53 lines printed for `length x` with `x : Nat`
   are now 14:
 
-  ```
+  ```text
   Error: While processing right hand side of wrong. Sorry, I can't find any elaboration which works. All errors:
   All 4 candidates for length fail on the same expression, of type Nat:
       If Main.length: Mismatch between: Nat and Vect ?n ?a.
@@ -310,7 +310,7 @@ should target this file (`CHANGELOG_NEXT`).
   that is not total, it says why that function is not total; and a cycle of
   calls is printed once round (`f -> g`, not `f -> g -> f -> g`):
 
-  ```
+  ```text
   Error: Main.same is not total, possibly not terminating due to recursive path Main.same
 
   Args:8:14--8:18
@@ -947,7 +947,7 @@ should target this file (`CHANGELOG_NEXT`).
   reduce to a constructor form (such as `ByteString`, whose `fromString`
   copies the bytes into a buffer) is rejected where it is written:
 
-  ```
+  ```text
   Error: While processing left hand side of f. Can't match on the string literal "abc" of type ByteString: fromString for this type does not reduce to a constructor form.
   ...
   Suggestion: match a variable and compare it with == instead.

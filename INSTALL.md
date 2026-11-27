@@ -42,7 +42,7 @@ nix profile install github:idris-lang/Idris2
 
 The easiest way to install from source is to bootstrap from the C code of
 the compiler that is in the repository (`make bootstrap-c`, see
-[below](#2-installing-without-an-existing-idris-2)). The requirements are:
+[below](#2-installing-without-an-existing-idris2i-1)). The requirements are:
 
 - `bash`, `GNU make`, `gcc` or `clang`, `xz` and `GMP`.  On Linux, you probably
   already have these.  On macOS and major BSD flavours, you can install them
