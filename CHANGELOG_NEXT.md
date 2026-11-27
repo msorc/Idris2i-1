@@ -1192,6 +1192,11 @@ should target this file (`CHANGELOG_NEXT`).
   Chez Scheme of the machine that generated the code, and the processes that
   build the modules of the libraries in parallel, which run the compiler
   again, failed to start ("not found").
+* The support libraries compile again on macOS, which has no
+  `sigtimedwait` (`support/c` used it to take back the SIGPIPE of a write to
+  a closed pipe), and with MinGW on Windows, which has no `sigsetjmp`
+  (`support/refc` used it for crash boundaries; it uses the `setjmp`
+  builtins of GCC and Clang there).
 * The Nix flake and packages (`flake.nix`, `default.nix`, `nix/`) are
   removed, with the job of the CI that built them: they were not kept up
   with the build, and Idris2i-1 is installed from source.  So are

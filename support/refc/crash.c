@@ -61,8 +61,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+// MinGW has no sigsetjmp, and its longjmp unwinds the frames (with SEH on
+// x64), which needs tables for every frame in between.  The builtins of GCC
+// and Clang only restore the registers, like siglongjmp without the signal
+// mask: they need the value 1 and a jump from another function, as here.
+#ifdef _WIN32
+typedef void *crash_jmp_buf[5];
+#define CRASH_SETJMP(b) __builtin_setjmp(b)
+#define CRASH_LONGJMP(b) __builtin_longjmp(b, 1)
+#else
+typedef sigjmp_buf crash_jmp_buf;
+#define CRASH_SETJMP(b) sigsetjmp(b, 0)
+#define CRASH_LONGJMP(b) siglongjmp(b, 1)
+#endif
+
 struct Idris2i_1_CrashFrame {
-  sigjmp_buf buf;
+  crash_jmp_buf buf;
   Idris2i_1_CrashFrame *prev;
   // The finalisers that the thread ran and the constants that it evaluated
   // when the boundary started.
@@ -114,7 +128,7 @@ void idris2i_1_crashThrow(int kind, const char *msg, size_t len) {
   cs->constants = frame->constants;
   __atomic_fetch_add(&crashes_caught, 1, __ATOMIC_RELAXED);
   frame->info = info;
-  siglongjmp(frame->buf, 1);
+  CRASH_LONGJMP(frame->buf);
 }
 
 static void free_info(Idris2i_1_CrashInfo *i) {
@@ -141,7 +155,7 @@ Idris2i_1_Value *idris2i_1_crashCatch(Idris2i_1_Value *erased, Idris2i_1_Closure
   cs->frame = &frame;
   // (0: the signal mask is not saved, which would cost a system call; a
   // crash is not raised in a signal handler, so the mask is the same)
-  if (sigsetjmp(frame.buf, 0) == 0) {
+  if (CRASH_SETJMP(frame.buf) == 0) {
     Idris2i_1_Value *result = idris2i_1_run_primio(
         (Idris2i_1_Closure *)idris2i_1_newReference((Idris2i_1_Value *)action));
     cs->frame = frame.prev;
