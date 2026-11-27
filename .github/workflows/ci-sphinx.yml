@@ -17,7 +17,7 @@ jobs:
     steps:
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
     - name: Build docs
       # The versions pinned in docs/uv.lock, in an environment of their own:
       # a system-wide pip install is refused on recent Ubuntu runners, and
