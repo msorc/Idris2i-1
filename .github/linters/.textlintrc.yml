@@ -11,13 +11,17 @@ rules:
     skip: ["BlockQuote", "Link", "Code", "CodeBlock"]
     # Terms that the documents use on purpose, with a meaning that their
     # replacement does not always have ("run time" is when a program runs,
-    # the runtime is its support code; "command line" is a noun).
+    # the runtime is its support code; "command line" and "client side" are nouns).
     exclude:
       - "back[- ]end(\\w*)"
       - "bug[- ]fix(es)?"
+      # (the pattern of the term changed between versions of the rule)
+      - "built ?in"
       - "built ?in(s)?"
+      - "client ?side"
       - "command ?line"
       - "file[- ]name(s)?"
       - "host[- ]name(s)?"
       - "run[- ]time"
+      - "server ?side"
       - "web[- ]?site(s)?"
