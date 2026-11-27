@@ -64,9 +64,13 @@ static ssize_t write_no_sigpipe(int fd, const char *buf, size_t len) {
   int err = errno;
   if (n < 0 && err == EPIPE && !sigismember(&old, SIGPIPE)) {
     // (a SIGPIPE that was pending before is not possible: it was not
-    // blocked, so it was delivered)
-    struct timespec zero = {0, 0};
-    while (sigtimedwait(&pipe_set, NULL, &zero) < 0 && errno == EINTR) {
+    // blocked, so it was delivered).  sigwait does not block: the signal is
+    // pending, and only this thread, where it is blocked, can take it.
+    // (sigtimedwait would do with a zero timeout, but macOS does not have it.)
+    sigset_t pending;
+    if (sigpending(&pending) == 0 && sigismember(&pending, SIGPIPE)) {
+      int sig;
+      sigwait(&pipe_set, &sig);
     }
   }
   pthread_sigmask(SIG_SETMASK, &old, NULL);
