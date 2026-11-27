@@ -510,7 +510,11 @@ bootstrap: support
 		echo "ERROR: Chez is missing threading support" ; exit 1 ; fi
 	mkdir -p bootstrap-build/idris2i-1_app
 	cp ${IDRIS2I_1_SUPPORT_DIR}/${IDRIS2I_1_SUPPORT} bootstrap-build/idris2i-1_app/
-	sed 's/libidris2i_1_support.so/${IDRIS2I_1_SUPPORT}/g; s|__PREFIX__|${IDRIS2I_1_BOOT_PREFIX}|g' \
+	@# The first line names the Chez Scheme of the machine that generated the
+	@# file (#!/usr/bin/chez --program), and Chez copies it into the .so, which
+	@# the compiler runs again to build modules in parallel: name ours instead.
+	scheme_path=$$(command -v '${SCHEME}') || { echo "ERROR: cannot find ${SCHEME}"; exit 1; }; \
+	sed "1s|^#!.*|#!$$scheme_path --program|; s/libidris2i_1_support.so/${IDRIS2I_1_SUPPORT}/g; s|__PREFIX__|${IDRIS2I_1_BOOT_PREFIX}|g" \
 		bootstrap/idris2i-1_app/idris2i-1.ss \
 		> bootstrap-build/idris2i-1_app/idris2i-1-boot.ss
 	$(SHELL) ./bootstrap-stage1-chez.sh

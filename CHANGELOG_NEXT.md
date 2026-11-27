@@ -1202,6 +1202,12 @@ should target this file (`CHANGELOG_NEXT`).
   started 21) in 5.8 billion instructions instead of 8.2 billion, and each
   build after it starts none (20) in 0.69 billion instead of 3.0 billion,
   as when nothing changed.
+* `make bootstrap` (from the Chez Scheme code) works where Chez Scheme is
+  not `/usr/bin/chez`, as on Ubuntu (`scheme`): the first line of the
+  bootstrap compiler now names the `SCHEME` that builds it.  It named the
+  Chez Scheme of the machine that generated the code, and the processes that
+  build the modules of the libraries in parallel, which run the compiler
+  again, failed to start ("not found").
 
 ### Backend changes
 
