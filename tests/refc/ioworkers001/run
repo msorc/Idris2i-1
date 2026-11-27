@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr > /dev/null
+idris2i_1 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 # The workers (see `Worker` in Compiler.RefC.RefC) of the functions in IO
 # take the world, and give the result of the action as a C integer;

@@ -5,7 +5,7 @@ Template for tests that requires a package file.
 ### Mandatory steps
 * Create a new subdirectory for the tests. Try to adhere to the naming scheme of existing tests.
 * Update the `tests/Main.idr`, adding the new subdirectory to the lists of tests.
-* The `testutils.sh` script defines the `idris2i-1` name binding, and some testing utility functions.
+* The `testutils.sh` script defines the `idris2i_1` function (the compiler under test), and some testing utility functions.
 * Automate deletion of any temporary files created by your test. This prevents inconsistencies between runs. The `build`
   directory is deleted automatically by `testutils.sh`.
 * If the tests open a REPL session, remember to put a quit command, `:q`in the input file.

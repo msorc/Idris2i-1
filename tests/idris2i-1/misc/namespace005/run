@@ -15,4 +15,4 @@ run MainPre0.idr
 run MainPre1.idr
 
 check MainConflict.idr
-idris2i-1 --exec exec MainConflict.idr
+idris2i_1 --exec exec MainConflict.idr

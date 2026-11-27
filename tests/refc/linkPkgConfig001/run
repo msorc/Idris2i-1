@@ -18,10 +18,10 @@ cc="${IDRIS2I_1_CC:-${CC:-cc}}"
 unset IDRIS2I_1_LDLIBS LDLIBS
 export PKG_CONFIG_PATH="$test_dir/bar"
 
-idris2i-1 -o prog Main.idr > /dev/null
+idris2i_1 -o prog Main.idr > /dev/null
 ./build/exec/prog
 
 echo "--- an unknown module"
-idris2i-1 --directive refc-pkg-config=no-such-module -o prog2 Main.idr
+idris2i_1 --directive refc-pkg-config=no-such-module -o prog2 Main.idr
 
 rm -rf build bar/bar.o bar/libbar.a

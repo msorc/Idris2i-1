@@ -3,6 +3,6 @@
 # The program of refc/fixedwidth001, whose expected output is that of the Chez
 # backend: both backends compute the same.
 cp ../../refc/fixedwidth001/FixedWidth.idr .
-idris2i-1 -o fixedwidth FixedWidth.idr > /dev/null
+idris2i_1 -o fixedwidth FixedWidth.idr > /dev/null
 ./build/exec/fixedwidth | diff ../../refc/fixedwidth001/expected - && echo "same as refc/fixedwidth001"
 rm -f FixedWidth.idr

@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 $VALGRIND ./build/exec/main
 
 # A partial application that is applied once (in one branch, as the
@@ -14,6 +14,6 @@ count() {
 count main
 
 # Without the rewrite, closures are made, and the program gives the same.
-idris2i-1 --directive refc-no-local-closures -o main2 Main.idr
+idris2i_1 --directive refc-no-local-closures -o main2 Main.idr
 ./build/exec/main2
 count main2

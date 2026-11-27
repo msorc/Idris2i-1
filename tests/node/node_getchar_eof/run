@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o getchar GetChar.idr
+idris2i_1 -o getchar GetChar.idr
 printf 'x' | ./build/exec/getchar
 echo "-- empty"
 ./build/exec/getchar < /dev/null

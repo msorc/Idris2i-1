@@ -1,5 +1,5 @@
 . ../../../testutils.sh
 
 # The definitions whose run time definition is made more than once
-idris2i-1 --spec-interfaces --log compile.casetree:5 --check Once.idr | sed -n 's/.*Making run time definition for //p' | sort | uniq -d
-idris2i-1 --spec-interfaces --exec main Once.idr
+idris2i_1 --spec-interfaces --log compile.casetree:5 --check Once.idr | sed -n 's/.*Making run time definition for //p' | sort | uniq -d
+idris2i_1 --spec-interfaces --exec main Once.idr

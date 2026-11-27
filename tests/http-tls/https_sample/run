@@ -7,8 +7,8 @@ s=../../../samples/webservice
 mkdir -p build/sample build/client
 cp $s/Main.idr $s/Todos.idr $s/Https.idr $s/webservice-https.ipkg build/sample/
 cp ../common/HttpsTest.idr Client.idr build/client/
-(cd build/sample && idris2i-1 --build webservice-https.ipkg | grep -v 'Building\|compiling')
-(cd build/client && idris2i-1 -p contrib -p network -p http -p tls -p http-tls -o client Client.idr)
+(cd build/sample && idris2i_1 --build webservice-https.ipkg | grep -v 'Building\|compiling')
+(cd build/client && idris2i_1 -p contrib -p network -p http -p tls -p http-tls -o client Client.idr)
 build/sample/build/exec/webservice-https 0 "$certs/chain.pem" "$certs/server.key" > build/service.log 2>&1 &
 pid=$!
 for i in $(seq 1 100); do grep -q listening build/service.log && break; sleep 0.1; done

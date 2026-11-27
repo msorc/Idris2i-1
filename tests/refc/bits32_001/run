@@ -6,7 +6,7 @@
 # C compiler for 32 bit x86 with a 32 bit GMP, which most machines do not
 # have: without one, the test runs the native program, which prints the same.
 
-idris2i-1 -o bits32 Main.idr
+idris2i_1 -o bits32 Main.idr
 
 support=../../../support
 cc=${IDRIS2I_1_CC:-${CC:-cc}}

@@ -1,3 +1,3 @@
 . ../../../testutils.sh
 
-echo ":q" | idris2i-1 Default.idr
+echo ":q" | idris2i_1 Default.idr

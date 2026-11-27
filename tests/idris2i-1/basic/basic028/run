@@ -2,4 +2,4 @@
 
 unset IDRIS2I_1_PATH
 
-idris2i-1 --no-prelude < input
+idris2i_1 --no-prelude < input

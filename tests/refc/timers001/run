@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 # (not under Valgrind, which runs one thread at a time)
 IDRIS2I_1_WORKERS=2 ./build/exec/main
 IDRIS2I_1_WORKERS=8 ./build/exec/main

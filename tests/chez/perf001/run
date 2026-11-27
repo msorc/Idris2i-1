@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 -c Fact.idr -o fact
+idris2i_1 -c Fact.idr -o fact
 ./build/exec/fact

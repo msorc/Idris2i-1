@@ -7,11 +7,11 @@
 # (modules may be reported as built when they are only checked: leave out
 # what depends on that)
 build() {
-  idris2i-1 --build exe.ipkg "$@" | grep -v "Building"
+  idris2i_1 --build exe.ipkg "$@" | grep -v "Building"
 }
 
 # the package that exe depends on
-idris2i-1 --install dep.ipkg > /dev/null
+idris2i_1 --install dep.ipkg > /dev/null
 
 echo "--- first build"
 build
@@ -37,7 +37,7 @@ build
 
 echo "--- a dependency changed, but not its interface"
 sed -i.bak 's/hello/goodbye/' dep/Dep.idr
-idris2i-1 --install dep.ipkg > /dev/null
+idris2i_1 --install dep.ipkg > /dev/null
 build
 build/exec/exe
 
@@ -62,7 +62,7 @@ build
 
 echo "--- clean"
 test -e build/exec/exe.stamp && echo "there is a stamp"
-idris2i-1 --clean exe.ipkg > /dev/null
+idris2i_1 --clean exe.ipkg > /dev/null
 test -e build/exec/exe.stamp || echo "no stamp"
 
 mv src/Main.idr.bak src/Main.idr

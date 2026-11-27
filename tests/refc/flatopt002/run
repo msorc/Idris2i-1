@@ -1,12 +1,12 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 ./build/exec/main
 # (read by its fields, from its snapshot)
 grep -q "idris2i_1_slotSnap(" build/exec/main.c && echo "read by its fields"
 
-idris2i-1 -o boxed Boxed.idr
+idris2i_1 -o boxed Boxed.idr
 ./build/exec/boxed
 grep -c "idris2i_1_slot\|idris2i_1_newSlots\|idris2i_1_arrayGetAny\|idris2i_1_arraySetAny" build/exec/boxed.c
-idris2i-1 --directive refc-flat-arrays -o forced Boxed.idr
+idris2i_1 --directive refc-flat-arrays -o forced Boxed.idr
 diff build/exec/boxed.c build/exec/forced.c > /dev/null && echo "the same with refc-flat-arrays"

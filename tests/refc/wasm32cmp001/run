@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 --cg refc -o refc_cmp TestCmp.idr
+idris2i_1 --cg refc -o refc_cmp TestCmp.idr
 $VALGRIND ./build/exec/refc_cmp

@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 --dumpcases Main.cases --exec main Main.idr
+idris2i_1 --dumpcases Main.cases --exec main Main.idr
 # the tests of the recursion in the specialised copies: a few, not 229
 grep '^_PE\.' Main.cases | grep -o '<=Int' | wc -l | tr -d ' '
 rm -f Main.cases

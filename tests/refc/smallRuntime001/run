@@ -7,7 +7,7 @@
 # switched on by environment variables still work, and so do the features
 # when a program starts using them late.
 ulimit -c 0
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 ./build/exec/main hello
 IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main hello 2>&1 >/dev/null | sed 's/,.*//'
 IDRIS2I_1_REFC_MEMSTATS=1 ./build/exec/main hello 2> stats > /dev/null
@@ -20,7 +20,7 @@ for mode in sleep fork; do
 done
 (sleep 0.2; echo "late") | ./build/exec/main io
 (sleep 0.2; echo "late") | IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main io 2>&1 >/dev/null | sed 's/,.*//'
-idris2i-1 -o hello Hello.idr
+idris2i_1 -o hello Hello.idr
 ./build/exec/hello
 if [ "$OS" = "darwin" ] || [ "$OS" = "windows" ]; then
     # (no collection of sections there)

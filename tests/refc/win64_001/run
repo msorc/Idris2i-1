@@ -9,7 +9,7 @@
 # that the support headers include), but not linked.  Without a GCC 15 or
 # later for x86-64, the test only runs the program.
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 ./build/exec/main
 
 support=../../../support

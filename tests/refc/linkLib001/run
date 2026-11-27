@@ -16,15 +16,15 @@ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:."
 export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:."
 
 echo "--- without the directive"
-idris2i-1 -o nolib Main.idr > /dev/null 2>&1
+idris2i_1 -o nolib Main.idr > /dev/null 2>&1
 test -e build/exec/nolib || echo "not linked"
 
 echo "--- --directive refc-lib=foo"
-idris2i-1 --directive refc-lib=foo -o withlib Main.idr > /dev/null
+idris2i_1 --directive refc-lib=foo -o withlib Main.idr > /dev/null
 ./build/exec/withlib
 
 echo "--- %cg refc refc-lib=foo"
-idris2i-1 -o cglib LibMain.idr > /dev/null
+idris2i_1 -o cglib LibMain.idr > /dev/null
 ./build/exec/cglib
 
 rm -rf build libfoo.so

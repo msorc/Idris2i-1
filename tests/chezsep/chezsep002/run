@@ -2,7 +2,7 @@
 
 # Modules of the program, and of base and contrib (Data.SortedMap), each one
 # a Chez library of its own
-idris2i-1 --cg chez-sep -p contrib -o multi Main.idr
+idris2i_1 --cg chez-sep -p contrib -o multi Main.idr
 ./build/exec/multi
 echo "exit code: $?"
 

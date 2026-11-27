@@ -12,12 +12,12 @@
 rm -rf prelude
 cp -r ../../../libs/prelude prelude
 rm -rf prelude/build
-(cd prelude && IDRIS2I_1_INC_CGS=chez idris2i-1 --install prelude.ipkg > /dev/null)
+(cd prelude && IDRIS2I_1_INC_CGS=chez idris2i_1 --install prelude.ipkg > /dev/null)
 rm -rf prelude
 export IDRIS2I_1_PACKAGE_PATH="$NEW_PP"
 
 export IDRIS2I_1_INC_CGS=chez
-IDRIS2I_1_BUILD_JOBS=8 idris2i-1 --build chezincparallel.ipkg 2>&1 | grep -v "Building"
+IDRIS2I_1_BUILD_JOBS=8 idris2i_1 --build chezincparallel.ipkg 2>&1 | grep -v "Building"
 ls build/ttc/*/M*.so | wc -l
 ls build/ttc/*/*.compile build/ttc/*/compileChez 2>/dev/null | wc -l
 

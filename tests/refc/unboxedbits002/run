@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr > /dev/null
+idris2i_1 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 # The operations on the fixed width integers of these functions are done on C
 # integers: there is no call of the runtime for them, and no value is made in

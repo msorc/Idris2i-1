@@ -4,4 +4,4 @@ check NamedReturn1.idr || true
 check NamedReturn2.idr || true
 check NamedReturn3.idr || true
 check NamedReturn4.idr || true
-idris2i-1 TrailingLam.idr < input
+idris2i_1 TrailingLam.idr < input

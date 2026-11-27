@@ -6,7 +6,7 @@
 # getter of a buffer, through an `%inline` wrapper of another module),
 # rather than calling a worker that is compiled in another part.  The
 # program is split into parts as a big one would be.
-idris2i-1 --directive refc-split-size=200 -o main Main.idr > /dev/null
+idris2i_1 --directive refc-split-size=200 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 for f in prim__byteAt prim__setByte; do
   w="idris2i_1_raw_Bytes_$f"

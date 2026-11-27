@@ -25,7 +25,7 @@ bt() {
   echo "exit code: $code"
 }
 
-idris2i-1 --cg chez --directive chez-backtrace -o bt Main.idr
+idris2i_1 --cg chez --directive chez-backtrace -o bt Main.idr
 for c in crash case div chez deep; do
   echo "--- $c"
   bt $c main
@@ -57,7 +57,7 @@ fi
 # whether some of the functions of the program are named and whether the long
 # one is cut.
 echo "--- no directive"
-idris2i-1 --cg chez -o plain Main.idr
+idris2i_1 --cg chez -o plain Main.idr
 ./build/exec/plain case main 2>&1
 echo "exit code: $?"
 plain() {

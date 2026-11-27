@@ -16,7 +16,7 @@ bt() {
   echo "exit code: $code"
 }
 
-idris2i-1 --cg chez-sep --directive chez-backtrace -o bt Main.idr
+idris2i_1 --cg chez-sep --directive chez-backtrace -o bt Main.idr
 for c in crash case div chez deep; do
   echo "--- $c"
   bt $c main
@@ -40,7 +40,7 @@ echo "exit code: $?"
 # Without the directive: only with IDRIS2I_1_CHEZ_BACKTRACE=1, and which functions
 # are named depends on what Chez inlines
 echo "--- no directive"
-idris2i-1 --cg chez-sep -o plain Main.idr
+idris2i_1 --cg chez-sep -o plain Main.idr
 ./build/exec/plain case main 2>&1
 echo "exit code: $?"
 out=$(IDRIS2I_1_CHEZ_BACKTRACE=1 ./build/exec/plain case main 2>&1)
@@ -50,7 +50,7 @@ echo "$out" | grep -q '^  Main\.' && echo "(Main functions named)"
 # The directive changes the code of the units: a build with it after one
 # without it compiles them again
 echo "--- directive after none"
-idris2i-1 --cg chez-sep --directive chez-backtrace -o plain Main.idr
+idris2i_1 --cg chez-sep --directive chez-backtrace -o plain Main.idr
 ./build/exec/plain crash main 2>&1 | sed -n 1,2p
 
 rm -rf build

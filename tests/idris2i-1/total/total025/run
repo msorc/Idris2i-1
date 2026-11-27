@@ -1,6 +1,6 @@
 . ../../../testutils.sh
 
-idris2i-1 --check Issue3317.idr
-idris2i-1 --check Totality.idr
-idris2i-1 --check Issue3353.idr
-idris2i-1 --check Pragma.idr
+idris2i_1 --check Issue3317.idr
+idris2i_1 --check Totality.idr
+idris2i_1 --check Issue3353.idr
+idris2i_1 --check Pragma.idr

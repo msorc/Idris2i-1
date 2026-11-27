@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
-idris2i-1 -o stream Stream.idr
+idris2i_1 -o stream Stream.idr
 printf 'one\ntwo\n' | ./build/exec/stream
 printf 'one\ntwo\n' | IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/stream

@@ -2,7 +2,7 @@
 
 check overrideDefault.idr
 echo "------"
-idris2i-1 --check --total compilerOption.idr
+idris2i_1 --check --total compilerOption.idr
 echo "------"
 check sameAsDefault.idr
 echo "------"

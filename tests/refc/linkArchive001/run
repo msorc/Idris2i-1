@@ -16,7 +16,7 @@ archive() {
 
 archive
 # (from another directory: the scripts of a package run in its directory)
-idris2i-1 --install clib/clib.ipkg > /dev/null || echo "clib not installed"
+idris2i_1 --install clib/clib.ipkg > /dev/null || echo "clib not installed"
 installed="$(find prefix -name libanswer.a)"
 test -n "$installed" && echo "the archive is installed"
 test -e "$(dirname "$installed")/answer.h" && echo "the header is installed"

@@ -1,10 +1,10 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 ./build/exec/main > flat.out
 cat flat.out
 grep -q "idris2i_1_slotPresent(" build/exec/main.c && echo "presence read from the array"
 
-idris2i-1 --directive refc-no-flat-arrays -o boxed Main.idr
+idris2i_1 --directive refc-no-flat-arrays -o boxed Main.idr
 ./build/exec/boxed | diff - flat.out && echo "same output without flat arrays"
 rm -f flat.out

@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 --cg node -o crash.js Main.idr > /dev/null
+idris2i_1 --cg node -o crash.js Main.idr > /dev/null
 node ./build/exec/crash.js
 echo "exit code: $?"
 node ./build/exec/crash.js exit

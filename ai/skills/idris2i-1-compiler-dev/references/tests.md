@@ -107,10 +107,10 @@ package path, so `--install` in a test stays inside it), and defines:
 
 | Helper | Does |
 |---|---|
-| `idris2i-1 ARGS` | `$1 --no-banner --console-width 0 --no-color ARGS`, piped through `clean_names` |
+| `idris2i_1 ARGS` | `$1 --no-banner --console-width 0 --no-color ARGS`, piped through `clean_names` |
 | `idris2i_1_no_clean ARGS` | the same without `clean_names` |
-| `check FILE` | `idris2i-1 --check FILE` |
-| `run FILE` | `idris2i-1 --exec main FILE` |
+| `check FILE` | `idris2i_1 --check FILE` |
+| `run FILE` | `idris2i_1 --exec main FILE` |
 | `clean_names` | numbers machine names, `ttc/<version>`, `$resolvedN`, `PE_..._hash` and source locations of case/with blocks consistently, so that `expected` does not depend on them |
 | `clean_version` | replaces the compiler version (`$NAME_VERSION`) by `idris2i-1-x.y.z` |
 | `filter_test_dir` | replaces the test's absolute directory by `__TEST_DIR__` |
@@ -118,7 +118,11 @@ package path, so `--install` in a test stays inside it), and defines:
 | `sed_literal`, `windows_path_tweaks` | path helpers |
 | `append_package_path DIR` | adds to `IDRIS2I_1_PACKAGE_PATH` |
 | `$VALGRIND prog` | runs under Valgrind (`tests/valgrind.sh`) when it is installed |
-| `TIMEOUT=N` | set before `idris2i-1` calls to kill the compiler after N seconds |
+| `TIMEOUT=N` | set before `idris2i_1` calls to kill the compiler after N seconds |
+
+The helper is `idris2i_1`, not `idris2i-1`: the runner runs `run` with
+`sh`, and dash (`/bin/sh` on Debian and Ubuntu) rejects a function name
+with `-` ("Bad function name").
 
 `${IDRIS2I_1_TESTS_CG}` names a back end for scripts that pick one
 themselves.

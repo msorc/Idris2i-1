@@ -1,4 +1,4 @@
 . ../../../testutils.sh
 
-idris2i-1 Eta.idr < input
+idris2i_1 Eta.idr < input
 check BindElabScBug.idr

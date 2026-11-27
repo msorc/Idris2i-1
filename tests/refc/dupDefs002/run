@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 $VALGRIND ./build/exec/main
 # (not under Valgrind: the leak check looks at the pages)
 IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null | sed 's/,.*//'
@@ -8,7 +8,7 @@ grep '^#define [A-Za-z0-9_]*\(Main\|A\|B\)_' build/exec/main.c
 # Split in units: A and B are in other units.  The lambdas of wrapsA and
 # stepsA are only made into closures and written once; bothA is also called
 # by name, and both are written.
-IDRIS2I_1_REFC_SPLIT_SIZE=1 idris2i-1 -o main2 Main.idr
+IDRIS2I_1_REFC_SPLIT_SIZE=1 idris2i_1 -o main2 Main.idr
 ./build/exec/main2
 IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main2 2>&1 >/dev/null | sed 's/,.*//'
 # (a copy written for functions of other units has a name of its own)
@@ -21,5 +21,5 @@ for f in wrapsA_0 stepsA_0 stepsA_1 bothA; do
 done
 echo "units of bothA and bothB: $(grep -l '^Idris2i_1_Value \*[AB]_both[AB]$' build/exec/main2.u*.c | wc -l)"
 # Without the rounds, only leafB is leafA
-idris2i-1 -o main3 Main.idr --directive refc-no-merge-rounds
+idris2i_1 -o main3 Main.idr --directive refc-no-merge-rounds
 grep '^#define Main_\(leaf\|mid\|top\)' build/exec/main3.c

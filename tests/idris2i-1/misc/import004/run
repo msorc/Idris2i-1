@@ -1,4 +1,4 @@
 . ../../../testutils.sh
 
-idris2i-1 2>&1 Cycle1.idr
-idris2i-1 2>&1 Loop.idr
+idris2i_1 2>&1 Cycle1.idr
+idris2i_1 2>&1 Loop.idr

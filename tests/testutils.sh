@@ -33,16 +33,16 @@ idris2i_1_no_clean() {
     fi
 }
 
-idris2i-1() {
+idris2i_1() {
     idris2i_1_no_clean "$@" | clean_names
 }
 
 check() {
-    idris2i-1 --check "$@"
+    idris2i_1 --check "$@"
 }
 
 run() {
-    idris2i-1 --exec main "$@"
+    idris2i_1 --exec main "$@"
 }
 
 safesort() {

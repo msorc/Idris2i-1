@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 --dumpcases cases.txt -o deep Deep.idr
+idris2i_1 --dumpcases cases.txt -o deep Deep.idr
 ./build/exec/deep
 
 # The 128 binders of the same name are told apart by a number each.

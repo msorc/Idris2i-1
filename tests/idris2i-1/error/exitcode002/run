@@ -17,6 +17,6 @@ code --exec crash Exit.idr
 code --exec terminated Exit.idr
 code --exec three --exec ok Exit.idr
 
-idris2i-1 Exit.idr < input
+idris2i_1 Exit.idr < input
 
 rm -rf build

@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o refc_threads001 Main.idr
+idris2i_1 -o refc_threads001 Main.idr
 # The expected output depends on the order in which the green threads run
 # on a single worker: with several workers, they run in parallel.
 IDRIS2I_1_WORKERS=1 $VALGRIND ./build/exec/refc_threads001

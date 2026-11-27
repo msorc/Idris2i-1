@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o crash Main.idr > /dev/null
+idris2i_1 -o crash Main.idr > /dev/null
 for w in 1 4; do
   IDRIS2I_1_WORKERS=$w ./build/exec/crash
   echo "exit code: $?"

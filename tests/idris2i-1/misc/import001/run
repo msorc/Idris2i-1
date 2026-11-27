@@ -1,9 +1,9 @@
 . ../../../testutils.sh
 
-idris2i-1 --no-prelude Test.idr < input
+idris2i_1 --no-prelude Test.idr < input
 sleep 1
 touch Mult.idr
-idris2i-1 --no-prelude Test.idr < input
+idris2i_1 --no-prelude Test.idr < input
 
 # Disabled until we have a portable way to do this
 #sleep 1

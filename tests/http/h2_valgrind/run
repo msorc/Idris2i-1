@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
 mkdir -p build/src && cp ../common/HttpTest.idr ../common/H2Raw.idr Main.idr build/src/ && cd build/src
-idris2i-1 -p contrib -p network -p http -o main Main.idr
+idris2i_1 -p contrib -p network -p http -o main Main.idr
 IDRIS2I_1_WORKERS=1 timeout 300 $VALGRIND ./build/exec/main

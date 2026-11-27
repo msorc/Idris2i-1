@@ -1,6 +1,6 @@
 . ../../../testutils.sh
 
-idris2i-1 FromTTImp.idr << EOF
+idris2i_1 FromTTImp.idr << EOF
     :printdef natExprMacroTest
     :printdef natExprPrecedenceTest
     :printdef natExprScriptTest
@@ -8,14 +8,14 @@ idris2i-1 FromTTImp.idr << EOF
     :q
 EOF
 
-idris2i-1 FromName.idr << EOF
+idris2i_1 FromName.idr << EOF
     :printdef myNameMacroTest
     :printdef myNameScriptTest
     myNameFunctionTest
     :q
 EOF
 
-idris2i-1 FromDecls.idr << EOF
+idris2i_1 FromDecls.idr << EOF
     :printdef natDeclsMacroTest
     :printdef natDeclsScriptTest
     natDeclsFunctionTest

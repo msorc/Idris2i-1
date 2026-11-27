@@ -1,5 +1,5 @@
 . ../../../testutils.sh
 
-idris2i-1 Vect.idr < input
-idris2i-1 -c Vect2.idr
-idris2i-1 -c Vect3.idr
+idris2i_1 Vect.idr < input
+idris2i_1 -c Vect2.idr
+idris2i_1 -c Vect3.idr

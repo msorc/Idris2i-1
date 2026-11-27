@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 -o buf Buf.idr
+idris2i_1 -o buf Buf.idr
 ./build/exec/buf

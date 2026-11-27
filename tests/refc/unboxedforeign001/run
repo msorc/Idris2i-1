@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr > /dev/null
+idris2i_1 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 # The foreign functions of fixed width integers have workers that take and
 # give the C integers, and the loops of `sumBytes` and `mixWords` call them

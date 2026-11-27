@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr > /dev/null
+idris2i_1 -o main Main.idr > /dev/null
 $VALGRIND ./build/exec/main
 # The workers (see `Worker` in Compiler.RefC.RefC): the loop of `fnv` calls
 # the worker of `step` and makes no value, `sumSq` gives a C integer, `ping`

@@ -1,3 +1,3 @@
 . ../../../testutils.sh
 
-idris2i-1 Bond.idr < input
+idris2i_1 Bond.idr < input

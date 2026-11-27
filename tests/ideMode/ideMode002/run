@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 --version | awk '{print $3}' | ./gen_expected.sh
-idris2i-1 --ide-mode < input
+idris2i_1 --version | awk '{print $3}' | ./gen_expected.sh
+idris2i_1 --ide-mode < input

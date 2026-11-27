@@ -6,4 +6,4 @@
 # so that its listing is kept.
 check Other.idr > /dev/null
 touch -t 200001010000 build/ttc/* build/ttc
-idris2i-1 < input
+idris2i_1 < input

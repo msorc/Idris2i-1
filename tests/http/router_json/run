@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
 mkdir -p build/src && cp ../common/HttpTest.idr Main.idr build/src/ && cd build/src
-idris2i-1 -p contrib -p network -p http -o main Main.idr
+idris2i_1 -p contrib -p network -p http -o main Main.idr
 timeout 60 ./build/exec/main

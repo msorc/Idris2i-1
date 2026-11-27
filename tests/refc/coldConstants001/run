@@ -1,12 +1,12 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 ./build/exec/main
 IDRIS2I_1_REFC_LEAKCHECK=1 ./build/exec/main 2>&1 >/dev/null | sed 's/,.*//'
 cold=$(grep -c '^IDRIS2I_1_CONSTANT_MAKER static' build/exec/main.c)
 mainCold=$(grep -c 'CONSTANT_MAKER static Idris2i_1_Value \*idris2i_1_caf___mainExpression' build/exec/main.c)
 [ "$cold" -ge 2 ] && echo "cold constant makers: yes" || echo "cold constant makers: $cold"
 echo "the main expression: $mainCold"
-idris2i-1 --directive refc-no-cold-constants -o off Main.idr
+idris2i_1 --directive refc-no-cold-constants -o off Main.idr
 ./build/exec/off
 echo "off: $(grep -c 'CONSTANT_MAKER' build/exec/off.c)"

@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 # A thread stack of 256KB: a million nested calls would not fit.
 IDRIS2I_1_THREAD_STACK_SIZE=262144 $VALGRIND ./build/exec/main
 # (not under Valgrind: the leak check looks at the pages)

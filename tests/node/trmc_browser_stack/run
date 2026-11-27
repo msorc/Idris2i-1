@@ -2,15 +2,15 @@
 
 # The browser backend, where the loops are made by default (its output runs
 # on Node too: putStr is console.log, which adds a newline).
-idris2i-1 --cg javascript -o trmc.js Trmc.idr
+idris2i_1 --cg javascript -o trmc.js Trmc.idr
 node ./build/exec/trmc.js
 
 # With Node, `--directive trmc` makes them, here on the main thread, whose
 # stack is as small as a browser's.
-idris2i-1 --directive trmc -o trmc Trmc.idr
+idris2i_1 --directive trmc -o trmc Trmc.idr
 IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/trmc
 
 # Without the loops (and without those of `Compiler.ES.Stack`), the stack
 # overflows.
-idris2i-1 --cg javascript --directive no-trmc --directive no-explicit-stack -o notrmc.js Trmc.idr
+idris2i_1 --cg javascript --directive no-trmc --directive no-explicit-stack -o notrmc.js Trmc.idr
 node ./build/exec/notrmc.js 2>&1 | grep -c 'Maximum call stack size exceeded'

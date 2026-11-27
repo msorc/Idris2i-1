@@ -1,7 +1,7 @@
 . ../../testutils.sh
 
-idris2i-1 -o deadlock Deadlock.idr
-idris2i-1 -o stdin Stdin.idr
+idris2i_1 -o deadlock Deadlock.idr
+idris2i_1 -o stdin Stdin.idr
 ./build/exec/deadlock 2>build/err; echo "exit code $?"; cat build/err
 IDRIS2I_1_WORKERS=1 ./build/exec/deadlock 2>build/err; echo "exit code $?"; cat build/err
 (sleep 0.3; echo "late") | ./build/exec/stdin

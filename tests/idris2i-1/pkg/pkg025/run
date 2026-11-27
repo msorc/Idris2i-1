@@ -6,7 +6,7 @@
 # file systems that keep seconds only: wait, so that there is one.)
 
 build() {
-  idris2i-1 --build "$@" | grep -v "Building"
+  idris2i_1 --build "$@" | grep -v "Building"
 }
 
 echo "--- first build"

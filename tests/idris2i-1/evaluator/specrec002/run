@@ -1,7 +1,7 @@
 . ../../../testutils.sh
 
 # How many copies are made of each function of the module
-idris2i-1 --spec-interfaces --log specialise.declare:5 --dumpcases cases.txt -o tree Tree.idr \
+idris2i_1 --spec-interfaces --log specialise.declare:5 --dumpcases cases.txt -o tree Tree.idr \
   | sed -n 's/.*Specialising \(Tree\..*\) (\$resolved.*/\1/p' \
   | sort | uniq -c
 ./build/exec/tree

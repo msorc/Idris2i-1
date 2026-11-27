@@ -1,3 +1,3 @@
 . ../../../testutils.sh
 
-idris2i-1 HoleRecord.idr < input
+idris2i_1 HoleRecord.idr < input

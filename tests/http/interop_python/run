@@ -12,7 +12,7 @@ echo "hello from python" > build/www/hello.txt
 echo "inner" > build/www/dir/inner.txt
 head -c 1000000 /dev/zero > build/www/big.bin
 cd build/src
-idris2i-1 -p contrib -p network -p http -o main Main.idr
+idris2i_1 -p contrib -p network -p http -o main Main.idr
 python3 -u -m http.server 0 --bind 127.0.0.1 --directory ../www > server.log 2>&1 &
 pid=$!
 for i in $(seq 1 100); do grep -q 'port' server.log 2>/dev/null && break; sleep 0.1; done

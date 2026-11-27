@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 
 # 2000 numbers after a few lines: UTF-8, CRLF, a line longer than the
 # first buffer, an empty line.

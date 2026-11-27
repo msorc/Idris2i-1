@@ -1,4 +1,4 @@
 . ../../../testutils.sh
 
-idris2i-1 --dump-ipkg-json test.ipkg
+idris2i_1 --dump-ipkg-json test.ipkg
 

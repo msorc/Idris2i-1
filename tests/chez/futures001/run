@@ -1,15 +1,15 @@
 . ../../testutils.sh
 
-idris2i-1 Futures.idr -p contrib --exec constant
-idris2i-1 Futures.idr -p contrib --exec simpleIO
-idris2i-1 Futures.idr -p contrib --exec erasureAndNonbindTest
-idris2i-1 Futures.idr -p contrib --exec map
+idris2i_1 Futures.idr -p contrib --exec constant
+idris2i_1 Futures.idr -p contrib --exec simpleIO
+idris2i_1 Futures.idr -p contrib --exec erasureAndNonbindTest
+idris2i_1 Futures.idr -p contrib --exec map
 
 echo "----"
 
-idris2i-1 --directive lazy=weakMemo Futures.idr -p contrib --exec constant
-idris2i-1 --directive lazy=weakMemo Futures.idr -p contrib --exec simpleIO
-idris2i-1 --directive lazy=weakMemo Futures.idr -p contrib --exec erasureAndNonbindTest
-idris2i-1 --directive lazy=weakMemo Futures.idr -p contrib --exec map
+idris2i_1 --directive lazy=weakMemo Futures.idr -p contrib --exec constant
+idris2i_1 --directive lazy=weakMemo Futures.idr -p contrib --exec simpleIO
+idris2i_1 --directive lazy=weakMemo Futures.idr -p contrib --exec erasureAndNonbindTest
+idris2i_1 --directive lazy=weakMemo Futures.idr -p contrib --exec map
 
 rm -r build

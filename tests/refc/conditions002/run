@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o refc_conditions002 Main.idr
+idris2i_1 -o refc_conditions002 Main.idr
 # The expected output depends on the order in which the green threads run
 # on a single worker: with several workers, they run in parallel.  Without
 # preemption, a thread whose timed wait is over does not run before the one

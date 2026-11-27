@@ -5,7 +5,7 @@
 # names are in the namespaces of their modules (A.B and A), and they used to
 # differ only by the index of the function they are in, which the C names leave
 # out (see `canonName` in RefC.idr).
-idris2i-1 --dumpanf anf -o main Main.idr
+idris2i_1 --dumpanf anf -o main Main.idr
 ./build/exec/main
 # Two names with one number (else the test does not test that).
 grep -oE 'A(\.B)?\.[0-9]+:[0-9]+:go' anf | sort -u | wc -l | tr -d ' '

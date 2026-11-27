@@ -1,8 +1,8 @@
 . ../../../testutils.sh
 
-idris2i-1 --install foo.ipkg > /dev/null
-idris2i-1 --install bar.ipkg > /dev/null
-idris2i-1 --install baz.ipkg > /dev/null
-idris2i-1 --build test.ipkg
+idris2i_1 --install foo.ipkg > /dev/null
+idris2i_1 --install bar.ipkg > /dev/null
+idris2i_1 --install baz.ipkg > /dev/null
+idris2i_1 --build test.ipkg
 
 build/exec/test

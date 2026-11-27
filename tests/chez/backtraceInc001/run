@@ -12,12 +12,12 @@
 rm -rf prelude
 cp -r ../../../libs/prelude prelude
 rm -rf prelude/build
-(cd prelude && IDRIS2I_1_INC_CGS=chez idris2i-1 --install prelude.ipkg > /dev/null)
+(cd prelude && IDRIS2I_1_INC_CGS=chez idris2i_1 --install prelude.ipkg > /dev/null)
 rm -rf prelude
 export IDRIS2I_1_PACKAGE_PATH="$NEW_PP"
 export IDRIS2I_1_INC_CGS=chez
 
-idris2i-1 --cg chez --directive chez-backtrace -o bt Main.idr
+idris2i_1 --cg chez --directive chez-backtrace -o bt Main.idr
 ls build/exec/bt_app | grep -c '^Main.so$'
 for c in crash case deep; do
   echo "--- $c"

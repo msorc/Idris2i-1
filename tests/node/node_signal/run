@@ -1,7 +1,7 @@
 . ../../testutils.sh
 
-idris2i-1 -o signals Signals.idr
-idris2i-1 -o default Default.idr
+idris2i_1 -o signals Signals.idr
+idris2i_1 -o default Default.idr
 ./build/exec/signals self
 IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/signals self
 ./build/exec/signals others

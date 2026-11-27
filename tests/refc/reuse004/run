@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 IDRIS2I_1_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
 grep "leaked values" leaks.txt | sed 's/,.*//'
 fn() { awk -v RS= "/Value \\*Main_$2\\n/ && /\\{/" "build/exec/$1.c"; }
@@ -9,7 +9,7 @@ fn main bump
 fn main dropLeft
 # without the copies: the cell is NULL when it is not unique, and the
 # constructor allocates one then
-idris2i-1 --directive refc-no-reuse-copy -o main2 Main.idr
+idris2i_1 --directive refc-no-reuse-copy -o main2 Main.idr
 $VALGRIND ./build/exec/main2
 fn main2 dropLeft
 rm -f leaks.txt

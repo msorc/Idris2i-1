@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 --cg refc -p contrib -o main Main.idr
+idris2i_1 --cg refc -p contrib -o main Main.idr
 $VALGRIND ./build/exec/main

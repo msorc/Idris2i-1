@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o stdin Stdin.idr
+idris2i_1 -o stdin Stdin.idr
 printf 'xab\ncdefg\n\nh i\r\nlast' > input.txt
 echo "-- pipe"
 cat input.txt | ./build/exec/stdin

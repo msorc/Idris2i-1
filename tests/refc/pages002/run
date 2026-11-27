@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 # (not under Valgrind: the pages are only used without it)
 IDRIS2I_1_WORKERS=4 IDRIS2I_1_REFC_MEMSTATS=1 ./build/exec/main 2> stats
 # Each phase needs about 750 pages of 64KB: both would be 1500.

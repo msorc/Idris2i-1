@@ -1,10 +1,10 @@
 . ../../testutils.sh
 
 # On the main thread of Node, whose stack is as small as a browser's.
-idris2i-1 -o tramp Tramp.idr
+idris2i_1 -o tramp Tramp.idr
 IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/tramp
 
 # The same for the browser backend, whose output Node runs too (its putStr
 # is console.log, which adds a newline).
-idris2i-1 --cg javascript -o tramp.js Tramp.idr
+idris2i_1 --cg javascript -o tramp.js Tramp.idr
 node ./build/exec/tramp.js

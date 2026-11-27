@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
 mkdir -p adir
-idris2i-1 -o readdir ReadDirectory.idr > /dev/null
+idris2i_1 -o readdir ReadDirectory.idr > /dev/null
 ./build/exec/readdir < adir
 rmdir adir

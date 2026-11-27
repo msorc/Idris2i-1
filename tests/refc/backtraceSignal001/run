@@ -6,14 +6,17 @@
 
 ulimit -c 0
 export IDRIS2I_1_CFLAGS="-I. $IDRIS2I_1_CFLAGS"
-idris2i-1 --directive refc-backtrace -o bt Main.idr
+idris2i_1 --directive refc-backtrace -o bt Main.idr
 
+# dash (sh on Debian and Ubuntu) writes "Segmentation fault (core dumped)" and
+# the like into out.txt when the program dies of a signal: it redirects
+# before it forks.  Those lines are dropped.
 # (the frames in the C library, under abort, depend on its version)
 for s in segv fpe abort bus; do
   echo "--- $s"
   ./build/exec/bt $s > out.txt 2>&1
   code=$?
-  grep -v '\[libc' out.txt
+  grep -v -E '^(Segmentation fault|Aborted|Bus error|Floating point exception|Illegal instruction)( \(core dumped\))?$' out.txt | grep -v '\[libc'
   echo "exit code: $code"
 done
 rm -rf out.txt build

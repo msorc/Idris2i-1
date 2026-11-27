@@ -2,5 +2,5 @@
 
 # Data.Array on each backend: RefC (the default), Chez and Node.
 run Array.idr
-idris2i-1 --cg chez -o array-chez Array.idr && ./build/exec/array-chez
-idris2i-1 --cg node -o array.js Array.idr && node ./build/exec/array.js
+idris2i_1 --cg chez -o array-chez Array.idr && ./build/exec/array-chez
+idris2i_1 --cg node -o array.js Array.idr && node ./build/exec/array.js

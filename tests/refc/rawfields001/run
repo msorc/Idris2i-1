@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 --cg refc -o main Main.idr
+idris2i_1 --cg refc -o main Main.idr
 $VALGRIND ./build/exec/main
 
 # The cells of Mixed: one header, two pointer fields (the String, the List),
@@ -11,11 +11,11 @@ grep -q "idris2i_1_rawField(.*, 3, 0, double)" build/exec/main.c && echo "Mixed 
 grep -c "^IDRIS2I_1_UNUSED static const struct .* idris2i_1_static_con[0-9]*_raw_" build/exec/main.c | sed 's/^[1-9][0-9]*$/static constants with raw fields/'
 
 # The same, with the raw fields switched off, and with the layout checked.
-idris2i-1 --cg refc --directive refc-no-raw-fields -o boxed Main.idr
+idris2i_1 --cg refc --directive refc-no-raw-fields -o boxed Main.idr
 ./build/exec/boxed > boxed.out
 ./build/exec/main | diff - boxed.out && echo "same output without raw fields"
 grep -c "idris2i_1_rawField" build/exec/boxed.c
-idris2i-1 --cg refc --directive refc-check-layout -o checked Main.idr
+idris2i_1 --cg refc --directive refc-check-layout -o checked Main.idr
 ./build/exec/checked | diff - boxed.out && echo "same output with the layout checked"
 grep -q "IDRIS2I_1_CHECK_LAYOUT" build/exec/checked.c && echo "layout checked"
 rm -f boxed.out

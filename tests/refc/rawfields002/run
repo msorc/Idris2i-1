@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 --cg refc --directive refc-check-layout -o main Main.idr
+idris2i_1 --cg refc --directive refc-check-layout -o main Main.idr
 ./build/exec/main 2>&1

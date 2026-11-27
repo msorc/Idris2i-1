@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 -o refc002 RecordProjection.idr
+idris2i_1 -o refc002 RecordProjection.idr
 $VALGRIND ./build/exec/refc002

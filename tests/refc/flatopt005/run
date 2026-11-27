@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 ./build/exec/main > flat.out
 cat flat.out
 
@@ -14,6 +14,6 @@ echo "pick reads $(reads idris2i_1_raw_Main_pick)"
 echo "two reads $(reads idris2i_1_raw_Main_two)"
 echo "both reads $(reads idris2i_1_raw_Main_both)"
 
-idris2i-1 --directive refc-no-flat-arrays -o boxed Main.idr
+idris2i_1 --directive refc-no-flat-arrays -o boxed Main.idr
 ./build/exec/boxed | diff - flat.out && echo "same output without flat arrays"
 rm -f flat.out

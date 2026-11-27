@@ -1,7 +1,7 @@
 . ../../testutils.sh
 
 rm -rf wd
-idris2i-1 -o sysall SysAll.idr
+idris2i_1 -o sysall SysAll.idr
 ./build/exec/sysall < /dev/null > worker.out
 cat worker.out
 echo "-- main thread"

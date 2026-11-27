@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 EvenOdd.idr -o app.js
+idris2i_1 EvenOdd.idr -o app.js
 run Main.idr

@@ -2,9 +2,9 @@
 
 # pretend Idris2i-1 is installed at root for reproducible
 # installdirs:
-IDRIS2I_1_PREFIX=/ idris2i-1 --dump-installdir test.ipkg \
+IDRIS2I_1_PREFIX=/ idris2i_1 --dump-installdir test.ipkg \
   | windows_path_tweaks | clean_version
 
 # by contrast, the location containing all installed packages:
-IDRIS2I_1_PREFIX=/ idris2i-1 --libdir \
+IDRIS2I_1_PREFIX=/ idris2i_1 --libdir \
   | windows_path_tweaks | clean_version

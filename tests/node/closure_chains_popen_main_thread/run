@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 --cg node -o popen Popen.idr
+idris2i_1 --cg node -o popen Popen.idr
 ./build/exec/popen > worker.out 2>&1
 cat worker.out
 IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/popen > main.out 2>&1

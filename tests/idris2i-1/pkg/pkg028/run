@@ -14,7 +14,7 @@ printf '#!/bin/sh\necho "the other cc" >> %s/marker\nexec %s "$@"\n' "$PWD" "$re
 chmod +x bin/cc
 
 build() {
-  idris2i-1 --cg refc --build exe.ipkg | grep -v "Building"
+  idris2i_1 --cg refc --build exe.ipkg | grep -v "Building"
 }
 
 echo "--- first build"

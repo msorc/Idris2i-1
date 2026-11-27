@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 (sleep 0.2; echo "one") | ./build/exec/main
 (sleep 0.2; echo "two") | IDRIS2I_1_WORKERS=1 ./build/exec/main
 (sleep 0.2; echo "three") | IDRIS2I_1_WORKERS=4 ./build/exec/main

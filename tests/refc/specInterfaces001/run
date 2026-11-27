@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 --spec-interfaces -o main Main.idr
+idris2i_1 --spec-interfaces -o main Main.idr
 $VALGRIND ./build/exec/main
 # The copy of insert for Integer compares its keys directly.
 awk -v RS= '/^Idris2i_1_Value \*_PE_PE_insert/' build/exec/main.c | grep -c "idris2i_1_apply_closure" | sed 's/^/applications of closures in insert for Integer: /'

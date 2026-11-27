@@ -4,10 +4,10 @@
 # Compiler.RefC.Rebuild), with and without the directive that turns it off:
 # the same results, nothing leaked, and how many uniqueness tests (reuse
 # blocks) and new cells each function has.
-idris2i-1 --log compiler.refc.rebuild:2 -o main Main.idr 2>&1 | grep "exact rebuilds" | sed 's/.*exact/exact/'
+idris2i_1 --log compiler.refc.rebuild:2 -o main Main.idr 2>&1 | grep "exact rebuilds" | sed 's/.*exact/exact/'
 IDRIS2I_1_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main 2> leaks.txt
 grep "leaked values" leaks.txt | sed 's/,.*//'
-idris2i-1 --directive refc-no-exact-rebuild -o main2 Main.idr
+idris2i_1 --directive refc-no-exact-rebuild -o main2 Main.idr
 IDRIS2I_1_REFC_LEAKCHECK=1 $VALGRIND ./build/exec/main2 > out2.txt 2> leaks2.txt
 ./build/exec/main | cmp - out2.txt && echo "same results without the rewrite"
 grep "leaked values" leaks2.txt | sed 's/,.*//'

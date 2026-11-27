@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
-idris2i-1 "Module'.idr" < input
+idris2i_1 "Module'.idr" < input
 run "Module'.idr"
-EDITOR=true idris2i-1 "Module'.idr" < input-ed
+EDITOR=true idris2i_1 "Module'.idr" < input-ed

@@ -2,5 +2,5 @@
 
 rm project-output.ipkg
 
-idris2i-1 --init project-output.ipkg < input
+idris2i_1 --init project-output.ipkg < input
 diff project-output.ipkg project-expected.ipkg

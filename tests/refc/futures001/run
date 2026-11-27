@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -p contrib -o refc_futures001 Main.idr
+idris2i_1 -p contrib -o refc_futures001 Main.idr
 $VALGRIND ./build/exec/refc_futures001
 IDRIS2I_1_WORKERS=1 ./build/exec/refc_futures001
 # (not under Valgrind: the leak check looks at the pages)

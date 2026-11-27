@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 -o refc_smallinteger SmallInteger.idr
+idris2i_1 -o refc_smallinteger SmallInteger.idr
 $VALGRIND ./build/exec/refc_smallinteger

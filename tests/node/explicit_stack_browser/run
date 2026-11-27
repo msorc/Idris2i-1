@@ -2,18 +2,18 @@
 
 # The browser backend, where the loops are made by default (its output runs
 # on Node too: putStr is console.log, which adds a newline).
-idris2i-1 --cg javascript -o stack.js Stack.idr
+idris2i_1 --cg javascript -o stack.js Stack.idr
 node ./build/exec/stack.js | grep -v '^$' > browser.out
 cat browser.out
 
 # With Node, `--directive explicit-stack` makes them (and `--directive trmc`
 # those of tail recursion modulo cons), here on the main
 # thread, whose stack is as small as a browser's.
-idris2i-1 --directive explicit-stack --directive trmc -o stack Stack.idr
+idris2i_1 --directive explicit-stack --directive trmc -o stack Stack.idr
 IDRIS2I_1_MAIN_STACK_SIZE=0 ./build/exec/stack > node.out
 diff node.out browser.out && echo same
 
 # Without them, the stack overflows.
-idris2i-1 --cg javascript --directive no-explicit-stack -o nostack.js Stack.idr
+idris2i_1 --cg javascript --directive no-explicit-stack -o nostack.js Stack.idr
 node ./build/exec/nostack.js 2>&1 | grep -c 'Maximum call stack size exceeded'
 rm -f node.out browser.out

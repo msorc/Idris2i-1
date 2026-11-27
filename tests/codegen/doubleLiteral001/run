@@ -1,7 +1,7 @@
 . ../../testutils.sh
 rm -f Main.cases
 
-idris2i-1 --dumpcases Main.cases -o Main Main.idr > /dev/null
+idris2i_1 --dumpcases Main.cases -o Main Main.idr > /dev/null
 ./build/exec/Main
 grep 'Main.bounce =' Main.cases | grep -o 'cast-Integer-Double\|[0-9][0-9]*\.0' | sort | uniq -c
 grep 'Main.far =' Main.cases | grep -o 'cast-Integer-Double [^)]*'

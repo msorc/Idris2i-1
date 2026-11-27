@@ -1,10 +1,10 @@
 . ../../../testutils.sh
 
-idris2i-1 --exec main Main.idr
+idris2i_1 --exec main Main.idr
 rm -rf build
-idris2i-1 --spec-interfaces --exec main Main.idr
+idris2i_1 --spec-interfaces --exec main Main.idr
 rm -rf build
-idris2i-1 --cg chez --exec main Main.idr
+idris2i_1 --cg chez --exec main Main.idr
 rm -rf build
 check Partial.idr
 rm -rf build

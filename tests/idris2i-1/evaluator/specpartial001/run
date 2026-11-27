@@ -1,6 +1,6 @@
 . ../../../testutils.sh
 
 # Where specialising gives up: the function is called instead.
-idris2i-1 --log specialise:3 --log specialise.fail:1 -o main Main.idr \
+idris2i_1 --log specialise:3 --log specialise.fail:1 -o main Main.idr \
   | grep -E 'Not specialising|failed:|does not reduce'
 ./build/exec/main

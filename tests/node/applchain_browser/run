@@ -5,10 +5,10 @@
 # (putStrLn is console.log, which adds a newline).  The output is the one of
 # the other backends.
 cp ../../allbackends/applchain001/AppChain.idr ../../allbackends/applchain002/AppChain2.idr .
-idris2i-1 --cg javascript -p contrib -o applchain.js AppChain.idr
+idris2i_1 --cg javascript -p contrib -o applchain.js AppChain.idr
 node ./build/exec/applchain.js 2>&1 | grep -v '^$' > browser.out
 diff ../../allbackends/applchain001/expected browser.out && echo same
-idris2i-1 --cg javascript -o applchain2.js AppChain2.idr
+idris2i_1 --cg javascript -o applchain2.js AppChain2.idr
 node ./build/exec/applchain2.js 2>&1 | grep -v '^$' > browser.out
 diff ../../allbackends/applchain002/expected browser.out && echo same
 rm -f AppChain.idr AppChain2.idr browser.out

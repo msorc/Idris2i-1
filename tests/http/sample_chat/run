@@ -5,8 +5,8 @@
 mkdir -p build/sample build/client
 cp ../../../samples/chat/Main.idr ../../../samples/chat/chat.ipkg build/sample/
 cp Client.idr build/client/
-(cd build/sample && idris2i-1 --build chat.ipkg | grep -v 'Building\|compiling')
-(cd build/client && idris2i-1 -p contrib -p network -p http -o client Client.idr)
+(cd build/sample && idris2i_1 --build chat.ipkg | grep -v 'Building\|compiling')
+(cd build/client && idris2i_1 -p contrib -p network -p http -o client Client.idr)
 for w in 1 4; do
     echo "=== $w workers"
     IDRIS2I_1_WORKERS=$w build/sample/build/exec/chat 0 > build/chat.log 2>&1 &

@@ -2,4 +2,4 @@
 
 run Main.idr
 echo "------"
-idris2i-1 Main.idr < input
+idris2i_1 Main.idr < input

@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 --dumpcases Main.cases -o Main Main.idr
+idris2i_1 --dumpcases Main.cases -o Main Main.idr
 ./build/exec/Main
 
 # The names of Data.Nat that each definition calls: the versions on Integer.

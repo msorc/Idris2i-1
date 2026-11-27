@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 -o refc_conditions001 Main.idr
+idris2i_1 -o refc_conditions001 Main.idr
 $VALGRIND ./build/exec/refc_conditions001

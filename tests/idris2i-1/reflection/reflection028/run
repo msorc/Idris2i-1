@@ -1,3 +1,3 @@
 . ../../../testutils.sh
 
-idris2i-1 GetVis.idr < input
+idris2i_1 GetVis.idr < input

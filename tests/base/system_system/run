@@ -2,11 +2,11 @@
 
 # @system@ uses primitive functions with definitions for both
 # C (the RefC and Scheme backends, through the support library) and Node.
-idris2i-1 --cg refc -o test-refc Test.idr
+idris2i_1 --cg refc -o test-refc Test.idr
 ./build/exec/test-refc
 
-idris2i-1 --cg chez -o test Test.idr
+idris2i_1 --cg chez -o test Test.idr
 ./build/exec/test
 
-idris2i-1 --cg node -o test.js Test.idr
+idris2i_1 --cg node -o test.js Test.idr
 node ./build/exec/test.js

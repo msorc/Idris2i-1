@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 --cg refc -o main Main.idr > /dev/null
+idris2i_1 --cg refc -o main Main.idr > /dev/null
 ./build/exec/main < /dev/null
 
 # Every C function of a %foreign declaration of the libraries that RefC uses

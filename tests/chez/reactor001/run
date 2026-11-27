@@ -3,5 +3,5 @@
 # The same program as refc/reactor001, on the Chez back end, whose threads are
 # OS threads: a wait blocks its thread in poll(2).  A thread that waits there
 # is not woken up when another one closes the descriptor.
-idris2i-1 --cg chez -o main Main.idr
+idris2i_1 --cg chez -o main Main.idr
 (sleep 0.2; echo "one") | ./build/exec/main --close-does-not-wake

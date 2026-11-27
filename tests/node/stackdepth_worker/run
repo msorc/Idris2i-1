@@ -4,7 +4,7 @@ rm -rf testdir
 mkdir testdir
 touch testdir/marker
 
-idris2i-1 -o deep Deep.idr
+idris2i_1 -o deep Deep.idr
 echo "a line" | ./build/exec/deep
 echo "exit code: $?"
 

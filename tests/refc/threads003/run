@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 -o refc_threads003 Main.idr
+idris2i_1 -o refc_threads003 Main.idr
 $VALGRIND ./build/exec/refc_threads003

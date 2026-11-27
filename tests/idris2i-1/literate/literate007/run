@@ -1,4 +1,4 @@
 . ../../../testutils.sh
 
-idris2i-1 IEdit.lidr < input
-idris2i-1 IEditOrg.org < input2
+idris2i_1 IEdit.lidr < input
+idris2i_1 IEditOrg.org < input2

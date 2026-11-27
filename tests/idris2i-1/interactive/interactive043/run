@@ -3,7 +3,7 @@ rm -f ImplicitSplitsGen.idr
 
 cp ImplicitSplits.idr ImplicitSplitsGen.idr
 
-idris2i-1 ImplicitSplitsGen.idr < input
+idris2i_1 ImplicitSplitsGen.idr < input
 # now that we've inline edited it, make sure it still type checks:
 check ImplicitSplitsGen.idr
 

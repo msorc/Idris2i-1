@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o main Main.idr
+idris2i_1 -o main Main.idr
 # (no size here allocates more than a few bytes)
 for args in "new 10" "new 4294967296" "new 4294967297" "new 2147483648" \
             "new -1" "set 0" "set 4294967296"; do

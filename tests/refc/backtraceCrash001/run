@@ -11,7 +11,7 @@ crashes="crash case div"
 
 for o in -O0 -O2; do
   echo "--- $o"
-  IDRIS2I_1_CFLAGS="$o" idris2i-1 --directive refc-backtrace --build-dir "build$o" -o bt Main.idr
+  IDRIS2I_1_CFLAGS="$o" idris2i_1 --directive refc-backtrace --build-dir "build$o" -o bt Main.idr
   for c in $crashes; do
     "./build$o/exec/bt" $c 2>&1
     echo "exit code: $?"
@@ -26,7 +26,7 @@ echo "exit code: $?"
 # Without the directive, they are off unless IDRIS2I_1_REFC_BACKTRACE=1, and they
 # show the C names of the functions.
 echo "--- no directive"
-idris2i-1 --build-dir build-plain -o plain Main.idr
+idris2i_1 --build-dir build-plain -o plain Main.idr
 ./build-plain/exec/plain case 2>&1
 echo "exit code: $?"
 # (Main_name may be inlined in Main_describe, depending on the C compiler)

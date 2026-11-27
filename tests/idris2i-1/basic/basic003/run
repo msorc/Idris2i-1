@@ -1,4 +1,4 @@
 . ../../../testutils.sh
 
-echo ':q' | idris2i-1 --no-prelude Ambig1.idr
-echo ':q' | idris2i-1 --no-prelude Ambig2.idr
+echo ':q' | idris2i_1 --no-prelude Ambig1.idr
+echo ':q' | idris2i_1 --no-prelude Ambig2.idr

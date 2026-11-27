@@ -5,8 +5,11 @@
 # of a stack overflow depends on the size of the frames: it is left out.
 
 ulimit -c 0
-idris2i-1 --directive refc-backtrace -o bt Main.idr
+idris2i_1 --directive refc-backtrace -o bt Main.idr
 
+# dash (sh on Debian and Ubuntu) writes "Segmentation fault (core dumped)" and
+# the like into out.txt when the program dies of a signal: it redirects
+# before it forks.  Those lines are dropped.
 export IDRIS2I_1_MAIN_STACK_SIZE=1048576
 export IDRIS2I_1_THREAD_STACK_SIZE=1048576
 for w in main thread; do
@@ -14,8 +17,9 @@ for w in main thread; do
     echo "--- $c on the $w thread"
     ./build/exec/bt $c $w > out.txt 2>&1
     code=$?
-    sed -e 's/, [0-9]* frames$/, many frames/' \
-        -e 's/\.\.\. [0-9]* more frames \.\.\./... more frames .../' out.txt
+    grep -v -E '^(Segmentation fault|Aborted|Bus error|Floating point exception|Illegal instruction)( \(core dumped\))?$' out.txt |
+      sed -e 's/, [0-9]* frames$/, many frames/' \
+        -e 's/\.\.\. [0-9]* more frames \.\.\./... more frames .../'
     echo "exit code: $code"
   done
 done

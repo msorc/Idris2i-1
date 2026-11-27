@@ -1,4 +1,4 @@
 . ../../../testutils.sh
 
-idris2i-1 --no-prelude IFace.idr < input
-idris2i-1 --no-prelude IFace1.idr < input1
+idris2i_1 --no-prelude IFace.idr < input
+idris2i_1 --no-prelude IFace1.idr < input1

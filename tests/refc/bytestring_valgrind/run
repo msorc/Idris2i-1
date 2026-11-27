@@ -2,5 +2,5 @@
 
 # Slices share one reference-counted buffer: run under Valgrind (when it is
 # installed) to catch a leak or a use after free of the parent buffer.
-idris2i-1 -p contrib -o bytestring_slices Slices.idr
+idris2i_1 -p contrib -o bytestring_slices Slices.idr
 $VALGRIND ./build/exec/bytestring_slices

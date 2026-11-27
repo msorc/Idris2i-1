@@ -1,6 +1,6 @@
 . ../../testutils.sh
 
-idris2i-1 -o pipes Pipes.idr
+idris2i_1 -o pipes Pipes.idr
 ./build/exec/pipes
 echo "-- the child reads our stdin"
 printf 'from stdin\n' | ./build/exec/pipes stdin

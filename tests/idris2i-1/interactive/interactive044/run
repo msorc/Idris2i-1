@@ -4,6 +4,6 @@ rm -f SplitShadowGen.idr
 cp SplitShadow.idr SplitShadowGen.idr
 sleep 1
 
-idris2i-1 SplitShadowGen.idr < input
+idris2i_1 SplitShadowGen.idr < input
 
 rm SplitShadowGen.idr

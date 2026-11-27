@@ -7,7 +7,7 @@
 rm -rf prelude
 cp -r ../../../libs/prelude prelude
 rm -rf prelude/build
-(cd prelude && IDRIS2I_1_INC_CGS=chez idris2i-1 --install prelude.ipkg > /dev/null)
+(cd prelude && IDRIS2I_1_INC_CGS=chez idris2i_1 --install prelude.ipkg > /dev/null)
 rm -rf prelude
 export IDRIS2I_1_PACKAGE_PATH="$NEW_PP"
 
@@ -16,7 +16,7 @@ export IDRIS2I_1_INC_CGS=
 check Mod1.idr < input
 
 export IDRIS2I_1_INC_CGS=chez
-idris2i-1 -o test Mod2.idr < input
+idris2i_1 -o test Mod2.idr < input
 ./build/exec/test
 
 ls build/ttc/*/Mod1.so | sed -r "s/.([0-9]){10}//g"

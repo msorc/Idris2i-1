@@ -9,7 +9,7 @@ fi
 
 . ../gencerts.sh
 cp ../tls004/Main.idr .
-idris2i-1 --cg chez -p network -p tls -o main Main.idr
+idris2i_1 --cg chez -p network -p tls -o main Main.idr
 ./build/exec/main "$certs" | sed "s#$certs#CERTS#g"
 
 rm -rf certs Main.idr

@@ -1,4 +1,4 @@
 . ../../testutils.sh
 
-idris2i-1 InlineCase.idr -o inline-case
+idris2i_1 InlineCase.idr -o inline-case
 grep "define InlineCase-product" build/exec/inline-case_app/inline-case.ss

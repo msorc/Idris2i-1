@@ -1,5 +1,5 @@
 . ../../testutils.sh
 
-idris2i-1 -o refc_args TestArgs.idr
+idris2i_1 -o refc_args TestArgs.idr
 $VALGRIND ./build/exec/refc_args a b
 ./build/exec/refc_args c
