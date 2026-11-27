@@ -210,7 +210,8 @@ An excerpt of one line shows the four lines before it and underlines the
 range. An excerpt of several lines underlines the range from where it
 starts to the end of its first line, and on its last line up to where it
 ends; when it is longer than 6 lines, the lines between its first two and
-its last two are left out (`` .. |``).
+its last two are left out, and a line with ``..`` in place of the line
+number, before the ``|``, stands for them.
 
 Names
 =====

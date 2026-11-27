@@ -117,6 +117,7 @@ Serving
 =======
 
 .. code-block:: idris
+    :force:
 
     main : IO ()
     main = do
@@ -218,6 +219,7 @@ routes over TLS.  ``samples/webservice/Https.idr`` is the sample over HTTPS
 (the routes are in ``Todos.idr``, which both mains import):
 
 .. code-block:: idris
+    :force:
 
     import Network.HTTP.Router
     import Network.HTTP.TLS
