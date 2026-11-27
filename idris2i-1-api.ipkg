@@ -46,6 +46,7 @@ modules =
     Compiler.RefC.FlatClones,
     Compiler.RefC.FlatOpt,
     Compiler.RefC.LocalClosures,
+    Compiler.RefC.Rebuild,
     Compiler.RefC.RefC,
     Compiler.RefC.Unbox,
 
